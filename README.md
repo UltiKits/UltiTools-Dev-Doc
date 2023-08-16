@@ -1,6 +1,6 @@
-# UltiTools 新版用户文档
+# UltiTools 新版开发文档
 
-这里是焕然一新的 [ultitools.doc.ultikits.com](https://ultitools.doc.ultikits.com)。
+这里是焕然一新的 [dev.doc.ultikits.com](https://ultitools.doc.ultikits.com)。
 
 ## 如何在本地编辑和预览该网站
 
