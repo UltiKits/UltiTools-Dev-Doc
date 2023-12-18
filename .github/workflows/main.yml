@@ -31,6 +31,9 @@ jobs:
       - name: Setup Node.js environment
         uses: actions/setup-node@v3.7.0
 
+      - name: Install pnpm
+        run: npm install pnpm
+
       - name: Install Dependencies
         run: pnpm install
 
