@@ -1,0 +1,73 @@
+name: Build and Deploy Docs
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - 'README.md'
+      - '.github/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps: 
+      - name: Checkout Repository
+        uses: actions/checkout@v3.5.3
+        
+      - name: Get Latest Commit
+        id: get_latest_commit
+        run: echo "::set-output name=COMMIT_HASH::$(git rev-parse HEAD)"
+        shell: bash
+      
+      - name: Shorten Commit Hash
+        id: shorten_commit_hash
+        run: echo "::set-output name=SHORT_COMMIT_HASH::${COMMIT_HASH::7}"
+        env:
+          COMMIT_HASH: ${{ steps.get_latest_commit.outputs.COMMIT_HASH }}
+        shell: bash
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v3.7.0
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm build
+        env:
+          GIT_COMMIT_HASH: ${{ steps.shorten_commit_hash.outputs.SHORT_COMMIT_HASH }}
+
+      - name: Deploy
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: "./.vitepress/dist/"
+
+      - name: Compress Build Artifacts
+        run: zip -r docs.zip ./.vitepress/dist/*
+        working-directory: ${{ github.workspace }}
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.shorten_commit_hash.outputs.SHORT_COMMIT_HASH }}
+          release_name: Release ${{ steps.shorten_commit_hash.outputs.SHORT_COMMIT_HASH }}
+          body: Build-${{ steps.shorten_commit_hash.outputs.SHORT_COMMIT_HASH }}
+
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./docs.zip
+          asset_name: docs-${{ steps.shorten_commit_hash.outputs.SHORT_COMMIT_HASH }}.zip
+          asset_content_type: application/zip
