@@ -12,6 +12,7 @@
     "feather-icons": "^4.29.1",
     "typewriter-effect": "^2.21.0",
     "vitepress-plugin-nprogress": "^0.0.4",
+    "vue": "^3.3.12",
     "vue-feather": "2"
   }
 }
