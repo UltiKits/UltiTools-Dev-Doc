@@ -12,7 +12,7 @@ footer: false
 
 [//]: # (UltiKits 开发了官方的 IDEA 插件，你可以使用他来快速创建项目。)
 
-## 创建Spigot项目
+## 创建 Spigot 项目
 
 万事万物都起源于一个空项目，所以你需要创建一个空的Spigot项目。你可以使用IDEA的[Minecraft插件](https://plugins.jetbrains.com/plugin/8327-minecraft-development)
 来快速创建一个空的Spigot项目，或者手动创建一个空的maven项目。
@@ -24,7 +24,6 @@ footer: false
 ::: code-group
 
 ```xml [Maven]
-
 <dependency>
   <groupId>com.ultikits</groupId>
   <artifactId>UltiTools-API</artifactId>
@@ -44,9 +43,7 @@ dependencies {
 
 添加完成后重载你的项目。
 
----
-
-# 创建一个UltiTools的模块
+## 创建一个UltiTools的模块
 
 以下内容将会教你如何创建一个UltiTools的模块。如果你只是想使用UltiTools-API，可以跳转到 [使用UltiTools-API](#使用ultitools-api)。
 
@@ -96,9 +93,9 @@ public class MyPlugin extends UltiToolsPlugin {
 
 这样就已经完成了一个什么功能都没有的UltiTools模块。
 
-# 使用UltiTools-API
+## 使用UltiTools-API
 
-## 创建入口类
+### 创建入口类
 
 新建一个类继承 `UltiToolsPlugin` ，这个类将会作为你的插件的入口类。
 
@@ -133,7 +130,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 }
 ```
 
-## 将入口类注册到UltiTools插件管理器
+### 将入口类注册到UltiTools插件管理器
 
 由于你的插件并不是由UltiTools加载，所以你需要手动新建并将你的入口类注册到UltiTools插件管理器中。
 
@@ -172,7 +169,7 @@ public final class UltiKitsExample extends JavaPlugin {
 
 ```
 
-# 验证安装
+## 验证安装
 
 如果是模块，将模块放入插件文件夹/UltiTools/plugins文件夹中，重新启动服务器。
 

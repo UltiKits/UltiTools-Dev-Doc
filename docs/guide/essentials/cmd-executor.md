@@ -1,0 +1,298 @@
+# 命令执行器
+
+在传统的 Bukkit 插件开发中，我们通常会使用 Bukkit 的 `CommandExecutor` 接口来处理命令。
+
+但在某些情况下，我们需要判断命令的发送者是否为玩家，是否拥有某些权限，判断参数等等。
+
+如果一个插件存在多个命令，那么这些判断逻辑就会重复出现在每个命令的处理方法中，这样的代码是非常冗余的。
+
+除此之外，我们也可能还需要处理命令错误，输出帮助信息等等。
+
+UltiTools 对原生的 `CommandExecutor` 接口进行了封装，提供了一个更加简洁的命令处理方式。
+
+## 创建命令执行器
+
+你只需要继承 `AbstractCommandExecutor` 类，并重写 `handleHelp` 方法。这里的 `@CmdTarget` 和 `@CmdExecutor` 注解是代表了该命令的目标类型和执行器信息。
+
+```java
+import com.ultikits.ultitools.abstracts.AbstractCommendExecutor;
+import com.ultikits.ultitools.annotations.command.CmdExecutor;
+import com.ultikits.ultitools.annotations.command.CmdTarget;
+import org.bukkit.command.CommandSender;
+
+@CmdTarget(CmdTarget.CmdTargetType.PLAYER)
+@CmdExecutor(
+  permission = "ultikits.example.all",
+  description = "测试指令",
+  alias = {"test","ts"}
+)
+public class ExampleCommand extends AbstractCommendExecutor {
+    
+  @Override
+  protected void handleHelp(CommandSender sender) {
+    sender.sendMessage("=== 测试指令 ===\n" +
+      "/test 测试指令\n" +
+      "/ts 测试指令\n" +
+      "===========");
+  }
+}
+```
+
+## 注册命令
+
+注册命令十分简单，下面是一个示例：
+
+```java
+getCommandManager().register(
+  new TestCommands(),    //命令执行器
+  "permission.test",     //命令权限
+  "示例功能",             //命令描述
+  "test"                 //命令
+);
+```
+
+当然你也可以使用不添加后面三个参数，前提是在你的执行器类添加 `@CmdExecutor` 注解：
+
+```java
+@CmdExecutor(description = "UltiTools Plugin Management Commands", alias = "upm", permission="")
+```
+
+其中 `description` 为命令描述，`alias` 为命令别称（键入指令时的根命令，支持多个），`permission` 为命令权限。
+
+如果你的模块存在大量的命令执行器而不想手动注册，也可以使用 UltiTools 提供的自动注册功能，详情可以查看[这篇文章](/guide/advanced/auto-register)。
+
+使用传统的命令执行器的编写方式仅需使用上述参数即可，使用基于映射的命令编写方式将会更加详细地介绍这个注解。
+
+## 基于映射的命令执行器
+
+### 快速上手
+
+假如你的插件拥有一个设置传送点的功能，你希望玩家输入一个带有传送点名称和坐标（可选）的命令，以此来设立一个传送点。
+
+那么这个命令应该会长这样：`/point add name`
+
+如果是使用传统的方法，你需要判断参数输入的合法性，发送者以及权限等，如果还有其他功能，你还需要编写一大堆的 `switch ... case` 和 `if ... else` 语句，疯狂嵌套。
+使得代码可读性变差，提高了维护的难度。~~（还容易烧干你的CPU）~~
+
+使用这个方法，你只需要编写最主要的逻辑即可，剩下的交给 UltiTools。
+
+首先你需要创建一个继承了 `AbstractCommandExecutor` 的执行器类。
+
+接着创建一个名为 `addPoint` 的方法，并添加你想要的参数：
+
+```java
+public void addPoint(@CmdSender Player player, String name) {
+  ...
+}
+```
+
+是的，你的每一个功能都使用一个独立的函数，没有多余的判断。
+
+如果你希望拿到的是 `Player` 对象而不是 `CommandSender` 对象，那你拿到的就是 `Player`，完全不需要判断与转换。你只需要在希望获取发送者对象的参数前面添加 `@CmdSender` 注解即可。
+
+然后，你只需要添加 `@CmdMapping` 注解，以便 UltiTools 能够根据输入的命令匹配你的方法：
+
+```java
+@CmdMapping(format = "add <name>")
+public void addPoint(@CmdSender Player player, String name) {
+  ...
+}
+```
+
+最后，使用 `@CmdParam` 来绑定命令参数：
+
+```java
+@CmdMapping(format = "add <name>")
+public void addPoint(@CmdSender Player player, @CmdParam("name") String name) {
+  ...
+}
+``` 
+
+至此，你只需要和传统方式一样注册命令执行器即可完成所有工作。
+
+### 权限
+
+#### 方法权限
+
+如果你需要为某一个方法指定权限，你只需要在 `@CmdMapping` 添加 `permission` 属性即可
+
+```java
+@CmdMapping(..., permission = "point.set.add")
+```
+
+::: tip
+如果在 `@CmdExecutor` 定义了权限，那么命令发送者仅需拥有 `@CmdExecutor` 指定的权限即可。
+:::
+
+#### OP 限定
+如果你希望全部方法只能由OP执行，你只需要在 `@CmdExecutor` 中设置 `requireOp` 属性为 `true` 即可
+
+```java
+@CmdExecutor(..., requireOp = true)
+```
+
+如果你希望某一个方法只能由OP执行，你只需要在 `@CmdMapping` 中设置 `requireOp` 属性为 `true` 即可
+
+```java
+@CmdMapping(..., requireOp = true)
+```
+
+::: tip
+如果在 `@CmdExecutor` 定义了权限，那么命令发送者仅需拥有 `@CmdExecutor` 指定的权限即可。
+:::
+
+### 限定发送者
+
+如果你希望为全部方法指定发送者，你只需要在你的类前面添加 `@CmdTarget` 注解即可。
+
+如果为某一个方法，则在该方法前面添加即可。
+
+```java
+@CmdTarget(CmdTarget.CmdTargetType.BOTH)
+```
+
+::: tip
+如果在类和方法都指定了发送者，则需要同时满足。
+:::
+
+### 异步执行
+如果一个命令需要执行比较耗时的任务，你需要在相应的方法前面添加 `@RunAsync`:
+
+```java
+@CmdMapping(format = "list")
+@RunAsync
+public void listPoint(@CmdSender Player player) {
+  //do query
+}
+```
+
+这将会创建一个新的异步线程来执行该方法，避免在Bukkit主线程中执行而造成阻塞。
+
+由于 Bukkit API 不允许被异步调用，因此如果你需要调用 Bukkit API，你需要新建一个同步执行的Task：
+
+```java
+@CmdMapping(format = "list")
+@RunAsync
+public void listPoint(@CmdSender Player player) {
+  //do query
+  new BukkitRunnable() {
+    @Override
+      public void run() {
+          //call bukkit api
+      }
+    }.runTask(PluginMain.getInstance());
+  }
+```
+
+### 命令冷却
+
+如果你不希望一个指令被大量执行而消耗服务器资源，那么你可以在相应的方法前面添加 `@CmdCD`:
+
+```java
+@CmdCD(60)
+```
+
+参数类型为整数，单位为秒。
+
+冷却结束之前执行该指令将会发送消息：`操作频繁，请稍后再试`
+
+此限制仅对**玩家**生效。
+
+### 执行锁
+
+如果你希望一个命令只能被一条一条地执行，那么可以在相应的方法前面添加 `@UsageLimit` 注解：
+
+```java
+@UsageLimit(ContainConsole = false, value = LimitType.SENDER)
+```
+其中 `ContainConsole` 为是否将限制应用于控制台，`value` 为限制类型。
+
+可用的类型有：
+
+- `LimitType.SENDER` 限制每个发送者每次只能有一条该指令在执行
+- `LimitType.ALL` 限制全服只能有一条该指令在执行
+- `LimitType.NONE` 不作限制
+
+在 `LimitType.SENDER` 策略下，玩家在上一条该指令执行完毕之前重复执行前将会收到提示：`请先等待上一条命令执行完毕！`
+
+在 `LimitType.ALL` 策略下，玩家在服内上一条该指令执行完毕之前重复执行前将会收到提示：`请先等待其他玩家发送的命令执行完毕！`
+
+## 传统命令执行器
+
+### 游戏内命令
+
+如果你希望一个指令只能在游戏内使用（由玩家执行），那么可以继承 `AbstractPlayerCommandExecutor` 类，并重写 `onPlayerCommand` 方法。
+
+```java
+public class SomeCommands extends AbstractPlayerCommandExecutor {
+    @Override
+    protected boolean onPlayerCommand(Command command, String[] strings, Player player) {
+        // 你的代码
+        return true;
+    }
+}
+```
+
+除 `Player` 类型的参数外，该方法与 `CommandExecutor#onCommand` 方法相同。
+
+如果尝试在控制台执行该命令，将会收到一条错误消息：`只有游戏内可以执行这个指令！`
+
+如果你希望该指令能够使用 Tab 补全，请看下一节。
+
+### 命令补全
+
+自Minecraft 1.13起，Bukkit API提供了一个新的 `TabCompleter` 接口，用于处理命令补全。
+
+UltiTools 对该接口进行了封装，提供了一个更加简洁的命令补全方式。
+
+你只需要继承 `AbstractTabExecutor` 类，并重写 `onTabComplete` 方法。
+
+```java
+@Override
+protected List<String> onPlayerTabComplete(Command command, String[] strings, Player player) {
+    // 你的代码
+    return null;
+}
+```
+
+除 `Player` 类型的参数外，该方法与 `TabCompleter#onTabComplete` 方法相同。
+
+其余的用法与 `AbstractPlayerCommandExecutor` 类相同。
+
+### 控制台指令
+
+如果你希望一个指令只能在控制台使用，那么可以继承 `AbstractConsoleCommandExecutor` 类，并重写 `onConsoleCommand` 方法。
+
+```java
+public class SomeCommands extends AbstractConsoleCommandExecutor {
+    @Override
+    protected boolean onConsoleCommand(CommandSender commandSender, Command command, String[] strings) {
+        // 你的代码
+        return true;
+    }
+}
+```
+
+该方法与 `CommandExecutor#onCommand` 方法相同。
+
+如果尝试在游戏内执行该命令，将会收到一条错误消息：`只可以在后台执行这个指令！`
+
+### 指令帮助
+
+上述三个类都提供了一个 `sendHelpMessage` 方法，用于向玩家或控制台发送帮助信息。
+
+```java
+sendHelpMessage(CommandSender sender) {
+    // 你的代码,向玩家发送信息
+}
+```
+
+当发送 `/somecommand help` 指令时，将会调用该方法。
+
+### 错误处理
+
+你可能会发现，上述三个类的 onCommand 方法都返回了一个 `boolean` 类型的值。
+
+与原生的 `CommandExecutor` 接口相同，该值用于表示命令是否执行成功。
+
+当命令执行返回 `false` 时，将自动向命令发送者提示信息。
