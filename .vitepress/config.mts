@@ -9,6 +9,9 @@ export default defineConfig({
   lastUpdated: true,
   lang: 'zh-CN',
   srcDir: 'docs',
+  sitemap: {
+    hostname: 'https://doc.dev.ultikits.com'
+  },
   vite: {
     ssr: {
       noExternal: [
