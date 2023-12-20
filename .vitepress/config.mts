@@ -1,12 +1,26 @@
 import { defineConfig } from 'vitepress'
+import { tabsMarkdownPlugin } from 'vitepress-plugin-tabs'
 
 // https://vitepress.dev/reference/site-config
+// noinspection JSUnusedGlobalSymbols
 export default defineConfig({
   title: "UltiTools Dev Doc",
   description: "UltiTools Dev Doc",
   lastUpdated: true,
   lang: 'zh-CN',
   srcDir: 'docs',
+  vite: {
+    ssr: {
+      noExternal: [
+        '@nolebase/vitepress-plugin-enhanced-readabilities',
+      ],
+    },
+  },
+  markdown: {
+    config(md) {
+      md.use(tabsMarkdownPlugin)
+    }
+  },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     editLink: {
@@ -78,63 +92,86 @@ export default defineConfig({
         link: '/guide/introduction'
       },
       {
+        text: 'API 接口',
+        activeMatch: `^/api/`,
+        link: '/api/version-wrapper'
+      },
+      {
         text: '用户文档',
         link: 'https://ultitools.doc.ultikits.com'
       }
     ],
 
-    sidebar: [
-      {
-        text: '开始',
+    sidebar: {
+      '/guide/' : {
+        base: '/guide/',
         items: [
           {
-            text: '简介',
-            link: '/guide/introduction'
+            text: '开始',
+            items: [
+              {
+                text: '简介',
+                link: 'introduction'
+              },
+              {
+                text: '快速上手',
+                link: 'quick-start'
+              }
+            ]
           },
           {
-            text: '快速上手',
-            link: '/guide/quick-start'
-          }
-        ]
+            text: '基础',
+            items: [
+              {
+                text: '命令执行器',
+                link: 'essentials/cmd-executor'
+              },
+              {
+                text: '事件监听器',
+                link: 'essentials/event-listener'
+              },
+              {
+                text: '配置文件',
+                link: 'essentials/config-file'
+              },
+              {
+                text: '数据储存',
+                link: 'essentials/data-storage'
+              },
+              {
+                text: 'I18n 多语言',
+                link: 'essentials/i18n'
+              },
+            ]
+          },
+          {
+            text: '高级',
+            items: [
+              {
+                text: '自动注册',
+                link: 'advanced/auto-register'
+              },
+              {
+                text: 'IOC容器',
+                link: 'advanced/ioc-container'
+              }
+            ]
+          },
+        ],
       },
-      {
-        text: '基础',
+      '/api/': {
+        base: '/api/',
         items: [
           {
-            text: '命令执行器',
-            link: '/guide/essentials/cmd-executor'
+            text: 'VersionWrapper',
+            link: 'version-wrapper'
           },
           {
-            text: '事件监听器',
-            link: '/guide/essentials/event-listener'
-          },
-          {
-            text: '配置文件',
-            link: '/guide/essentials/config-file'
-          },
-          {
-            text: '数据储存',
-            link: '/guide/essentials/data-storage'
-          },
-          {
-            text: 'I18n 多语言',
-            link: '/guide/essentials/i18n'
+            text: 'UltiToolsPlugin',
+            link: 'ulti-tools-plugin'
           },
         ]
-      },
-      {
-        text: '高级',
-        items: [
-          {
-            text: '自动注册',
-            link: '/guide/advanced/auto-register'
-          },
-          {
-            text: 'IOC容器',
-            link: '/guide/advanced/ioc-container'
-          }
-        ]
-      },
-    ],
+      }
+    }
   }
 })
