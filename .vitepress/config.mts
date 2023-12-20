@@ -9,6 +9,12 @@ export default defineConfig({
   lastUpdated: true,
   lang: 'zh-CN',
   srcDir: 'docs',
+  locales: {
+    root: {
+      label: '简体中文',
+      lang: 'zh-CN'
+    }
+  },
   sitemap: {
     hostname: 'https://doc.dev.ultikits.com'
   },
