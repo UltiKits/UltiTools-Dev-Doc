@@ -1,3 +1,125 @@
 .VPSocialLinks.VPNavBarSocialLinks.social-links {
     margin-right: 0;
 }
+svg[aria-label="Algolia"] {
+    filter: contrast(0.6);
+}
+
+::-webkit-scrollbar {
+    width: 0;
+}
+
+.DocSearch-Modal {
+    animation: fadeIn 0.3s cubic-bezier(0.645, 0.045, 0.355, 1.000);
+}
+
+.DocSearch-Container {
+    backdrop-filter: blur(4px);
+    animation: fadeIn1 0.3s ease-in-out;
+}
+
+.DocSearch-Commands {
+    animation: fadeIn2 0.3s cubic-bezier(0.645, 0.045, 0.355, 1.000);
+}
+
+.DocSearch-Logo {
+    animation: fadeIn3 0.3s cubic-bezier(0.645, 0.045, 0.355, 1.000);
+}
+
+.DocSearch-Footer {
+    animation: fadeUp 0.3s cubic-bezier(0.645, 0.045, 0.355, 1.000);
+}
+
+.DocSearch-Hit a {
+    transition: cubic-bezier(0.645, 0.045, 0.355, 1.000) 0.2s;
+}
+
+.DocSearch-Hit[aria-selected=true] a {
+    transform: scale(1.01);
+    margin-top: 12px;
+    margin-bottom: 12px;
+}
+
+.DocSearch-Hit-title {
+    transition: cubic-bezier(0.645, 0.045, 0.355, 1.000) 0.2s;
+}
+
+.DocSearch-Hit-action {
+    transition: cubic-bezier(0.645, 0.045, 0.355, 1.000) 0.2s;
+}
+
+[class*='DocSearch'] {
+    --docsearch-primary-color: var(--vp-c-brand-3)!important;
+}
+
+#nprogress .bar {
+    box-shadow: 0 0 12px 1px var(--vp-c-brand);
+}
+
+.vp-doc {
+    animation: fadeIn1 0.3s ease-in-out;
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999; /* 确保遮罩在最上层 */
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-40px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn1 {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeIn2 {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes fadeIn3 {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes fadeUp {
+    from {
+        height: 0;
+    }
+    to {
+        height: var(--docsearch-footer-height);
+    }
+}

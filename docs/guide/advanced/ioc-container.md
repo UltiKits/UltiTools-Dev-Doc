@@ -33,6 +33,44 @@ context.refresh();              //别忘记刷新上下文
 ### 自动扫描
 在上述示例中的 `MyBean` 类添加了 `@ConpomentScan(...)` 注解，那么在该Bean注册后会自动扫描并注册给定包名下所有类的 Bean
 
+### 为插件主类注册Bean
+插件主类默认不受容器管理，因此你需要手动为其注册Bean
+
+首先你可能需要为你的主类做如下修改：
+
+```java
+public class MyPlugin extends UltiToolsPlugin {
+  private MyPlugin plugin;
+  
+  public MyPlugin() { // [!code ++]
+    super(); // [!code ++]
+    this.plugin = this; // [!code ++]
+  } // [!code ++]
+
+  @Override
+  public boolean registerSelf() {
+    this.plugin = this; // [!code --]
+    // 插件启动时执行
+    return true;
+  }
+  
+  public MyPlugin getInstance() {
+    return this.plugin;
+  }
+  
+  ...
+}
+```
+
+然后手动注册 Bean:
+
+```java
+@Bean
+public MyPlugin myPlugin() {
+  return MyPlugin.getInstance();
+}
+```
+
 ## 依赖获取
 
 ### 手动获取
