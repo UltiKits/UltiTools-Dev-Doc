@@ -21,7 +21,7 @@
 > 
 > 版本: 1.0.0
 
-已实现的接口: `IPlugin`, `Localized
+已实现的接口: `IPlugin`, `Localized`
 
 public abstract class **UltiToolsPlugin** extends java.lang.Object implements IPlugin, Localized
 

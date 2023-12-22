@@ -73,6 +73,14 @@ svg[aria-label="Algolia"] {
     z-index: 999; /* 确保遮罩在最上层 */
 }
 
+.go-to-top {
+    background: var(--vp-c-bg-soft)!important;
+}
+
+.icon-top {
+    margin-top: 11px;
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;

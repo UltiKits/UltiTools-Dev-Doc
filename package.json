@@ -6,11 +6,13 @@
   },
   "devDependencies": {
     "@nolebase/vitepress-plugin-enhanced-readabilities": "^1.7.3",
+    "@vite-pwa/vitepress": "^0.3.1",
     "markdown-it-mathjax3": "^4.3.2",
     "vitepress": "1.0.0-rc.32"
   },
   "dependencies": {
     "typewriter-effect": "^2.21.0",
+    "vitepress-plugin-back-to-top": "^1.0.1",
     "vitepress-plugin-comment-with-giscus": "^1.1.11",
     "vitepress-plugin-nprogress": "^0.0.4",
     "vitepress-plugin-tabs": "^0.5.0",

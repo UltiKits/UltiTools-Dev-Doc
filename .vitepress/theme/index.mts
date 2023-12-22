@@ -9,10 +9,15 @@ import {
 } from '@nolebase/vitepress-plugin-enhanced-readabilities'
 import giscusTalk from 'vitepress-plugin-comment-with-giscus';
 import { useData, useRoute } from 'vitepress';
+import vitepressBackToTop from 'vitepress-plugin-back-to-top'
+import 'vitepress-plugin-back-to-top/dist/style.css'
 import '@nolebase/vitepress-plugin-enhanced-readabilities/dist/style.css'
 import vitepressNprogress from 'vitepress-plugin-nprogress'
 import 'vitepress-plugin-nprogress/lib/css/index.css'
 import './styles/main.css'
+
+// @ts-ignore
+import ReloadPrompt from './components/ReloadPrompt.vue'
 
 // noinspection JSUnusedGlobalSymbols
 export default {
@@ -21,11 +26,13 @@ export default {
     return h(DefaultTheme.Layout, null, {
       'nav-bar-content-after': () => h(NolebaseEnhancedReadabilitiesMenu),
       'nav-screen-content-after': () => h(NolebaseEnhancedReadabilitiesScreenMenu),
+      'layout-bottom': () => h(ReloadPrompt)
     })
   },
   enhanceApp: (ctx: EnhanceAppContext) => {
     vitepressNprogress(ctx)
     enhanceAppWithTabs(ctx.app)
+    vitepressBackToTop()
   },
   setup() {
     // Get frontmatter and route
