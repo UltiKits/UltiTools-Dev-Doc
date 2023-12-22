@@ -12,8 +12,7 @@ export default withPwa(
     lang: 'zh-CN',
     srcDir: 'docs',
     head: [
-      ['link', { rel: 'icon', href: '/favicon.ico' }],
-      ['link', { rel: 'manifest', href: '/manifest.json'}]
+      ['link', { rel: 'icon', href: '/favicon.ico' }]
     ],
     locales: {
       root: {
@@ -35,6 +34,27 @@ export default withPwa(
       config(md) {
         md.use(tabsMarkdownPlugin)
       }
+    },
+    pwa: {
+      mode: 'production',
+      base: '/',
+      scope: '/',
+      includeAssets: ['favicon.ico'],
+      manifest: {
+        name: 'UltiKits Dev Doc',
+        short_name: 'UltiKitsDevDoc',
+        theme_color: '#ffffff',
+        icons: [
+          {
+            src: 'icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+          },
+        ],
+      },
+      workbox: {
+        globPatterns: ['**/*.{css,js,html,svg,png,ico,txt,woff2}'],
+      },
     },
     themeConfig: {
       // https://vitepress.dev/reference/default-theme-config
