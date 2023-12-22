@@ -37,6 +37,9 @@ devDependencies:
   vitepress:
     specifier: 1.0.0-rc.32
     version: 1.0.0-rc.32(@algolia/client-search@4.22.0)(markdown-it-mathjax3@4.3.2)(react-dom@18.2.0)(react@18.2.0)(search-insights@2.13.0)
+  workbox-window:
+    specifier: ^7.0.0
+    version: 7.0.0
 
 packages:
 
