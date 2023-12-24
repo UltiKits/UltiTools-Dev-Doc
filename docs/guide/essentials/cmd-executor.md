@@ -20,7 +20,7 @@ import com.ultikits.ultitools.annotations.command.CmdExecutor;
 import com.ultikits.ultitools.annotations.command.CmdTarget;
 import org.bukkit.command.CommandSender;
 
-@CmdTarget(CmdTarget.CmdTargetType.PLAYER)
+@CmdTarget(CmdTarget.CmdTargetType.BOTH)
 @CmdExecutor(
   permission = "ultikits.example.all",
   description = "测试指令",
@@ -38,23 +38,61 @@ public class ExampleCommand extends AbstractCommendExecutor {
 }
 ```
 
+这样你就完成了一个空的什么都不做的命令执行器。这里的 `@CmdTarget` 和 `@CmdExecutor` 注解是代表了该命令的发送者类型和执行器信息。我们将在下一节详细介绍这两个注解。
+
 ## 注册命令
 
-注册命令十分简单，下面是一个示例：
+和spigot开发一样，有了执行器，就需要去注册它。我们可以在 `registerSelf` 方法中使用 `getCommandManager().register()` 方法来注册命令。
 
 ```java
-getCommandManager().register(
-  new TestCommands(),    //命令执行器
-  "permission.test",     //命令权限
-  "示例功能",             //命令描述
-  "test"                 //命令
-);
+import com.ultikits.plugin.ultikitsapiexample.context.ContextConfig;
+import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
+import com.ultikits.ultitools.annotations.ContextEntry;
+import com.ultikits.ultitools.annotations.EnableAutoRegister;
+
+import java.io.IOException;
+import java.util.List;
+
+public class UltiToolsConnector extends UltiToolsPlugin {
+
+    // 如果需要连接到UltiTools-API，则需要重写这个有参数的构造函数，另一个无参数的是给模块开发使用的。
+    // 在这里请不要主动使用无参数的构造函数
+    public UltiToolsConnector(String name, String version, List<String> authors, List<String> depend, int loadPriority, String mainClass) {
+        super(name, version, authors, depend, loadPriority, mainClass);
+    }
+
+    @Override
+    public boolean registerSelf() throws IOException {
+        getCommandManager().register(
+                new ExampleCommand(),    //命令执行器
+                "permission.test",     //命令权限
+                "示例功能",             //命令描述
+                "test"                 //命令
+        );
+        return true;
+    }
+
+    @Override
+    public void unregisterSelf() {
+
+    }
+
+    @Override
+    public void reloadSelf() {
+        super.reloadSelf();
+    }
+}
+
 ```
 
 当然你也可以使用不添加后面三个参数，前提是在你的执行器类添加 `@CmdExecutor` 注解：
 
 ```java
-@CmdExecutor(description = "UltiTools Plugin Management Commands", alias = "upm", permission="")
+@CmdExecutor(
+        permission = "ultikits.example.all",
+        description = "测试指令",
+        alias = {"test","ts"}
+)
 ```
 
 其中 `description` 为命令描述，`alias` 为命令别称（键入指令时的根命令，支持多个），`permission` 为命令权限。

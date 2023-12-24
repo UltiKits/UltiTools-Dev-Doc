@@ -1,8 +1,12 @@
 # 数据储存
 
-UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库与 JSON 文件储存。
+UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库与 JSON 文件储存，开发者只需为存储方式写一套代码，UltiTools将通过服主的配置判断使用那种存储方式。
 
 你需要的仅仅只是一个实体类。CRUD 操作将由 UltiTools 自动完成。
+
+::: warning
+由于插件还处于开发状态，难免在处理复杂对象时出现问题，所以存储的对象尽量不要超过两层嵌套（尽量不要嵌套对象）。
+:::
 
 ## 创建实体类
 
@@ -14,7 +18,7 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库与 JSON �
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-@Table("soem_table")
+@Table("some_table")
 public class SomeEntity extends AbstractDataEntity {
     @Column(value = "something", type = "FLOAT")
     private double something;

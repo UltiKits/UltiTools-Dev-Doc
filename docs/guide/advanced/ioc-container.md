@@ -1,10 +1,8 @@
 # IOC 容器
 
-IOC 的全称为 Inversion of Control （反转控制），意在将依赖的创建和管理交由容器，而不是让开发者手动完成。
+IOC 的全称为 Inversion of Control （反转控制），意在将对象的创建和管理交由容器，而不是主动新建对象。
 
-UltiTools 整合了 Spring IOC 容器，你无需手动维护各个对象的依赖关系，降低模块代码的耦合性。
-
-如果你接触过 Spring 开发，你将会对下面的内容感到十分熟悉。
+UltiTools 整合了 Spring IOC 容器，如果你接触过 Spring 开发，你将会对下面的内容感到十分熟悉。
 
 ::: warning 局限性
 继承或实现了服务端相关类或接口的类不可注册为Bean，因此也不可使用自动注入。
@@ -14,7 +12,7 @@ UltiTools 整合了 Spring IOC 容器，你无需手动维护各个对象的依�
 
 ## 模块容器
 
-每个模块都有一个独立的上下文容器 `Context`，你可以使用主类的 `getContext()` 方法获取到。
+每个模块都有一个独立的上下文容器 `Context`，你可以使用继承了 `UltiToolsPlugin` 的类的 `getContext()` 方法获取到。
 
 该 `Context` 与 Spring 的 `AnnotationConfigApplicationContext` 一致，具体使用方法可查阅官网文档，本文仅涉及基本的用法。
 
@@ -34,7 +32,7 @@ context.refresh();              //别忘记刷新上下文
 在上述示例中的 `MyBean` 类添加了 `@ConpomentScan(...)` 注解，那么在该Bean注册后会自动扫描并注册给定包名下所有类的 Bean
 
 ### 为插件主类注册Bean
-插件主类默认不受容器管理，因此你需要手动为其注册Bean
+继承 `UltiToolsPlugin` 的类默认不受容器管理，因此你需要手动为其注册Bean
 
 首先你可能需要为你的主类做如下修改：
 
