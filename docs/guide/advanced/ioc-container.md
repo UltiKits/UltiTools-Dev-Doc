@@ -16,45 +16,51 @@ UltiTools 整合了 Spring IOC 容器，如果你接触过 Spring 开发，你�
 
 该 `Context` 与 Spring 的 `AnnotationConfigApplicationContext` 一致，具体使用方法可查阅官网文档，本文仅涉及基本的用法。
 
-所有模块的上下文容器都使用了一个公共的容器作为父容器，该父容器拥有一些 UltiTools 的公共 Bean，也有可能存在其他模块注册的公共 Bean。
+所有模块的上下文容器都使用了一个公共的容器作为父容器，该父容器拥有一些 UltiTools 的公共 Bean，也有可能存在其他模块注册的公共
+Bean。
 
 ## Bean注册
+
 ### 手动注册
 
 你可以直接使用容器对象的 `register()` 方法进行注册：
 
 ```java
-context.register(MyBean.class);
-context.refresh();              //别忘记刷新上下文
+context.register(MyBean .class);
+context.
+
+refresh();              //别忘记刷新上下文
 ```
 
 ### 自动扫描
+
 在上述示例中的 `MyBean` 类添加了 `@ConpomentScan(...)` 注解，那么在该Bean注册后会自动扫描并注册给定包名下所有类的 Bean
 
 ### 为插件主类注册Bean
+
 继承 `UltiToolsPlugin` 的类默认不受容器管理，因此你需要手动为其注册Bean
 
 首先你可能需要为你的主类做如下修改：
 
 ```java
 public class MyPlugin extends UltiToolsPlugin {
-  private MyPlugin plugin;
-  
-  public MyPlugin() { // [!code ++]
-    super(); // [!code ++]
-    this.plugin = this; // [!code ++]
-  } // [!code ++]
+    private static MyPlugin plugin;
 
-  @Override
-  public boolean registerSelf() {
-    this.plugin = this; // [!code --]
-    // 插件启动时执行
-    return true;
-  }
-  
-  public MyPlugin getInstance() {
-    return this.plugin;
-  }
+    public MyPlugin() { // [!code ++]
+        super(); // [!code ++]
+        plugin = this; // [!code ++]
+    } // [!code ++]
+
+    @Override
+    public boolean registerSelf() {
+        plugin = this; // [!code --]
+        // 插件启动时执行
+        return true;
+    }
+
+    public static MyPlugin getInstance() {
+        return plugin;
+    }
   
   ...
 }
@@ -63,9 +69,10 @@ public class MyPlugin extends UltiToolsPlugin {
 然后手动注册 Bean:
 
 ```java
+
 @Bean
 public MyPlugin myPlugin() {
-  return MyPlugin.getInstance();
+    return MyPlugin.getInstance();
 }
 ```
 
@@ -84,6 +91,7 @@ MyBean myBean = context.getBean(MyBean.class);
 如果你的类受容器管理，那么可以使用自动注入：
 
 ```java
+
 @Autowired
 MyBean myBean;                  //字段注入
 

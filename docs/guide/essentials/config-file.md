@@ -15,6 +15,7 @@ UltiTools提供了优雅的单例模式的封装API，让你可以像操作对�
 ```java
 @Getter
 @Setter
+@ConfigEntity("some/path/to/config")
 public class SomeConfig extends AbstractConfigEntity {
     @ConfigEntry(path = "somepath", comment = "somecomment")
     private boolean something = false;
@@ -24,7 +25,9 @@ public class SomeConfig extends AbstractConfigEntity {
 }
 ```
 
-其中，`@ConfigEntry` 注解用于标记一个配置项，`path` 属性用于指定该配置项在配置文件中键的路径，`comment` 属性用于指定该配置项的注释。
+其中，`@ConfigEntity` 注解用于标记一个配置文件的位置，需要一个字符串参数，用于指定配置文件在插件配置文件夹中的路径。通常这个路径与你在开发过程中resource文件夹目录中的路径是相同的。
+
+`@ConfigEntry` 注解用于标记一个配置项，`path` 属性用于指定该配置项在配置文件中键的路径，`comment` 属性用于指定该配置项的注释。
 
 `@Getter` 和 `@Setter` 则为Lombok注解，用于自动生成 `getter` 和 `setter` 方法。
 
