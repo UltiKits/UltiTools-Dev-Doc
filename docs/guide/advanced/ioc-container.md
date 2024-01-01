@@ -12,12 +12,11 @@ UltiTools 整合了 Spring IOC 容器，如果你接触过 Spring 开发，你�
 
 ## 模块容器
 
-每个模块都有一个独立的上下文容器 `Context`，你可以使用继承了 `UltiToolsPlugin` 的类的 `getContext()` 方法获取到。
+每个模块都有一个独立的上下文容器 `Context`，你可以使用主类的 `getContext()` 方法获取到。
 
 该 `Context` 与 Spring 的 `AnnotationConfigApplicationContext` 一致，具体使用方法可查阅官网文档，本文仅涉及基本的用法。
 
-所有模块的上下文容器都使用了一个公共的容器作为父容器，该父容器拥有一些 UltiTools 的公共 Bean，也有可能存在其他模块注册的公共
-Bean。
+所有模块的上下文容器都使用了一个公共的容器作为父容器，该父容器拥有一些 UltiTools 的公共 Bean，也有可能存在其他模块注册的公共 Bean。
 
 ## Bean注册
 
@@ -32,55 +31,24 @@ context.
 refresh();              //别忘记刷新上下文
 ```
 
+详情参见 [Bean Overview](https://docs.spring.io/spring-framework/reference/core/beans/definition.html)
+
 ### 自动扫描
+在你的主类添加 `@ConpomentScan(...)` 注解，UltiTools在初始化你的插件时会自动扫描给定包下所有的类，带有相应注解的将会被自动注册为 Bean。
 
-在上述示例中的 `MyBean` 类添加了 `@ConpomentScan(...)` 注解，那么在该Bean注册后会自动扫描并注册给定包名下所有类的 Bean
+支持的注解有：
+- `@Component`
+- `@Controller`
+- `@Service`
+- `@Repository`
 
-### 为插件主类注册Bean
-
-继承 `UltiToolsPlugin` 的类默认不受容器管理，因此你需要手动为其注册Bean
-
-首先你可能需要为你的主类做如下修改：
-
-```java
-public class MyPlugin extends UltiToolsPlugin {
-    private static MyPlugin plugin;
-
-    public MyPlugin() { // [!code ++]
-        super(); // [!code ++]
-        plugin = this; // [!code ++]
-    } // [!code ++]
-
-    @Override
-    public boolean registerSelf() {
-        plugin = this; // [!code --]
-        // 插件启动时执行
-        return true;
-    }
-
-    public static MyPlugin getInstance() {
-        return plugin;
-    }
-  
-  ...
-}
-```
-
-然后手动注册 Bean:
-
-```java
-
-@Bean
-public MyPlugin myPlugin() {
-    return MyPlugin.getInstance();
-}
-```
+详情参见 [Classpath Scanning and Managed Components](https://docs.spring.io/spring-framework/reference/core/beans/classpath-scanning.html)
 
 ## 依赖获取
 
 ### 手动获取
 
-如果我需要从容器获取某个依赖，仅需调用容器对象的 `getBean()` 方法即可：
+如果需要从容器获取某个依赖，仅需调用容器对象的 `getBean()` 方法即可：
 
 ```java
 MyBean myBean = context.getBean(MyBean.class);
@@ -88,14 +56,57 @@ MyBean myBean = context.getBean(MyBean.class);
 
 ### 自动注入
 
-如果你的类受容器管理，那么可以使用自动注入：
+如果某一类受容器管理，那么可以使用自动注入：
 
 ```java
-
 @Autowired
 MyBean myBean;                  //字段注入
 
 public MyClass(MyBean myBean) {
     this.myBean = MyBean;       //构造函数注入
+}
+```
+
+### 插件主类
+
+插件主类受容器管理，你可以通过多种方式来获取它。
+
+#### 通过自动注入获取插件主类
+
+前提是该类受容器管理
+
+```java
+@Autowired
+PluginMain pluginMain;                       //字段注入
+
+public MyClass(PluginMain pluginMain) {
+    this.pluginMain = pluginMain;            //构造函数注入
+}
+```
+
+::: tip
+如果该类为事件监听器类或命令执行器类，那么可以使用字段注入的方式来实现主类的获取。
+:::
+
+#### 手动获取
+
+如果在某些情况下无法通过容器来获取插件主类，那么你仍然可以通过创建 getter 来获取主类。
+
+```java
+public class MyPlugin extends UltiToolsPlugin {
+  private MyPlugin plugin;
+
+  @Override
+  public boolean registerSelf() {
+    // 插件启动时执行
+    this.plugin = this;
+    return true;
+  }
+  
+  public MyPlugin getInstance() {
+    return this.plugin;
+  }
+  
+  ...
 }
 ```

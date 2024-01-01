@@ -132,7 +132,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
 ### 将入口类注册到UltiTools插件管理器
 
-由于你的插件并不是由UltiTools加载，所以你需要手动新建并将你的入口类注册到UltiTools插件管理器中。
+由于你的插件并不是由UltiTools加载，所以你需要手动将你的入口类注册到UltiTools插件管理器中。
 
 ```java
 import com.ultikits.ultitools.UltiTools;
@@ -141,12 +141,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.Collections;
 
 public final class UltiKitsExample extends JavaPlugin {
-  private UltiToolsConnector ultiToolsConnector;
-
   @Override
   public void onEnable() {
-    // 新建一个连接类
-    ultiToolsConnector = new UltiToolsConnector(
+    // 将此连接类注册到UltiTools的模块/插件管理器中
+    UltiTools.getInstance().getPluginManager().register(
+      UltiToolsConnector.class,
       "Example",  // 模块名称
       "1.0.0",  // 模块版本
       Collections.singletonList("wisdomme"),  // 模块作者
@@ -154,8 +153,6 @@ public final class UltiKitsExample extends JavaPlugin {
       600,  // UltiTools API 需求最低版本
       "com.ultikits.plugin.ultikitsapiexample.UltiToolsConnector"  // 模块主类
     );
-    // 将此连接类注册到UltiTools的模块/插件管理器中
-    UltiTools.getInstance().getPluginManager().register(ultiToolsConnector);
 
     System.out.println();
   }
@@ -163,7 +160,7 @@ public final class UltiKitsExample extends JavaPlugin {
   @Override
   public void onDisable() {
     // 记得在插件卸载时将连接类从UltiTools的模块/插件管理器中注销
-    UltiTools.getInstance().getPluginManager().unregister(ultiToolsConnector);
+    UltiTools.getInstance().getPluginManager().unregister(UltiToolsConnector.getInstance());
   }
 }
 
