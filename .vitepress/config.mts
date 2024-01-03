@@ -1,6 +1,11 @@
+import * as process from 'node:process';
+
 import { defineConfig } from 'vitepress'
 import { tabsMarkdownPlugin } from 'vitepress-plugin-tabs'
 import { withPwa } from '@vite-pwa/vitepress'
+import { BiDirectionalLinks } from '@nolebase/markdown-it-bi-directional-links'
+import type { Options as ElementTransformOptions } from '@nolebase/markdown-it-element-transform'
+import { ElementTransform } from '@nolebase/markdown-it-element-transform'
 
 // https://vitepress.dev/reference/site-config
 // noinspection JSUnusedGlobalSymbols
@@ -27,12 +32,40 @@ export default withPwa(
       ssr: {
         noExternal: [
           '@nolebase/vitepress-plugin-enhanced-readabilities',
+          '@nolebase/vitepress-plugin-highlight-targeted-heading',
         ],
       },
     },
     markdown: {
       config(md) {
         md.use(tabsMarkdownPlugin)
+        md.use(BiDirectionalLinks({
+          dir: process.cwd(),
+        }))
+        md.use(ElementTransform, (() => {
+          let transformNextLinkCloseToken = false
+
+          // noinspection JSUnusedGlobalSymbols
+          return {
+            transform(token) {
+              switch (token.type) {
+                case 'link_open':
+                  if (token.attrGet('class') !== 'header-anchor') {
+                    token.tag = 'VPNolebaseInlineLinkPreview'
+                    transformNextLinkCloseToken = true
+                  }
+                  break
+                case 'link_close':
+                  if (transformNextLinkCloseToken) {
+                    token.tag = 'VPNolebaseInlineLinkPreview'
+                    transformNextLinkCloseToken = false
+                  }
+
+                  break
+              }
+            },
+          } as ElementTransformOptions
+        })())
       }
     },
     pwa: {
@@ -67,7 +100,7 @@ export default withPwa(
     themeConfig: {
       // https://vitepress.dev/reference/default-theme-config
       editLink: {
-        pattern: 'https://github.com/UltiKits/UltiTools-Dev-Doc/edit/main/docs/:path'
+        pattern: 'https://github.com/UltiKits/UltiTools-Dev-Doc/edit/master/docs/:path'
       },
       footer: {
         message: 'Released under the MIT License.',

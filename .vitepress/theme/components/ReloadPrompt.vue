@@ -42,7 +42,7 @@ onBeforeMount(async () => {
       aria-labelledby="pwa-message"
     >
       <div id="pwa-message" class="mb-3">
-        {{ offlineReady ? 'App ready to work offline' : 'New content available, click the reload button to update.' }}
+        {{ offlineReady ? '文档已缓存，可离线使用' : '新内容可用，刷新页面以应用' }}
       </div>
       <button
         v-if="needRefresh"

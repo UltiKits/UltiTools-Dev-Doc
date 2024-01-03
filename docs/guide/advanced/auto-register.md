@@ -78,4 +78,4 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
 带有此注解的 `Listener` 类在自动注册启用的情况下被自动注册
 
-详情参见 [命令执行器](/guide/essentials/event-listener)
+详情参见 [事件监听器](/guide/essentials/event-listener)

@@ -9,6 +9,14 @@ svg[aria-label="Algolia"] {
     width: 0;
 }
 
+.curtain {
+    display: none;
+}
+
+.VPNavBar.has-sidebar .content{
+    border-bottom-color: var(--vp-c-gutter);
+}
+
 .DocSearch-Modal {
     animation: fadeIn 0.3s cubic-bezier(0.645, 0.045, 0.355, 1.000);
 }
