@@ -1,6 +1,6 @@
 # IOC 容器
 
-IOC 的全称为 Inversion of Control （反转控制），意在将对象的创建和管理交由容器，而不是主动新建对象。
+IOC 的全称为 Inversion of Control （反转控制），意在将对象的创建和管理交由容器，而不是由开发者主动新建对象。
 
 UltiTools 整合了 Spring IOC 容器，如果你接触过 Spring 开发，你将会对下面的内容感到十分熟悉。
 
@@ -20,19 +20,6 @@ UltiTools 整合了 Spring IOC 容器，如果你接触过 Spring 开发，你�
 
 ## Bean注册
 
-### 手动注册
-
-你可以直接使用容器对象的 `register()` 方法进行注册：
-
-```java
-context.register(MyBean .class);
-context.
-
-refresh();              //别忘记刷新上下文
-```
-
-详情参见 [Bean Overview](https://docs.spring.io/spring-framework/reference/core/beans/definition.html)
-
 ### 自动扫描
 在你的主类添加 `@ConpomentScan(...)` 注解，UltiTools在初始化你的插件时会自动扫描给定包下所有的类，带有相应注解的将会被自动注册为 Bean。
 
@@ -44,7 +31,54 @@ refresh();              //别忘记刷新上下文
 
 详情参见 [Classpath Scanning and Managed Components](https://docs.spring.io/spring-framework/reference/core/beans/classpath-scanning.html)
 
+### 手动注册
+
+你可以直接使用容器对象的 `register()` 方法进行注册：
+
+```java "MyBean.java"
+import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
+import com.ultikits.ultitools.annotations.EnableAutoRegister;
+import com.ultikits.ultitools.annotations.I18n;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.stereotype.Component;
+
+@Component
+@ComponentScan
+@I18n({"zh", "en"})
+@EnableAutoRegister
+public class BasicFunctions extends UltiToolsPlugin {
+    
+    @Override
+    public boolean registerSelf() {
+        // 插件启动时执行
+        getContext().register(MyBean.class);
+        getContext().refresh();              //别忘记刷新上下文
+    }
+  
+  ...
+}
+```
+
+详情参见 [Bean Overview](https://docs.spring.io/spring-framework/reference/core/beans/definition.html)
+
 ## 依赖获取
+
+### 自动注入
+
+如果某一类受容器管理，那么可以使用自动注入：
+
+```java
+//字段注入
+@Autowired
+MyBean myBean;                  
+
+--- OR ---
+
+//构造函数注入
+public MyClass(MyBean myBean) {
+    this.myBean = MyBean;       
+}
+```
 
 ### 手动获取
 
@@ -52,19 +86,6 @@ refresh();              //别忘记刷新上下文
 
 ```java
 MyBean myBean = context.getBean(MyBean.class);
-```
-
-### 自动注入
-
-如果某一类受容器管理，那么可以使用自动注入：
-
-```java
-@Autowired
-MyBean myBean;                  //字段注入
-
-public MyClass(MyBean myBean) {
-    this.myBean = MyBean;       //构造函数注入
-}
 ```
 
 ### 插件主类
