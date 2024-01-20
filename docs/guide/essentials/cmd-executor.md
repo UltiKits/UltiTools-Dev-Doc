@@ -20,20 +20,25 @@ import com.ultikits.ultitools.annotations.command.CmdExecutor;
 import com.ultikits.ultitools.annotations.command.CmdTarget;
 import org.bukkit.command.CommandSender;
 
+// 命令限制执行者为玩家和控制台
 @CmdTarget(CmdTarget.CmdTargetType.BOTH)
 @CmdExecutor(
-  permission = "ultikits.example.all",
-  description = "测试指令",
-  alias = {"test","ts"}
+    // 命令权限（可选）
+    permission = "ultikits.example.all",
+    // 命令描述（可选）
+    description = "测试指令",
+    // 命令别称
+    alias = {"test","ts"},
+    // 是否手动注册（可选）
+    manualRegister = false,
+    // 是否需要OP权限（可选）
+    requireOp = false
 )
 public class ExampleCommand extends AbstractCommendExecutor {
     
   @Override
   protected void handleHelp(CommandSender sender) {
-    sender.sendMessage("=== 测试指令 ===\n" +
-      "/test 测试指令\n" +
-      "/ts 测试指令\n" +
-      "===========");
+    // 向命令发送者发送帮助信息
   }
 }
 ```
@@ -43,6 +48,8 @@ public class ExampleCommand extends AbstractCommendExecutor {
 ## 注册命令
 
 和spigot开发一样，有了执行器，就需要去注册它。我们可以在 `registerSelf` 方法中使用 `getCommandManager().register()` 方法来注册命令。
+
+如果你的模块存在大量的命令执行器而不想手动注册，也可以使用 UltiTools 提供的自动注册功能，详情可以查看[这篇文章](/guide/advanced/auto-register)。
 
 ```java
 import com.ultikits.plugin.ultikitsapiexample.context.ContextConfig;
@@ -63,12 +70,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
     @Override
     public boolean registerSelf() throws IOException {
-        getCommandManager().register(
-                new ExampleCommand(),    //命令执行器
-                "permission.test",     //命令权限
-                "示例功能",             //命令描述
-                "test"                 //命令
-        );
+        getCommandManager().register(this, ExampleCommand.class);
         return true;
     }
 
@@ -85,22 +87,6 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
 ```
 
-当然你也可以使用不添加后面三个参数，前提是在你的执行器类添加 `@CmdExecutor` 注解：
-
-```java
-@CmdExecutor(
-        permission = "ultikits.example.all",
-        description = "测试指令",
-        alias = {"test","ts"}
-)
-```
-
-其中 `description` 为命令描述，`alias` 为命令别称（键入指令时的根命令，支持多个），`permission` 为命令权限。
-
-如果你的模块存在大量的命令执行器而不想手动注册，也可以使用 UltiTools 提供的自动注册功能，详情可以查看[这篇文章](/guide/advanced/auto-register)。
-
-使用传统的命令执行器的编写方式仅需使用上述参数即可，使用基于映射的命令编写方式将会更加详细地介绍这个注解。
-
 ## 基于映射的命令执行器
 
 ### 快速上手
@@ -110,7 +96,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 那么这个命令应该会长这样：`/point add name`
 
 如果是使用传统的方法，你需要判断参数输入的合法性，发送者以及权限等，如果还有其他功能，你还需要编写一大堆的 `switch ... case` 和 `if ... else` 语句，疯狂嵌套。
-使得代码可读性变差，提高了维护的难度。~~（还容易烧干你的CPU）~~
+使得代码可读性变差，提高了维护的难度。~~（还容易烧干你的脑子）~~
 
 使用这个方法，你只需要编写最主要的逻辑即可，剩下的交给 UltiTools。
 
@@ -147,6 +133,86 @@ public void addPoint(@CmdSender Player player, @CmdParam("name") String name) {
 ``` 
 
 至此，你只需要和传统方式一样注册命令执行器即可完成所有工作。
+
+### 参数Tab提示补全
+
+每次写完一个命令之后希望给自己的命令添加Tab提示补全，但是又不想写一大堆的代码？
+
+为Tab补全绞尽脑汁判断每个命令的长度和之前的参数来生成一个补全List，这非常容易把人累死。
+
+现在你只需要简单的为每一个参数写一个方法返回补全List即可！这个方法可以被反复利用，所有繁杂的参数数量判断都交给 UltiTools 来完成。
+
+你所需要做的只是在 `@CmdParam` 注解中添加 `suggest` 属性，指定一个方法名即可。
+
+
+```java
+@CmdMapping(format = "add <name>")
+public void addPoint(@CmdSender Player player, @CmdParam(value = "name", suggest="listName") String name) {
+  ...
+}
+
+public List<String> listName(Player player, Command command, String[] args) {
+  ...
+}
+```
+
+UltiTools会首先在当前类中搜索匹配的方法名，并尝试调用此方法。
+
+你的方法可以包含最多三个参数，分别对应的类型是 `Player`， `Command` 和 `String[]`，你可以选择任意的参数数量和顺序，但是类型只能是这三种，每种类型一个参数。
+
+`Player` 代表了发送此命令的玩家，`Command` 代表了当前的命令，`String[]` 代表了当前命令的参数。
+
+你的方法需要返回一个 `List<String>` 类型的值，UltiTools 将会将此值作为补全列表返回给玩家。
+
+::: tip
+
+如果你仅仅只是想返回一个简单的提示字符串，那么你只需要在 `suggest` 字段中写上你想要的字符串即可。这里的字符串也支持i18n国际化。
+
+```java
+@CmdMapping(format = "add <name>")
+public void addPoint(@CmdSender Player player, 
+                     @CmdParam(value = "name", suggest="[名称]") String name) {
+  ...
+}
+
+```
+:::
+
+::: tip
+
+如果你对UltiTools生成的补全列表不满意，你可以重写 `suggest` 方法，自己生成补全列表。
+
+```java
+@Override
+protected List<String> suggest(Player player, Command command, String[] strings) {
+    ...
+}
+```
+:::
+
+#### @CmdSuggest 注解
+
+如果你希望你的这个补全方法与其他命令类共享，那么你可以创建一个类，将想要复用的方法写在此类下。
+
+在需要使用此类中的方法的类上添加 `@CmdSuggest` 注解，指定此类的类名即可。
+
+```java
+@CmdSuggest({PointSuggest.class})
+public class PointCommand extends AbstractCommandExecutor {
+    
+    @CmdMapping(format = "add <name>")
+    public void addPoint(@CmdSender Player player, @CmdParam(value = "name", suggest="listName") String name) {
+        ...
+    }
+}
+```
+```java
+public class PointSuggest {
+    public List<String> listName(Player player, Command command, String[] args) {
+        ...
+    }
+}
+```
 
 ### 权限
 

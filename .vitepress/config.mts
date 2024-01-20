@@ -229,6 +229,10 @@ export default withPwa(
                 {
                   text: 'IOC容器',
                   link: 'advanced/ioc-container'
+                },
+                {
+                  text: 'GUI界面',
+                  link: 'advanced/gui'
                 }
               ]
             },

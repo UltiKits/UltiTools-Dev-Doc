@@ -27,7 +27,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
     @Override
     public boolean registerSelf() throws IOException {
-        getListenerManager().register(this, new SomeListener());
+        getListenerManager().register(this, SomeListener.class);
         return true;
     }
 

@@ -58,13 +58,19 @@ DataOperator<SomeEntity> dataOperator = SomePlugin.getInstance().getDataOperator
 ```
 DataOperator 的具体使用方法请参阅 Java Doc
 
+::: warning
+
+`DataOperator` 不是线程安全的，请在需要的时候获取 `DataOperator`，不要试图保存 `DataOperator` 对象。
+
+:::
+
 
 ### WhereCondition
 
 `WhereCondition` 用于指定查询条件。
 
 ```java
-WhereCondition.builder().column("somecol").value(someval).build()
+WhereCondition.builder().column("somecol").value(someval).build();
 ```
 
 其中，`column` 属性用于指定查询的列，`value` 属性用于指定查询的值。

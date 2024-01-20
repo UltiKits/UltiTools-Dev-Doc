@@ -45,7 +45,7 @@ dependencies {
 
 ## 创建一个UltiTools的模块
 
-以下内容将会教你如何创建一个UltiTools的模块。如果你只是想使用UltiTools-API，可以跳转到 [使用UltiTools-API](#使用ultitools-api)。
+以下内容将会教你如何创建一个UltiTools的模块。如果你只是想在自己的插件中使用UltiTools-API，可以跳转到 [使用UltiTools-API](#使用ultitools-api)。
 
 ### 创建模块元数据文件
 
@@ -72,22 +72,27 @@ authors: [ yourname ]
 但是UltiToolsPlugin增加了一个可选的 `UltiToolsPlugin#reloadSelf()` 方法，用于模块重载时执行。
 
 ```java
+// 此注解包含了自动注册，必须添加到模块主类上
+@UltiToolsModule
 public class MyPlugin extends UltiToolsPlugin {
-  @Override
-  public boolean registerSelf() {
-    // 插件启动时执行
-    return true;
-  }
-
-  @Override
-  public void unregisterSelf() {
-    // 插件关闭时执行
-  }
-
-  @Override
-  public void reloadSelf() {
-    // 插件重载时执行
-  }
+    @Override
+    public boolean registerSelf() {
+      // 插件启动时执行
+      // 如果返回false则会阻止UltiTools加载该模块
+      return true;
+    }
+    
+    @Override
+    public void unregisterSelf() {
+      // 可选，如果只是注销所有命令和监听器的话，不需要重写这个方法
+      // 插件关闭时执行
+    }
+    
+    @Override
+    public void reloadSelf() {
+      // 可选，如果只是重载模块配置文件的话，不需要重写这个方法
+      // 插件重载时执行
+    }
 }
 ```
 
@@ -101,32 +106,40 @@ public class MyPlugin extends UltiToolsPlugin {
 
 ```java
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
+import com.ultikits.ultitools.annotations.EnableAutoRegister;
 
 import java.io.IOException;
 import java.util.List;
 
+// 此注解是必须的，指定了自动注册的扫描包名
+@EnableAutoRegister(scanPackage = "com.ultikits.plugin.ultikitsapiexample")
 public class UltiToolsConnector extends UltiToolsPlugin {
 
-  // 如果需要连接到UltiTools-API，则需要重写这个有参数的构造函数，另一个无参数的是给模块开发使用的。
-  // 在这里请不要主动使用无参数的构造函数
-  public UltiToolsConnector(String name, String version, List<String> authors, List<String> depend, int loadPriority, String mainClass) {
-    super(name, version, authors, depend, loadPriority, mainClass);
-  }
+    // 如果需要连接到UltiTools-API，则需要重写这个有参数的构造函数，另一个无参数的是给模块开发使用的。
+    // 在这里请不要使用无参数的构造函数
+    public UltiToolsConnector(String name, String version, List<String> authors, List<String> depend, int loadPriority, String mainClass) {
+      super(name, version, authors, depend, loadPriority, mainClass);
+    }
 
-  @Override
-  public boolean registerSelf() throws IOException {
-    return false;
-  }
+    @Override
+    public boolean registerSelf() throws IOException {
+      // 插件启动时执行
+      // 如果返回false则会阻止UltiTools加载该模块
+      return true;
+    }
 
-  @Override
-  public void unregisterSelf() {
 
-  }
+    @Override
+    public void unregisterSelf() {
+        // 可选，如果只是注销所有命令和监听器的话，不需要重写这个方法
+        // 插件关闭时执行
+    }
 
-  @Override
-  public void reloadSelf() {
-    super.reloadSelf();
-  }
+    @Override
+    public void reloadSelf() {
+        // 可选，如果只是重载模块配置文件的话，不需要重写这个方法
+        // 插件重载时执行
+    }
 }
 ```
 
@@ -140,28 +153,27 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Collections;
 
+// 插件主类
 public final class UltiKitsExample extends JavaPlugin {
-  @Override
-  public void onEnable() {
-    // 将此连接类注册到UltiTools的模块/插件管理器中
-    UltiTools.getInstance().getPluginManager().register(
-      UltiToolsConnector.class,
-      "Example",  // 模块名称
-      "1.0.0",  // 模块版本
-      Collections.singletonList("wisdomme"),  // 模块作者
-      Collections.emptyList(),  // 模块依赖
-      600,  // UltiTools API 需求最低版本
-      "com.ultikits.plugin.ultikitsapiexample.UltiToolsConnector"  // 模块主类
-    );
-
-    System.out.println();
-  }
-
-  @Override
-  public void onDisable() {
-    // 记得在插件卸载时将连接类从UltiTools的模块/插件管理器中注销
-    UltiTools.getInstance().getPluginManager().unregister(UltiToolsConnector.getInstance());
-  }
+    @Override
+    public void onEnable() {
+        // 将此连接类注册到UltiTools的模块/插件管理器中
+        UltiTools.getInstance().getPluginManager().register(
+                UltiToolsConnector.class,
+                "Example",  // 名称
+                "1.0.0",  // 版本
+                Collections.singletonList("wisdomme"),  // 作者
+                Collections.emptyList(),  // 依赖
+                600,  // UltiTools API 需求最低版本
+                "com.ultikits.plugin.ultikitsapiexample.UltiToolsConnector"  // 连接类的完整类名
+        );
+    }
+    
+    @Override
+    public void onDisable() {
+        // 记得在插件卸载时将连接类从UltiTools的模块/插件管理器中注销
+        UltiTools.getInstance().getPluginManager().unregister(UltiToolsConnector.getInstance());
+    }
 }
 
 ```

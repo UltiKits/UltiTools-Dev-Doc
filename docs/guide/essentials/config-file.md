@@ -38,7 +38,7 @@ public class SomeConfig extends AbstractConfigEntity {
 你需要获取插件主类的实例，然后调用 `getConfig` 方法。
 
 ```java
-SomeConfig someConfig = SomePlugin.getInstance().getConfig("/path/to/config.yml", SomeConfig.class);
+SomeConfig someConfig = SomePlugin.getInstance().getConfig(SomeConfig.class);
 ```
 
 然后，你就可以使用 `getter` 和 `setter` 方法来操作配置文件了。
@@ -46,6 +46,15 @@ SomeConfig someConfig = SomePlugin.getInstance().getConfig("/path/to/config.yml"
 ```java
 boolean something = someConfig.getSomething();
 ```
+
+::: tip
+
+尽管UltiTools允许你对配置文件做出更改并可以保存更改，但是这并不意味着由程序更改配置文件是好的行为。
+程序更改配置文件会产生让用户意想不到的改变，可能会让用户尚未保存的配置丢失。
+配置是用来读取的，应该由用户自行配置并决定是否应用配置。
+如果你需要持久化的储存数据，请查看 [数据存储](/guide/essentials/data-storage)。
+
+:::
 
 ## 注册配置文件
 

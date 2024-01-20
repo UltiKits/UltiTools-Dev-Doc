@@ -8,7 +8,7 @@ footer: false
 
 UltiTools是一款发布于2020年6月的MC服务器基础插件，拥有诸多基础及特色功能，并且注重每个用户的反馈。
 
-作者致力于让更多服主轻松上手服务器的搭建，减少语言不通、插件不兼容等问题带来的烦恼。
+致力于让更多服主轻松上手服务器的搭建，减少语言不通、插件不兼容等问题带来的烦恼。
 
 ## 特点
 
@@ -30,11 +30,11 @@ UltiTools是一款发布于2020年6月的MC服务器基础插件，拥有诸多�
 
 UltiTools API是UltiTools的核心，UltiTools API提供了一套完整的API，可以让您轻松开发出功能丰富的插件。
 
-UltiTools API打包了很多常用的库，包括但不限于Spring core、FastJson、Hutool、Adventure、Obliviate等，您可以在开发中直接使用这些库而无需担心插件的体量。
+UltiTools API打包了很多常用的库，包括但不限于Spring core、FastJson、Hutool、Adventure、obliviate-invs等，您可以在开发中直接使用这些库而无需担心插件的体量。
 
 UltiTools API提供了一套完整的GUI API，您可以轻松地开发出GUI插件，而无需担心GUI的实现细节。
 
-UltiTools API提供了高级的注解系统，您可以像开发Spring Boot插件一样开发UltiTools插件。（由Spring Core提供的IOC框架）
+UltiTools API提供了高级的注解系统，您可以像开发Spring Boot应用一样开发UltiTools插件。（由Spring Core提供的IOC框架）
 
 UltiTools 还提供了一个maven插件，可以自动将编译后的插件放入文件夹和上传模块至UltiCloud，提升您开发插件的生活质量。
 

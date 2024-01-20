@@ -42,10 +42,7 @@ import com.ultikits.ultitools.annotations.I18n;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.stereotype.Component;
 
-@Component
-@ComponentScan
-@I18n({"zh", "en"})
-@EnableAutoRegister
+@UltToolsModule
 public class BasicFunctions extends UltiToolsPlugin {
     
     @Override
