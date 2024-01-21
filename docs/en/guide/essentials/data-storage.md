@@ -1,3 +1,9 @@
+::: warning 🚧 This page is under construction
+
+The translation of this page is not finished yet.
+
+:::
+
 # 数据储存
 
 UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库与 JSON 文件储存，开发者只需为存储方式写一套代码，UltiTools将通过服主的配置判断使用那种存储方式。

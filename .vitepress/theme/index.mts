@@ -57,20 +57,20 @@ export default {
 
     // Obtain configuration from: https://giscus.app/
     giscusTalk({
-        repo: 'UltiKits/UltiTools-Dev-Doc',
-        repoId: 'R_kgDOKHynCA',
-        category: 'General',
-        categoryId: 'DIC_kwDOKHynCM4Cb4Le',
-        mapping: 'pathname',
-        inputPosition: 'top',
-        lang: 'zh-CN',
-        lightTheme: 'light',
-        darkTheme: 'transparent_dark',
-        // ...
-      }, {
-        frontmatter, route
-      },
-      true
+            repo: 'UltiKits/UltiTools-Dev-Doc',
+            repoId: 'R_kgDOKHynCA',
+            category: 'General',
+            categoryId: 'DIC_kwDOKHynCM4Cb4Le',
+            mapping: 'pathname',
+            inputPosition: 'top',
+            lang: 'en',
+            lightTheme: 'light',
+            darkTheme: 'transparent_dark',
+            // ...
+        }, {
+            frontmatter, route
+        },
+        true
     );
   }
 }
