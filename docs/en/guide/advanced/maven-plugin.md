@@ -63,7 +63,7 @@ mvn clean package ultitools:install
 
 首先，你需要在 [UltiCloud](https://panel.ultikits.com/) 中创建一个账号，然后点击开发者中心，鼠标悬浮于访问密钥上获取访问密钥。
 
-![maven-plugin-1.png](..%2F..%2Fpublic%2Fmaven-plugin-1.png)
+![maven-plugin-1.png](..%2F..%2F..%2Fpublic%2Fmaven-plugin-1.png)
 
 将访问密钥保存至一个文件中，然后在 `pom.xml` 中的 `<accessKeyFile>` 标签中指定该文件的路径。
 
