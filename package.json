@@ -18,9 +18,11 @@
   },
   "dependencies": {
     "typewriter-effect": "^2.21.0",
+    "viewerjs": "^1.11.6",
     "vitepress-plugin-back-to-top": "^1.0.1",
     "vitepress-plugin-codeblocks-fold": "^1.2.28",
     "vitepress-plugin-comment-with-giscus": "^1.1.11",
+    "vitepress-plugin-image-viewer": "^1.1.2",
     "vitepress-plugin-nprogress": "^0.0.4",
     "vitepress-plugin-tabs": "^0.5.0",
     "vue": "^3.3.12"

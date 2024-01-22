@@ -22,13 +22,33 @@ export default withPwa(
         locales: {
             root: {
                 label: '简体中文',
-                lang: 'zh-CN'
+                lang: 'zh-CN',
+                themeConfig: {
+                    outline: {
+                      level: 'deep',
+                      label: '页面导航'
+                    },
+                    editLink: {
+                        pattern: 'https://github.com/UltiKits/UltiTools-Dev-Doc/edit/master/docs/:path',
+                        text: '在 GitHub 上编辑此页面',
+                    },
+                    lastUpdated: {
+                        text: '最后更新于'
+                    }
+                }
             },
             en: {
                 label: 'English',
                 lang: 'en-US',
                 link: '/en/',
                 themeConfig: {
+                    outline: {
+                        level: 'deep',
+                    },
+                    editLink: {
+                        pattern: 'https://github.com/UltiKits/UltiTools-Dev-Doc/edit/master/docs/:path',
+                        text: 'Edit this page on GitHub',
+                    },
                     nav: [
                         {
                             text: 'Documents',
@@ -174,14 +194,11 @@ export default withPwa(
             }
         },
         themeConfig: {
-            // https://vitepress.dev/reference/default-theme-config
-            editLink: {
-                pattern: 'https://github.com/UltiKits/UltiTools-Dev-Doc/edit/master/docs/:path'
-            },
             footer: {
                 message: 'Released under the MIT License.',
                 copyright: 'Copyright © 2019-present UltiKits Dev Team'
             },
+            outline: 'deep',
             externalLinkIcon: true,
             search: {
                 provider: 'algolia',

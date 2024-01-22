@@ -8,6 +8,9 @@ dependencies:
   typewriter-effect:
     specifier: ^2.21.0
     version: 2.21.0(react-dom@18.2.0)(react@18.2.0)
+  viewerjs:
+    specifier: ^1.11.6
+    version: 1.11.6
   vitepress-plugin-back-to-top:
     specifier: ^1.0.1
     version: 1.0.1
@@ -17,6 +20,9 @@ dependencies:
   vitepress-plugin-comment-with-giscus:
     specifier: ^1.1.11
     version: 1.1.11(vue@3.3.12)
+  vitepress-plugin-image-viewer:
+    specifier: ^1.1.2
+    version: 1.1.2
   vitepress-plugin-nprogress:
     specifier: ^0.0.4
     version: 0.0.4
@@ -4075,6 +4081,10 @@ packages:
       unist-util-stringify-position: 4.0.0
       vfile-message: 4.0.2
 
+  /viewerjs@1.11.6:
+    resolution: {integrity: sha512-TlhdSp2oEOLFXvEp4psKaeTjR5zBjTRcM/sHUN8PkV1UWuY8HKC8n7GaVdW5Xqnwdr/F1OmzLik1QwDjI4w/nw==}
+    dev: false
+
   /vite-plugin-pwa@0.17.4(vite@5.0.10)(workbox-build@7.0.0)(workbox-window@7.0.0):
     resolution: {integrity: sha512-j9iiyinFOYyof4Zk3Q+DtmYyDVBDAi6PuMGNGq6uGI0pw7E+LNm9e+nQ2ep9obMP/kjdWwzilqUrlfVRj9OobA==}
     engines: {node: '>=16.0.0'}
@@ -4146,6 +4156,12 @@ packages:
       '@giscus/vue': 2.4.0(vue@3.3.12)
     transitivePeerDependencies:
       - vue
+    dev: false
+
+  /vitepress-plugin-image-viewer@1.1.2:
+    resolution: {integrity: sha512-SUQekb0/85IF8nucFt6CDXSfn0P5KfnuBRqJh7ns6OexT/kmbOT/gzy43bMWwzSkzn6hS8VsK54cgNw8pobSJw==}
+    dependencies:
+      viewerjs: 1.11.6
     dev: false
 
   /vitepress-plugin-nprogress@0.0.4:

@@ -40,8 +40,43 @@ UltiTools 还提供了一个maven插件，可以自动将编译后的插件放�
 
 ## 鸣谢列表
 
-* wisdomme (主要开发者) [Github](https://github.com/wisdommen)
-* qianmo (主要开发者) [Github](https://github.com/qianmo2233)
-* 绝尘 (主要测试人员)
-* Shpries (开发者) [Github](https://github.com/Shpries)
-* 拾柒 (美工)
+<script setup>
+import { VPTeamMembers } from 'vitepress/theme';
+
+const members = [
+  {
+    avatar: 'https://www.github.com/wisdommen.png',
+    name: 'wisdommen',
+    title: 'Creator',
+    links: [
+      { icon: 'github', link: 'https://github.com/wisdommen' }
+    ]
+  },
+  {
+    avatar: 'https://www.github.com/qianmo2233.png',
+    name: 'QianMo SAMA',
+    title: 'Main Developer',
+    links: [
+      { icon: 'github', link: 'https://github.com/qianmo2233' }
+    ]
+  },
+  {
+    avatar: 'https://www.github.com/JueChenChen.png',
+    name: 'Jue Chen',
+    title: 'Main Tester',
+    links: [
+      { icon: 'github', link: 'https://github.com/JueChenChen' }
+    ]
+  },
+  {
+    avatar: 'https://www.github.com/Shpries.png',
+    name: 'Shpries',
+    title: 'Developer',
+    links: [
+      { icon: 'github', link: 'https://github.com/Shpries.png' }
+    ]
+  },
+]
+</script>
+
+<VPTeamMembers size="small" :members="members" />

@@ -44,3 +44,32 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 ```
 
 当然，你也可以使用 UltiTools 提供的自动注册功能，详情可以查看[这篇文章](/guide/advanced/auto-register)。
+
+
+## 临时事件监听
+
+很多时候我们都只是需要临时监听事件，在传统的插件编写中，常常会维护一个列表来记录需要临时监听的玩家，这十分麻烦。
+
+UltiTools 对 Bukkit 的事件监听器进行了封装，你可以十分便捷地在任何地方对玩家进行事件监听，即创即用，用后即销。
+
+你可以使用 `SimpleTempListener` 来创建一个临时监听器：
+
+```java
+TempListener listener = new SimpleTempListener(PlayerInteractEvent.class, event -> {
+    // do something...
+    return true; //返回 true 时将自动注销该监听器
+})
+listener.register(); //开始监听
+```
+
+特别地，如果你需要监听某一个玩家的玩家事件，你可以使用 `PlayerTempListener` 来创建临时监听器：
+
+```java
+TempListener listener = new SimpleTempListener(PlayerInteractEvent.class, event -> {
+    // do something...
+    return true; //返回 true 时将自动注销该监听器
+}, player)
+listener.register(); //开始监听
+```
+
+你可以使用 `unregister()` 方法来手动注销监听器。

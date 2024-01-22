@@ -14,7 +14,7 @@ UltiTools-API 目前提供了两个预制的 GUI 界面：
 
 我想要创建的是一个3行的GUI，最后一行是翻页导航栏，前两行显示内容，点击内容即可执行命令。如下图所示：
 
-![gui-1.png](..%2F..%2Fpublic%2Fgui-1.png)
+![gui-1.png](/gui-1.png)
 
 首先，您需要创建一个 GUI 类，继承 `PagingPage` 类。
 

@@ -19,6 +19,7 @@ import { useData, useRoute } from 'vitepress';
 import vitepressBackToTop from 'vitepress-plugin-back-to-top'
 import vitepressNprogress from 'vitepress-plugin-nprogress'
 import codeblocksFold from 'vitepress-plugin-codeblocks-fold'
+import imageViewer from 'vitepress-plugin-image-viewer';
 
 import 'vitepress-plugin-codeblocks-fold/style/index.scss';
 import 'vitepress-plugin-back-to-top/dist/style.css'
@@ -26,8 +27,11 @@ import 'vitepress-plugin-nprogress/lib/css/index.css'
 import '@nolebase/vitepress-plugin-enhanced-readabilities/dist/style.css'
 import '@nolebase/vitepress-plugin-highlight-targeted-heading/dist/style.css'
 import '@nolebase/vitepress-plugin-inline-link-preview/dist/style.css'
+import 'viewerjs/dist/viewer.min.css';
 import './styles/main.css'
 
+// @ts-ignore
+import vImageViewer from 'vitepress-plugin-image-viewer/lib/vImageViewer.vue';
 // @ts-ignore
 import ReloadPrompt from './components/ReloadPrompt.vue'
 
@@ -47,6 +51,7 @@ export default {
     enhanceAppWithTabs(ctx.app)
     vitepressBackToTop()
     ctx.app.use(NolebaseInlineLinkPreviewPlugin)
+    ctx.app.component('vImageViewer', vImageViewer);
   },
   setup() {
     // Get frontmatter and route
@@ -54,6 +59,7 @@ export default {
     const route = useRoute();
 
     codeblocksFold({ route, frontmatter }, true, 400);
+    imageViewer(route);
 
     // Obtain configuration from: https://giscus.app/
     giscusTalk({
