@@ -52,7 +52,7 @@ boolean something = someConfig.getSomething();
 尽管UltiTools允许你对配置文件做出更改并可以保存更改，但是这并不意味着由程序更改配置文件是好的行为。
 程序更改配置文件会产生让用户意想不到的改变，可能会让用户尚未保存的配置丢失。
 配置是用来读取的，应该由用户自行配置并决定是否应用配置。
-如果你需要持久化的储存数据，请查看 [数据存储](/guide/essentials/data-storage)。
+如果你需要持久化的储存数据，请查看 [数据存储](/zh/guide/essentials/data-storage)。
 
 :::
 
@@ -62,7 +62,7 @@ boolean something = someConfig.getSomething();
 
 因为UltiTools提供了自动注册功能，所以你无需手动注册配置文件，只需要在你的配置文件类上添加 `@ConfigEntry` 注解即可。
 
-请查看[这篇文章](/guide/advanced/auto-register)来了解更多关于自动注册的内容。
+请查看[这篇文章](/zh/guide/advanced/auto-register)来了解更多关于自动注册的内容。
 
 ### 手动注册
 

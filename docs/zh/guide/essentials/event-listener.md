@@ -43,7 +43,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 }
 ```
 
-当然，你也可以使用 UltiTools 提供的自动注册功能，详情可以查看[这篇文章](/guide/advanced/auto-register)。
+当然，你也可以使用 UltiTools 提供的自动注册功能，详情可以查看[这篇文章](/zh/guide/advanced/auto-register)。
 
 
 ## 临时事件监听
