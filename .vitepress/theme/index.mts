@@ -85,7 +85,7 @@ export default {
         const {frontmatter} = useData();
         const route = useRoute();
 
-        codeblocksFold({route, frontmatter}, true, 400);
+        codeblocksFold({route, frontmatter}, false, 400);
         imageViewer(route);
 
         const {lang} = useData()
