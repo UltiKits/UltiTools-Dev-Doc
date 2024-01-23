@@ -20,7 +20,7 @@ hero:
     alt: UltiTools
 
 features:
-  - title: Multi-In-One
+  - title: All-In-One
     icon: 📦
     details: The UltiTools-API packages a multitude of commonly used libraries, allowing you to directly utilize these libraries in your development without worrying about the size of the plugins.
   - title: Powered by Annotation
