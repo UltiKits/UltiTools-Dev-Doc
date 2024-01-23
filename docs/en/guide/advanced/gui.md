@@ -37,7 +37,7 @@ public class WarpGui extends PagingPage {
                 // ID of the GUI, you can set it to any string
                 "Warp-list",
                 // Title of the GUI
-                Component.text(BasicFunctions.getInstance().i18n("传送点列表"))
+                Component.text(BasicFunctions.getInstance().i18n("Warp list"))
                         .color(TextColor.color(0xFF00A6)),
                 // Number of rows of the GUI
                 3
@@ -54,7 +54,7 @@ public class WarpGui extends PagingPage {
             Icon icon = new Icon(UltiTools.getInstance().getVersionWrapper().getEndEye());
             TextComponent textComponent = Component.text(warpData.getName()).color(TextColor.color(0xFF00A6));
             icon.toComp().setName(textComponent);
-            String world = String.format(ChatColor.YELLOW + BasicFunctions.getInstance().i18n("所在世界 %s"), location.getWorld().getName());
+            String world = String.format(ChatColor.YELLOW + BasicFunctions.getInstance().i18n("World %s"), location.getWorld().getName());
             String xyz = String.format(ChatColor.GRAY + "X: %.2f Y: %.2f Z: %.2f", location.getX(), location.getY(), location.getZ());
             icon.setLore(world, xyz);
             // Icon click event
@@ -74,7 +74,7 @@ Then call this GUI class in your command executor.
 ```java
 
 @CmdTarget(CmdTarget.CmdTargetType.PLAYER)
-@CmdExecutor(alias = {"warp"}, manualRegister = true, permission = "ultikits.tools.command.warp", description = "传送点功能")
+@CmdExecutor(alias = {"warp"}, manualRegister = true, permission = "ultikits.tools.command.warp", description = "Warp Function")
 public class WarpCommands extends AbstractCommendExecutor {
 
     @CmdMapping(format = "list")
