@@ -1,21 +1,16 @@
 import DefaultTheme from "vitepress/theme"
-import { h } from 'vue'
-import { EnhanceAppContext } from 'vitepress'
+import {h, watchEffect} from 'vue'
+import {EnhanceAppContext, inBrowser, useData, useRoute} from 'vitepress'
 
 import {
-  NolebaseEnhancedReadabilitiesMenu,
-  NolebaseEnhancedReadabilitiesScreenMenu,
+    NolebaseEnhancedReadabilitiesMenu,
+    NolebaseEnhancedReadabilitiesScreenMenu,
 } from '@nolebase/vitepress-plugin-enhanced-readabilities'
-import {
-  NolebaseHighlightTargetedHeading,
-} from '@nolebase/vitepress-plugin-highlight-targeted-heading'
-import {
-  NolebaseInlineLinkPreviewPlugin,
-} from '@nolebase/vitepress-plugin-inline-link-preview'
+import {NolebaseHighlightTargetedHeading,} from '@nolebase/vitepress-plugin-highlight-targeted-heading'
+import {NolebaseInlineLinkPreviewPlugin,} from '@nolebase/vitepress-plugin-inline-link-preview'
 
-import { enhanceAppWithTabs } from 'vitepress-plugin-tabs/client'
+import {enhanceAppWithTabs} from 'vitepress-plugin-tabs/client'
 import giscusTalk from 'vitepress-plugin-comment-with-giscus'
-import { useData, useRoute } from 'vitepress';
 import vitepressBackToTop from 'vitepress-plugin-back-to-top'
 import vitepressNprogress from 'vitepress-plugin-nprogress'
 import codeblocksFold from 'vitepress-plugin-codeblocks-fold'
@@ -37,46 +32,79 @@ import ReloadPrompt from './components/ReloadPrompt.vue'
 
 // noinspection JSUnusedGlobalSymbols
 export default {
-  ...DefaultTheme,
-  Layout() {
-    return h(DefaultTheme.Layout, null, {
-      'nav-bar-content-after': () => h(NolebaseEnhancedReadabilitiesMenu),
-      'nav-screen-content-after': () => h(NolebaseEnhancedReadabilitiesScreenMenu),
-      'layout-top': () => h(NolebaseHighlightTargetedHeading),
-      'layout-bottom': () => h(ReloadPrompt),
-    })
-  },
-  enhanceApp: (ctx: EnhanceAppContext) => {
-    vitepressNprogress(ctx)
-    enhanceAppWithTabs(ctx.app)
-    vitepressBackToTop()
-    ctx.app.use(NolebaseInlineLinkPreviewPlugin)
-    ctx.app.component('vImageViewer', vImageViewer);
-  },
-  setup() {
-    // Get frontmatter and route
-    const { frontmatter } = useData();
-    const route = useRoute();
+    ...DefaultTheme,
+    Layout() {
+            const {lang} = useData()
+            if (inBrowser) {
+                document.cookie = `nf_lang=${lang.value}; expires=Mon, 1 Jan 2030 00:00:00 UTC; path=/`
+            }
+            let language = lang.value.split('-')[0];
+            if (language === 'zh') {
+                language = 'zh-CN'
+            }
+            const {frontmatter} = useData();
+            const route = useRoute();
 
-    codeblocksFold({ route, frontmatter }, true, 400);
-    imageViewer(route);
+            // Obtain configuration from: https://giscus.app/
+            giscusTalk({
+                    repo: 'UltiKits/UltiTools-Dev-Doc',
+                    repoId: 'R_kgDOKHynCA',
+                    category: 'General',
+                    categoryId: 'DIC_kwDOKHynCM4Cb4Le',
+                    mapping: 'pathname',
+                    inputPosition: 'top',
+                    lang: `${language}`,
+                    lightTheme: 'light',
+                    darkTheme: 'transparent_dark',
+                    // ...
+                }, {
+                    frontmatter, route
+                },
+                true
+            );
+        return h(DefaultTheme.Layout, null, {
+            'nav-bar-content-after': () => h(NolebaseEnhancedReadabilitiesMenu),
+            'nav-screen-content-after': () => h(NolebaseEnhancedReadabilitiesScreenMenu),
+            'layout-top': () => h(NolebaseHighlightTargetedHeading),
+            'layout-bottom': () => h(ReloadPrompt),
+        })
+    },
+    enhanceApp: (ctx: EnhanceAppContext) => {
+        vitepressNprogress(ctx)
+        enhanceAppWithTabs(ctx.app)
+        vitepressBackToTop()
+        ctx.app.use(NolebaseInlineLinkPreviewPlugin)
+        ctx.app.component('vImageViewer', vImageViewer);
+    },
+    setup() {
+        // Get frontmatter and route
+        const {frontmatter} = useData();
+        const route = useRoute();
 
-    // Obtain configuration from: https://giscus.app/
-    giscusTalk({
-            repo: 'UltiKits/UltiTools-Dev-Doc',
-            repoId: 'R_kgDOKHynCA',
-            category: 'General',
-            categoryId: 'DIC_kwDOKHynCM4Cb4Le',
-            mapping: 'pathname',
-            inputPosition: 'top',
-            lang: 'en',
-            lightTheme: 'light',
-            darkTheme: 'transparent_dark',
-            // ...
-        }, {
-            frontmatter, route
-        },
-        true
-    );
-  }
+        codeblocksFold({route, frontmatter}, true, 400);
+        imageViewer(route);
+
+        const {lang} = useData()
+        let language = lang.value.split('-')[0];
+        if (language === 'zh') {
+            language = 'zh-CN'
+        }
+        // Obtain configuration from: https://giscus.app/
+        giscusTalk({
+                repo: 'UltiKits/UltiTools-Dev-Doc',
+                repoId: 'R_kgDOKHynCA',
+                category: 'General',
+                categoryId: 'DIC_kwDOKHynCM4Cb4Le',
+                mapping: 'pathname',
+                inputPosition: 'top',
+                lang: `${language}`,
+                lightTheme: 'light',
+                darkTheme: 'transparent_dark',
+                // ...
+            }, {
+                frontmatter, route
+            },
+            true
+        );
+    }
 }

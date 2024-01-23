@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onBeforeMount, ref } from 'vue'
+import {inBrowser, useData} from "vitepress";
 
 const offlineReady = ref(false)
 const needRefresh = ref(false)
@@ -32,6 +33,8 @@ onBeforeMount(async () => {
     },
   })
 })
+const {lang} = useData()
+let language = lang.value.split('-')[0];
 </script>
 
 <template>
@@ -42,7 +45,7 @@ onBeforeMount(async () => {
       aria-labelledby="pwa-message"
     >
       <div id="pwa-message" class="mb-3">
-        {{ offlineReady ? '文档已缓存，可离线使用' : '新内容可用，刷新页面以应用' }}
+        {{ offlineReady ? language == 'zh' ? '文档已缓存，可离线使用' : 'Document is cached, offline available' : language == 'zh' ? '新内容可用，刷新页面以应用' : 'New content is available, refresh to load' }}
       </div>
       <button
         v-if="needRefresh"
