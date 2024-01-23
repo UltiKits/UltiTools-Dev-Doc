@@ -17,7 +17,7 @@ export default withPwa(
         lang: 'zh-CN',
         srcDir: 'docs',
         head: [
-            ['link', {rel: 'icon', href: '/favicon.ico'}]
+            ['link', {rel: 'icon', href: '../favicon.ico'}]
         ],
         locales: {
             zh: {
