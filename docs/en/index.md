@@ -11,7 +11,7 @@ hero:
       link: /en/guide/quick-start
     - theme: alt
       text: Javadoc
-      link: /en/api
+      link: https://dev.ultikits.com/javadoc
     - theme: alt
       text: GitHub Repo
       link: https://github.com/UltiKits/UltiTools-Reborn
