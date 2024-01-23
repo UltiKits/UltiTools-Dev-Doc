@@ -1,6 +1,6 @@
 # 数据储存
 
-UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库与 JSON 文件储存，开发者只需为存储方式写一套代码，UltiTools将通过服主的配置判断使用那种存储方式。
+UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库与 JSON 文件储存。数据存储对于开发者来说是透明的，UltiTools将通过服主的配置判断使用哪种存储方式。
 
 你需要的仅仅只是一个实体类。CRUD 操作将由 UltiTools 自动完成。
 
@@ -54,7 +54,8 @@ UltiTools 封装了一套语义化的 CRUD 操作 API，你只需要调用相应
 你需要获取插件主类的实例，然后调用 `getDataOperator` 方法。
 
 ```java
-DataOperator<SomeEntity> dataOperator = SomePlugin.getInstance().getDataOperator(SomeEntity.class);
+DataOperator<SomeEntity> dataOperator = 
+        SomePlugin.getInstance().getDataOperator(SomeEntity.class);
 ```
 DataOperator 的具体使用方法请参阅 Java Doc
 
@@ -78,6 +79,12 @@ WhereCondition.builder().column("somecol").value(someval).build();
 与 `DataOperator` 搭配使用的例子：
 
 ```java
-DataOperator dataOperator = SomePlugin.getInstance().getDataOperator(SomeEntity.class);
-List<Something> list = dataOperator.getAll(WhereCondition.builder().column("somecol").value(someval).build());
+DataOperator dataOperator = 
+        SomePlugin.getInstance().getDataOperator(SomeEntity.class);
+List<Something> list = dataOperator.getAll(
+        WhereCondition.builder()
+                .column("somecol")
+                .value(someval)
+                .build()
+);
 ```

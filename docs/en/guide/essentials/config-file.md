@@ -1,53 +1,57 @@
-::: warning 🚧 This page is under construction
+# Configuration
 
-The translation of this page is not finished yet.
+UltiTools provides an elegant singleton pattern encapsulation API that allows you to operate configuration files like
+objects.
 
-:::
+## Create a YAML configuration file
 
-# 配置文件
+Firstly, you need to create a `config` folder in the `resources` folder. Put your plugin configuration files in it
+according to your needs. These configuration files will be put into the collective configuration folder of UltiTools
+plugin and displayed to users.
 
-UltiTools提供了优雅的单例模式的封装API，让你可以像操作对象一样操作配置文件。
+## Operate configuration files
 
-## 创建 YAML 配置文件
+### Create a configuration file object
 
-首先，你需要在 `resources` 文件夹中创建一个 `config` 文件夹。按照你的需求放入你的插件配置文件。这些配置文件会被原封不动的放入UltiTools插件的集体配置文件夹中展示给用户。
-
-## 操作配置文件
-
-### 创建配置文件对象
-
-根据你的配置文件的键值对结构，创建一个类，继承 `AbstractConfigEntity` 类。
+According to the key-value pair structure of your configuration file, create a class that inherits
+the `AbstractConfigEntity` class.
 
 ```java
+
 @Getter
 @Setter
 @ConfigEntity("some/path/to/config")
 public class SomeConfig extends AbstractConfigEntity {
     @ConfigEntry(path = "somepath", comment = "somecomment")
     private boolean something = false;
+
     public SomeConfig(String configFilePath) {
         super(configFilePath);
     }
 }
 ```
 
-其中，`@ConfigEntity` 注解用于标记一个配置文件的位置，需要一个字符串参数，用于指定配置文件在插件配置文件夹中的路径。通常这个路径与你在开发过程中resource文件夹目录中的路径是相同的。
+The `@ConfigEntity` annotation is used to mark the location of a configuration file, which requires a string parameter
+to specify the path of the configuration file in the plugin configuration folder. Usually this path is the same as the
+path in the resource folder directory during your development.
 
-`@ConfigEntry` 注解用于标记一个配置项，`path` 属性用于指定该配置项在配置文件中键的路径，`comment` 属性用于指定该配置项的注释。
+`@ConfigEntry` is used to mark a configuration item. The `path` attribute is used to specify the path of the key of this
+configuration item in the configuration file, and the `comment` attribute is used to specify the comment of this
+configuration item.
 
-`@Getter` 和 `@Setter` 则为Lombok注解，用于自动生成 `getter` 和 `setter` 方法。
+`@Getter` and `@Setter` are Lombok annotations, which are used to automatically generate `getter` and `setter` methods.
 
-### 获取配置文件对象
+### Get configuration file object
 
-继承了 `UltiToolsPlugin` 的主类中，有一个 `getConfig` 方法，用于获取配置文件对象。 
+Your main class which extends `UltiToolsPlugin` has a `getConfig` method to get the configuration file object.
 
-你需要获取插件主类的实例，然后调用 `getConfig` 方法。
+You need to get the instance of the plugin main class, and then call the `getConfig` method.
 
 ```java
 SomeConfig someConfig = SomePlugin.getInstance().getConfig(SomeConfig.class);
 ```
 
-然后，你就可以使用 `getter` 和 `setter` 方法来操作配置文件了。
+Now you can use the `getter` and `setter` methods to operate the configuration file.
 
 ```java
 boolean something = someConfig.getSomething();
@@ -55,19 +59,54 @@ boolean something = someConfig.getSomething();
 
 ::: tip
 
-尽管UltiTools允许你对配置文件做出更改并可以保存更改，但是这并不意味着由程序更改配置文件是好的行为。
-程序更改配置文件会产生让用户意想不到的改变，可能会让用户尚未保存的配置丢失。
-配置是用来读取的，应该由用户自行配置并决定是否应用配置。
-如果你需要持久化的储存数据，请查看 [数据存储](/guide/essentials/data-storage)。
+Although UltiTools allows you to make changes to the configuration file and save the changes, this does not mean that it
+is a good behavior for the program to change the configuration file.
+Programs changing configuration files will cause unexpected changes for users, and may cause users to lose unsaved
+configurations.
+Configuration is for reading, and users should configure it themselves and decide whether to apply the configuration.
+If you need to persistently store data, please refer to [Data Storage](/en/guide/essentials/data-storage).
 
 :::
 
-## 注册配置文件
+## Register configuration file
 
-在你的插件主类中注册配置文件。
+### Automatically register
+
+Since UltiTools provides automatic registration function, you don't need to register configuration files manually, just
+add the `@ConfigEntry` annotation to your configuration file class.
+
+Please refer to [this article](/en/guide/advanced/auto-register) for more information about automatic registration.
+
+### Manually register
+
+You can register the config file by override the `getAllConfigs` method in your plugin main class.
 
 ```java
-getConfigManager().register(this, SomeConfig("path/to/config.yml"));
+
+@Override
+public List<AbstractConfigEntity> getAllConfigs() {
+    return Collections.singletonList(new SomeConfig("some/path/to/config"));
+}
 ```
 
-你无需担心配置文件的加载与保存等问题，UltiTools会自动为你做好一切。
+## Saving configuration files
+
+You don't need to worry about the loading and saving of configuration files, UltiTools will do everything for you
+automatically.
+
+::: warning
+
+If you save the config file, some comments in the file may disappear.
+
+:::
+
+## Configuration file reload
+
+`UltiToolsPlugin` provides the `getConfigManager#reloadConfigs` method, you can call it to reload configuration files
+when needed.
+
+```java
+SomePlugin.getInstance().getConfigManager().reloadConfigs();
+```
+
+

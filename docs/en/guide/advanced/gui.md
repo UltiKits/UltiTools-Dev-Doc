@@ -1,50 +1,50 @@
-::: warning 🚧 This page is under construction
+::: warning 🚧 Non-English content included
 
-The translation of this page is not finished yet.
+The translation of the picture is still in progress, and some content may not in English yet.
 
 :::
 
-# GUI 编写
+# GUI API
 
-UltiTools 提供了obliviate-invs的 GUI API，您可以轻松地开发出 GUI 插件，而无需担心 GUI 的实现细节。
+UltiTools offers the GUI API of obliviate-invs, so you can easily develop GUI plugins without worrying about the implementation details of GUI.
 
-感谢Hamza Coşkun的开源项目 [obliviate-invs](https://github.com/hamza-cskn/obliviate-invs)
+Thanks for the open source project form Hamza Coşkun [obliviate-invs](https://github.com/hamza-cskn/obliviate-invs)
 
-UltiTools-API 目前提供了两个预制的 GUI 界面：
+UltiTools-API provides two pre-made GUIs at the moment:
 
-分页界面 `PagingPage` 和 确认界面 `OkCancelPage`
+Paging Page `PagingPage` and Confirm Page `OkCancelPage`
 
-## 创建一个 GUI
+## Create a GUI
 
-在这里我使用 `PagingPage` 作为例子。
+Here I use `PagingPage` as an example.
 
-我想要创建的是一个3行的GUI，最后一行是翻页导航栏，前两行显示内容，点击内容即可执行命令。如下图所示：
+What I want to create is a 3-row GUI, the last row is the paging navigation bar, the first two rows display the content, click the content to execute the command. As shown in the figure below:
 
-![gui-1.png](..%2F..%2F..%2Fpublic%2Fgui-1.png)
+![gui-1.png](/gui-1.png)
 
-首先，您需要创建一个 GUI 类，继承 `PagingPage` 类。
+Firstly, you need to create a GUI class that inherits `PagingPage`.
 
 ```java
 public class WarpGui extends PagingPage {
-    // 新建一个 WarpService 实例（并不重要，只是演示）
+    // new a WarpService, just for example, not necessary
     private final WarpService warpService = new WarpService();
 
-    // 你需要重写一个构造函数，用于传递参数，这里的Player参数是必须的
+    // You need to override a constructor to pass parameters, the Player parameter here is required
     public WarpGui(Player player) {
         super(
-                // 打开GUI的玩家
+                // player who opens the GUI
                 player,
-                // GUI的ID
+                // ID of the GUI, you can set it to any string
                 "Warp-list",
-                // GUI的标题
+                // Title of the GUI
                 Component.text(BasicFunctions.getInstance().i18n("传送点列表"))
                         .color(TextColor.color(0xFF00A6)),
-                // GUI的行数
+                // Number of rows of the GUI
                 3
         );
     }
 
-    // 重写这个方法，用于设置GUI的内容
+    // Override this method to set the content of the GUI
     @Override
     public List<Icon> setAllItems() {
         List<Icon> icons = new ArrayList<>();
@@ -57,7 +57,7 @@ public class WarpGui extends PagingPage {
             String world = String.format(ChatColor.YELLOW + BasicFunctions.getInstance().i18n("所在世界 %s"), location.getWorld().getName());
             String xyz = String.format(ChatColor.GRAY + "X: %.2f Y: %.2f Z: %.2f", location.getX(), location.getY(), location.getZ());
             icon.setLore(world, xyz);
-            // 按钮点击事件
+            // Icon click event
             icon.onClick((e) -> {
                 player.performCommand("warp tp " + warpData.getName());
                 player.closeInventory();
@@ -69,7 +69,7 @@ public class WarpGui extends PagingPage {
 }
 ```
 
-然后在你的命令执行器中调用这个 GUI 类即可。
+Then call this GUI class in your command executor.
 
 ```java
 
@@ -86,4 +86,4 @@ public class WarpCommands extends AbstractCommendExecutor {
 }
 ```
 
-更多的GUI API用法请参考 [obliviate-invs Wiki](https://github.com/hamza-cskn/obliviate-invs/wiki)
+For more GUI API usage, please refer to [obliviate-invs Wiki](https://github.com/hamza-cskn/obliviate-invs/wiki)

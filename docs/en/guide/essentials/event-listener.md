@@ -1,18 +1,27 @@
-::: warning 🚧 This page is under construction
+# Event Listener
 
-The translation of this page is not finished yet.
+The event listener of UltiTools module is basically the same as Bukkit's event listener.
 
-:::
+Please refer to [Bukkit Event Listener](https://bukkit.gamepedia.com/Event_API_Reference).
 
-# 事件监听器
+## Create a Listener
 
-UltiTools 模块的事件监听与 Bukkit 的事件监听基本相同。
+Create a class that implements `Listener` and add `@EventHandler` annotation to the method that handles the event.
 
-参见 [Bukkit 事件监听器](https://bukkit.gamepedia.com/Event_API_Reference)。
+```java
+@EventListener
+public class BackListener implements Listener {
 
-## 监听器注册
+    @EventHandler
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        ...
+    }
+}
+```
 
-在继承了 `UltiToolsPlugin` 的类中的 `registerSelf` 中注册监听器。
+## Register Event Listener
+
+Register the listener in `registerSelf` of the class that inherits `UltiToolsPlugin`.
 
 ```java
 import com.ultikits.plugin.ultikitsapiexample.context.ContextConfig;
@@ -25,14 +34,13 @@ import java.util.List;
 
 public class UltiToolsConnector extends UltiToolsPlugin {
 
-    // 如果需要连接到UltiTools-API，则需要重写这个有参数的构造函数，另一个无参数的是给模块开发使用的。
-    // 在这里请不要主动使用无参数的构造函数
     public UltiToolsConnector(String name, String version, List<String> authors, List<String> depend, int loadPriority, String mainClass) {
         super(name, version, authors, depend, loadPriority, mainClass);
     }
 
     @Override
     public boolean registerSelf() throws IOException {
+        // register listener
         getListenerManager().register(this, SomeListener.class);
         return true;
     }
@@ -49,4 +57,32 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 }
 ```
 
-当然，你也可以使用 UltiTools 提供的自动注册功能，详情可以查看[这篇文章](/guide/advanced/auto-register)。
+Sure, you can also use the automatic registration function provided by UltiTools. For details, please refer to [this article](/en/guide/advanced/auto-register).
+
+## Temporary Listener
+
+Many times we just need to listen to events temporarily. In traditional plugin development, we often maintain a list to record the players who need to listen temporarily, which is very troublesome.
+
+UltiTools encapsulates Bukkit's event listener, so you can listen to players' events anywhere, which is very convenient.
+
+You can use `SimpleTempListener` to create a temporary listener:
+
+```java
+TempListener listener = new SimpleTempListener(PlayerInteractEvent.class, event -> {
+    // do something...
+    return true; //return true to unregister this listener
+})
+listener.register(); //start listening
+```
+
+Specifically, if you need to listen to a player event for a particular player, you can use PlayerTempListener to create a temporary listener:
+
+```java
+TempListener listener = new SimpleTempListener(PlayerInteractEvent.class, event -> {
+    // do something...
+    return true; //return true to unregister this listener
+}, player)
+listener.register(); //start listening
+```
+
+You can use the `unregister()` method to manually unregister the listener.

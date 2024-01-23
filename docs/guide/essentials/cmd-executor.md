@@ -8,7 +8,7 @@
 
 除此之外，我们也可能还需要处理命令错误，输出帮助信息等等。
 
-UltiTools 对原生的 `CommandExecutor` 接口进行了封装，提供了一个更加简洁的命令处理方式。
+UltiTools-API 对原生的 `CommandExecutor` 接口进行了封装，提供了一个更加简洁的命令处理方式。
 
 ## 创建命令执行器
 
@@ -61,15 +61,14 @@ import java.io.IOException;
 import java.util.List;
 
 public class UltiToolsConnector extends UltiToolsPlugin {
-
-    // 如果需要连接到UltiTools-API，则需要重写这个有参数的构造函数，另一个无参数的是给模块开发使用的。
-    // 在这里请不要主动使用无参数的构造函数
+    
     public UltiToolsConnector(String name, String version, List<String> authors, List<String> depend, int loadPriority, String mainClass) {
         super(name, version, authors, depend, loadPriority, mainClass);
     }
 
     @Override
     public boolean registerSelf() throws IOException {
+        // 注册命令
         getCommandManager().register(this, ExampleCommand.class);
         return true;
     }
@@ -91,7 +90,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
 ### 快速上手
 
-假如你的插件拥有一个设置传送点的功能，你希望玩家输入一个带有传送点名称和坐标（可选）的命令，以此来设立一个传送点。
+假如你的插件拥有一个设置传送点的功能，你希望玩家输入一个带有传送点名称的命令，以此来设立一个传送点。
 
 那么这个命令应该会长这样：`/point add name`
 
@@ -132,7 +131,7 @@ public void addPoint(@CmdSender Player player, @CmdParam("name") String name) {
 }
 ``` 
 
-至此，你只需要和传统方式一样注册命令执行器即可完成所有工作。
+至此，你只需要注册命令执行器即可完成所有工作。
 
 ### 参数Tab提示补全
 
@@ -240,10 +239,6 @@ public class PointSuggest {
 ```java
 @CmdMapping(..., requireOp = true)
 ```
-
-::: tip
-如果在 `@CmdExecutor` 定义了权限，那么命令发送者仅需拥有 `@CmdExecutor` 指定的权限即可。
-:::
 
 ### 限定发送者
 

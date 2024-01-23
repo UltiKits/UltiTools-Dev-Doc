@@ -27,7 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
         config = true,
         // 扫描包名
         scanBasePackages = {"com.test.plugin"},
-        // 制定特定的扫描类
+        // 指定特定的类扫描
         scanBasePackageClasses = {},
         // 多语言支持
         i18n = {"zh", "en"}

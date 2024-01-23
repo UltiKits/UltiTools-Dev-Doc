@@ -1,45 +1,37 @@
-::: warning 🚧 This page is under construction
+# IOC Container
 
-The translation of this page is not finished yet.
+IOC stands for Inversion of Control, which means that the creation and management of objects are handed over to the container instead of being actively created by the developer.
+
+UltiTools has integrated the Spring IOC container. If you have used Spring before, you will be very familiar with the following content.
+
+## Module container
+
+Each module has an independent context container `Context`, which you can get using the `getContext()` method of the main class.
+
+The `Context` is consistent with Spring's `AnnotationConfigApplicationContext`. For specific usage, please refer to the official website documentation. This article only involves basic usage.
+
+::: warning Parent container
+
+All modules' context containers use a public container as the parent container, which has some common UltiTools Beans, and there may be other common Beans registered by other modules.
 
 :::
 
-# IOC 容器
+## Bean registration
 
-IOC 的全称为 Inversion of Control （反转控制），意在将对象的创建和管理交由容器，而不是由开发者主动新建对象。
+### Automatic scanning
+Add the `@ConpomentScan(...)` annotation to your main class, and UltiTools will automatically scan all classes in the given package when initializing your plugin. Those with the corresponding annotations will be automatically registered as Beans.
 
-UltiTools 整合了 Spring IOC 容器，如果你接触过 Spring 开发，你将会对下面的内容感到十分熟悉。
-
-::: warning 局限性
-继承或实现了服务端相关类或接口的类不可注册为Bean，因此也不可使用自动注入。
-
-监听器和执行器类使用了在注册时调用了 `autowireBean()` 来模拟支持自动注入，但不支持构造函数注入。
-:::
-
-## 模块容器
-
-每个模块都有一个独立的上下文容器 `Context`，你可以使用主类的 `getContext()` 方法获取到。
-
-该 `Context` 与 Spring 的 `AnnotationConfigApplicationContext` 一致，具体使用方法可查阅官网文档，本文仅涉及基本的用法。
-
-所有模块的上下文容器都使用了一个公共的容器作为父容器，该父容器拥有一些 UltiTools 的公共 Bean，也有可能存在其他模块注册的公共 Bean。
-
-## Bean注册
-
-### 自动扫描
-在你的主类添加 `@ConpomentScan(...)` 注解，UltiTools在初始化你的插件时会自动扫描给定包下所有的类，带有相应注解的将会被自动注册为 Bean。
-
-支持的注解有：
+Supported annotation：
 - `@Component`
 - `@Controller`
 - `@Service`
 - `@Repository`
 
-详情参见 [Classpath Scanning and Managed Components](https://docs.spring.io/spring-framework/reference/core/beans/classpath-scanning.html)
+Please refer [Classpath Scanning and Managed Components](https://docs.spring.io/spring-framework/reference/core/beans/classpath-scanning.html)
 
-### 手动注册
+### Manual registration
 
-你可以直接使用容器对象的 `register()` 方法进行注册：
+You can register directly using the `register()` method of the container object:
 
 ```java "MyBean.java"
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
@@ -53,68 +45,68 @@ public class BasicFunctions extends UltiToolsPlugin {
     
     @Override
     public boolean registerSelf() {
-        // 插件启动时执行
+        // on module register
         getContext().register(MyBean.class);
-        getContext().refresh();              //别忘记刷新上下文
+        getContext().refresh();              // don't forget to refresh context
     }
   
   ...
 }
 ```
 
-详情参见 [Bean Overview](https://docs.spring.io/spring-framework/reference/core/beans/definition.html)
+Please refer [Bean Overview](https://docs.spring.io/spring-framework/reference/core/beans/definition.html)
 
-## 依赖获取
+## Dependency acquisition
 
-### 自动注入
+### Automatic injection
 
-如果某一类受容器管理，那么可以使用自动注入：
+If a class is managed by the container, you can use automatic injection:
 
 ```java
-//字段注入
+// field injection
 @Autowired
 MyBean myBean;                  
 
 --- OR ---
 
-//构造函数注入
+// constructor injection
 public MyClass(MyBean myBean) {
     this.myBean = MyBean;       
 }
 ```
 
-### 手动获取
+### Manual acquisition
 
-如果需要从容器获取某个依赖，仅需调用容器对象的 `getBean()` 方法即可：
+If you need to get a dependency from the container, just call the `getBean()` method of the container object:
 
 ```java
 MyBean myBean = context.getBean(MyBean.class);
 ```
 
-### 插件主类
+### Module main class
 
-插件主类受容器管理，你可以通过多种方式来获取它。
+Module main class is managed by the container, and you can get it in many ways.
 
-#### 通过自动注入获取插件主类
+#### Get the main class through automatic injection
 
-前提是该类受容器管理
+Only if the class is managed by the container
 
 ```java
 @Autowired
-PluginMain pluginMain;                       //字段注入
+PluginMain pluginMain;                       // field injection
 
 public MyClass(PluginMain pluginMain) {
-    this.pluginMain = pluginMain;            //构造函数注入
+    this.pluginMain = pluginMain;            // constructor injection
 }
 ```
 
 ::: tip
-如果该类为事件监听器类或命令执行器类，那么可以使用字段注入的方式来实现主类的获取。
+If the class is an event listener class or a command executor class, you can use field injection to get the main class.
 :::
 
-#### 手动获取
+#### Manual acquisition
 
-如果在某些情况下无法通过容器来获取插件主类，那么你仍然可以通过创建 getter 来获取主类。
+If you cannot get the main class through the container in some cases, you can still create a getter to get the main class.
 
 ```java
 public class MyPlugin extends UltiToolsPlugin {
@@ -122,7 +114,7 @@ public class MyPlugin extends UltiToolsPlugin {
 
   @Override
   public boolean registerSelf() {
-    // 插件启动时执行
+    // on module register
     this.plugin = this;
     return true;
   }

@@ -1,22 +1,18 @@
-::: warning 🚧 This page is under construction
+# Data Storage
 
-The translation of this page is not finished yet.
+UltiTools encapsulates a data storage API that supports MySQL database and JSON file storage. 
+Data storage is transparent to developers, and UltiTools will determine which storage method 
+to use based on the server owner's configuration.
 
+All you need is an entity class. CRUD operations will be done automatically by UltiTools.
+
+::: warning Try not to nest objects
+Since the API is still under development, there may be problems when dealing with complex objects, so try not to nest objects.
 :::
 
-# 数据储存
+## Create entity class
 
-UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库与 JSON 文件储存，开发者只需为存储方式写一套代码，UltiTools将通过服主的配置判断使用那种存储方式。
-
-你需要的仅仅只是一个实体类。CRUD 操作将由 UltiTools 自动完成。
-
-::: warning 尽量不要嵌套对象
-由于插件还处于开发状态，难免在处理复杂对象时出现问题，所以存储的对象尽量不要超过两层嵌套（尽量不要嵌套对象）。
-:::
-
-## 创建实体类
-
-你只需要创建一个类，继承 `AbstractDataEntity` 类，并使用 `@Table` 和 `@Column` 注解来标记你的实体类。
+All you need is to create a class that inherits the `AbstractDataEntity` class, and use the `@Table` and `@Column` annotations to mark your entity class.
 
 ```java
 @Data
@@ -31,59 +27,65 @@ public class SomeEntity extends AbstractDataEntity {
 }
 ```
 
-其中，`@Table` 注解用于标记该类对应的数据表（若使用 MySQL 数据库），`@Column` 注解用于标记该类的字段对应的数据表的列。
+`@Table` is used to mark the data set corresponding to the class, and `@Column` is used to mark the field corresponding to the field of the data set of the class.
 
-`@Data`、`@Builder`、`@NoArgsConstructor`、`@AllArgsConstructor`、`@EqualsAndHashCode` 则为 Lombok 注解，用于自动生成 `getter`、`setter`、`builder`、`equals`、`hashCode` 方法。
+`@Data`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor`, `@EqualsAndHashCode` are Lombok annotations, which are used to automatically generate `getter`, `setter`, `builder`, `equals`, `hashCode` methods.
 
-### @Table 注解
+### @Table
 
-`@Table` 注解有一个 `value` 属性，用于指定该类对应的数据表或文件夹的名称。
+`@Table` annotation has a `value` attribute, which is used to specify the name of the data set corresponding to the class.
 
-### @Column 注解
+### @Column
 
-`@Column` 注解有三个属性，`value` 属性用于指定该字段对应的数据表的列，`type` 属性用于指定该字段对应的数据表的列的类型。
+`@Column` annotation has three attributes, `value` attribute is used to specify the column of the data set corresponding to the field, `type` attribute is used to specify the type of the column of the data set corresponding to the field.
 
-type 属性的默认值为 `VARCHAR(255)`。
+The default value of the `type` attribute is `VARCHAR(255)`.
 
-可用的类型可参见 [MySQL 数据类型](https://www.runoob.com/mysql/mysql-data-types.html)。
+Available types can be found in [MySQL Data Types](https://www.w3schools.com/mysql/mysql_datatypes.asp).
 
-## CRUD 操作
+## CRUD Operations
 
-UltiTools 封装了一套语义化的 CRUD 操作 API，你只需要调用相应的方法，即可完成对数据的增删改查。
+UltiTools encapsulates a semantic CRUD operation API. You only need to call the corresponding method to complete the addition, deletion, modification and query of the data.
 
 ### DataOperator
 
-`DataOperator` 用于数据操作。
+`DataOperator` is used for data operations.
 
-在继承了 `UltiToolsPlugin` 的主类中，有一个 `getDataOperator` 方法，用于获取数据操作器。
+In the main class that inherits `UltiToolsPlugin`, there is a `getDataOperator` method to get the data operator.
 
-你需要获取插件主类的实例，然后调用 `getDataOperator` 方法。
+You need to get the instance of the module main class, and then call the `getDataOperator` method.
 
 ```java
-DataOperator<SomeEntity> dataOperator = SomePlugin.getInstance().getDataOperator(SomeEntity.class);
+DataOperator<SomeEntity> dataOperator = 
+        SomePlugin.getInstance().getDataOperator(SomeEntity.class);
 ```
-DataOperator 的具体使用方法请参阅 Java Doc
 
-::: warning 请即取即用
+::: warning
 
-`DataOperator` 不是线程安全的，请在需要的时候获取 `DataOperator`，不要试图保存 `DataOperator` 对象。
+`DataOperator` is not thread-safe. Please get `DataOperator` when you need it, and do not try to save `DataOperator` object.
 
 :::
 
 
 ### WhereCondition
 
-`WhereCondition` 用于指定查询条件。
+`WhereCondition` is used to specify the query condition.
 
 ```java
 WhereCondition.builder().column("somecol").value(someval).build();
 ```
 
-其中，`column` 属性用于指定查询的列，`value` 属性用于指定查询的值。
+`column` is used to specify the column to be queried, and `value` is used to specify the value to be queried.
 
-与 `DataOperator` 搭配使用的例子：
+Example of using with `DataOperator`:
 
 ```java
-DataOperator dataOperator = SomePlugin.getInstance().getDataOperator(SomeEntity.class);
-List<Something> list = dataOperator.getAll(WhereCondition.builder().column("somecol").value(someval).build());
+DataOperator dataOperator = 
+        SomePlugin.getInstance().getDataOperator(SomeEntity.class);
+List<Something> list = dataOperator.getAll(
+        WhereCondition.builder()
+                .column("somecol")
+                .value(someval)
+                .build()
+);
 ```

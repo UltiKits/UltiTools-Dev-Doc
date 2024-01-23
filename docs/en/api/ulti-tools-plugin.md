@@ -3,7 +3,7 @@ The content of this page may not be the latest. You can go to [Javadoc](https://
 :::
 
 ::: tip 🐌 This page update slowly
-The content of this page may not be the latest. You can go to [Javadoc](https://doc.dev.ultikits.com/javadoc) to see the latest content.
+The content of this page may be outdated. You can go to [Javadoc](https://doc.dev.ultikits.com/javadoc) to see the latest content.
 :::
 
 # 类 `UltiToolsPlugin`

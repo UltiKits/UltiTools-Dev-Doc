@@ -40,8 +40,43 @@ UltiTools also offers a Maven plugin that can automatically place compiled plugi
 
 ## The Team
 
-* wisdomme (Main Developer) [Github](https://github.com/wisdommen)
-* qianmo (Main Developer) [Github](https://github.com/qianmo2233)
-* 绝尘 (Main Tester)
-* Shpries (Developer) [Github](https://github.com/Shpries)
-* 拾柒 (Art Designer)
+<script setup>
+import { VPTeamMembers } from 'vitepress/theme';
+
+const members = [
+  {
+    avatar: 'https://www.github.com/wisdommen.png',
+    name: 'wisdommen',
+    title: 'Creator',
+    links: [
+      { icon: 'github', link: 'https://github.com/wisdommen' }
+    ]
+  },
+  {
+    avatar: 'https://www.github.com/qianmo2233.png',
+    name: 'QianMo SAMA',
+    title: 'Main Developer',
+    links: [
+      { icon: 'github', link: 'https://github.com/qianmo2233' }
+    ]
+  },
+  {
+    avatar: 'https://www.github.com/JueChenChen.png',
+    name: 'Jue Chen',
+    title: 'Main Tester',
+    links: [
+      { icon: 'github', link: 'https://github.com/JueChenChen' }
+    ]
+  },
+  {
+    avatar: 'https://www.github.com/Shpries.png',
+    name: 'Shpries',
+    title: 'Developer',
+    links: [
+      { icon: 'github', link: 'https://github.com/Shpries.png' }
+    ]
+  },
+]
+</script>
+
+<VPTeamMembers size="small" :members="members" />

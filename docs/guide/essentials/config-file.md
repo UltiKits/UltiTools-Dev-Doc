@@ -58,10 +58,37 @@ boolean something = someConfig.getSomething();
 
 ## 注册配置文件
 
-在你的插件主类中注册配置文件。
+### 自动注册
+
+因为UltiTools提供了自动注册功能，所以你无需手动注册配置文件，只需要在你的配置文件类上添加 `@ConfigEntry` 注解即可。
+
+请查看[这篇文章](/guide/advanced/auto-register)来了解更多关于自动注册的内容。
+
+### 手动注册
+
+你可以重写你的插件主类中的 `getAllConfigs` 方法来注册配置文件。
 
 ```java
-getConfigManager().register(this, SomeConfig("path/to/config.yml"));
+@Override
+public List<AbstractConfigEntity> getAllConfigs() {
+    return Collections.singletonList(new SomeConfig("some/path/to/config"));
+}
 ```
 
+## 保存配置文件
+
 你无需担心配置文件的加载与保存等问题，UltiTools会自动为你做好一切。
+
+::: warning
+
+如果你保存配置文件，那么有些配置文件的注释可能就会消失！
+
+:::
+
+## 重载配置文件
+
+`UltiToolsPlugin` 提供了 `getConfigManager#reloadConfigs` 方法，你可以在需要的时候调用它来重新加载配置文件。
+
+```java
+SomePlugin.getInstance().getConfigManager().reloadConfigs();
+```

@@ -4,6 +4,14 @@ IOC 的全称为 Inversion of Control （反转控制），意在将对象的创
 
 UltiTools 整合了 Spring IOC 容器，如果你接触过 Spring 开发，你将会对下面的内容感到十分熟悉。
 
+::: warning 局限性
+继承或实现了服务端相关类或接口的类不可注册为Bean，因此也不可使用自动注入。
+
+例如：你不能将 `org.bukkit.plugin.java.JavaPlugin` 或 `org.bukkit.command.CommandExecutor` 注册为 Bean。
+
+监听器和执行器类在注册时调用了 `autowireBean()` 来模拟支持自动注入，但不支持构造函数注入。
+:::
+
 ## 模块容器
 
 每个模块都有一个独立的上下文容器 `Context`，你可以使用主类的 `getContext()` 方法获取到。
