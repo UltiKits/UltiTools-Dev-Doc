@@ -34,17 +34,20 @@ import ReloadPrompt from './components/ReloadPrompt.vue'
 export default {
     ...DefaultTheme,
     Layout() {
+        const {lang} = useData()
+        if (inBrowser) {
+            document.cookie = `nf_lang=${lang.value}; expires=Mon, 1 Jan 2030 00:00:00 UTC; path=/`
+        }
+
+        watchEffect(() => {
             const {lang} = useData()
-            if (inBrowser) {
-                document.cookie = `nf_lang=${lang.value}; expires=Mon, 1 Jan 2030 00:00:00 UTC; path=/`
-            }
+            const {frontmatter} = useData();
+            const route = useRoute();
+
             let language = lang.value.split('-')[0];
             if (language === 'zh') {
                 language = 'zh-CN'
             }
-            const {frontmatter} = useData();
-            const route = useRoute();
-
             // Obtain configuration from: https://giscus.app/
             giscusTalk({
                     repo: 'UltiKits/UltiTools-Dev-Doc',
@@ -62,6 +65,7 @@ export default {
                 },
                 true
             );
+        })
         return h(DefaultTheme.Layout, null, {
             'nav-bar-content-after': () => h(NolebaseEnhancedReadabilitiesMenu),
             'nav-screen-content-after': () => h(NolebaseEnhancedReadabilitiesScreenMenu),
