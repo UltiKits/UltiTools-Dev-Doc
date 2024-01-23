@@ -16,7 +16,7 @@ hero:
       text: GitHub 仓库
       link: https://github.com/UltiKits/UltiTools-Reborn
   image:
-    src: ../nnneon.svg
+    src: /nnneon.svg
     alt: UltiTools
 
 features:
