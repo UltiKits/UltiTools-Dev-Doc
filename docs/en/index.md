@@ -4,7 +4,7 @@ layout: home
 hero:
   name: "UltiTools API"
   text: "<span id=\"typing\">Base on Module</span><br>Spigot Development Framework"
-  tagline: Easily develop Spigot plugins with UltiTools API
+  tagline: Enjoy developing Spigot plugins with UltiTools API
   actions:
     - theme: brand
       text: Quick Start
