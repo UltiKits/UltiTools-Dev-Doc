@@ -26,6 +26,8 @@ Supported annotation：
 - `@Controller`
 - `@Service`
 - `@Repository`
+- `@CmdExecutor` (UltiTools API built-in)
+- `@EventListener` (UltiTools API built-in)
 
 Please refer [Classpath Scanning and Managed Components](https://docs.spring.io/spring-framework/reference/core/beans/classpath-scanning.html)
 
