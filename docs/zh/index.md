@@ -8,7 +8,7 @@ hero:
   actions:
     - theme: brand
       text: 快速上手
-      link: /guide/quick-start
+      link: /zh/guide/quick-start
     - theme: alt
       text: Javadoc 文档
       link: https://dev.ultikits.com/javadoc
