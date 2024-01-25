@@ -18,6 +18,7 @@ const textCN: DefaultTheme.Config = {
     },
 
     outline: {
+        level: 'deep',
         label: '页面导航'
     },
 

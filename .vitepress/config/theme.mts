@@ -4,9 +4,6 @@ import {docSearchLocaleZH} from "./search.zh.mjs";
 import {docSearchLocaleEN} from "./search.en.mjs";
 
 const themeConfig: DefaultTheme.Config = {
-    outline: {
-        level: "deep"
-    },
     search: {
         provider: 'algolia',
         options: {

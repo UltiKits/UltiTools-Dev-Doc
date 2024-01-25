@@ -53,14 +53,14 @@ let language = lang.value.split('-')[0];
         class="pwa-refresh"
         @click="updateServiceWorker?.()"
       >
-        Reload
+        {{ language == 'zh' ? '刷新' : 'Refresh' }}
       </button>
       <button
         type="button"
         class="pwa-cancel"
         @click="close"
       >
-        Close
+        {{ language == 'zh' ? '关闭' : 'Close' }}
       </button>
     </div>
   </template>
