@@ -9,10 +9,6 @@ svg[aria-label="Algolia"] {
     width: 0;
 }
 
-.curtain {
-    display: none;
-}
-
 .VPNavBar.has-sidebar .content{
     border-bottom-color: var(--vp-c-gutter);
 }
@@ -62,6 +58,17 @@ svg[aria-label="Algolia"] {
 
 #nprogress .bar {
     box-shadow: 0 0 12px 1px var(--vp-c-brand);
+}
+
+.slide-fade-enter-active {
+    transition: all .175s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+.slide-fade-leave-active {
+    transition: all 0s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+.slide-fade-enter-from, .slide-fade-leave-to {
+    transform: translateY(1.5vh);
+    opacity: 0;
 }
 
 .vp-doc {
