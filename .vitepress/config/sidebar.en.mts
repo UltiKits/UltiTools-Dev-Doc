@@ -2,6 +2,7 @@ import {DefaultTheme} from "vitepress/theme";
 
 const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
     {
+        base: '/en/guide/',
         text: 'Get Started',
         items: [
             {
@@ -15,6 +16,7 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
         ]
     },
     {
+        base: "/en/guide/essentials/",
         text: 'Basics',
         items: [
             {
@@ -40,6 +42,7 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
         ]
     },
     {
+        base: '/en/guide/advanced/',
         text: 'Advanced',
         items: [
             {
