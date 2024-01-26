@@ -47,19 +47,19 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
         items: [
             {
                 text: 'Auto Register',
-                link: 'advanced/auto-register'
+                link: 'auto-register'
             },
             {
                 text: 'IOC Container',
-                link: 'advanced/ioc-container'
+                link: 'ioc-container'
             },
             {
                 text: 'GUI Interface',
-                link: 'advanced/gui'
+                link: 'gui'
             },
             {
                 text: 'UltiTools Maven Plugin',
-                link: 'advanced/maven-plugin'
+                link: 'maven-plugin'
             }
         ]
     },
