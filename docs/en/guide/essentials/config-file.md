@@ -24,6 +24,8 @@ the `AbstractConfigEntity` class.
 public class SomeConfig extends AbstractConfigEntity {
     @ConfigEntry(path = "somepath", comment = "somecomment")
     private boolean something = false;
+    @ConfigEntry(path = "someMapPath", comment = "somecomment2", parser = StringHashMapParser.class)
+    private Map<String, String> someMap = new HashMap<>();
 
     public SomeConfig(String configFilePath) {
         super(configFilePath);
@@ -31,13 +33,89 @@ public class SomeConfig extends AbstractConfigEntity {
 }
 ```
 
+#### @ConfigEntity
+
 The `@ConfigEntity` annotation is used to mark the location of a configuration file, which requires a string parameter
 to specify the path of the configuration file in the plugin configuration folder. Usually this path is the same as the
 path in the resource folder directory during your development.
 
-`@ConfigEntry` is used to mark a configuration item. The `path` attribute is used to specify the path of the key of this
-configuration item in the configuration file, and the `comment` attribute is used to specify the comment of this
-configuration item.
+The parameter here can also point to a folder. If you specify a folder, all configuration files in the folder will be
+loaded as the current configuration class.
+
+```java
+@Getter
+@Setter
+@ConfigEntity("test")  // This is a folder
+public class TestConfig extends AbstractConfigEntity {
+    @ConfigEntry(path = "testString")
+    private String testString = "test";
+    ...
+}
+```
+
+::: warning Note
+
+If you specify a folder, you need to make sure that all configuration files in the folder can be read by the same
+configuration class. Sub-folders are not included.
+
+:::
+
+You can use the `UltiToolsPlugin#getConfigs` method to get all loaded configurations.
+
+```java
+List<TestConfig> configs = BasicFunctions.getInstance().getConfigs(TestConfig.class);
+```
+
+Or you can directly specify the path of the configuration file in a folder to get the configuration.
+
+```java
+TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", TestConfig.class);
+```
+
+
+#### @ConfigEntry
+
+`@ConfigEntry` is used to mark a configuration item. 
+
+The `path` attribute is used to specify the path of the key of this
+configuration item in the configuration file. 
+
+The `comment` attribute is used to specify the comment of this configuration item.
+
+The `parser` attribute is used to specify the parser of this configuration item. The parser is used to convert the
+object in the configuration file to the type of the configuration item. The default parser is `DefaultConfigParser`
+, it can handle most of the case but not all. If you need to parse a more complex object, you can create a class that 
+inherit the `ConfigParser` class and specify it in the `parser` attribute.
+
+::: tip Custom Parser Example
+```java
+public class StringHashMapParser extends ConfigParser<HashMap<String, String>> {
+    @Override
+    public HashMap<String, String> parse(Object object) {
+        if (!(object instanceof ConfigurationSection)) {
+            return null;
+        }
+        ConfigurationSection section = (ConfigurationSection) object;
+        HashMap<String, String> map = new HashMap<>();
+        for (String key : section.getKeys(false)) {
+            map.put(key, section.getString(key));
+        }
+        return map;
+    }
+
+    @Override
+    public MemorySection serializeToMemorySection(HashMap<String, String> object) {
+        MemorySection memorySection = new MemoryConfiguration();
+        for (String key : object.keySet()) {
+            memorySection.set(key, object.get(key));
+        }
+        return memorySection;
+    }
+}
+```
+:::
+
+#### @Getter and @Setter
 
 `@Getter` and `@Setter` are Lombok annotations, which are used to automatically generate `getter` and `setter` methods.
 
@@ -52,6 +130,13 @@ SomeConfig someConfig = SomePlugin.getInstance().getConfig(SomeConfig.class);
 ```
 
 Now you can use the `getter` and `setter` methods to operate the configuration file.
+
+::: tip Set and Save
+
+After you set a value of a configuration you don't need to save it, UltiTools will automatically save it when disabling.
+However, if you want to save it immediately, you can call the `save` method.
+
+:::
 
 ```java
 boolean something = someConfig.getSomething();
