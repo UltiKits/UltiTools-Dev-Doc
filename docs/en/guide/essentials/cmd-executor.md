@@ -241,6 +241,76 @@ public class PointSuggest {
 }
 ```
 
+### Parameters
+
+#### Command without Parameters
+
+If a command does not require any parameters, simply leave the `format` value empty.
+
+```java
+@CmdMapping(format="")
+```
+
+This type of command can have at most one occurrence.
+
+#### Variable Parameters
+
+For the last parameter in a method, you can use an array type by adding `...` to the last parameter in the `format`. Here's an example:
+
+```java
+@CmdMapping(format = "add <name...>")
+public void addPoint(@CmdSender Player player, @CmdParam(value = "name...") String[] name) {
+  ...
+}
+```
+
+In this example, when a player enters `/somecmd add aa bb cc`, the `name` will be `['aa', 'bb', 'cc']`.
+
+#### Type Parsing
+
+Before passing parameters to a method, UltiTools converts the command's variable parameters based on the types required by the method.
+
+All parsers are stored in a map called `parsers`, and you can use `getParser()` to access it.
+
+For some types, `AbstractCommandExecutor` provides default parsers (including base types and arrays):
+
+- String (Java built-in)
+- Float (Java built-in)
+- Double (Java built-in)
+- Integer (Java built-in)
+- Short (Java built-in)
+- Byte (Java built-in)
+- Long (Java built-in)
+- OfflinePlayer (Bukkit API)
+- Player (Bukkit API)
+- Material (Bukkit API)
+- UUID (Java built-in)
+- Boolean (Java built-in)
+
+If you want to use a custom parser, you need to create a method that can be used with the `Function` interface.
+
+Supported parser types are `<String, ?>`, meaning the method has exactly one parameter of type `String` and returns a value of any type.
+
+```java
+public static SomeType toSomeType(String s) {
+  //do something...
+  return result;
+}
+```
+
+Then, add the converter in the constructor:
+
+```java
+public SomeCommand() {
+  super();
+  getParsers().put(Arrays.asList(SomeType.class, SomeType[].class), SomeType::toSomeType);
+}
+```
+
+::: warning
+Make sure to add the array type as well; otherwise, variable parameters won't be parsed.
+:::
+
 ### Permission
 
 #### Method permission

@@ -213,6 +213,76 @@ public class PointSuggest {
 }
 ```
 
+### 参数
+
+#### 无参命令
+
+如果该命令无需任何参数，那么只需要将 ` format` 值留空即可
+
+```java
+@CmdMapping(format="")
+```
+
+该种命令最多存在一个
+
+#### 不定参数
+
+在一个方法的最后一个参数，允许使用数组类型，你需要在 `format` 中的最后一个参数添加 `...`, 下面是一个示例：
+
+```java
+@CmdMapping(format = "add <name...>")
+public void addPoint(@CmdSender Player player, @CmdParam(value = "name...") String[] name) {
+  ...
+}
+```
+
+这样在玩家输入 `/somecmd add aa bb cc` 时，`name` 就为 `['aa', 'bb', 'cc']`
+
+#### 类型解析
+
+在对方法进行传参之前，UltiTools 会根据方法所需参数的类型对命令的可变参数进行转换。
+
+所有的解析器被储存在一个名为 `parsers` 的 Map 中，你可以使用 `getParser()` 获取。
+
+对于部分类型，`AbstractCommandExecutor` 提供了默认的解析器（包括基类与数组）：
+
+- String (Java 内建)
+- Float (Java 内建)
+- Double (Java 内建)
+- Integer (Java 内建)
+- Short (Java 内建)
+- Byte (Java 内建)
+- Long (Java 内建)
+- OfflinePlayer (Bukkit API)
+- Player (Bukkit API)
+- Material (Bukkit API)
+- UUID (Java 内建)
+- Boolean (Java 内建)
+
+如果你希望使用自定义的解析器，那么你需要创建一个可以使用 ` Function ` 接口的方法。
+
+支持的解析器类型为 `<String, ?>`, 即方法有且仅有一个 `String` 类型的参数，并返回一个任意类型的值。
+
+```java
+public static SomeType toSomeType(String s) {
+  //do something...
+  return result;
+}
+```
+
+然后在在构造函数中添加该转换器：
+
+```java
+public SomeCommand() {
+  super();
+  getParsers().put(Arrays.asList(SomeType.class, SomeType[].class), SomeType::toSomeType);
+}
+```
+
+::: warning
+请同时添加数组类型，否则将无法解析不定参数
+:::
+
 ### 权限
 
 #### 方法权限

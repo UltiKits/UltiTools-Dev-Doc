@@ -10,9 +10,11 @@ Each module has an independent context container `Context`, which you can get us
 
 The `Context` is consistent with Spring's `AnnotationConfigApplicationContext`. For specific usage, please refer to the official website documentation. This article only involves basic usage.
 
-::: warning Parent container
-
 All modules' context containers use a public container as the parent container, which has some common UltiTools Beans, and there may be other common Beans registered by other modules.
+
+::: warning
+
+Despite UltiTools attempting to scan the involved classes as comprehensively as possible, there may still be issues with Bean registration if the class cannot be found.
 
 :::
 
