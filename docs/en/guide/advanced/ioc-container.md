@@ -4,6 +4,13 @@ IOC stands for Inversion of Control, which means that the creation and managemen
 
 UltiTools has integrated the Spring IOC container. If you have used Spring before, you will be very familiar with the following content.
 
+
+::: warning
+
+Despite UltiTools attempting to scan the involved classes as comprehensively as possible, there may still be issues with Bean registration if the class cannot be found.
+
+:::
+
 ## Module container
 
 Each module has an independent context container `Context`, which you can get using the `getContext()` method of the main class.
@@ -11,12 +18,6 @@ Each module has an independent context container `Context`, which you can get us
 The `Context` is consistent with Spring's `AnnotationConfigApplicationContext`. For specific usage, please refer to the official website documentation. This article only involves basic usage.
 
 All modules' context containers use a public container as the parent container, which has some common UltiTools Beans, and there may be other common Beans registered by other modules.
-
-::: warning
-
-Despite UltiTools attempting to scan the involved classes as comprehensively as possible, there may still be issues with Bean registration if the class cannot be found.
-
-:::
 
 ## Bean registration
 

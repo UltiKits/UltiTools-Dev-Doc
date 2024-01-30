@@ -1,8 +1,13 @@
-<script setup></script>
+<script setup>
+import {useData} from "vitepress";
+
+const {lang} = useData()
+let language = lang.value.split('-')[0];
+</script>
 
 <template>
   <div class="ver">
-    <span>API 版本: 607</span>
+    <span>API {{ language == 'zh' ? '版本' : 'version' }}: 608</span>
   </div>
 </template>
 
