@@ -21,23 +21,23 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
         items: [
             {
                 text: 'Command Executor',
-                link: 'essentials/cmd-executor'
+                link: 'cmd-executor'
             },
             {
                 text: 'Event Listener',
-                link: 'essentials/event-listener'
+                link: 'event-listener'
             },
             {
                 text: 'Config File',
-                link: 'essentials/config-file'
+                link: 'config-file'
             },
             {
                 text: 'Data Storage',
-                link: 'essentials/data-storage'
+                link: 'data-storage'
             },
             {
                 text: 'Internationalization',
-                link: 'essentials/i18n'
+                link: 'i18n'
             },
         ]
     },
