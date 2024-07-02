@@ -1,6 +1,6 @@
 # Data Storage
 
-UltiTools encapsulates a data storage API that supports MySQL database and JSON file storage. 
+UltiTools encapsulates a data storage API that supports MySQL database, SQLite database(since 6.1.0) and JSON file storage. 
 Data storage is transparent to developers, and UltiTools will determine which storage method 
 to use based on the server owner's configuration.
 

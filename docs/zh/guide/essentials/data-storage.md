@@ -1,6 +1,6 @@
 # 数据储存
 
-UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库与 JSON 文件储存。数据存储对于开发者来说是透明的，UltiTools将通过服主的配置判断使用哪种存储方式。
+UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite 数据库（6.1.0起）与 JSON 文件储存。数据存储对于开发者来说是透明的，UltiTools将通过服主的配置判断使用哪种存储方式。
 
 你需要的仅仅只是一个实体类。CRUD 操作将由 UltiTools 自动完成。
 
