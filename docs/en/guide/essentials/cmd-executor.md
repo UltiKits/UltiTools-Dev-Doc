@@ -14,11 +14,15 @@ UltiTools-API offers a more concise way to handle commands by encapsulating the 
 
 ## Create a command executor
 
-You only need to inherit the `AbstractCommandExecutor` class and override the `handleHelp` method. The `@CmdTarget`
+Starting with v6.2.0, you should inherit the `BaseCommandExecutor` class and override the `handleHelp` method. The `@CmdTarget`
 and `@CmdExecutor` annotations here represent the target type and executor information of the command.
 
+::: warning Deprecated
+`AbstractCommandExecutor` is deprecated since v6.2.0. Use `BaseCommandExecutor` instead which provides the same annotation-driven features plus a pluggable validation chain, improved context management, and custom type parser support.
+:::
+
 ```java
-import com.ultikits.ultitools.abstracts.AbstractCommendExecutor;
+import com.ultikits.ultitools.abstracts.command.BaseCommandExecutor;
 import com.ultikits.ultitools.annotations.command.CmdExecutor;
 import com.ultikits.ultitools.annotations.command.CmdTarget;
 import org.bukkit.command.CommandSender;
@@ -29,7 +33,7 @@ import org.bukkit.command.CommandSender;
         // Command permission (optional)
         permission = "ultikits.example.all",
         // Command description (optional)
-        description = "测试指令",
+        description = "Test command",
         // Command alias
         alias = {"test", "ts"},
         // Whether to register manually (optional)
@@ -37,7 +41,7 @@ import org.bukkit.command.CommandSender;
         // Whether to require OP permission (optional)
         requireOp = false
 )
-public class ExampleCommand extends AbstractCommendExecutor {
+public class ExampleCommand extends BaseCommandExecutor {
 
     @Override
     protected void handleHelp(CommandSender sender) {
@@ -109,7 +113,7 @@ nesting.
 
 However, with UltiTools, you only need to write the main logic, and the rest will be handled by UltiTools.
 
-First, you need to create an executor class that inherits `AbstractCommandExecutor`.
+First, you need to create an executor class that inherits `BaseCommandExecutor`.
 
 Then create a method named `addPoint` and add the parameters you want:
 
@@ -424,6 +428,348 @@ Under the `LimitType.SENDER` strategy, the player will receive a prompt: `Please
 
 Under the `LimitType.ALL` strategy, the player will receive a
 prompt: `Please wait for last Command Processing which sent by other players!`
+
+## Command Context <Badge type="tip" text="v6.2.0+" />
+
+The `CommandContext` is an immutable object that encapsulates all information about a command invocation. It is passed to validators and is useful for accessing command metadata during execution.
+
+### Accessing Context Information
+
+```java
+// Check if sender is a player
+boolean isPlayer = context.isPlayer();
+
+// Get the player (returns null if sender is not a player)
+Player player = context.getPlayer();
+
+// Get the raw command sender
+CommandSender sender = context.getSender();
+
+// Get the command and its alias
+Command command = context.getCommand();
+String alias = context.getAlias();
+
+// Get raw arguments
+String[] args = context.getRawArgs();
+int argCount = context.getArgCount();
+String firstArg = context.getArg(0);
+
+// Get parsed parameters by name
+String[] nameValues = context.getParam("name");
+String singleValue = context.getParamValue("name");
+
+// Get the matched method and format
+Method method = context.getMatchedMethod();
+String format = context.getMatchedFormat();
+
+// Get command invocation timestamp
+long timestamp = context.getTimestamp();
+```
+
+## Command Validation Chain <Badge type="tip" text="v6.2.0+" />
+
+The validation chain implements the Chain of Responsibility pattern, allowing you to compose multiple validators that execute in order. Built-in validators handle common requirements like permissions, sender type, cooldowns, and execution locks.
+
+### Built-in Validators
+
+#### SenderTypeValidator
+
+Validates that the command sender matches the expected target type (player, console, or both):
+
+```java
+@CmdTarget(CmdTarget.CmdTargetType.PLAYER)
+@CmdExecutor(alias = {"mycmd"})
+public class PlayerOnlyCommand extends BaseCommandExecutor {
+    // Automatically rejects console users
+}
+```
+
+#### PermissionValidator
+
+Validates that the sender has required permissions:
+
+```java
+@CmdExecutor(
+    alias = {"admin"},
+    permission = "myadmin.use",  // Base permission for all commands
+    requireOp = false
+)
+@CmdMapping(format = "reload", permission = "myadmin.reload")  // Method-specific permission
+public void reload(@CmdSender CommandSender sender) {
+    // Only users with "myadmin.reload" can execute this
+}
+```
+
+#### CooldownValidator
+
+Manages per-player command cooldowns using `@CmdCD`:
+
+```java
+@CmdMapping(format = "expensive")
+@CmdCD(30)  // 30 second cooldown
+public void expensiveOperation(@CmdSender Player player) {
+    // Performs expensive operation
+    // Player must wait 30 seconds before executing again
+}
+```
+
+Access cooldown state programmatically:
+
+```java
+@Autowired
+private CooldownValidator cooldownValidator;
+
+public void checkCooldown(UUID playerId, String methodKey) {
+    long remaining = cooldownValidator.getRemainingCooldown(playerId, methodKey);
+    if (remaining > 0) {
+        // Player is on cooldown
+    }
+}
+```
+
+#### UsageLockValidator
+
+Prevents concurrent execution using `@UsageLimit`:
+
+```java
+@CmdMapping(format = "backup")
+@UsageLimit(value = UsageLimit.LimitType.ALL)  // Only one per server
+public void backup(@CmdSender CommandSender sender) {
+    // Only one player can run this at a time
+}
+
+@CmdMapping(format = "download")
+@UsageLimit(value = UsageLimit.LimitType.SENDER)  // One per player
+public void download(@CmdSender Player player) {
+    // Each player can only run one at a time
+}
+```
+
+### Creating Custom Validators
+
+Implement `CommandValidator` to create custom validation logic:
+
+```java
+public class WorldRestrictionValidator implements CommandValidator {
+
+    private final Set<String> allowedWorlds = new HashSet<>();
+
+    public WorldRestrictionValidator(String... worlds) {
+        allowedWorlds.addAll(Arrays.asList(worlds));
+    }
+
+    @Override
+    public ValidationResult validate(CommandContext context) {
+        if (!context.isPlayer()) {
+            return ValidationResult.success();
+        }
+
+        Player player = context.getPlayer();
+        if (!allowedWorlds.contains(player.getWorld().getName())) {
+            return ValidationResult.failure(
+                "You can only use this command in: " + String.join(", ", allowedWorlds),
+                "command.error.wrong_world"
+            );
+        }
+
+        return ValidationResult.success();
+    }
+
+    @Override
+    public int getOrder() {
+        return 400;  // Execute after permission validators
+    }
+
+    @Override
+    public String getName() {
+        return "WorldRestrictionValidator";
+    }
+}
+```
+
+Register the validator in your command executor:
+
+```java
+public class MyCommand extends BaseCommandExecutor {
+
+    public MyCommand() {
+        super();
+        addValidator(new WorldRestrictionValidator("world", "world_nether"));
+    }
+}
+```
+
+Or use a custom validator chain:
+
+```java
+ValidatorChain chain = ValidatorChain.builder()
+    .add(SenderTypeValidator.fromAnnotation(null))
+    .add(new PermissionValidator("myadmin.use", false))
+    .add(new WorldRestrictionValidator("world"))
+    .build();
+
+public class MyCommand extends BaseCommandExecutor {
+    public MyCommand() {
+        super(chain);
+    }
+}
+```
+
+### Validator Execution Order
+
+Validators execute in order by their `getOrder()` value (lower values first):
+
+1. **100** - SenderTypeValidator (ensure right user type)
+2. **200** - PermissionValidator (check permissions)
+3. **250** - UsageLockValidator (prevent concurrent execution)
+4. **300** - CooldownValidator (check cooldown state)
+5. **400+** - Custom validators
+
+## Async Commands <Badge type="tip" text="v6.2.0+" />
+
+Use `@AsyncCommand` to execute commands asynchronously without blocking the server thread. This is cleaner than the deprecated `@RunAsync`:
+
+```java
+@CmdMapping(format = "backup")
+@AsyncCommand
+public void backupWorld(@CmdSender Player player) {
+    // Runs asynchronously - safe for I/O operations
+    performBackupLogic();
+
+    // Sync back to main thread for Bukkit operations
+    Bukkit.getScheduler().runTask(UltiTools.getInstance(), () -> {
+        player.sendMessage("Backup completed!");
+    });
+}
+```
+
+### Async Command Options
+
+```java
+@AsyncCommand(
+    showProcessing = true,                      // Show "Processing..." message
+    processingMessageKey = "command.backup.processing",  // Custom i18n message
+    timeout = 60                                // 60 second timeout (0 = no timeout)
+)
+@CmdMapping(format = "backup")
+public void backupWorld(@CmdSender Player player) {
+    // Configuration above:
+    // - Shows "处理中..." while executing
+    // - Uses custom i18n key instead of default
+    // - Cancels if execution takes > 60 seconds
+}
+```
+
+## Custom Type Parsers <Badge type="tip" text="v6.2.0+" />
+
+Type parsers convert command argument strings into the types your methods require. UltiTools provides built-in parsers for primitive types, Bukkit entities, and arrays.
+
+### Built-in Parsers
+
+- **Primitive types**: String, Integer, Double, Float, Long, Short, Byte, Boolean
+- **Bukkit entities**: Player, OfflinePlayer, Material, World
+- **Other types**: UUID, Location, GameMode, Enchantment
+- **Arrays**: All types above support array syntax
+
+### Creating Custom Parsers
+
+Implement `TypeParser<T>`:
+
+```java
+public class ColorParser implements TypeParser<Color> {
+
+    @Override
+    public Class<Color> getPrimaryType() {
+        return Color.class;
+    }
+
+    @Override
+    public List<Class<?>> getSupportedTypes() {
+        return Arrays.asList(Color.class, Color[].class);
+    }
+
+    @Override
+    public Color parse(String value) throws TypeParseException {
+        try {
+            // Parse hex color like "FF0000"
+            int rgb = Integer.parseInt(value, 16);
+            return Color.fromRGB(rgb);
+        } catch (NumberFormatException e) {
+            throw new TypeParseException(value, Color.class,
+                "Invalid color format. Use hexadecimal (e.g., FF0000)", e);
+        }
+    }
+
+    @Override
+    public int getPriority() {
+        return 0;
+    }
+}
+```
+
+Register the parser:
+
+```java
+@Autowired
+private UltiToolsPlugin plugin;
+
+@PostConstruct
+public void init() {
+    TypeParserRegistry.getInstance().register(new ColorParser());
+}
+```
+
+Use in your command:
+
+```java
+@CmdMapping(format = "setcolor <color>")
+public void setColor(@CmdSender Player player, @CmdParam("color") Color color) {
+    // color is parsed automatically
+}
+```
+
+Advanced parser with array support:
+
+```java
+public class RangeParser implements TypeParser<IntRange> {
+
+    @Override
+    public Class<IntRange> getPrimaryType() {
+        return IntRange.class;
+    }
+
+    @Override
+    public List<Class<?>> getSupportedTypes() {
+        return Arrays.asList(IntRange.class, IntRange[].class);
+    }
+
+    @Override
+    public IntRange parse(String value) throws TypeParseException {
+        String[] parts = value.split("-");
+        if (parts.length != 2) {
+            throw new TypeParseException(value, IntRange.class,
+                "Range format: min-max (e.g., 1-100)");
+        }
+
+        try {
+            int min = Integer.parseInt(parts[0]);
+            int max = Integer.parseInt(parts[1]);
+            return new IntRange(min, max);
+        } catch (NumberFormatException e) {
+            throw new TypeParseException(value, IntRange.class,
+                "Range bounds must be integers", e);
+        }
+    }
+}
+
+// Usage
+@CmdMapping(format = "random <range>")
+public void randomNumber(@CmdSender Player player,
+                         @CmdParam("range") IntRange range) {
+    int value = ThreadLocalRandom.current().nextInt(range.min, range.max + 1);
+    player.sendMessage("Random: " + value);
+}
+```
 
 ## Vanilla Bukkit Command Executor Wrapper
 

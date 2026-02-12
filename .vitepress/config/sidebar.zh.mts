@@ -74,6 +74,10 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
                 link: 'conditional-registration'
             },
             {
+                text: '异常处理',
+                link: 'exception-handling'
+            },
+            {
                 text: 'GUI界面',
                 link: 'gui'
             },

@@ -12,10 +12,14 @@ UltiTools-API 对原生的 `CommandExecutor` 接口进行了封装，提供了�
 
 ## 创建命令执行器
 
-你只需要继承 `AbstractCommandExecutor` 类，并重写 `handleHelp` 方法。这里的 `@CmdTarget` 和 `@CmdExecutor` 注解是代表了该命令的目标类型和执行器信息。
+从 v6.2.0 开始，你应该继承 `BaseCommandExecutor` 类，并重写 `handleHelp` 方法。这里的 `@CmdTarget` 和 `@CmdExecutor` 注解是代表了该命令的目标类型和执行器信息。
+
+::: warning 已弃用
+`AbstractCommandExecutor` 从 v6.2.0 开始已弃用。请使用 `BaseCommandExecutor`，它提供了相同的注解驱动功能，同时支持可插拔的验证链、改进的上下文管理和自定义类型解析器支持。
+:::
 
 ```java
-import com.ultikits.ultitools.abstracts.AbstractCommendExecutor;
+import com.ultikits.ultitools.abstracts.command.BaseCommandExecutor;
 import com.ultikits.ultitools.annotations.command.CmdExecutor;
 import com.ultikits.ultitools.annotations.command.CmdTarget;
 import org.bukkit.command.CommandSender;
@@ -34,8 +38,8 @@ import org.bukkit.command.CommandSender;
     // 是否需要OP权限（可选）
     requireOp = false
 )
-public class ExampleCommand extends AbstractCommendExecutor {
-    
+public class ExampleCommand extends BaseCommandExecutor {
+
   @Override
   protected void handleHelp(CommandSender sender) {
     // 向命令发送者发送帮助信息
@@ -99,7 +103,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
 使用这个方法，你只需要编写最主要的逻辑即可，剩下的交给 UltiTools。
 
-首先你需要创建一个继承了 `AbstractCommandExecutor` 的执行器类。
+首先你需要创建一个继承了 `BaseCommandExecutor` 的执行器类。
 
 接着创建一个名为 `addPoint` 的方法，并添加你想要的参数：
 
@@ -385,6 +389,348 @@ public void listPoint(@CmdSender Player player) {
 在 `LimitType.SENDER` 策略下，玩家在上一条该指令执行完毕之前重复执行前将会收到提示：`请先等待上一条命令执行完毕！`
 
 在 `LimitType.ALL` 策略下，玩家在服内上一条该指令执行完毕之前重复执行前将会收到提示：`请先等待其他玩家发送的命令执行完毕！`
+
+## 命令上下文 <Badge type="tip" text="v6.2.0+" />
+
+`CommandContext` 是一个不可变的对象，它封装了命令调用的所有信息。它被传递给验证器，并在执行期间可用于访问命令元数据。
+
+### 访问上下文信息
+
+```java
+// 检查发送者是否是玩家
+boolean isPlayer = context.isPlayer();
+
+// 获取玩家（如果发送者不是玩家则返回 null）
+Player player = context.getPlayer();
+
+// 获取原始命令发送者
+CommandSender sender = context.getSender();
+
+// 获取命令及其别名
+Command command = context.getCommand();
+String alias = context.getAlias();
+
+// 获取原始参数
+String[] args = context.getRawArgs();
+int argCount = context.getArgCount();
+String firstArg = context.getArg(0);
+
+// 按名称获取已解析的参数
+String[] nameValues = context.getParam("name");
+String singleValue = context.getParamValue("name");
+
+// 获取匹配的方法和格式
+Method method = context.getMatchedMethod();
+String format = context.getMatchedFormat();
+
+// 获取命令调用时间戳
+long timestamp = context.getTimestamp();
+```
+
+## 命令验证链 <Badge type="tip" text="v6.2.0+" />
+
+验证链实现了责任链模式，允许你组合多个按顺序执行的验证器。内置验证器处理常见需求，如权限、发送者类型、冷却和执行锁。
+
+### 内置验证器
+
+#### SenderTypeValidator
+
+验证命令发送者是否与预期的目标类型匹配（玩家、控制台或两者）：
+
+```java
+@CmdTarget(CmdTarget.CmdTargetType.PLAYER)
+@CmdExecutor(alias = {"mycmd"})
+public class PlayerOnlyCommand extends BaseCommandExecutor {
+    // 自动拒绝控制台用户
+}
+```
+
+#### PermissionValidator
+
+验证发送者是否具有所需权限：
+
+```java
+@CmdExecutor(
+    alias = {"admin"},
+    permission = "myadmin.use",  // 所有命令的基本权限
+    requireOp = false
+)
+@CmdMapping(format = "reload", permission = "myadmin.reload")  // 方法特定权限
+public void reload(@CmdSender CommandSender sender) {
+    // 只有拥有 "myadmin.reload" 权限的用户才能执行此命令
+}
+```
+
+#### CooldownValidator
+
+使用 `@CmdCD` 管理每个玩家的命令冷却：
+
+```java
+@CmdMapping(format = "expensive")
+@CmdCD(30)  // 30 秒冷却
+public void expensiveOperation(@CmdSender Player player) {
+    // 执行昂贵的操作
+    // 玩家必须等待 30 秒后才能再次执行
+}
+```
+
+以编程方式访问冷却状态：
+
+```java
+@Autowired
+private CooldownValidator cooldownValidator;
+
+public void checkCooldown(UUID playerId, String methodKey) {
+    long remaining = cooldownValidator.getRemainingCooldown(playerId, methodKey);
+    if (remaining > 0) {
+        // 玩家仍在冷却中
+    }
+}
+```
+
+#### UsageLockValidator
+
+使用 `@UsageLimit` 防止并发执行：
+
+```java
+@CmdMapping(format = "backup")
+@UsageLimit(value = UsageLimit.LimitType.ALL)  // 仅限服务器执行一个
+public void backup(@CmdSender CommandSender sender) {
+    // 同时只有一个玩家可以运行此命令
+}
+
+@CmdMapping(format = "download")
+@UsageLimit(value = UsageLimit.LimitType.SENDER)  // 每个玩家仅一个
+public void download(@CmdSender Player player) {
+    // 每个玩家同时只能运行一个
+}
+```
+
+### 创建自定义验证器
+
+实现 `CommandValidator` 来创建自定义验证逻辑：
+
+```java
+public class WorldRestrictionValidator implements CommandValidator {
+
+    private final Set<String> allowedWorlds = new HashSet<>();
+
+    public WorldRestrictionValidator(String... worlds) {
+        allowedWorlds.addAll(Arrays.asList(worlds));
+    }
+
+    @Override
+    public ValidationResult validate(CommandContext context) {
+        if (!context.isPlayer()) {
+            return ValidationResult.success();
+        }
+
+        Player player = context.getPlayer();
+        if (!allowedWorlds.contains(player.getWorld().getName())) {
+            return ValidationResult.failure(
+                "你只能在以下世界中使用此命令: " + String.join(", ", allowedWorlds),
+                "command.error.wrong_world"
+            );
+        }
+
+        return ValidationResult.success();
+    }
+
+    @Override
+    public int getOrder() {
+        return 400;  // 在权限验证器之后执行
+    }
+
+    @Override
+    public String getName() {
+        return "WorldRestrictionValidator";
+    }
+}
+```
+
+在你的命令执行器中注册验证器：
+
+```java
+public class MyCommand extends BaseCommandExecutor {
+
+    public MyCommand() {
+        super();
+        addValidator(new WorldRestrictionValidator("world", "world_nether"));
+    }
+}
+```
+
+或使用自定义验证链：
+
+```java
+ValidatorChain chain = ValidatorChain.builder()
+    .add(SenderTypeValidator.fromAnnotation(null))
+    .add(new PermissionValidator("myadmin.use", false))
+    .add(new WorldRestrictionValidator("world"))
+    .build();
+
+public class MyCommand extends BaseCommandExecutor {
+    public MyCommand() {
+        super(chain);
+    }
+}
+```
+
+### 验证器执行顺序
+
+验证器按其 `getOrder()` 值的顺序执行（较低的值优先）：
+
+1. **100** - SenderTypeValidator（确保正确的用户类型）
+2. **200** - PermissionValidator（检查权限）
+3. **250** - UsageLockValidator（防止并发执行）
+4. **300** - CooldownValidator（检查冷却状态）
+5. **400+** - 自定义验证器
+
+## 异步命令 <Badge type="tip" text="v6.2.0+" />
+
+使用 `@AsyncCommand` 以异步方式执行命令而不阻塞服务器线程。这比已弃用的 `@RunAsync` 更简洁：
+
+```java
+@CmdMapping(format = "backup")
+@AsyncCommand
+public void backupWorld(@CmdSender Player player) {
+    // 异步运行 - 适合 I/O 操作
+    performBackupLogic();
+
+    // 同步回主线程以进行 Bukkit 操作
+    Bukkit.getScheduler().runTask(UltiTools.getInstance(), () -> {
+        player.sendMessage("备份已完成！");
+    });
+}
+```
+
+### 异步命令选项
+
+```java
+@AsyncCommand(
+    showProcessing = true,                      // 显示"处理中..."消息
+    processingMessageKey = "command.backup.processing",  // 自定义 i18n 消息
+    timeout = 60                                // 60 秒超时（0 = 无超时）
+)
+@CmdMapping(format = "backup")
+public void backupWorld(@CmdSender Player player) {
+    // 上述配置的作用：
+    // - 执行时显示"处理中..."
+    // - 使用自定义 i18n 键而不是默认值
+    // - 如果执行超过 60 秒则取消
+}
+```
+
+## 自定义类型解析器 <Badge type="tip" text="v6.2.0+" />
+
+类型解析器将命令参数字符串转换为你的方法所需的类型。UltiTools 为原始类型、Bukkit 实体和数组提供了内置解析器。
+
+### 内置解析器
+
+- **原始类型**: String、Integer、Double、Float、Long、Short、Byte、Boolean
+- **Bukkit 实体**: Player、OfflinePlayer、Material、World
+- **其他类型**: UUID、Location、GameMode、Enchantment
+- **数组**: 上述所有类型都支持数组语法
+
+### 创建自定义解析器
+
+实现 `TypeParser<T>`：
+
+```java
+public class ColorParser implements TypeParser<Color> {
+
+    @Override
+    public Class<Color> getPrimaryType() {
+        return Color.class;
+    }
+
+    @Override
+    public List<Class<?>> getSupportedTypes() {
+        return Arrays.asList(Color.class, Color[].class);
+    }
+
+    @Override
+    public Color parse(String value) throws TypeParseException {
+        try {
+            // 解析十六进制颜色，如 "FF0000"
+            int rgb = Integer.parseInt(value, 16);
+            return Color.fromRGB(rgb);
+        } catch (NumberFormatException e) {
+            throw new TypeParseException(value, Color.class,
+                "无效的颜色格式。使用十六进制（例如 FF0000）", e);
+        }
+    }
+
+    @Override
+    public int getPriority() {
+        return 0;
+    }
+}
+```
+
+注册解析器：
+
+```java
+@Autowired
+private UltiToolsPlugin plugin;
+
+@PostConstruct
+public void init() {
+    TypeParserRegistry.getInstance().register(new ColorParser());
+}
+```
+
+在你的命令中使用：
+
+```java
+@CmdMapping(format = "setcolor <color>")
+public void setColor(@CmdSender Player player, @CmdParam("color") Color color) {
+    // color 自动解析
+}
+```
+
+支持数组的高级解析器：
+
+```java
+public class RangeParser implements TypeParser<IntRange> {
+
+    @Override
+    public Class<IntRange> getPrimaryType() {
+        return IntRange.class;
+    }
+
+    @Override
+    public List<Class<?>> getSupportedTypes() {
+        return Arrays.asList(IntRange.class, IntRange[].class);
+    }
+
+    @Override
+    public IntRange parse(String value) throws TypeParseException {
+        String[] parts = value.split("-");
+        if (parts.length != 2) {
+            throw new TypeParseException(value, IntRange.class,
+                "范围格式: min-max（例如 1-100）");
+        }
+
+        try {
+            int min = Integer.parseInt(parts[0]);
+            int max = Integer.parseInt(parts[1]);
+            return new IntRange(min, max);
+        } catch (NumberFormatException e) {
+            throw new TypeParseException(value, IntRange.class,
+                "范围边界必须是整数", e);
+        }
+    }
+}
+
+// 使用方式
+@CmdMapping(format = "random <range>")
+public void randomNumber(@CmdSender Player player,
+                         @CmdParam("range") IntRange range) {
+    int value = ThreadLocalRandom.current().nextInt(range.min, range.max + 1);
+    player.sendMessage("随机值: " + value);
+}
+```
 
 ## 传统命令执行器
 

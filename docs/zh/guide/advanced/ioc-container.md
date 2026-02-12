@@ -129,6 +129,233 @@ public class MyPlugin extends UltiToolsPlugin {
 }
 ```
 
+## Bean 生命周期钩子 <Badge type="tip" text="v6.2.0+" />
+
+使用 `@PostConstruct` 和 `@PreDestroy` 注解可以在托管 Bean 的特定生命周期阶段自动调用方法。
+
+### @PostConstruct
+
+`@PostConstruct` 注解标记一个方法在**所有依赖都被注入后且 Bean 完全初始化后**被调用。
+
+```java
+@Service
+public class DatabaseConnection {
+    private String connectionUrl;
+
+    @Autowired
+    private ConfigService config;
+
+    @PostConstruct
+    public void initialize() {
+        // 在注入完成后调用
+        this.connectionUrl = config.getDatabaseUrl();
+        // 连接到数据库
+        connectToDatabase();
+    }
+
+    private void connectToDatabase() {
+        // 初始化逻辑
+    }
+}
+```
+
+**规则：**
+- 方法必须返回 `void`
+- 方法不能接受任何参数
+- 可以抛出已检查异常
+- 每个 Bean 实例仅调用一次（对于单例）
+
+### @PreDestroy
+
+`@PreDestroy` 注解标记一个方法在**Bean 销毁前**被调用（当插件被禁用或容器关闭时）。
+
+```java
+@Service
+public class ResourceManager {
+    private Connection dbConnection;
+
+    @PostConstruct
+    public void connect() {
+        dbConnection = createConnection();
+    }
+
+    @PreDestroy
+    public void cleanup() {
+        // 在关闭前调用
+        if (dbConnection != null && dbConnection.isOpen()) {
+            dbConnection.close();
+        }
+    }
+}
+```
+
+**规则：**
+- 方法必须返回 `void`
+- 方法不能接受任何参数
+- 可以抛出已检查异常
+- 异常将被记录但不会阻止关闭
+
+## 工厂方法 Bean <Badge type="tip" text="v6.2.0+" />
+
+对于复杂的 Bean 初始化或从第三方库创建 Bean，使用 `@Configuration` 注解配合 `@Bean` 工厂方法。
+
+```java
+@Configuration
+public class HttpClientConfiguration {
+
+    @Bean
+    public HttpClient createHttpClient() {
+        // 此方法的返回值会成为托管 Bean
+        return HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(30))
+            .version(HttpClient.Version.HTTP_2)
+            .build();
+    }
+
+    @Bean(name = "primaryDatabase")
+    public DataSource createDataSource() {
+        // 命名 Bean - 当存在多个相同类型的 Bean 时很有用
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl("jdbc:mysql://localhost:3306/db");
+        config.setUsername("user");
+        config.setPassword("pass");
+        return new HikariDataSource(config);
+    }
+}
+```
+
+**何时使用：**
+- 从外部库创建 Bean（Gson、HTTP 客户端、数据库连接池）
+- 具有多个步骤的复杂初始化逻辑
+- 基于运行时配置的条件性 Bean 创建
+- 命名 Bean 用于消除多个实现的歧义
+
+**规则：**
+- 类必须用 `@Configuration` 注解
+- 方法必须用 `@Bean` 注解
+- 返回类型变成 Bean 类型
+- Bean 名称默认为方法名，或使用 `@Bean(name="customName")`
+- 工厂方法可以接受 `@Autowired` 依赖
+
+## 插件实例注入 <Badge type="tip" text="v6.2.0+" />
+
+你的插件主类（扩展 `UltiToolsPlugin` 的类）会自动在 IoC 容器中注册，并可以被注入到任何托管 Bean 中。
+
+### 为什么使用此模式
+
+在 v6.2.0 之前，代码通常使用静态 `getInstance()` 模式：
+
+```java
+// 旧模式（可行但产生耦合）
+public class MyService {
+    public void doSomething() {
+        MyPlugin plugin = MyPlugin.getInstance();
+        // 使用 plugin
+    }
+}
+```
+
+从 v6.2.0 开始，插件实例由容器自动管理：
+
+```java
+// 新模式（更好 - 依赖注入）
+@Service
+public class MyService {
+    @Autowired
+    private MyPlugin plugin;  // 自动注入
+
+    public void doSomething() {
+        // 使用 plugin - 不依赖于静态 getInstance()
+    }
+}
+```
+
+### 构造函数注入示例
+
+```java
+@Service
+public class PlayerDataService {
+    private final MyPlugin plugin;
+    private final ConfigService config;
+
+    public PlayerDataService(MyPlugin plugin, ConfigService config) {
+        this.plugin = plugin;
+        this.config = config;
+    }
+
+    public void syncPlayerData(UUID playerId) {
+        // 使用 plugin.getServer()、plugin.getLogger() 等
+        plugin.getLogger().info("Syncing data for: " + playerId);
+    }
+}
+```
+
+### 工作原理
+
+容器在插件初始化期间自动执行此注册：
+
+```java
+// 在 PluginManager 中的插件初始化期间
+UltiToolsPlugin plugin = new YourPlugin();
+pluginContext.registerType(UltiToolsPlugin.class, plugin);  // 按父类类型注册
+pluginContext.registerType(YourPlugin.class, plugin);       // 也按具体类型注册
+```
+
+这意味着两种注入方式都有效：
+
+```java
+@Autowired
+private UltiToolsPlugin plugin;  // 通过父类类型
+
+@Autowired
+private YourPlugin plugin;       // 通过具体类型
+```
+
+**优势：**
+- 类型安全的依赖注入
+- 更好的可测试性（可以为单元测试模拟插件）
+- 消除了静态 getInstance() 调用
+- 遵循 Spring 依赖注入模式
+
+## 服务优先级
+
+当同一接口存在多个实现时，使用 `@Service` 注解的 `priority` 属性来控制 `getBean(Class)` 返回哪一个。
+
+```java
+// 支付处理器的多个实现
+@Service(priority = 10)
+public class PayPalProcessor implements PaymentProcessor {
+    // 优先级高 = 优先处理
+}
+
+@Service(priority = 5)
+public class StripeProcessor implements PaymentProcessor {
+    // 优先级中等
+}
+
+@Service  // 默认优先级 = 0
+public class DirectBankProcessor implements PaymentProcessor {
+    // 优先级最低
+}
+```
+
+**行为：**
+- 更高的 `priority` 值优先
+- 默认优先级为 0
+- 仅影响接口类型的 `getBean(Class)` 查找
+- 当多个 Bean 匹配时，返回优先级最高的 Bean
+- 在 `getBeansOfType()` 和 `getOrderedBeansOfType()` 中保持顺序（最高优先级在前）
+
+```java
+// 使用方式
+@Autowired
+private PaymentProcessor processor;  // 获得 PayPalProcessor（最高优先级）
+
+// 或获得按优先级排序的所有实现
+List<PaymentProcessor> allProcessors = context.getOrderedBeansOfType(PaymentProcessor.class);
+// 返回：[PayPalProcessor, StripeProcessor, DirectBankProcessor]
+```
+
 ## 条件注册 <Badge type="tip" text="v6.2.0+" />
 
 从 v6.2.0 开始，你可以使用 `@ConditionalOnConfig` 注解根据 YAML 配置值来条件性地注册组件。
@@ -142,4 +369,3 @@ public class EconomyService {
 ```
 
 这消除了在 `registerSelf()` 中手动进行 `if` 判断的需要。详情请参阅[条件注册](/zh/guide/advanced/conditional-registration)指南。
-```

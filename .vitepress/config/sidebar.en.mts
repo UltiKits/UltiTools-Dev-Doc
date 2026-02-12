@@ -37,7 +37,7 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
             },
             {
                 text: 'Query DSL',
-                link: 'essentials/query-dsl'
+                link: 'query-dsl'
             },
             {
                 text: 'Internationalization',
@@ -72,6 +72,10 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
             {
                 text: 'Conditional Registration',
                 link: 'conditional-registration'
+            },
+            {
+                text: 'Exception Handling',
+                link: 'exception-handling'
             },
             {
                 text: 'GUI Interface',

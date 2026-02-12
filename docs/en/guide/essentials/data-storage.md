@@ -76,6 +76,85 @@ public class SomeEntity extends BaseDataEntity<Integer> {
 | `isNew()` | Returns `true` if the entity has no ID |
 | `copyWithoutId()` | Creates a copy of the entity without the ID |
 
+### AuditableDataEntity <Badge type="tip" text="v6.2.0+" />
+
+For entities that require audit tracking of creation and modification, use `AuditableDataEntity`:
+
+```java
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@Table("audit_log")
+public class AuditEntry extends AuditableDataEntity<Integer> {
+    @Column("action")
+    private String action;
+    @Column("details")
+    private String details;
+}
+```
+
+`AuditableDataEntity<ID>` extends `BaseDataEntity<ID>` and automatically manages:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `createdAt` | `LocalDateTime` | Entity creation timestamp (auto-set in `onCreate()`) |
+| `updatedAt` | `LocalDateTime` | Last modification timestamp (updated in `onUpdate()`) |
+| `createdBy` | `UUID` | User ID who created the entity (from thread-local context) |
+| `updatedBy` | `UUID` | User ID who last modified the entity (from thread-local context) |
+
+All four fields are pre-configured with `@Column` annotations and do not need to be declared in subclasses.
+
+#### User Context Management
+
+To track which user performed operations, set the current user before database operations:
+
+```java
+import com.ultikits.ultitools.abstracts.data.AuditableDataEntity;
+
+UUID currentUserId = player.getUniqueId();
+AuditableDataEntity.setCurrentUser(currentUserId);
+
+try {
+    DataOperator<AuditEntry> op = plugin.getDataOperator(AuditEntry.class);
+    AuditEntry entry = AuditEntry.builder()
+        .action("login")
+        .details("Player logged in from 192.168.1.1")
+        .build();
+    op.insert(entry);  // createdBy and updatedBy automatically set
+} finally {
+    AuditableDataEntity.clearCurrentUser();
+}
+```
+
+::: warning Always clear the context
+Use a try-finally block to ensure `clearCurrentUser()` is called, otherwise the ThreadLocal context persists across requests and may leak user identity.
+:::
+
+#### Utility Methods
+
+`AuditableDataEntity` provides convenience methods for time-based queries:
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `getAge()` | `Duration` or `null` | Time elapsed since entity creation |
+| `getTimeSinceUpdate()` | `Duration` or `null` | Time elapsed since last modification |
+| `wasModified()` | `boolean` | Whether entity was modified after creation |
+
+Example usage:
+
+```java
+AuditEntry entry = op.getById(1);
+if (entry.wasModified()) {
+    System.out.println("Modified " + entry.getTimeSinceUpdate().getSeconds() + " seconds ago");
+}
+```
+
+::: info Null-safety
+`getAge()` and `getTimeSinceUpdate()` return `null` if the entity has not been persisted (missing `createdAt` or `updatedAt`). Always check for null before calling methods on the returned `Duration`.
+:::
+
 ### @Table
 
 `@Table` annotation has a `value` attribute, which is used to specify the name of the data set corresponding to the class.

@@ -74,6 +74,85 @@ public class SomeEntity extends BaseDataEntity<Integer> {
 | `isNew()` | 实体无 ID 时返回 `true` |
 | `copyWithoutId()` | 创建不含 ID 的实体副本 |
 
+### AuditableDataEntity <Badge type="tip" text="v6.2.0+" />
+
+对于需要跟踪创建和修改的实体，可以使用 `AuditableDataEntity`：
+
+```java
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@Table("audit_log")
+public class AuditEntry extends AuditableDataEntity<Integer> {
+    @Column("action")
+    private String action;
+    @Column("details")
+    private String details;
+}
+```
+
+`AuditableDataEntity<ID>` 继承了 `BaseDataEntity<ID>`，自动管理以下字段：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `createdAt` | `LocalDateTime` | 实体创建时间（在 `onCreate()` 中自动设置） |
+| `updatedAt` | `LocalDateTime` | 上次修改时间（在 `onUpdate()` 中自动更新） |
+| `createdBy` | `UUID` | 创建实体的用户 ID（从线程本地上下文获取） |
+| `updatedBy` | `UUID` | 上次修改实体的用户 ID（从线程本地上下文获取） |
+
+所有这四个字段都已预配置 `@Column` 注解，子类中无需声明。
+
+#### 用户上下文管理
+
+要跟踪执行操作的用户，需要在数据库操作前设置当前用户：
+
+```java
+import com.ultikits.ultitools.abstracts.data.AuditableDataEntity;
+
+UUID currentUserId = player.getUniqueId();
+AuditableDataEntity.setCurrentUser(currentUserId);
+
+try {
+    DataOperator<AuditEntry> op = plugin.getDataOperator(AuditEntry.class);
+    AuditEntry entry = AuditEntry.builder()
+        .action("login")
+        .details("玩家从 192.168.1.1 登录")
+        .build();
+    op.insert(entry);  // createdBy 和 updatedBy 自动设置
+} finally {
+    AuditableDataEntity.clearCurrentUser();
+}
+```
+
+::: warning 必须清除上下文
+使用 try-finally 块确保调用 `clearCurrentUser()`，否则 ThreadLocal 上下文会持续存在于后续请求中，可能导致用户身份泄露。
+:::
+
+#### 工具方法
+
+`AuditableDataEntity` 提供了便利的时间相关查询方法：
+
+| 方法 | 返回值 | 说明 |
+|------|-------|------|
+| `getAge()` | `Duration` 或 `null` | 实体自创建以来经过的时间 |
+| `getTimeSinceUpdate()` | `Duration` 或 `null` | 实体自上次修改以来经过的时间 |
+| `wasModified()` | `boolean` | 实体是否在创建后被修改过 |
+
+使用示例：
+
+```java
+AuditEntry entry = op.getById(1);
+if (entry.wasModified()) {
+    System.out.println("修改于 " + entry.getTimeSinceUpdate().getSeconds() + " 秒前");
+}
+```
+
+::: info 空值安全
+如果实体尚未持久化（缺少 `createdAt` 或 `updatedAt`），`getAge()` 和 `getTimeSinceUpdate()` 会返回 `null`。在调用返回的 `Duration` 上的方法前，务必检查 null。
+:::
+
 ### @Table 注解
 
 `@Table` 注解有一个 `value` 属性，用于指定该类对应的数据表或文件夹的名称。
