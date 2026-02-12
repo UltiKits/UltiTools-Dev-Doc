@@ -174,6 +174,32 @@ public List<AbstractConfigEntity> getAllConfigs() {
 }
 ```
 
+## Config Validation <Badge type="tip" text="v6.2.0+" />
+
+Starting from v6.2.0, UltiTools provides validation annotations to protect against invalid configuration values. See the [Config Validation](/en/guide/advanced/config-validation) guide for full details.
+
+```java
+@Getter
+@Setter
+@ConfigEntity("config/config.yml")
+public class MyConfig extends AbstractConfigEntity {
+
+    @Range(min = 1, max = 100)
+    @ConfigEntry(path = "maxHomes", comment = "Maximum homes per player (1-100)")
+    private int maxHomes = 5;
+
+    @NotEmpty
+    @ConfigEntry(path = "serverName", comment = "Server display name")
+    private String serverName = "My Server";
+
+    public MyConfig(String configFilePath) {
+        super(configFilePath);
+    }
+}
+```
+
+Available validation annotations: `@Range`, `@NotEmpty`, `@Size`, `@Pattern` (from `com.ultikits.ultitools.annotations.config`).
+
 ## Saving configuration files
 
 You don't need to worry about the loading and saving of configuration files, UltiTools will do everything for you
@@ -191,7 +217,7 @@ If you save the config file, some comments in the file may disappear.
 when needed.
 
 ```java
-SomePlugin.getInstance().getConfigManager().reloadConfigs();
+SomePlugin.getConfigManager().reloadConfigs();
 ```
 
 

@@ -123,11 +123,26 @@ public class MyPlugin extends UltiToolsPlugin {
     this.plugin = this;
     return true;
   }
-  
+
   public MyPlugin getInstance() {
     return this.plugin;
   }
-  
+
   ...
 }
+```
+
+## Conditional Registration <Badge type="tip" text="v6.2.0+" />
+
+Starting from v6.2.0, you can conditionally register components based on YAML configuration values using the `@ConditionalOnConfig` annotation.
+
+```java
+@Service
+@ConditionalOnConfig(value = "config/config.yml", path = "features.economy")
+public class EconomyService {
+    // Only registered if features.economy: true in config.yml
+}
+```
+
+This eliminates the need for manual `if` checks in `registerSelf()`. See the [Conditional Registration](/en/guide/advanced/conditional-registration) guide for full details.
 ```

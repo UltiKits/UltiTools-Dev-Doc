@@ -107,11 +107,7 @@ public class MyPlugin extends UltiToolsPlugin {
 
 Then you have completed an UltiTools module that does nothing.
 
-## Utilize UltiTools-API in your plugin
-
-::: tip
-If you are writing an UltiTools module that relies entirely on UltiTools to run, please skip this section and refer to the previous section!
-:::
+## Utilize UltiTools-API
 
 ### Create a connector class
 

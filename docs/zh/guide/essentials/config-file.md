@@ -154,6 +154,32 @@ public List<AbstractConfigEntity> getAllConfigs() {
 }
 ```
 
+## 配置校验 <Badge type="tip" text="v6.2.0+" />
+
+从 v6.2.0 开始，UltiTools 提供了校验注解来防止无效的配置值。详情请参阅[配置校验](/zh/guide/advanced/config-validation)指南。
+
+```java
+@Getter
+@Setter
+@ConfigEntity("config/config.yml")
+public class MyConfig extends AbstractConfigEntity {
+
+    @Range(min = 1, max = 100)
+    @ConfigEntry(path = "maxHomes", comment = "每个玩家的最大家数量 (1-100)")
+    private int maxHomes = 5;
+
+    @NotEmpty
+    @ConfigEntry(path = "serverName", comment = "服务器显示名称")
+    private String serverName = "My Server";
+
+    public MyConfig(String configFilePath) {
+        super(configFilePath);
+    }
+}
+```
+
+可用的校验注解：`@Range`、`@NotEmpty`、`@Size`、`@Pattern`（来自 `com.ultikits.ultitools.annotations.config` 包）。
+
 ## 保存配置文件
 
 你无需担心配置文件的加载与保存等问题，UltiTools会自动为你做好一切。
@@ -169,5 +195,5 @@ public List<AbstractConfigEntity> getAllConfigs() {
 `UltiToolsPlugin` 提供了 `getConfigManager#reloadConfigs` 方法，你可以在需要的时候调用它来重新加载配置文件。
 
 ```java
-SomePlugin.getInstance().getConfigManager().reloadConfigs();
+Someplugin.getConfigManager().reloadConfigs();
 ```

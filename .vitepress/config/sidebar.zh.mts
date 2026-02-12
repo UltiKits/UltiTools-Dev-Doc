@@ -36,6 +36,10 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
                 link: 'data-storage'
             },
             {
+                text: '流式查询 DSL',
+                link: 'query-dsl'
+            },
+            {
                 text: 'I18n 多语言',
                 link: 'i18n'
             },
@@ -52,6 +56,22 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
             {
                 text: 'IOC容器',
                 link: 'ioc-container'
+            },
+            {
+                text: '定时任务',
+                link: 'scheduled-tasks'
+            },
+            {
+                text: '事务',
+                link: 'transactions'
+            },
+            {
+                text: '配置校验',
+                link: 'config-validation'
+            },
+            {
+                text: '条件注册',
+                link: 'conditional-registration'
             },
             {
                 text: 'GUI界面',

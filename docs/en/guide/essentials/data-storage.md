@@ -1,7 +1,7 @@
 # Data Storage
 
-UltiTools encapsulates a data storage API that supports MySQL database, SQLite database(since 6.1.0) and JSON file storage. 
-Data storage is transparent to developers, and UltiTools will determine which storage method 
+UltiTools encapsulates a data storage API that supports MySQL database, SQLite database (since 6.1.0), and JSON file storage.
+Data storage is transparent to developers, and UltiTools will determine which storage method
 to use based on the server owner's configuration.
 
 All you need is an entity class. CRUD operations will be done automatically by UltiTools.
@@ -10,9 +10,11 @@ All you need is an entity class. CRUD operations will be done automatically by U
 Since the API is still under development, there may be problems when dealing with complex objects, so try not to nest objects.
 :::
 
-## Create entity class
+## Create Entity Class
 
-All you need is to create a class that inherits the `AbstractDataEntity` class, and use the `@Table` and `@Column` annotations to mark your entity class.
+### AbstractDataEntity
+
+Create a class that inherits the `AbstractDataEntity` class, and use the `@Table` and `@Column` annotations to mark your entity class.
 
 ```java
 @Data
@@ -22,6 +24,8 @@ All you need is to create a class that inherits the `AbstractDataEntity` class, 
 @EqualsAndHashCode(callSuper = true)
 @Table("some_table")
 public class SomeEntity extends AbstractDataEntity {
+    @Column("name")
+    private String name;
     @Column(value = "something", type = "FLOAT")
     private double something;
 }
@@ -30,6 +34,47 @@ public class SomeEntity extends AbstractDataEntity {
 `@Table` is used to mark the data set corresponding to the class, and `@Column` is used to mark the field corresponding to the field of the data set of the class.
 
 `@Data`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor`, `@EqualsAndHashCode` are Lombok annotations, which are used to automatically generate `getter`, `setter`, `builder`, `equals`, `hashCode` methods.
+
+### BaseDataEntity <Badge type="tip" text="v6.2.0+" />
+
+Starting from v6.2.0, you can also use `BaseDataEntity` which provides a type-safe generic ID and lifecycle hooks:
+
+```java
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@Table("some_table")
+public class SomeEntity extends BaseDataEntity<Integer> {
+    @Column("name")
+    private String name;
+    @Column(value = "something", type = "FLOAT")
+    private double something;
+
+    @Override
+    public void onCreate() {
+        // Called before first insert
+    }
+
+    @Override
+    public boolean validate() {
+        return name != null && !name.isEmpty();
+    }
+}
+```
+
+`BaseDataEntity<ID>` extends `AbstractDataEntity` and adds:
+
+| Method | Description |
+|--------|-------------|
+| `onCreate()` | Called before the entity is first persisted |
+| `onUpdate()` | Called before the entity is updated |
+| `onDelete()` | Called before the entity is deleted |
+| `onLoad()` | Called after the entity is loaded from the data store |
+| `validate()` | Returns `true` if the entity is valid |
+| `isNew()` | Returns `true` if the entity has no ID |
+| `copyWithoutId()` | Creates a copy of the entity without the ID |
 
 ### @Table
 
@@ -56,16 +101,98 @@ In the main class that inherits `UltiToolsPlugin`, there is a `getDataOperator` 
 You need to get the instance of the module main class, and then call the `getDataOperator` method.
 
 ```java
-DataOperator<SomeEntity> dataOperator = 
+DataOperator<SomeEntity> dataOperator =
         SomePlugin.getInstance().getDataOperator(SomeEntity.class);
 ```
 
 ::: warning
-
 `DataOperator` is not thread-safe. Please get `DataOperator` when you need it, and do not try to save `DataOperator` object.
-
 :::
 
+### Insert
+
+```java
+SomeEntity entity = SomeEntity.builder()
+    .name("test")
+    .something(42.0)
+    .build();
+dataOperator.insert(entity);
+```
+
+### Query
+
+Using `WhereCondition`:
+
+```java
+List<SomeEntity> list = dataOperator.getAll(
+    WhereCondition.builder()
+        .column("name")
+        .value("test")
+        .build()
+);
+```
+
+Or get a single entity by ID:
+
+```java
+SomeEntity entity = dataOperator.getById(1);
+```
+
+Get all entities:
+
+```java
+List<SomeEntity> all = dataOperator.getAll();
+```
+
+Pagination:
+
+```java
+List<SomeEntity> page = dataOperator.page(1, 10); // page 1, 10 per page
+```
+
+::: tip Query DSL
+Starting from v6.2.0, you can use the [fluent Query DSL](/en/guide/essentials/query-dsl) for more readable queries:
+
+```java
+SomeEntity entity = dataOperator.query()
+    .where("name").eq("test")
+    .first();
+```
+:::
+
+### Update
+
+Update a single field:
+
+```java
+dataOperator.update("name", "newName", entityId);
+```
+
+Update by entity object:
+
+```java
+entity.setName("newName");
+dataOperator.update(entity);
+```
+
+### Delete
+
+Delete by ID:
+
+```java
+dataOperator.delById(entityId);
+```
+
+Delete by condition:
+
+```java
+dataOperator.del(
+    WhereCondition.builder()
+        .column("name")
+        .value("test")
+        .build()
+);
+```
 
 ### WhereCondition
 
@@ -77,15 +204,14 @@ WhereCondition.builder().column("somecol").value(someval).build();
 
 `column` is used to specify the column to be queried, and `value` is used to specify the value to be queried.
 
-Example of using with `DataOperator`:
+### Transactions <Badge type="tip" text="v6.2.0+" />
+
+For operations that need to succeed or fail together, see the [Transactions](/en/guide/advanced/transactions) guide.
 
 ```java
-DataOperator dataOperator = 
-        SomePlugin.getInstance().getDataOperator(SomeEntity.class);
-List<Something> list = dataOperator.getAll(
-        WhereCondition.builder()
-                .column("somecol")
-                .value(someval)
-                .build()
-);
+dataOperator.transaction(() -> {
+    dataOperator.insert(entity1);
+    dataOperator.insert(entity2);
+    // Both inserted or none
+});
 ```

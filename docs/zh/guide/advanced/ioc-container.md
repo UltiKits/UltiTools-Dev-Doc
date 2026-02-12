@@ -120,11 +120,26 @@ public class MyPlugin extends UltiToolsPlugin {
     this.plugin = this;
     return true;
   }
-  
+
   public MyPlugin getInstance() {
     return this.plugin;
   }
-  
+
   ...
 }
+```
+
+## 条件注册 <Badge type="tip" text="v6.2.0+" />
+
+从 v6.2.0 开始，你可以使用 `@ConditionalOnConfig` 注解根据 YAML 配置值来条件性地注册组件。
+
+```java
+@Service
+@ConditionalOnConfig(value = "config/config.yml", path = "features.economy")
+public class EconomyService {
+    // 仅在 config.yml 中 features.economy: true 时才注册
+}
+```
+
+这消除了在 `registerSelf()` 中手动进行 `if` 判断的需要。详情请参阅[条件注册](/zh/guide/advanced/conditional-registration)指南。
 ```

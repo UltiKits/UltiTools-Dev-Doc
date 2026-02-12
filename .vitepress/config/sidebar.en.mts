@@ -36,6 +36,10 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
                 link: 'data-storage'
             },
             {
+                text: 'Query DSL',
+                link: 'essentials/query-dsl'
+            },
+            {
                 text: 'Internationalization',
                 link: 'i18n'
             },
@@ -52,6 +56,22 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
             {
                 text: 'IOC Container',
                 link: 'ioc-container'
+            },
+            {
+                text: 'Scheduled Tasks',
+                link: 'scheduled-tasks'
+            },
+            {
+                text: 'Transactions',
+                link: 'transactions'
+            },
+            {
+                text: 'Config Validation',
+                link: 'config-validation'
+            },
+            {
+                text: 'Conditional Registration',
+                link: 'conditional-registration'
             },
             {
                 text: 'GUI Interface',

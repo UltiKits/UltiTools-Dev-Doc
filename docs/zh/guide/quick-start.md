@@ -98,11 +98,7 @@ public class MyPlugin extends UltiToolsPlugin {
 
 这样就已经完成了一个什么功能都没有的UltiTools模块。
 
-## 在你的插件中使用UltiTools-API
-
-::: tip
-如果你是为了写一个UltiTools模块完全依赖UltiTools运行则请跳过这节，请查看上一节！
-:::
+## 使用UltiTools-API
 
 ### 创建入口类
 
@@ -205,4 +201,4 @@ ul list
 [12:42:16] [Server thread/INFO]: Example 1.0.0           <--- 这是我们的示例插件
 ```
 
-在后续的文章中，将会向你解释命令、事件、配置文件、数据存储、开发注解等的使用方法。
+在后续的文章中，将会教你有关命令、事件、配置文件、数据存储、开发注解等的使用方法。

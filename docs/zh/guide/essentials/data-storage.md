@@ -10,6 +10,8 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 
 ## 创建实体类
 
+### AbstractDataEntity
+
 你只需要创建一个类，继承 `AbstractDataEntity` 类，并使用 `@Table` 和 `@Column` 注解来标记你的实体类。
 
 ```java
@@ -20,6 +22,8 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 @EqualsAndHashCode(callSuper = true)
 @Table("some_table")
 public class SomeEntity extends AbstractDataEntity {
+    @Column("name")
+    private String name;
     @Column(value = "something", type = "FLOAT")
     private double something;
 }
@@ -28,6 +32,47 @@ public class SomeEntity extends AbstractDataEntity {
 其中，`@Table` 注解用于标记该类对应的数据表（若使用 MySQL 数据库），`@Column` 注解用于标记该类的字段对应的数据表的列。
 
 `@Data`、`@Builder`、`@NoArgsConstructor`、`@AllArgsConstructor`、`@EqualsAndHashCode` 则为 Lombok 注解，用于自动生成 `getter`、`setter`、`builder`、`equals`、`hashCode` 方法。
+
+### BaseDataEntity <Badge type="tip" text="v6.2.0+" />
+
+从 v6.2.0 开始，你还可以使用 `BaseDataEntity`，它提供了类型安全的泛型 ID 和生命周期钩子：
+
+```java
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@Table("some_table")
+public class SomeEntity extends BaseDataEntity<Integer> {
+    @Column("name")
+    private String name;
+    @Column(value = "something", type = "FLOAT")
+    private double something;
+
+    @Override
+    public void onCreate() {
+        // 首次插入前调用
+    }
+
+    @Override
+    public boolean validate() {
+        return name != null && !name.isEmpty();
+    }
+}
+```
+
+`BaseDataEntity<ID>` 继承了 `AbstractDataEntity`，额外提供：
+
+| 方法 | 说明 |
+|------|------|
+| `onCreate()` | 在实体首次持久化之前调用 |
+| `onUpdate()` | 在实体更新之前调用 |
+| `onDelete()` | 在实体删除之前调用 |
+| `onLoad()` | 在从数据存储加载实体后调用 |
+| `validate()` | 实体有效返回 `true` |
+| `isNew()` | 实体无 ID 时返回 `true` |
+| `copyWithoutId()` | 创建不含 ID 的实体副本 |
 
 ### @Table 注解
 
@@ -54,17 +99,98 @@ UltiTools 封装了一套语义化的 CRUD 操作 API，你只需要调用相应
 你需要获取插件主类的实例，然后调用 `getDataOperator` 方法。
 
 ```java
-DataOperator<SomeEntity> dataOperator = 
+DataOperator<SomeEntity> dataOperator =
         SomePlugin.getInstance().getDataOperator(SomeEntity.class);
 ```
-DataOperator 的具体使用方法请参阅 Java Doc
 
 ::: warning 请即取即用
-
 `DataOperator` 不是线程安全的，请在需要的时候获取 `DataOperator`，不要试图保存 `DataOperator` 对象。
-
 :::
 
+### 插入
+
+```java
+SomeEntity entity = SomeEntity.builder()
+    .name("test")
+    .something(42.0)
+    .build();
+dataOperator.insert(entity);
+```
+
+### 查询
+
+使用 `WhereCondition`：
+
+```java
+List<SomeEntity> list = dataOperator.getAll(
+    WhereCondition.builder()
+        .column("name")
+        .value("test")
+        .build()
+);
+```
+
+或按 ID 获取单个实体：
+
+```java
+SomeEntity entity = dataOperator.getById(1);
+```
+
+获取所有实体：
+
+```java
+List<SomeEntity> all = dataOperator.getAll();
+```
+
+分页查询：
+
+```java
+List<SomeEntity> page = dataOperator.page(1, 10); // 第 1 页，每页 10 条
+```
+
+::: tip 查询 DSL
+从 v6.2.0 开始，你可以使用[流式查询 DSL](/zh/guide/essentials/query-dsl) 来编写更可读的查询：
+
+```java
+SomeEntity entity = dataOperator.query()
+    .where("name").eq("test")
+    .first();
+```
+:::
+
+### 更新
+
+更新单个字段：
+
+```java
+dataOperator.update("name", "newName", entityId);
+```
+
+使用实体对象更新：
+
+```java
+entity.setName("newName");
+dataOperator.update(entity);
+```
+
+### 删除
+
+按 ID 删除：
+
+```java
+dataOperator.delById(entityId);
+```
+
+按条件删除：
+
+```java
+dataOperator.del(
+    WhereCondition.builder()
+        .column("name")
+        .value("test")
+        .build()
+);
+```
 
 ### WhereCondition
 
@@ -76,15 +202,14 @@ WhereCondition.builder().column("somecol").value(someval).build();
 
 其中，`column` 属性用于指定查询的列，`value` 属性用于指定查询的值。
 
-与 `DataOperator` 搭配使用的例子：
+### 事务 <Badge type="tip" text="v6.2.0+" />
+
+对于需要同时成功或同时失败的操作，请参阅[事务](/zh/guide/advanced/transactions)指南。
 
 ```java
-DataOperator dataOperator = 
-        SomePlugin.getInstance().getDataOperator(SomeEntity.class);
-List<Something> list = dataOperator.getAll(
-        WhereCondition.builder()
-                .column("somecol")
-                .value(someval)
-                .build()
-);
+dataOperator.transaction(() -> {
+    dataOperator.insert(entity1);
+    dataOperator.insert(entity2);
+    // 全部插入或全部不插入
+});
 ```
