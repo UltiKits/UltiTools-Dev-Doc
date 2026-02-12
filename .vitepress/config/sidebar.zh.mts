@@ -2,7 +2,7 @@ import {DefaultTheme} from "vitepress/theme";
 
 const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
     {
-        base: "/zh/guide/",
+        base: "/guide/",
         text: '开始',
         items: [
             {
@@ -16,7 +16,7 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
         ]
     },
     {
-        base: "/zh/guide/essentials/",
+        base: "/guide/essentials/",
         text: '基础',
         items: [
             {
@@ -46,7 +46,7 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
         ]
     },
     {
-        base: '/zh/guide/advanced/',
+        base: '/guide/advanced/',
         text: '高级',
         items: [
             {
@@ -89,15 +89,80 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
     },
 ]
 
-const sidebarApiZH: DefaultTheme.SidebarItem[] = [
+const sidebarGuideZH_v610: DefaultTheme.SidebarItem[] = [
     {
-        text: 'VersionWrapper',
-        link: '/zh/api/version-wrapper'
+        base: "/guide/",
+        text: '开始',
+        items: [
+            {
+                text: '简介',
+                link: 'introduction'
+            },
+            {
+                text: '快速上手',
+                link: 'quick-start'
+            }
+        ]
     },
     {
-        text: 'UltiToolsPlugin',
-        link: '/zh/api/ulti-tools-plugin'
+        base: "/guide/essentials/",
+        text: '基础',
+        items: [
+            {
+                text: '命令执行器',
+                link: 'cmd-executor'
+            },
+            {
+                text: '事件监听器',
+                link: 'event-listener'
+            },
+            {
+                text: '配置文件',
+                link: 'config-file'
+            },
+            {
+                text: '数据储存',
+                link: 'data-storage'
+            },
+            {
+                text: 'I18n 多语言',
+                link: 'i18n'
+            },
+        ]
+    },
+    {
+        base: '/guide/advanced/',
+        text: '高级',
+        items: [
+            {
+                text: '自动注册',
+                link: 'auto-register'
+            },
+            {
+                text: 'IOC容器',
+                link: 'ioc-container'
+            },
+            {
+                text: 'GUI界面',
+                link: 'gui'
+            },
+            {
+                text: 'UltiTools Maven插件',
+                link: 'maven-plugin'
+            }
+        ]
     },
 ]
 
-export { sidebarGuideZH, sidebarApiZH }
+const sidebarApiZH: DefaultTheme.SidebarItem[] = [
+    {
+        text: 'VersionWrapper',
+        link: 'version-wrapper'
+    },
+    {
+        text: 'UltiToolsPlugin',
+        link: 'ulti-tools-plugin'
+    },
+]
+
+export { sidebarGuideZH, sidebarGuideZH_v610, sidebarApiZH }

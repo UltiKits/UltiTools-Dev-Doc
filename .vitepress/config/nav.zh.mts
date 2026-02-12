@@ -1,19 +1,21 @@
-import { DefaultTheme } from "vitepress/theme";
-
-const navZH: DefaultTheme.NavItem[] = [
+const navZH = [
     {
         text: '深度指南',
-        activeMatch: `^/zh/guide/`,
-        link: '/zh/guide/introduction',
+        activeMatch: `/guide/`,
+        link: '/guide/introduction',
     },
     {
         text: 'API 接口',
-        activeMatch: `^/zh/api/`,
-        link: '/zh/api/version-wrapper'
+        activeMatch: `/api/`,
+        link: '/api/version-wrapper'
     },
     {
         text: '用户文档',
-        link: 'https://doc.ultikits.com'
+        link: 'https://doc.ultikits.com',
+        skipVersioning: true
+    },
+    {
+        component: 'VersionSwitcher'
     }
 ]
 

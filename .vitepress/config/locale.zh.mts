@@ -1,11 +1,9 @@
-import {LocaleConfig} from "vitepress";
-import {DefaultTheme} from "vitepress/theme";
 import {navZH} from "./nav.zh.mjs";
-import {sidebarApiZH, sidebarGuideZH} from "./sidebar.zh.mjs";
+import {sidebarApiZH, sidebarGuideZH, sidebarGuideZH_v610} from "./sidebar.zh.mjs";
 import {textCN} from "./text.zh.mjs";
 import {socialZH} from "./social.zh.mjs";
 
-const localeZH: LocaleConfig<DefaultTheme.Config> = {
+const localeZH = {
     zh: {
         title: 'UltiKits 开发文档',
         label: '简体中文',
@@ -15,8 +13,10 @@ const localeZH: LocaleConfig<DefaultTheme.Config> = {
         themeConfig: {
             nav: navZH,
             sidebar: {
-                "/zh/guide/": sidebarGuideZH,
-                "/zh/api/": sidebarApiZH
+                '/guide/': sidebarGuideZH,
+                '/api/': sidebarApiZH,
+                'v6.1.0/guide/': sidebarGuideZH_v610,
+                'v6.1.0/api/': sidebarApiZH,
             },
             ...textCN,
             ...socialZH

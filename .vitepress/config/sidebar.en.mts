@@ -2,7 +2,7 @@ import {DefaultTheme} from "vitepress/theme";
 
 const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
     {
-        base: '/en/guide/',
+        base: '/guide/',
         text: 'Get Started',
         items: [
             {
@@ -16,7 +16,7 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
         ]
     },
     {
-        base: "/en/guide/essentials/",
+        base: "/guide/essentials/",
         text: 'Basics',
         items: [
             {
@@ -46,7 +46,7 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
         ]
     },
     {
-        base: '/en/guide/advanced/',
+        base: '/guide/advanced/',
         text: 'Advanced',
         items: [
             {
@@ -89,6 +89,71 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
     },
 ]
 
+const sidebarGuideEN_v610: DefaultTheme.SidebarItem[] = [
+    {
+        base: '/guide/',
+        text: 'Get Started',
+        items: [
+            {
+                text: 'Introduction',
+                link: 'introduction'
+            },
+            {
+                text: 'Quick Start',
+                link: 'quick-start'
+            }
+        ]
+    },
+    {
+        base: "/guide/essentials/",
+        text: 'Basics',
+        items: [
+            {
+                text: 'Command Executor',
+                link: 'cmd-executor'
+            },
+            {
+                text: 'Event Listener',
+                link: 'event-listener'
+            },
+            {
+                text: 'Config File',
+                link: 'config-file'
+            },
+            {
+                text: 'Data Storage',
+                link: 'data-storage'
+            },
+            {
+                text: 'Internationalization',
+                link: 'i18n'
+            },
+        ]
+    },
+    {
+        base: '/guide/advanced/',
+        text: 'Advanced',
+        items: [
+            {
+                text: 'Auto Register',
+                link: 'auto-register'
+            },
+            {
+                text: 'IOC Container',
+                link: 'ioc-container'
+            },
+            {
+                text: 'GUI Interface',
+                link: 'gui'
+            },
+            {
+                text: 'UltiTools Maven Plugin',
+                link: 'maven-plugin'
+            }
+        ]
+    },
+]
+
 const sidebarApiEN: DefaultTheme.SidebarItem[] = [
     {
         text: 'VersionWrapper',
@@ -100,4 +165,4 @@ const sidebarApiEN: DefaultTheme.SidebarItem[] = [
     },
 ]
 
-export { sidebarGuideEN, sidebarApiEN }
+export { sidebarGuideEN, sidebarGuideEN_v610, sidebarApiEN }

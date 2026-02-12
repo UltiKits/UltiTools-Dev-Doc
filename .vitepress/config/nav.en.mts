@@ -1,19 +1,21 @@
-import { DefaultTheme } from "vitepress/theme";
-
-const navEN: DefaultTheme.NavItem[] = [
+const navEN = [
     {
         text: 'Documents',
-        activeMatch: `^/en/guide/`,
-        link: '/en/guide/introduction',
+        activeMatch: `/guide/`,
+        link: '/guide/introduction',
     },
     {
         text: 'API Reference',
-        activeMatch: `^/en/api/`,
-        link: '/en/api/version-wrapper'
+        activeMatch: `/api/`,
+        link: '/api/version-wrapper'
     },
     {
         text: 'User Doc',
-        link: 'https://doc.ultikits.com'
+        link: 'https://doc.ultikits.com',
+        skipVersioning: true
+    },
+    {
+        component: 'VersionSwitcher'
     }
 ]
 

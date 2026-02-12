@@ -54,6 +54,9 @@ importers:
       '@vite-pwa/vitepress':
         specifier: ^0.3.1
         version: 0.3.1(vite-plugin-pwa@0.21.2(vite@5.4.21(less@4.5.1)(sass@1.97.3)(terser@5.46.0))(workbox-build@7.4.0)(workbox-window@7.4.0))
+      '@viteplus/versions':
+        specifier: ^2.0.6
+        version: 2.0.6(vitepress@1.6.4(@algolia/client-search@5.48.0)(less@4.5.1)(markdown-it-mathjax3@4.3.2)(nprogress@0.2.0)(postcss@8.5.6)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(sass@1.97.3)(search-insights@2.17.3)(terser@5.46.0))
       markdown-it-mathjax3:
         specifier: ^4.3.2
         version: 4.3.2
@@ -1045,6 +1048,10 @@ packages:
     resolution: {integrity: sha512-tmmZ3lQxAe/k/+rNnXQRawJ4NjxO2hqiOLTHvWchtGZULp4RyFeh6aU4XdOYBFe2KE1oShQTv4AblOs2iOrNnQ==}
     engines: {node: '>= 10.0.0'}
 
+  '@remotex-labs/xansi@1.3.3':
+    resolution: {integrity: sha512-P5qKSYLA5508Wt/lh4gUsGW7VO30hL6alswS713WnrYzo5xGknG2O5OddD1Ae/dRzP8e0H1rBJuf1v1ztu3IFQ==}
+    engines: {node: '>=20'}
+
   '@rollup/plugin-babel@5.3.1':
     resolution: {integrity: sha512-WFfdLWU/xVWKeRQnKmIAQULUI7Il0gZnBIH/ZFO069wYIfPu+8zrfp/KMW0atmELoRDq8FbiP3VCss9MhCut7Q==}
     engines: {node: '>= 10.0.0'}
@@ -1400,6 +1407,15 @@ packages:
     peerDependencies:
       vite: ^5.0.0 || ^6.0.0
       vue: ^3.2.25
+
+  '@viteplus/versions@2.0.6':
+    resolution: {integrity: sha512-13XNud+sCGTOs1L6Z0Ru7TxwkYmTknGSm/KU7/5wXR7vwMPqaPByC/A4H6R2R3aF8uK4Y1Y9bXyBQYJyYc3/Cw==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      vitepress: ^1.6.4 || ^2.0.0
+    peerDependenciesMeta:
+      vitepress:
+        optional: true
 
   '@vue/compiler-core@3.5.28':
     resolution: {integrity: sha512-kviccYxTgoE8n6OCw96BNdYlBg2GOWfBuOW4Vqwrt7mSKWKwFVvI8egdTltqRgITGPsTFYtKYfxIG8ptX2PJHQ==}
@@ -4555,6 +4571,8 @@ snapshots:
       '@parcel/watcher-win32-x64': 2.5.6
     optional: true
 
+  '@remotex-labs/xansi@1.3.3': {}
+
   '@rollup/plugin-babel@5.3.1(@babel/core@7.29.0)(rollup@2.79.2)':
     dependencies:
       '@babel/core': 7.29.0
@@ -4889,6 +4907,12 @@ snapshots:
     dependencies:
       vite: 5.4.21(less@4.5.1)(sass@1.97.3)(terser@5.46.0)
       vue: 3.5.28
+
+  '@viteplus/versions@2.0.6(vitepress@1.6.4(@algolia/client-search@5.48.0)(less@4.5.1)(markdown-it-mathjax3@4.3.2)(nprogress@0.2.0)(postcss@8.5.6)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(sass@1.97.3)(search-insights@2.17.3)(terser@5.46.0))':
+    dependencies:
+      '@remotex-labs/xansi': 1.3.3
+    optionalDependencies:
+      vitepress: 1.6.4(@algolia/client-search@5.48.0)(less@4.5.1)(markdown-it-mathjax3@4.3.2)(nprogress@0.2.0)(postcss@8.5.6)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(sass@1.97.3)(search-insights@2.17.3)(terser@5.46.0)
 
   '@vue/compiler-core@3.5.28':
     dependencies:

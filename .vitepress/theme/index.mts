@@ -33,7 +33,7 @@ import vImageViewer from 'vitepress-plugin-image-viewer/lib/vImageViewer.vue';
 // @ts-ignore
 import ReloadPrompt from './components/ReloadPrompt.vue'
 // @ts-ignore
-import VersionCard from "./components/VersionCard.vue";
+import VersionSwitcher from '@viteplus/versions/components/version-switcher.component.vue'
 
 // noinspection JSUnusedGlobalSymbols
 export default {
@@ -76,7 +76,6 @@ export default {
             'nav-screen-content-after': () => h(NolebaseEnhancedReadabilitiesScreenMenu),
             'layout-top': () => h(NolebaseHighlightTargetedHeading),
             'layout-bottom': () => h(ReloadPrompt),
-            'sidebar-nav-before': () => h(VersionCard)
         })
     },
     enhanceApp: (ctx: EnhanceAppContext) => {
@@ -86,6 +85,7 @@ export default {
         ctx.app.use(NolebaseInlineLinkPreviewPlugin)
         ctx.app.use(NolebaseGitChangelogPlugin)
         ctx.app.component('vImageViewer', vImageViewer);
+        ctx.app.component('VersionSwitcher', VersionSwitcher);
     },
     setup() {
         // Get frontmatter and route

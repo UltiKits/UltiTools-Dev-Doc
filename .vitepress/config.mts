@@ -1,4 +1,4 @@
-import {defineConfig} from 'vitepress'
+import {defineVersionedConfig} from '@viteplus/versions'
 import {withPwa} from '@vite-pwa/vitepress'
 import {withMermaid} from 'vitepress-plugin-mermaid'
 
@@ -11,7 +11,7 @@ import {themeConfig} from "./config/theme.mjs";
 
 export default withPwa(
     withMermaid(
-        defineConfig({
+        defineVersionedConfig({
             srcDir: 'docs',
             lastUpdated: true,
             head: [['link', {rel: 'icon', href: '/favicon.ico'}]],
@@ -21,6 +21,16 @@ export default withPwa(
             pwa: pwaConfig,
             themeConfig: themeConfig,
             ...viteConfig,
+
+            versionsConfig: {
+                current: 'v6.2.0',
+                sources: 'src',
+                archive: 'archive',
+                versionSwitcher: {
+                    text: 'API Version',
+                    includeCurrentVersion: true
+                }
+            }
         })
     )
 )

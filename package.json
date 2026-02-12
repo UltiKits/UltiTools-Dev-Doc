@@ -12,6 +12,7 @@
     "@nolebase/vitepress-plugin-highlight-targeted-heading": "^2.18.2",
     "@nolebase/vitepress-plugin-inline-link-preview": "^2.18.2",
     "@vite-pwa/vitepress": "^0.3.1",
+    "@viteplus/versions": "^2.0.6",
     "markdown-it-mathjax3": "^4.3.2",
     "mermaid": "^11.4.1",
     "sass": "^1.83.4",
