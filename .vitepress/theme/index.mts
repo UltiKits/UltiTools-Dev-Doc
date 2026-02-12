@@ -5,9 +5,10 @@ import {EnhanceAppContext, inBrowser, useData, useRoute} from 'vitepress'
 import {
     NolebaseEnhancedReadabilitiesMenu,
     NolebaseEnhancedReadabilitiesScreenMenu,
-} from '@nolebase/vitepress-plugin-enhanced-readabilities'
-import {NolebaseHighlightTargetedHeading,} from '@nolebase/vitepress-plugin-highlight-targeted-heading'
-import {NolebaseInlineLinkPreviewPlugin,} from '@nolebase/vitepress-plugin-inline-link-preview'
+} from '@nolebase/vitepress-plugin-enhanced-readabilities/client'
+import {NolebaseHighlightTargetedHeading,} from '@nolebase/vitepress-plugin-highlight-targeted-heading/client'
+import {NolebaseInlineLinkPreviewPlugin,} from '@nolebase/vitepress-plugin-inline-link-preview/client'
+import {NolebaseGitChangelogPlugin} from '@nolebase/vitepress-plugin-git-changelog/client'
 
 import {enhanceAppWithTabs} from 'vitepress-plugin-tabs/client'
 import giscusTalk from 'vitepress-plugin-comment-with-giscus'
@@ -19,9 +20,11 @@ import imageViewer from 'vitepress-plugin-image-viewer';
 import 'vitepress-plugin-codeblocks-fold/style/index.scss';
 import 'vitepress-plugin-back-to-top/dist/style.css'
 import 'vitepress-plugin-nprogress/lib/css/index.css'
-import '@nolebase/vitepress-plugin-enhanced-readabilities/dist/style.css'
-import '@nolebase/vitepress-plugin-highlight-targeted-heading/dist/style.css'
-import '@nolebase/vitepress-plugin-inline-link-preview/dist/style.css'
+import '@nolebase/vitepress-plugin-enhanced-readabilities/client/style.css'
+import '@nolebase/vitepress-plugin-highlight-targeted-heading/client/style.css'
+import '@nolebase/vitepress-plugin-inline-link-preview/client/style.css'
+import '@nolebase/vitepress-plugin-git-changelog/client/style.css'
+import 'virtual:group-icons.css'
 import 'viewerjs/dist/viewer.min.css';
 import './styles/main.css'
 
@@ -81,6 +84,7 @@ export default {
         enhanceAppWithTabs(ctx.app)
         vitepressBackToTop()
         ctx.app.use(NolebaseInlineLinkPreviewPlugin)
+        ctx.app.use(NolebaseGitChangelogPlugin)
         ctx.app.component('vImageViewer', vImageViewer);
     },
     setup() {

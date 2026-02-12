@@ -1,9 +1,6 @@
 .VPSocialLinks.VPNavBarSocialLinks.social-links {
     margin-right: 0;
 }
-svg[aria-label="Algolia"] {
-    filter: contrast(0.6);
-}
 
 ::-webkit-scrollbar {
     width: 0;
@@ -11,49 +8,6 @@ svg[aria-label="Algolia"] {
 
 .VPNavBar.has-sidebar .content{
     border-bottom-color: var(--vp-c-gutter);
-}
-
-.DocSearch-Modal {
-    animation: fadeIn 0.3s cubic-bezier(0.645, 0.045, 0.355, 1.000);
-}
-
-.DocSearch-Container {
-    backdrop-filter: blur(4px);
-    animation: fadeIn1 0.3s ease-in-out;
-}
-
-.DocSearch-Commands {
-    animation: fadeIn2 0.3s cubic-bezier(0.645, 0.045, 0.355, 1.000);
-}
-
-.DocSearch-Logo {
-    animation: fadeIn3 0.3s cubic-bezier(0.645, 0.045, 0.355, 1.000);
-}
-
-.DocSearch-Footer {
-    animation: fadeUp 0.3s cubic-bezier(0.645, 0.045, 0.355, 1.000);
-}
-
-.DocSearch-Hit a {
-    transition: cubic-bezier(0.645, 0.045, 0.355, 1.000) 0.2s;
-}
-
-.DocSearch-Hit[aria-selected=true] a {
-    transform: scale(1.01);
-    margin-top: 12px;
-    margin-bottom: 12px;
-}
-
-.DocSearch-Hit-title {
-    transition: cubic-bezier(0.645, 0.045, 0.355, 1.000) 0.2s;
-}
-
-.DocSearch-Hit-action {
-    transition: cubic-bezier(0.645, 0.045, 0.355, 1.000) 0.2s;
-}
-
-[class*='DocSearch'] {
-    --docsearch-primary-color: var(--vp-c-brand-3)!important;
 }
 
 #nprogress .bar {
@@ -85,7 +39,7 @@ svg[aria-label="Algolia"] {
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 999; /* 确保遮罩在最上层 */
+    z-index: 999;
 }
 
 .go-to-top {
@@ -96,53 +50,11 @@ svg[aria-label="Algolia"] {
     margin-top: 11px;
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-40px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
 @keyframes fadeIn1 {
     from {
         opacity: 0;
     }
     to {
         opacity: 1;
-    }
-}
-
-@keyframes fadeIn2 {
-    from {
-        opacity: 0;
-        transform: translateX(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-@keyframes fadeIn3 {
-    from {
-        opacity: 0;
-        transform: translateX(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-@keyframes fadeUp {
-    from {
-        height: 0;
-    }
-    to {
-        height: var(--docsearch-footer-height);
     }
 }
