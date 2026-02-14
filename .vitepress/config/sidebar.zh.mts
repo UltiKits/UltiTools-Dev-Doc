@@ -84,6 +84,10 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
             {
                 text: 'UltiTools Maven插件',
                 link: 'maven-plugin'
+            },
+            {
+                text: 'UltiKits CLI',
+                link: 'ultikits-cli'
             }
         ]
     },
