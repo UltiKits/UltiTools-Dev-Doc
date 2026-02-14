@@ -114,3 +114,6 @@ draft.md
 .idea
 
 .vitepress/cache
+
+CLAUDE.md
+dev-dist/

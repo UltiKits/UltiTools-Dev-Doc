@@ -13,9 +13,6 @@ const navZH = [
         text: '用户文档',
         link: 'https://doc.ultikits.com',
         skipVersioning: true
-    },
-    {
-        component: 'VersionSwitcher'
     }
 ]
 

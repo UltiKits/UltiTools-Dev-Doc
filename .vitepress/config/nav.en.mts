@@ -13,9 +13,6 @@ const navEN = [
         text: 'User Doc',
         link: 'https://doc.ultikits.com',
         skipVersioning: true
-    },
-    {
-        component: 'VersionSwitcher'
     }
 ]
 
