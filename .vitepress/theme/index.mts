@@ -41,7 +41,17 @@ export default {
     Layout() {
         const {lang} = useData()
         if (inBrowser) {
-            document.cookie = `nf_lang=${lang.value}; expires=Mon, 1 Jan 2030 00:00:00 UTC; path=/`
+            // Auto-detect language on first visit to root path
+            if (window.location.pathname === '/') {
+                const hasPreference = localStorage.getItem('preferred_lang')
+                if (!hasPreference && /^zh\b/i.test(navigator.language)) {
+                    localStorage.setItem('preferred_lang', 'zh')
+                    window.location.pathname = '/zh/'
+                    return
+                }
+            }
+            // Remember language preference when user navigates
+            localStorage.setItem('preferred_lang', lang.value.startsWith('zh') ? 'zh' : 'en')
         }
 
         watchEffect(() => {
