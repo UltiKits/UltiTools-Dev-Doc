@@ -116,4 +116,4 @@ draft.md
 .vitepress/cache
 
 CLAUDE.md
-dev-dist/
+dev-dist/CLAUDE.md
