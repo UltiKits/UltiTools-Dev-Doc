@@ -88,6 +88,14 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
             {
                 text: 'UltiKits CLI',
                 link: 'ultikits-cli'
+            },
+            {
+                text: '玩家缓存',
+                link: 'player-cache'
+            },
+            {
+                text: '测试工具',
+                link: 'test-utilities'
             }
         ]
     },
