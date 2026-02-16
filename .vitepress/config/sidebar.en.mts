@@ -16,86 +16,108 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
         ]
     },
     {
-        base: "/guide/essentials/",
-        text: 'Basics',
+        base: '/guide/',
+        text: 'Core Capabilities',
         items: [
             {
                 text: 'Command Executor',
-                link: 'cmd-executor'
+                link: 'essentials/cmd-executor'
             },
             {
                 text: 'Event Listener',
-                link: 'event-listener'
+                link: 'essentials/event-listener'
             },
             {
                 text: 'Config File',
-                link: 'config-file'
+                link: 'essentials/config-file'
             },
             {
                 text: 'Data Storage',
-                link: 'data-storage'
+                link: 'essentials/data-storage'
             },
             {
                 text: 'Query DSL',
-                link: 'query-dsl'
+                link: 'essentials/query-dsl'
             },
             {
                 text: 'Internationalization',
-                link: 'i18n'
-            },
-        ]
-    },
-    {
-        base: '/guide/advanced/',
-        text: 'Advanced',
-        items: [
-            {
-                text: 'Auto Register',
-                link: 'auto-register'
-            },
-            {
-                text: 'IOC Container',
-                link: 'ioc-container'
-            },
-            {
-                text: 'Scheduled Tasks',
-                link: 'scheduled-tasks'
-            },
-            {
-                text: 'Transactions',
-                link: 'transactions'
-            },
-            {
-                text: 'Config Validation',
-                link: 'config-validation'
-            },
-            {
-                text: 'Conditional Registration',
-                link: 'conditional-registration'
+                link: 'essentials/i18n'
             },
             {
                 text: 'Exception Handling',
-                link: 'exception-handling'
+                link: 'advanced/exception-handling'
             },
             {
-                text: 'GUI Interface',
-                link: 'gui'
+                text: 'Transactions',
+                link: 'advanced/transactions'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'Framework Mechanisms',
+        items: [
+            {
+                text: 'Auto Register',
+                link: 'advanced/auto-register'
             },
             {
-                text: 'UltiTools Maven Plugin',
-                link: 'maven-plugin'
+                text: 'IOC Container',
+                link: 'advanced/ioc-container'
             },
             {
-                text: 'UltiKits CLI',
-                link: 'ultikits-cli'
+                text: 'Conditional Registration',
+                link: 'advanced/conditional-registration'
+            },
+            {
+                text: 'Config Validation',
+                link: 'advanced/config-validation'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'Runtime',
+        items: [
+            {
+                text: 'Scheduled Tasks',
+                link: 'advanced/scheduled-tasks'
             },
             {
                 text: 'Player Cache',
-                link: 'player-cache'
+                link: 'advanced/player-cache'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'UI System',
+        items: [
+            {
+                text: 'GUI Interface',
+                link: 'advanced/gui'
+            },
+            {
+                text: 'Declarative GUI',
+                link: 'advanced/declarative-gui'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'Toolchain',
+        items: [
+            {
+                text: 'UltiTools Maven Plugin',
+                link: 'advanced/maven-plugin'
+            },
+            {
+                text: 'UltiKits CLI',
+                link: 'advanced/ultikits-cli'
             },
             {
                 text: 'Test Utilities',
-                link: 'test-utilities'
+                link: 'advanced/test-utilities'
             }
         ]
     },
