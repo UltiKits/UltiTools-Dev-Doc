@@ -1,16 +1,10 @@
 import DefaultTheme from "vitepress/theme"
-import {h, watchEffect} from 'vue'
-import {EnhanceAppContext, inBrowser, useData, useRoute} from 'vitepress'
+import { EnhanceAppContext, useData, useRoute } from 'vitepress'
 
-import {
-    NolebaseEnhancedReadabilitiesMenu,
-    NolebaseEnhancedReadabilitiesScreenMenu,
-} from '@nolebase/vitepress-plugin-enhanced-readabilities/client'
-import {NolebaseHighlightTargetedHeading,} from '@nolebase/vitepress-plugin-highlight-targeted-heading/client'
-import {NolebaseInlineLinkPreviewPlugin,} from '@nolebase/vitepress-plugin-inline-link-preview/client'
-import {NolebaseGitChangelogPlugin} from '@nolebase/vitepress-plugin-git-changelog/client'
+import { NolebaseInlineLinkPreviewPlugin, } from '@nolebase/vitepress-plugin-inline-link-preview/client'
+import { NolebaseGitChangelogPlugin } from '@nolebase/vitepress-plugin-git-changelog/client'
 
-import {enhanceAppWithTabs} from 'vitepress-plugin-tabs/client'
+import { enhanceAppWithTabs } from 'vitepress-plugin-tabs/client'
 import giscusTalk from 'vitepress-plugin-comment-with-giscus'
 import vitepressBackToTop from 'vitepress-plugin-back-to-top'
 import vitepressNprogress from 'vitepress-plugin-nprogress'
@@ -31,63 +25,13 @@ import './styles/main.css'
 // @ts-ignore
 import vImageViewer from 'vitepress-plugin-image-viewer/lib/vImageViewer.vue';
 // @ts-ignore
-import ReloadPrompt from './components/ReloadPrompt.vue'
-// @ts-ignore
 import VersionSwitcher from '@viteplus/versions/components/version-switcher.component.vue'
+import Layout from './Layout.vue'
 
 // noinspection JSUnusedGlobalSymbols
 export default {
     ...DefaultTheme,
-    Layout() {
-        const {lang} = useData()
-        if (inBrowser) {
-            // Auto-detect language on first visit to root path
-            if (window.location.pathname === '/') {
-                const hasPreference = localStorage.getItem('preferred_lang')
-                if (!hasPreference && /^zh\b/i.test(navigator.language)) {
-                    localStorage.setItem('preferred_lang', 'zh')
-                    window.location.pathname = '/zh/'
-                    return
-                }
-            }
-            // Remember language preference when user navigates
-            localStorage.setItem('preferred_lang', lang.value.startsWith('zh') ? 'zh' : 'en')
-        }
-
-        watchEffect(() => {
-            const {lang} = useData()
-            const {frontmatter} = useData();
-            const route = useRoute();
-
-            let language = lang.value.split('-')[0];
-            if (language === 'zh') {
-                language = 'zh-CN'
-            }
-            // Obtain configuration from: https://giscus.app/
-            giscusTalk({
-                    repo: 'UltiKits/UltiTools-Dev-Doc',
-                    repoId: 'R_kgDOKHynCA',
-                    category: 'General',
-                    categoryId: 'DIC_kwDOKHynCM4Cb4Le',
-                    mapping: 'pathname',
-                    inputPosition: 'top',
-                    lang: `${language}`,
-                    lightTheme: 'light',
-                    darkTheme: 'transparent_dark',
-                    // ...
-                }, {
-                    frontmatter, route
-                },
-                true
-            );
-        })
-        return h(DefaultTheme.Layout, null, {
-            'nav-bar-content-after': () => h(NolebaseEnhancedReadabilitiesMenu),
-            'nav-screen-content-after': () => h(NolebaseEnhancedReadabilitiesScreenMenu),
-            'layout-top': () => h(NolebaseHighlightTargetedHeading),
-            'layout-bottom': () => h(ReloadPrompt),
-        })
-    },
+    Layout,
     enhanceApp: (ctx: EnhanceAppContext) => {
         vitepressNprogress(ctx)
         enhanceAppWithTabs(ctx.app)
@@ -99,32 +43,32 @@ export default {
     },
     setup() {
         // Get frontmatter and route
-        const {frontmatter} = useData();
+        const { frontmatter } = useData();
         const route = useRoute();
 
-        codeblocksFold({route, frontmatter}, false, 400);
+        codeblocksFold({ route, frontmatter }, false, 400);
         imageViewer(route);
 
-        const {lang} = useData()
+        const { lang } = useData()
         let language = lang.value.split('-')[0];
         if (language === 'zh') {
             language = 'zh-CN'
         }
         // Obtain configuration from: https://giscus.app/
         giscusTalk({
-                repo: 'UltiKits/UltiTools-Dev-Doc',
-                repoId: 'R_kgDOKHynCA',
-                category: 'General',
-                categoryId: 'DIC_kwDOKHynCM4Cb4Le',
-                mapping: 'pathname',
-                inputPosition: 'top',
-                lang: `${language}`,
-                lightTheme: 'light',
-                darkTheme: 'transparent_dark',
-                // ...
-            }, {
-                frontmatter, route
-            },
+            repo: 'UltiKits/UltiTools-Dev-Doc',
+            repoId: 'R_kgDOKHynCA',
+            category: 'General',
+            categoryId: 'DIC_kwDOKHynCM4Cb4Le',
+            mapping: 'pathname',
+            inputPosition: 'top',
+            lang: `${language}`,
+            lightTheme: 'light',
+            darkTheme: 'transparent_dark',
+            // ...
+        }, {
+            frontmatter, route
+        },
             true
         );
     }

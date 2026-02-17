@@ -36,7 +36,7 @@ features:
   --vp-home-hero-name-color: transparent;
   --vp-home-hero-name-background: -webkit-linear-gradient(120deg, #bd34fe 30%, #41d1ff);
 
-  --vp-home-hero-image-background-image: linear-gradient(180deg, rgba(189,52,254,0.4) 50%, rgba(71,202,255,0.4) 50%);
+  --vp-home-hero-image-background-image: linear-gradient(180deg,  rgba(71,202,255,0.4) 50%, rgba(189,52,254,0.4) 50%);
   --vp-home-hero-image-filter: blur(44px);
 }
 
@@ -50,6 +50,10 @@ features:
   :root {
     --vp-home-hero-image-filter: blur(68px);
   }
+}
+
+.VPContent.is-home {
+    padding-top: calc(var(--vp-nav-height) + 64px);
 }
 </style>
 
