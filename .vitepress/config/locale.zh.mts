@@ -1,5 +1,5 @@
 import {navZH} from "./nav.zh.mjs";
-import {sidebarApiZH, sidebarGuideZH, sidebarGuideZH_v610} from "./sidebar.zh.mjs";
+import {sidebarApiZH, sidebarGuideZH, sidebarGuideZH_v620, sidebarGuideZH_v610} from "./sidebar.zh.mjs";
 import {textCN} from "./text.zh.mjs";
 import {socialZH} from "./social.zh.mjs";
 
@@ -15,7 +15,9 @@ const localeZH = {
             sidebar: {
                 '/guide/': sidebarGuideZH,
                 '/api/': sidebarApiZH,
-                'v6.2.0/guide/': sidebarGuideZH,
+                'v6.2.1/guide/': sidebarGuideZH_v620,
+                'v6.2.1/api/': sidebarApiZH,
+                'v6.2.0/guide/': sidebarGuideZH_v620,
                 'v6.2.0/api/': sidebarApiZH,
                 'v6.1.0/guide/': sidebarGuideZH_v610,
                 'v6.1.0/api/': sidebarApiZH,

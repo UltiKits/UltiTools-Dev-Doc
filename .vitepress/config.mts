@@ -22,7 +22,7 @@ export default withPwa(
         ...viteConfig,
 
         versionsConfig: {
-            current: 'v6.2.1',
+            current: 'v6.2.2',
             sources: 'src',
             archive: 'archive',
             versionSwitcher: {
