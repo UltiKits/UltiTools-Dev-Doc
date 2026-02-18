@@ -14,6 +14,8 @@ const localeEN = {
             sidebar: {
                 '/guide/': sidebarGuideEN,
                 '/api/': sidebarApiEN,
+                'v6.2.0/guide/': sidebarGuideEN,
+                'v6.2.0/api/': sidebarApiEN,
                 'v6.1.0/guide/': sidebarGuideEN_v610,
                 'v6.1.0/api/': sidebarApiEN,
             },
