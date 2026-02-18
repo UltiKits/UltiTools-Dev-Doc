@@ -40,7 +40,7 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `static CommandManager `                        | static CommandManager                                                       |
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
 | `static ConfigManager `                         | getConfigManager\()                                                         |
-| `<T extends AbstractDataEntity>DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
+| `<T extends BaseDataEntity<String>>DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
 | `Language`                                      | getLanguage\()                                                              |
 | `java.lang.String`                              | getLanguageCode()                                                           |
 | `static ListenerManager`                        | getListenerManager\()                                                       |
@@ -67,7 +67,7 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | 限定符和类型                                          | 方法和说明                                                                       |
 |-------------------------------------------------|-----------------------------------------------------------------------------|
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
-| `<T extends AbstractDataEntity>DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
+| `<T extends BaseDataEntity<String>>DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
 | `Language`                                      | getLanguage\()                                                              |
 | `java.lang.String`                              | getLanguageCode()                                                           |
 | `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
@@ -81,7 +81,7 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `static CommandManager `                        | static CommandManager                                                       |
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
 | `static ConfigManager `                         | getConfigManager\()                                                         |
-| `<T extends AbstractDataEntity>DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
+| `<T extends BaseDataEntity<String>>DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
 | `Language`                                      | getLanguage\()                                                              |
 | `java.lang.String`                              | getLanguageCode()                                                           |
 | `static ListenerManager`                        | getListenerManager\()                                                       |

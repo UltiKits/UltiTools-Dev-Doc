@@ -10,9 +10,9 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 
 ## 创建实体类
 
-### AbstractDataEntity
+### BaseDataEntity
 
-你只需要创建一个类，继承 `AbstractDataEntity` 类，并使用 `@Table` 和 `@Column` 注解来标记你的实体类。
+创建一个继承 `BaseDataEntity<String>` 的类，并使用 `@Table` 和 `@Column` 注解来标记你的实体类。
 
 ```java
 @Data
@@ -21,7 +21,7 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 @Table("some_table")
-public class SomeEntity extends AbstractDataEntity {
+public class SomeEntity extends BaseDataEntity<String> {
     @Column("name")
     private String name;
     @Column(value = "something", type = "FLOAT")
@@ -33,36 +33,11 @@ public class SomeEntity extends AbstractDataEntity {
 
 `@Data`、`@Builder`、`@NoArgsConstructor`、`@AllArgsConstructor`、`@EqualsAndHashCode` 则为 Lombok 注解，用于自动生成 `getter`、`setter`、`builder`、`equals`、`hashCode` 方法。
 
-### BaseDataEntity <Badge type="tip" text="v6.2.0+" />
+::: warning 从 AbstractDataEntity 迁移
+从 v6.2.1 开始，`DataOperator`、`Query` 和 `UltiToolsPlugin.getDataOperator()` 要求实体继承 `BaseDataEntity<String>` 而非 `AbstractDataEntity`。如果你的实体仍然继承 `AbstractDataEntity`，请改为 `BaseDataEntity<String>`。
+:::
 
-从 v6.2.0 开始，你还可以使用 `BaseDataEntity`，它提供了类型安全的泛型 ID 和生命周期钩子：
-
-```java
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-@Table("some_table")
-public class SomeEntity extends BaseDataEntity<Integer> {
-    @Column("name")
-    private String name;
-    @Column(value = "something", type = "FLOAT")
-    private double something;
-
-    @Override
-    public void onCreate() {
-        // 首次插入前调用
-    }
-
-    @Override
-    public boolean validate() {
-        return name != null && !name.isEmpty();
-    }
-}
-```
-
-`BaseDataEntity<ID>` 继承了 `AbstractDataEntity`，额外提供：
+`BaseDataEntity<String>` 提供了插入/更新/删除/加载事件的生命周期钩子：
 
 | 方法 | 说明 |
 |------|------|
@@ -85,7 +60,7 @@ public class SomeEntity extends BaseDataEntity<Integer> {
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 @Table("audit_log")
-public class AuditEntry extends AuditableDataEntity<Integer> {
+public class AuditEntry extends AuditableDataEntity<String> {
     @Column("action")
     private String action;
     @Column("details")
@@ -93,7 +68,7 @@ public class AuditEntry extends AuditableDataEntity<Integer> {
 }
 ```
 
-`AuditableDataEntity<ID>` 继承了 `BaseDataEntity<ID>`，自动管理以下字段：
+`AuditableDataEntity<String>` 继承了 `BaseDataEntity<String>`，自动管理以下字段：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|

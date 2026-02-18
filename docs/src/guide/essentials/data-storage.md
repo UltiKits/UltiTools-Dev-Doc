@@ -12,9 +12,9 @@ Since the API is still under development, there may be problems when dealing wit
 
 ## Create Entity Class
 
-### AbstractDataEntity
+### BaseDataEntity
 
-Create a class that inherits the `AbstractDataEntity` class, and use the `@Table` and `@Column` annotations to mark your entity class.
+Create a class that extends `BaseDataEntity<String>`, and use the `@Table` and `@Column` annotations to mark your entity class.
 
 ```java
 @Data
@@ -23,7 +23,7 @@ Create a class that inherits the `AbstractDataEntity` class, and use the `@Table
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 @Table("some_table")
-public class SomeEntity extends AbstractDataEntity {
+public class SomeEntity extends BaseDataEntity<String> {
     @Column("name")
     private String name;
     @Column(value = "something", type = "FLOAT")
@@ -35,36 +35,11 @@ public class SomeEntity extends AbstractDataEntity {
 
 `@Data`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor`, `@EqualsAndHashCode` are Lombok annotations, which are used to automatically generate `getter`, `setter`, `builder`, `equals`, `hashCode` methods.
 
-### BaseDataEntity <Badge type="tip" text="v6.2.0+" />
+::: warning Migration from AbstractDataEntity
+Starting from v6.2.1, `DataOperator`, `Query`, and `UltiToolsPlugin.getDataOperator()` require entities to extend `BaseDataEntity<String>` instead of `AbstractDataEntity`. If your entity still extends `AbstractDataEntity`, change it to `BaseDataEntity<String>`.
+:::
 
-Starting from v6.2.0, you can also use `BaseDataEntity` which provides a type-safe generic ID and lifecycle hooks:
-
-```java
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-@Table("some_table")
-public class SomeEntity extends BaseDataEntity<Integer> {
-    @Column("name")
-    private String name;
-    @Column(value = "something", type = "FLOAT")
-    private double something;
-
-    @Override
-    public void onCreate() {
-        // Called before first insert
-    }
-
-    @Override
-    public boolean validate() {
-        return name != null && !name.isEmpty();
-    }
-}
-```
-
-`BaseDataEntity<ID>` extends `AbstractDataEntity` and adds:
+`BaseDataEntity<String>` provides lifecycle hooks for insert/update/delete/load events:
 
 | Method | Description |
 |--------|-------------|
@@ -87,7 +62,7 @@ For entities that require audit tracking of creation and modification, use `Audi
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 @Table("audit_log")
-public class AuditEntry extends AuditableDataEntity<Integer> {
+public class AuditEntry extends AuditableDataEntity<String> {
     @Column("action")
     private String action;
     @Column("details")
@@ -95,7 +70,7 @@ public class AuditEntry extends AuditableDataEntity<Integer> {
 }
 ```
 
-`AuditableDataEntity<ID>` extends `BaseDataEntity<ID>` and automatically manages:
+`AuditableDataEntity<String>` extends `BaseDataEntity<String>` and automatically manages:
 
 | Field | Type | Description |
 |-------|------|-------------|
