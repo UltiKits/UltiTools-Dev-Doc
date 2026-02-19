@@ -65,6 +65,57 @@ ultikits whoami     # 查看当前身份验证状态
 ultikits logout     # 删除已保存的凭据
 ```
 
+## 创建新模块
+
+创建新 UltiTools 模块最快的方式是使用 `ultikits create`：
+
+```bash
+ultikits create
+```
+
+命令会依次提示你输入：
+
+| 提示 | 默认值 | 说明 |
+|------|--------|------|
+| Module name | — | 模块名称，PascalCase 格式（如 `UltiHome`、`MyPlugin`） |
+| Package name | 由名称自动推导 | Java 包名（如 `com.ultikits.plugins.home`） |
+| Description | — | 模块简短描述 |
+| Author | `git config user.name` | 作者名 |
+| API version | `6.2.2` | UltiTools-API 版本 |
+
+生成一个完整的、可编译的项目：
+
+```
+UltiHome/
+├── pom.xml                          # Maven 构建，包含 UltiTools-API、测试依赖、JaCoCo
+├── README.md                        # 中英双语 README 模板
+├── .gitignore
+├── src/main/java/.../UltiHome.java  # 带 @UltiToolsModule 的主类
+├── src/main/resources/
+│   ├── plugin.yml                   # 插件描述文件
+│   └── lang/
+│       ├── en.yml                   # 英文语言文件
+│       └── zh.yml                   # 中文语言文件
+└── src/test/java/.../               # 测试目录（空，等待编写测试）
+```
+
+生成的项目可以直接编译：
+
+```bash
+cd UltiHome
+mvn compile
+```
+
+也可以指定目标目录：
+
+```bash
+ultikits create my-plugin-dir
+```
+
+::: tip
+创建完成后，在 `commands/` 包中添加命令类，`service/` 包中添加服务类，`config/` 包中添加配置类。框架通过 `@UltiToolsModule(scanBasePackages)` 自动发现带注解的类。
+:::
+
 ## 项目配置
 
 ### 初始化项目配置

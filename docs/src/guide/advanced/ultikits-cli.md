@@ -65,6 +65,57 @@ ultikits whoami     # Check current authentication status
 ultikits logout     # Remove stored credentials
 ```
 
+## Scaffolding a New Module
+
+The fastest way to start a new UltiTools module is with `ultikits create`:
+
+```bash
+ultikits create
+```
+
+The command prompts you for:
+
+| Prompt | Default | Description |
+|--------|---------|-------------|
+| Module name | — | PascalCase name (e.g., `UltiHome`, `MyPlugin`) |
+| Package name | Derived from name | Java package (e.g., `com.ultikits.plugins.home`) |
+| Description | — | Short description of the module |
+| Author | `git config user.name` | Your name |
+| API version | `6.2.2` | UltiTools-API version |
+
+It generates a complete, compilable project:
+
+```
+UltiHome/
+├── pom.xml                          # Maven build with UltiTools-API, test deps, JaCoCo
+├── README.md                        # Bilingual readme template
+├── .gitignore
+├── src/main/java/.../UltiHome.java  # Main class with @UltiToolsModule
+├── src/main/resources/
+│   ├── plugin.yml                   # Plugin descriptor
+│   └── lang/
+│       ├── en.yml                   # English language file
+│       └── zh.yml                   # Chinese language file
+└── src/test/java/.../               # Test directory (empty, ready for tests)
+```
+
+The generated project compiles immediately:
+
+```bash
+cd UltiHome
+mvn compile
+```
+
+You can also specify a target directory:
+
+```bash
+ultikits create my-plugin-dir
+```
+
+::: tip
+After scaffolding, add commands in a `commands/` package, services in a `service/` package, and configs in a `config/` package. The framework auto-discovers annotated classes via `@UltiToolsModule(scanBasePackages)`.
+:::
+
 ## Project Setup
 
 ### Initialize Project Config
