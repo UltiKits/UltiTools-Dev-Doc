@@ -146,7 +146,7 @@ protected void setupContent(InventoryOpenEvent event) {
     Icon refreshButton = createActionButton(Colors.GREEN, "Refresh", e -> {
         refresh();
     });
-    addToBottomRow(getBottomCenterSlot(), refreshButton);  // Center
+    addToBottomRow(4, refreshButton);  // Center
 
     Icon helpButton = createActionButton(Colors.YELLOW, "Help", e -> {
         player.sendMessage("This is a help message");
@@ -576,7 +576,7 @@ Keep inventory layouts consistent across servers with different resolutions:
 // Always use getBottomCenterSlot() and getSlotFromEnd() for positioning
 // instead of hardcoded slot numbers
 Icon button = createActionButton(...);
-addToBottomRow(getBottomCenterSlot(), button);  // Works for any inventory size
+addToBottomRow(4, button);  // Center column; works for any inventory size
 ```
 
 ### Performance

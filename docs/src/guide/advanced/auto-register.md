@@ -2,7 +2,7 @@
 
 This article will teach you how to use annotations to let UltiTools help you complete a series of tedious registration tasks.
 
-## @UtiToolsModule
+## @UltiToolsModule
 
 Add this annotation above the class that extends `UltiToolsPlugin`.
 
@@ -16,7 +16,7 @@ If you want to manually register commands or listeners, you can set `eventListen
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
 import com.ultikits.ultitools.annotations.UltiToolsModule;
 import lombok.Getter;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.ultikits.ultitools.annotations.Autowired;
 
 @UltiToolsModule(
         // enable auto register listener
@@ -53,7 +53,7 @@ public class PluginMain extends UltiToolsPlugin {
 
 ## @EnableAutoRegister
 
-`@UtiToolsModule` contains the `@EnableAutoRegister` annotation. If you cannot use `@UtiToolsModule`, you can use the `@EnableAutoRegister` annotation, such as if you want to use UltiTools' automatic registration in your own plugin.
+`@UltiToolsModule` contains the `@EnableAutoRegister` annotation. If you cannot use `@UltiToolsModule`, you can use the `@EnableAutoRegister` annotation, such as if you want to use UltiTools' automatic registration in your own plugin.
 
 Add this annotation above the class that extends `UltiToolsPlugin`, UltiTools will automatically register according to your configuration when loading your module:
 
@@ -68,15 +68,15 @@ public class UltiToolsConnector extends UltiToolsPlugin {
     
     // If you need to connect to UltiTools-API, you need to override this constructor with parameters,
     // the other one without parameters is for module development.
-    public UltiToolsConnector(String name, String version, List<String> authors, List<String> depend, int loadPriority, String mainClass) {
-        super(name, version, authors, depend, loadPriority, mainClass);
+    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass) {
+        super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass);
     }
 
     @Override
     public boolean registerSelf() throws IOException {
         return true;
     }
-    
+
     ...
 }
 ```
@@ -91,8 +91,8 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
     // If you need to connect to UltiTools-API, you need to override this constructor with parameters,
     // the other one without parameters is for module development.
-    public UltiToolsConnector(String name, String version, List<String> authors, List<String> depend, int loadPriority, String mainClass) {
-        super(name, version, authors, depend, loadPriority, mainClass);
+    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass) {
+        super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass);
     }
 
     @Override

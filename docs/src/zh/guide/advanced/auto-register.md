@@ -2,7 +2,7 @@
 
 这篇文章将会教你如何使用注解让UltiTools帮你完成一系列的、繁琐的注册任务。
 
-## @UtiToolsModule 注解
+## @UltiToolsModule 注解
 
 在继承了 `UltiToolsPlugin` 的类的上方添加这一注解。
 
@@ -16,7 +16,7 @@
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
 import com.ultikits.ultitools.annotations.UltiToolsModule;
 import lombok.Getter;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.ultikits.ultitools.annotations.Autowired;
 
 @UltiToolsModule(
         // 是否扫描并注册监听器
@@ -53,7 +53,7 @@ public class PluginMain extends UltiToolsPlugin {
 
 ## @EnableAutoRegister 注解
 
-`@UtiToolsModule` 内包含了 `@EnableAutoRegister` 注解，在不适合使用 `@UtiToolsModule` 的情况下，你可以使用 `@EnableAutoRegister` 注解，比如你想在你自己的插件中使用 UltiTools 的自动注册。
+`@UltiToolsModule` 内包含了 `@EnableAutoRegister` 注解，在不适合使用 `@UltiToolsModule` 的情况下，你可以使用 `@EnableAutoRegister` 注解，比如你想在你自己的插件中使用 UltiTools 的自动注册。
 
 在继承了 `UltiToolsPlugin` 的类的上方添加这一注解，UltiTools 在加载你的模块时会根据你的配置进行自动注册：
 
@@ -68,15 +68,15 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
     // 如果需要连接到UltiTools-API，则需要重写这个有参数的构造函数，另一个无参数的是给模块开发使用的。
     // 在这里请不要主动使用无参数的构造函数
-    public UltiToolsConnector(String name, String version, List<String> authors, List<String> depend, int loadPriority, String mainClass) {
-        super(name, version, authors, depend, loadPriority, mainClass);
+    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass) {
+        super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass);
     }
 
     @Override
     public boolean registerSelf() throws IOException {
         return true;
     }
-    
+
     ...
 }
 ```
@@ -91,8 +91,8 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
     // 如果需要连接到UltiTools-API，则需要重写这个有参数的构造函数，另一个无参数的是给模块开发使用的。
     // 在这里请不要主动使用无参数的构造函数
-    public UltiToolsConnector(String name, String version, List<String> authors, List<String> depend, int loadPriority, String mainClass) {
-        super(name, version, authors, depend, loadPriority, mainClass);
+    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass) {
+        super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass);
     }
 
     @Override

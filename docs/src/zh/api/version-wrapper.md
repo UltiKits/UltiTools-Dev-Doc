@@ -2,6 +2,10 @@
 文章内容不一定是最新的，你可以前往 [Javadoc 文档](https://doc.dev.ultikits.com/javadoc) 来查看最新的内容
 :::
 
+::: danger 已弃用
+`VersionWrapper` 接口自 v6.2.0 起已弃用，将在未来版本中移除。请使用 `XVersionUtils` 的静态方法代替。
+:::
+
 # 接口 `VersionWrapper`
 
 包 `com.ultikits.ultitools.interfaces`
@@ -27,7 +31,7 @@ public interface **VersionWrapper**
 | [`getEndEye()`](#getEndEye) | - | `ItemStack` | 获取末影之眼 |
 | [`getEmailMaterial(boolean isRead)`](#getEmailMaterial) | - | `ItemStack` | 获取邮件材质 |
 | [`getHead(OfflinePlayer player)`](#getHead) | - | `ItemStack` | 获取玩家头颅 |
-| [`getGrassBlock()`](#getGrassBlock) | - | `ItemStack` | 获取玻璃块 |
+| [`getGrassBlock()`](#getGrassBlock) | - | `ItemStack` | 获取草方块 |
 | [`registerNewObjective(Scoreboard scoreboard, String name, String criteria, String displayName)`](#registerNewObjective) | - | `Objective` | 注册计分板对象 |
 | [`getSound(Sounds sound)`](#getSound) | - | `Sound` | 获取声音 |
 | [`getBed(Colors bedColor)`](#getBed) | - | `ItemStack` | 获取床 |
@@ -44,7 +48,7 @@ public interface **VersionWrapper**
 | [`getEndEye()`](#getEndEye) | - | `ItemStack` | 获取末影之眼 |
 | [`getEmailMaterial(boolean isRead)`](#getEmailMaterial) | - | `ItemStack` | 获取邮件材质 |
 | [`getHead(OfflinePlayer player)`](#getHead) | - | `ItemStack` | 获取玩家头颅 |
-| [`getGrassBlock()`](#getGrassBlock) | - | `ItemStack` | 获取玻璃块 |
+| [`getGrassBlock()`](#getGrassBlock) | - | `ItemStack` | 获取草方块 |
 | [`registerNewObjective(Scoreboard scoreboard, String name, String criteria, String displayName)`](#registerNewObjective) | - | `Objective` | 注册计分板对象 |
 | [`getSound(Sounds sound)`](#getSound) | - | `Sound` | 获取声音 |
 | [`getBed(Colors bedColor)`](#getBed) | - | `ItemStack` | 获取床 |
@@ -61,7 +65,7 @@ public interface **VersionWrapper**
 | [`getEndEye()`](#getEndEye) | - | `ItemStack` | 获取末影之眼 |
 | [`getEmailMaterial(boolean isRead)`](#getEmailMaterial) | - | `ItemStack` | 获取邮件材质 |
 | [`getHead(OfflinePlayer player)`](#getHead) | - | `ItemStack` | 获取玩家头颅 |
-| [`getGrassBlock()`](#getGrassBlock) | - | `ItemStack` | 获取玻璃块 |
+| [`getGrassBlock()`](#getGrassBlock) | - | `ItemStack` | 获取草方块 |
 | [`registerNewObjective(Scoreboard scoreboard, String name, String criteria, String displayName)`](#registerNewObjective) | - | `Objective` | 注册计分板对象 |
 | [`getSound(Sounds sound)`](#getSound) | - | `Sound` | 获取声音 |
 | [`getBed(Colors bedColor)`](#getBed) | - | `ItemStack` | 获取床 |
@@ -71,7 +75,7 @@ public interface **VersionWrapper**
 | [`sendPlayerList(Player player, String header, String footer)`](#sendPlayerList) | - | `void` | 设置玩家头部显示 |
 | [`getBlockFace(Block placedBlock)`](#getBlockFace) | - | `BlockFace` | 获取方块面向 |
 == 已过时的方法
-<center><strong>该接口没有已过时的方法</strong></center>
+<center><strong>该接口的所有方法均已过时。请使用 <code>XVersionUtils</code> 的静态方法代替。</strong></center>
 :::
 
 ## 方法详细信息
@@ -211,7 +215,7 @@ java.lang.String displayName
 :::info <span id="sendActionBar">sendActionBar</span>
 `void sendActionBar(org.bukkit.entity.Player player, java.lang.String message)`
 
-获取玩家手中的物品
+给玩家发送 Action Bar 消息
 
 **参数**
 - player - 玩家
@@ -232,7 +236,7 @@ java.lang.String displayName
 :::info <span id="getBlockFace">getBlockFace</span>
 `org.bukkit.block.BlockFace getBlockFace(org.bukkit.block.Block placedBlock)`
 
-设置玩家头部显示
+获取方块面向
 
 **参数**
 - placedBlock - 方块

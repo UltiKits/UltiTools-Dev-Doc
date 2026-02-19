@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: "UltiTools API"
-  text: "<span id=\"typing\">Base on Module</span><br>Spigot Development Framework"
-  tagline: Enjoy developing Spigot plugins with UltiTools API
+  text: "<span id=\"typing\">Base on Module</span><br>Paper Plugin Framework"
+  tagline: Enjoy developing Minecraft plugins with UltiTools API
   actions:
     - theme: brand
       text: Quick Start
@@ -25,7 +25,7 @@ features:
     details: The UltiTools-API packages a multitude of commonly used libraries, allowing you to directly utilize these libraries in your development without worrying about the size of the plugins.
   - title: Powered by Annotation
     icon: 🚀
-    details: The UltiTools-API offers an advanced annotation system, enabling you to develop Spigot plugins in a manner similar to developing Spring Boot applications.
+    details: The UltiTools-API offers an advanced annotation system, enabling you to develop Minecraft plugins in a manner similar to developing Spring Boot applications.
   - title: Complementary Maven Plugin
     icon: 🧩
     details: UltiTools also offers a Maven plugin that can automatically place compiled plugins into a folder and upload modules to UltiCloud, enhancing the quality of life in your plugin development.

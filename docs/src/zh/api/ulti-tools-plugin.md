@@ -21,9 +21,9 @@
 > 
 > 版本: 1.0.0
 
-已实现的接口: `IPlugin`, `Localized`
+已实现的接口: `IPlugin`, `Localized`, `Configurable`
 
-public abstract class **UltiToolsPlugin** extends java.lang.Object implements IPlugin, Localized
+public abstract class **UltiToolsPlugin** extends java.lang.Object implements IPlugin, Localized, Configurable
 
 ## 构造器概要
 :::tabs
@@ -45,8 +45,7 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `java.lang.String`                              | getLanguageCode()                                                           |
 | `static ListenerManager`                        | getListenerManager\()                                                       |
 | `static PluginManager`                          | getPluginManager\()                                                         |
-| `static VersionWrapper`                         | getVersionWrapper\()                                                        |
-| `static ViewManager`                            | getViewManager\()                                                           |
+| `static VersionWrapper`                         | getVersionWrapper\() `@Deprecated`                                          |
 | `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
 | `java.lang.String`                              | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
 | `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType)          |
@@ -59,8 +58,7 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `static ConfigManager `                         | getConfigManager\()                                                         |
 | `static ListenerManager`                        | getListenerManager\()                                                       |
 | `static PluginManager`                          | getPluginManager\()                                                         |
-| `static VersionWrapper`                         | getVersionWrapper\()                                                        |
-| `static ViewManager`                            | getViewManager\()                                                           |
+| `static VersionWrapper`                         | getVersionWrapper\() `@Deprecated`                                          |
 
 == 实例方法
 
@@ -86,8 +84,7 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `java.lang.String`                              | getLanguageCode()                                                           |
 | `static ListenerManager`                        | getListenerManager\()                                                       |
 | `static PluginManager`                          | getPluginManager\()                                                         |
-| `static VersionWrapper`                         | getVersionWrapper\()                                                        |
-| `static ViewManager`                            | getViewManager\()                                                           |
+| `static VersionWrapper`                         | getVersionWrapper\() `@Deprecated`                                          |
 | `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
 | `java.lang.String`                              | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
 | `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType)          |
@@ -106,6 +103,10 @@ minUltiToolsVersion, pluginName, registerSelf, reloadSelf, unregisterSelf
 
 ::: info com.ultikits.ultitools.interfaces.Localized
 supported
+:::
+
+::: info com.ultikits.ultitools.interfaces.Configurable
+getAllConfigs, getConfig, saveConfig
 :::
 
 ## 构造器详细资料

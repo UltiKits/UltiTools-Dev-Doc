@@ -201,7 +201,7 @@ protected List<String> suggest(Player player, Command command, String[] strings)
 
 ```java
 @CmdSuggest({PointSuggest.class})
-public class PointCommand extends AbstractCommandExecutor {
+public class PointCommand extends BaseCommandExecutor {
     
     @CmdMapping(format = "add <name>")
     public void addPoint(@CmdSender Player player, @CmdParam(value = "name", suggest="listName") String name) {
@@ -248,7 +248,7 @@ public void addPoint(@CmdSender Player player, @CmdParam(value = "name...") Stri
 
 所有的解析器被储存在一个名为 `parsers` 的 Map 中，你可以使用 `getParser()` 获取。
 
-对于部分类型，`AbstractCommandExecutor` 提供了默认的解析器（包括基类与数组）：
+对于部分类型，`BaseCommandExecutor` 通过 `TypeParserRegistry.getInstance()` 提供了默认的解析器（包括基类与数组）：
 
 - String (Java 内建)
 - Float (Java 内建)
@@ -298,7 +298,7 @@ public SomeCommand() {
 ```
 
 ::: tip
-如果在 `@CmdExecutor` 定义了权限，那么命令发送者仅需拥有 `@CmdExecutor` 指定的权限即可。
+`@CmdExecutor` 和 `@CmdMapping` 中定义的权限是**叠加**的——两者会被独立检查。命令发送者必须**同时拥有**类级别 `@CmdExecutor(permission=...)` 和方法级别 `@CmdMapping(permission=...)` 指定的权限才能执行该命令。
 :::
 
 #### OP 限定

@@ -19,6 +19,8 @@ public class BackListener implements Listener {
 }
 ```
 
+The `@EventListener` annotation has an optional `manualRegister` parameter (default `false`). When set to `true`, the listener is not auto-registered during component scanning — you must register it manually via `getListenerManager().register(this, YourListener.class)`.
+
 ## Register Event Listener
 
 Register the listener in `registerSelf` of the class that inherits `UltiToolsPlugin`.
@@ -34,8 +36,8 @@ import java.util.List;
 
 public class UltiToolsConnector extends UltiToolsPlugin {
 
-    public UltiToolsConnector(String name, String version, List<String> authors, List<String> depend, int loadPriority, String mainClass) {
-        super(name, version, authors, depend, loadPriority, mainClass);
+    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass) {
+        super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass);
     }
 
     @Override

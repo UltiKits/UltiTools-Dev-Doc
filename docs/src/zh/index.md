@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: "UltiTools API"
-  text: "<span id=\"typing\">基于模块的</span><br>Spigot 开发框架"
+  text: "<span id=\"typing\">基于模块的</span><br>Paper 插件框架"
   tagline: 简单，易用，快速，高兼容<br>愉悦的开发体验让你专注于创新之中
   actions:
     - theme: brand
@@ -25,7 +25,7 @@ features:
     details: UltiTools API 打包了很多常用的库，您可以在开发中直接使用这些库而无需担心插件的体量。
   - title: 注解驱动
     icon: 🚀
-    details: UltiTools API 提供了高级的注解系统，您可以像开发 Spring Boot 应用一样开发Spigot插件。
+    details: UltiTools API 提供了高级的注解系统，您可以像开发 Spring Boot 应用一样开发 Minecraft 插件。
   - title: 配套 Maven 插件
     icon: 🧩
     details: UltiTools 还提供了一个maven插件，可以自动将编译后的插件放入文件夹和上传模块至UltiCloud，提升您开发插件的生活质量。

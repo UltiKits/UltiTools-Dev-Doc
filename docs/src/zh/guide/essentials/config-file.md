@@ -139,7 +139,7 @@ boolean something = someConfig.getSomething();
 
 ### 自动注册
 
-因为UltiTools提供了自动注册功能，所以你无需手动注册配置文件，只需要在你的配置文件类上添加 `@ConfigEntry` 注解即可。
+因为UltiTools提供了自动注册功能，所以你无需手动注册配置文件，只需要在你的配置文件类上添加 `@ConfigEntity` 注解即可。
 
 请查看[这篇文章](/zh/guide/advanced/auto-register)来了解更多关于自动注册的内容。
 

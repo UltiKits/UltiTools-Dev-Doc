@@ -12,7 +12,7 @@ It is committed to making more server owners build servers easily, reducing the 
 
 ## Features
 
-* High Compatibility: Compatible with Spigot / Catserver / Mohist versions 1.8.8 - 1.20.4.
+* High Compatibility: Compatible with Paper 1.21+ (Java 21 required).
 
 * Advanced GUI: Most features have a graphical user interface, making it easy for players to operate.
 
@@ -30,11 +30,11 @@ It is committed to making more server owners build servers easily, reducing the 
 
 UltiTools API is the core of UltiTools, providing a comprehensive set of APIs that enable easy development of feature-rich plugins.
 
-UltiTools API packages many commonly used libraries, including but not limited to Spring core, FastJson, Hutool, Adventure, obliviate-invs, etc. You can directly use these libraries in your development without worrying about the size of the plugins.
+UltiTools API packages commonly used libraries including Adventure, obliviate-invs, CGLIB, HikariCP, etc. It provides a Spring-like IoC container (`SimpleContainer`) with annotation-driven dependency injection. You can directly use these libraries in your development without worrying about the size of the plugins.
 
 UltiTools API offers a complete GUI API, allowing you to easily develop GUI plugins without worrying about the intricacies of GUI implementation.
 
-UltiTools API provides an advanced annotation system, enabling you to develop UltiTools plugins in the same way as you would develop Spring Boot applications (with the IOC framework provided by Spring Core).
+UltiTools API provides an advanced annotation system, enabling you to develop UltiTools plugins in the same way as you would develop Spring Boot applications (with UltiTools' own Spring-like IoC container).
 
 UltiTools also offers a Maven plugin that can automatically place compiled plugins into a folder and upload modules to UltiCloud, enhancing the quality of life in your plugin development.
 

@@ -4,6 +4,23 @@ UltiTools 模块的事件监听与 Bukkit 的事件监听基本相同。
 
 参见 [Bukkit 事件监听器](https://bukkit.gamepedia.com/Event_API_Reference)。
 
+## 创建监听器
+
+创建一个实现 `Listener` 接口的类，并在处理事件的方法上添加 `@EventHandler` 注解。
+
+```java
+@EventListener
+public class BackListener implements Listener {
+
+    @EventHandler
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        ...
+    }
+}
+```
+
+`@EventListener` 注解有一个可选的 `manualRegister` 参数（默认为 `false`）。设为 `true` 时，监听器不会在组件扫描时自动注册——你需要通过 `getListenerManager().register(this, YourListener.class)` 手动注册。
+
 ## 监听器注册
 
 在继承了 `UltiToolsPlugin` 的类中的 `registerSelf` 中注册监听器。
@@ -21,8 +38,8 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
     // 如果需要连接到UltiTools-API，则需要重写这个有参数的构造函数，另一个无参数的是给模块开发使用的。
     // 在这里请不要主动使用无参数的构造函数
-    public UltiToolsConnector(String name, String version, List<String> authors, List<String> depend, int loadPriority, String mainClass) {
-        super(name, version, authors, depend, loadPriority, mainClass);
+    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass) {
+        super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass);
     }
 
     @Override
