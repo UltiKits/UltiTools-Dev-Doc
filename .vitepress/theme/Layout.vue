@@ -236,7 +236,7 @@ watchEffect(() => {
     <Layout>
         <template #nav-bar-content-after>
             <a class="developer-btn" href="https://panel.ultikits.com/developer" target="_blank">
-                开发者平台
+                {{ lang.startsWith('zh') ? '开发者平台' : 'Dev Portal' }}
             </a>
             <NolebaseEnhancedReadabilitiesMenu />
         </template>

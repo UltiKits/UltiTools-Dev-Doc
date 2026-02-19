@@ -6,7 +6,7 @@ import VPNavBarMenuLink from 'vitepress/dist/client/theme-default/components/VPN
 // @ts-ignore
 import VPNavBarMenuGroup from 'vitepress/dist/client/theme-default/components/VPNavBarMenuGroup.vue'
 
-const { theme } = useData()
+const { theme, lang } = useData()
 const route = useRoute()
 
 const indicatorStyle = ref({
@@ -75,7 +75,7 @@ onMounted(() => {
 
       <a class="announcement" href="https://github.com/UltiKits/UltiTools-Reborn" target="_blank">
         <span class="badge">NEW</span>
-        <span class="text">UltiTools 6.2.0 已发布！更加现代化的开发体验！→</span>
+        <span class="text">{{ lang.startsWith('zh') ? 'UltiTools 6.2.0 已发布！更加现代化的开发体验！→' : 'UltiTools 6.2.0 Released! A more modern dev experience! →' }}</span>
       </a>
     </div>
   </div>
