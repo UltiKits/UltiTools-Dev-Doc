@@ -204,10 +204,14 @@ public void onCustomEvent(MyCustomEvent event) {
 | 基类 | `extends UltiToolsPlugin` | `extends JavaPlugin` |
 | 注册方式 | `@UltiToolsModule` + `registerSelf()` | `UltiToolsAPI.connect(this)` |
 | 国际化 | `plugin.i18n("key")` 可用 | 不可用——使用纯字符串 |
-| 配置实体 | 完整支持 | 完整支持 |
+| 配置实体 | 完整支持（`@ConfigEntity`） | **不可用** — 请使用 Bukkit `getConfig()` |
 | 数据存储 | `plugin.getDataOperator(Class)` | `UltiToolsAPI.getDataOperator(plugin, Class)` |
 | 热重载 | 支持 `ul reload` | 不支持——需要重启服务器 |
 | plugin.yml | `api-version: 600` | `depend: [UltiTools]` |
+
+## 完整示例项目
+
+查看 [UltiTools-External-Example](https://github.com/UltiKits/UltiTools-External-Example) 仓库，获取一个完整的示例项目，演示了在标准 Bukkit 插件中使用 `@Service`、`@CmdExecutor`、`@EventListener`、`@Autowired` 和 `DataOperator` CRUD。
 
 ::: tip
 另见：[IoC 容器](/zh/guide/advanced/ioc-container) | [命令执行器](/zh/guide/essentials/cmd-executor) | [定时任务](/zh/guide/advanced/scheduled-tasks) | [模块事件总线](/zh/guide/advanced/module-eventbus)

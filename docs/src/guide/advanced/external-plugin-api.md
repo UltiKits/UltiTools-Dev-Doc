@@ -204,10 +204,14 @@ public void onCustomEvent(MyCustomEvent event) {
 | Base class | `extends UltiToolsPlugin` | `extends JavaPlugin` |
 | Registration | `@UltiToolsModule` + `registerSelf()` | `UltiToolsAPI.connect(this)` |
 | i18n | `plugin.i18n("key")` available | Not available — use plain strings |
-| Config entities | Full support | Full support |
+| Config entities | Full support (`@ConfigEntity`) | **Not available** — use Bukkit `getConfig()` |
 | Data storage | `plugin.getDataOperator(Class)` | `UltiToolsAPI.getDataOperator(plugin, Class)` |
 | Hot reload | Supported via `ul reload` | Not supported — requires server restart |
 | plugin.yml | `api-version: 600` | `depend: [UltiTools]` |
+
+## Complete Working Example
+
+Check out the [UltiTools-External-Example](https://github.com/UltiKits/UltiTools-External-Example) repository for a fully working example that demonstrates `@Service`, `@CmdExecutor`, `@EventListener`, `@Autowired`, and `DataOperator` CRUD in a standard Bukkit plugin.
 
 ::: tip
 See also: [IoC Container](/guide/advanced/ioc-container) | [Command Executor](/guide/essentials/cmd-executor) | [Scheduled Tasks](/guide/advanced/scheduled-tasks) | [Module EventBus](/guide/advanced/module-eventbus)
