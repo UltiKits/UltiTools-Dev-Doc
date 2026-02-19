@@ -72,6 +72,10 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
             {
                 text: 'Config Validation',
                 link: 'advanced/config-validation'
+            },
+            {
+                text: 'External Plugin API',
+                link: 'advanced/external-plugin-api'
             }
         ]
     },
@@ -264,6 +268,10 @@ const sidebarGuideEN_v620: DefaultTheme.SidebarItem[] = [
             {
                 text: 'Config Validation',
                 link: 'advanced/config-validation'
+            },
+            {
+                text: 'External Plugin API',
+                link: 'advanced/external-plugin-api'
             }
         ]
     },

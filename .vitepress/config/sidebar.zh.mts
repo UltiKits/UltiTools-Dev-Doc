@@ -72,6 +72,10 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
             {
                 text: '配置校验',
                 link: 'advanced/config-validation'
+            },
+            {
+                text: '外部插件 API',
+                link: 'advanced/external-plugin-api'
             }
         ]
     },
@@ -264,6 +268,10 @@ const sidebarGuideZH_v620: DefaultTheme.SidebarItem[] = [
             {
                 text: '配置校验',
                 link: 'advanced/config-validation'
+            },
+            {
+                text: '外部插件 API',
+                link: 'advanced/external-plugin-api'
             }
         ]
     },
