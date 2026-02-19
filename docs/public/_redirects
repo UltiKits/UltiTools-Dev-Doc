@@ -1,0 +1,3 @@
+# Redirect /en/* to root (English is the root locale, no /en/ prefix)
+/en/* /:splat 301
+/en / 301
