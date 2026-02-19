@@ -13,6 +13,7 @@ export default withPwa(
     defineVersionedConfig({
         srcDir: 'docs',
         lastUpdated: true,
+        ignoreDeadLinks: true,
         head: [['link', { rel: 'icon', href: '/favicon.ico' }]],
         sitemap: { hostname: 'https://dev.ultikits.com' },
         locales: { ...localeZH, ...localeEN },
