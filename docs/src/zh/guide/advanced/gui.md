@@ -146,7 +146,7 @@ protected void setupContent(InventoryOpenEvent event) {
     Icon refreshButton = createActionButton(Colors.GREEN, "刷新", e -> {
         refresh();
     });
-    addToBottomRow(getBottomCenterSlot(), refreshButton);  // 中心
+    addToBottomRow(4, refreshButton);  // 中心
 
     Icon helpButton = createActionButton(Colors.YELLOW, "帮助", e -> {
         player.sendMessage("这是一条帮助消息");
@@ -576,7 +576,7 @@ public class CustomPaginationGui extends BasePaginationPage {
 // 始终使用 getBottomCenterSlot() 和 getSlotFromEnd() 来定位
 // 而不是硬编码槽位号
 Icon button = createActionButton(...);
-addToBottomRow(getBottomCenterSlot(), button);  // 适用于任何背包大小
+addToBottomRow(4, button);  // 中心列；适用于任何背包大小
 ```
 
 ### 性能

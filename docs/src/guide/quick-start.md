@@ -12,11 +12,11 @@ In this article, you will learn how to create an UltiTools module and how to use
 
 [//]: # (UltiKits 开发了官方的 IDEA 插件，你可以使用他来快速创建项目。)
 
-## Create a new Spigot project
+## Create a new Paper project
 
-Everything starts with an empty project, so you need to create an empty Spigot project. 
+Everything starts with an empty project, so you need to create an empty Paper project.
 You can use IDEA's [Minecraft plugin](https://plugins.jetbrains.com/plugin/8327-minecraft-development)
-to quickly create an empty Spigot project, or manually create an empty maven project.
+to quickly create an empty Paper project, or manually create an empty maven project.
 
 ## Add UltiTools-API to your project
 
@@ -28,13 +28,13 @@ Whether you are creating an UltiTools module or using UltiTools-API, you need to
 <dependency>
   <groupId>com.ultikits</groupId>
   <artifactId>UltiTools-API</artifactId>
-  <version>{VERSION}</version>
+  <version>6.2.2</version>
 </dependency>
 ```
 
 ```groovy [Gradle]
 dependencies {
-  implementation 'com.ultikits:UltiTools-API:{VERSION}'
+  implementation 'com.ultikits:UltiTools-API:6.2.2'
 }
 ```
 
@@ -63,8 +63,8 @@ name: TestPlugin
 version: '${project.version}'
 # Module main class
 main: com.test.plugin.MyPlugin
-# UltiTools API version, for example 6.0.0 is 600
-api-version: 600
+# UltiTools API version, for example 6.2.0 is 620
+api-version: 620
 # Module authors
 authors: 
   - yourname
@@ -72,7 +72,7 @@ authors:
 
 ### Create the main class of the module
 
-Create a new class that extends `UltiToolsPlugin`, similar to traditional Spigot plugins, 
+Create a new class that extends `UltiToolsPlugin`, similar to traditional Paper plugins,
 UltiTools modules also need to override the startup and shutdown methods.
 But UltiToolsPlugin adds an optional `UltiToolsPlugin#reloadSelf()` method for execution when the module is reloaded.
 
@@ -107,9 +107,15 @@ public class MyPlugin extends UltiToolsPlugin {
 
 Then you have completed an UltiTools module that does nothing.
 
-## Utilize UltiTools-API
+## Use UltiTools-API
 
-### Create a connector class
+::: tip Since v6.2.2
+You can use the simpler External Plugin API: `UltiToolsAPI.connect(this)` in your plugin's `onEnable()`. See the [External Plugin API guide](../advanced/external-plugin-api.md) for details.
+:::
+
+The following section describes the legacy connector approach, which is still supported but no longer recommended for new projects.
+
+### Create a connector class (Legacy)
 
 Create a new class that extends `UltiToolsPlugin`, this class will be the connector class of your plugin.
 
@@ -123,12 +129,12 @@ import java.util.List;
 // This annotation is required for automatic registration
 @EnableAutoRegister(scanPackage = "com.ultikits.plugin.ultikitsapiexample")
 public class UltiToolsConnector extends UltiToolsPlugin {
-    
+
     // If you need to connect to UltiTools-API, you need to override this constructor with parameters,
     // the other one without parameters is for module development.
     // Please do not use the constructor without parameters here
-    public UltiToolsConnector(String name, String version, List<String> authors, List<String> depend, int loadPriority, String mainClass) {
-      super(name, version, authors, depend, loadPriority, mainClass);
+    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass) {
+      super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass);
     }
     @Override
     public boolean registerSelf() {
@@ -139,8 +145,8 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
     @Override
     public void unregisterSelf() {
-        // Optional, 
-        // if you only need to unregister all commands and listeners, 
+        // Optional,
+        // if you only need to unregister all commands and listeners,
         // you don't need to override this method
         // Executed when the module is unregistered
     }
@@ -155,7 +161,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 }
 ```
 
-### Register your connector class
+### Register your connector class (Legacy)
 
 Since your plugin is not loaded by UltiTools, you need to manually register your connector class to the UltiTools plugin manager.
 
@@ -172,15 +178,15 @@ public final class UltiKitsExample extends JavaPlugin {
         // Register this connector class to the UltiTools plugin manager
         UltiTools.getInstance().getPluginManager().register(
                 UltiToolsConnector.class,
-                "Example",  // Name
+                "Example",  // Plugin name
                 "1.0.0",  // Version
                 Collections.singletonList("wisdomme"),  // Authors
                 Collections.emptyList(),  // Load after
-                600,  // UltiTools API minimum version
+                620,  // UltiTools API minimum version
                 "com.ultikits.plugin.ultikitsapiexample.UltiToolsConnector"  // Full class name of the connector class
         );
     }
-    
+
     @Override
     public void onDisable() {
         // Remember to unregister the connector class from the UltiTools plugin manager when the plugin is unloaded

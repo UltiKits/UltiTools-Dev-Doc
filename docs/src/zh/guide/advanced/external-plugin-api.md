@@ -135,7 +135,7 @@ public class JoinListener implements Listener {
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 @Table("player_stats")
-public class StatsEntity extends AbstractDataEntity {
+public class StatsEntity extends BaseDataEntity<String> {
     @Column("player_id") private String playerId;
     @Column("visits") private int visits;
 }
@@ -207,7 +207,7 @@ public void onCustomEvent(MyCustomEvent event) {
 | 配置实体 | 完整支持（`@ConfigEntity`） | **不可用** — 请使用 Bukkit `getConfig()` |
 | 数据存储 | `plugin.getDataOperator(Class)` | `UltiToolsAPI.getDataOperator(plugin, Class)` |
 | 热重载 | 支持 `ul reload` | 不支持——需要重启服务器 |
-| plugin.yml | `api-version: 600` | `depend: [UltiTools]` |
+| plugin.yml | `api-version: 620` | `depend: [UltiTools]` |
 
 ## 完整示例项目
 

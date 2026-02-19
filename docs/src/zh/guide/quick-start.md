@@ -12,10 +12,10 @@ footer: false
 
 [//]: # (UltiKits 开发了官方的 IDEA 插件，你可以使用他来快速创建项目。)
 
-## 创建 Spigot 项目
+## 创建 Paper 项目
 
-万事万物都起源于一个空项目，所以你需要创建一个空的Spigot项目。你可以使用IDEA的[Minecraft插件](https://plugins.jetbrains.com/plugin/8327-minecraft-development)
-来快速创建一个空的Spigot项目，或者手动创建一个空的maven项目。
+万事万物都起源于一个空项目，所以你需要创建一个空的Paper项目。你可以使用IDEA的[Minecraft插件](https://plugins.jetbrains.com/plugin/8327-minecraft-development)
+来快速创建一个空的Paper项目，或者手动创建一个空的maven项目。
 
 ## 添加依赖项
 
@@ -27,13 +27,13 @@ footer: false
 <dependency>
   <groupId>com.ultikits</groupId>
   <artifactId>UltiTools-API</artifactId>
-  <version>{VERSION}</version>
+  <version>6.2.2</version>
 </dependency>
 ```
 
 ```groovy [Gradle]
 dependencies {
-  implementation 'com.ultikits:UltiTools-API:{VERSION}'
+  implementation 'com.ultikits:UltiTools-API:6.2.2'
 }
 ```
 
@@ -60,15 +60,15 @@ name: TestPlugin
 version: '${project.version}'
 # 模块主类
 main: com.test.plugin.MyPlugin
-# 模块用到的UltiTools-API版本，例如6.0.0就是600
-api-version: 600
+# 模块用到的UltiTools-API版本，例如6.2.0就是620
+api-version: 620
 # 模块作者
 authors: [ yourname ]
 ```
 
 ### 编写模块主类
 
-新建一个主类继承 `UltiToolsPlugin` ，类似传统的Spigot插件，UltiTools模块也需要重写启动和关闭方法。
+新建一个主类继承 `UltiToolsPlugin` ，类似传统的Paper插件，UltiTools模块也需要重写启动和关闭方法。
 但是UltiToolsPlugin增加了一个可选的 `UltiToolsPlugin#reloadSelf()` 方法，用于模块重载时执行。
 
 ```java
@@ -100,7 +100,13 @@ public class MyPlugin extends UltiToolsPlugin {
 
 ## 使用UltiTools-API
 
-### 创建入口类
+::: tip 自 v6.2.2 起
+你可以使用更简单的外部插件 API：在你的插件 `onEnable()` 中调用 `UltiToolsAPI.connect(this)` 即可。详情请参阅[外部插件 API 指南](../advanced/external-plugin-api.md)。
+:::
+
+以下部分介绍的是旧版连接器方式，该方式仍然受支持，但不再推荐用于新项目。
+
+### 创建入口类（旧版）
 
 新建一个类继承 `UltiToolsPlugin` ，这个类将会作为你的插件的入口类。
 
@@ -117,8 +123,8 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
     // 如果需要连接到UltiTools-API，则需要重写这个有参数的构造函数，另一个无参数的是给模块开发使用的。
     // 在这里请不要使用无参数的构造函数
-    public UltiToolsConnector(String name, String version, List<String> authors, List<String> depend, int loadPriority, String mainClass) {
-      super(name, version, authors, depend, loadPriority, mainClass);
+    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass) {
+      super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass);
     }
 
     @Override
@@ -143,7 +149,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 }
 ```
 
-### 将入口类注册到UltiTools插件管理器
+### 将入口类注册到UltiTools插件管理器（旧版）
 
 由于你的插件并不是由UltiTools加载，所以你需要手动将你的入口类注册到UltiTools插件管理器中。
 
@@ -160,15 +166,15 @@ public final class UltiKitsExample extends JavaPlugin {
         // 将此连接类注册到UltiTools的模块/插件管理器中
         UltiTools.getInstance().getPluginManager().register(
                 UltiToolsConnector.class,
-                "Example",  // 名称
+                "Example",  // 插件名称
                 "1.0.0",  // 版本
                 Collections.singletonList("wisdomme"),  // 作者
-                Collections.emptyList(),  // 依赖
-                600,  // UltiTools API 需求最低版本
+                Collections.emptyList(),  // 加载后依赖
+                620,  // UltiTools API 需求最低版本
                 "com.ultikits.plugin.ultikitsapiexample.UltiToolsConnector"  // 连接类的完整类名
         );
     }
-    
+
     @Override
     public void onDisable() {
         // 记得在插件卸载时将连接类从UltiTools的模块/插件管理器中注销

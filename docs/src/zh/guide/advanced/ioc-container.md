@@ -2,7 +2,7 @@
 
 IOC 的全称为 Inversion of Control （反转控制），意在将对象的创建和管理交由容器，而不是由开发者主动新建对象。
 
-UltiTools 整合了 Spring IOC 容器，如果你接触过 Spring 开发，你将会对下面的内容感到十分熟悉。
+UltiTools 拥有自己的 IOC 容器，基于 `SimpleContainer` 构建，使用三级缓存来解决循环依赖问题。如果你接触过 Spring 开发，你将会对下面的概念感到十分熟悉。
 
 ::: warning 局限性
 尽管 UltiTools 尽可能地对涉及的class进行扫描，但仍然可能存在因找不到类使 Bean 注册失败的问题。
@@ -12,51 +12,45 @@ UltiTools 整合了 Spring IOC 容器，如果你接触过 Spring 开发，你�
 
 每个模块都有一个独立的上下文容器 `Context`，你可以使用主类的 `getContext()` 方法获取到。
 
-该 `Context` 与 Spring 的 `AnnotationConfigApplicationContext` 一致，具体使用方法可查阅官网文档，本文仅涉及基本的用法。
+该 `Context` 由 UltiTools 的 `SimpleContainer` 支持，本文仅涉及基本的用法。
 
 所有模块的上下文容器都使用了一个公共的容器作为父容器，该父容器拥有一些 UltiTools 的公共 Bean，也有可能存在其他模块注册的公共 Bean。
 
 ## Bean注册
 
 ### 自动扫描
-在你的主类添加 `@ConpomentScan(...)` 注解，UltiTools在初始化你的插件时会自动扫描给定包下所有的类，带有相应注解的将会被自动注册为 Bean。
+在你的主类添加 `@ComponentScan(...)` 注解，UltiTools在初始化你的插件时会自动扫描给定包下所有的类，带有相应注解的将会被自动注册为 Bean。
 
 支持的注解有：
 - `@Component`
-- `@Controller`
 - `@Service`
-- `@Repository`
 - `@CmdExecutor` (UltiTools API 内建)
 - `@EventListener` (UltiTools API 内建)
 
-详情参见 [Classpath Scanning and Managed Components](https://docs.spring.io/spring-framework/reference/core/beans/classpath-scanning.html)
-
 ### 手动注册
 
-你可以直接使用容器对象的 `register()` 方法进行注册：
+你可以直接使用容器对象的 `registerType()` 方法进行注册：
 
 ```java "MyBean.java"
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
 import com.ultikits.ultitools.annotations.EnableAutoRegister;
 import com.ultikits.ultitools.annotations.I18n;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.stereotype.Component;
+import com.ultikits.ultitools.annotations.ComponentScan;
+import com.ultikits.ultitools.annotations.Component;
 
-@UltToolsModule
+@UltiToolsModule
 public class BasicFunctions extends UltiToolsPlugin {
-    
+
     @Override
     public boolean registerSelf() {
         // 插件启动时执行
-        getContext().register(MyBean.class);
-        getContext().refresh();              //别忘记刷新上下文
+        getContext().registerType(MyBean.class, new MyBean());
     }
   
   ...
 }
 ```
 
-详情参见 [Bean Overview](https://docs.spring.io/spring-framework/reference/core/beans/definition.html)
 
 ## 依赖获取
 
@@ -73,7 +67,7 @@ MyBean myBean;
 
 //构造函数注入
 public MyClass(MyBean myBean) {
-    this.myBean = MyBean;       
+    this.myBean = myBean;
 }
 ```
 
@@ -315,7 +309,7 @@ private YourPlugin plugin;       // 通过具体类型
 - 类型安全的依赖注入
 - 更好的可测试性（可以为单元测试模拟插件）
 - 消除了静态 getInstance() 调用
-- 遵循 Spring 依赖注入模式
+- 遵循标准依赖注入模式
 
 ## 服务优先级
 

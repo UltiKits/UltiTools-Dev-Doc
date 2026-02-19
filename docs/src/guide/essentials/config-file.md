@@ -158,7 +158,7 @@ If you need to persistently store data, please refer to [Data Storage](/guide/es
 ### Automatically register
 
 Since UltiTools provides automatic registration function, you don't need to register configuration files manually, just
-add the `@ConfigEntry` annotation to your configuration file class.
+add the `@ConfigEntity` annotation to your configuration file class.
 
 Please refer to [this article](/guide/advanced/auto-register) for more information about automatic registration.
 

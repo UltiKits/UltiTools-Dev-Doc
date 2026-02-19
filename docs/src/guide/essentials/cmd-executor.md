@@ -228,7 +228,7 @@ Add the `@CmdSuggest` annotation to the class which need to use suggestion metho
 ```java
 
 @CmdSuggest({PointSuggest.class})
-public class PointCommand extends AbstractCommandExecutor {
+public class PointCommand extends BaseCommandExecutor {
 
     @CmdMapping(format = "add <name>")
     public void addPoint(@CmdSender Player player, @CmdParam(value = "name", suggest = "listName") String name) {
@@ -276,7 +276,7 @@ Before passing parameters to a method, UltiTools converts the command's variable
 
 All parsers are stored in a map called `parsers`, and you can use `getParser()` to access it.
 
-For some types, `AbstractCommandExecutor` provides default parsers (including base types and arrays):
+For some types, `BaseCommandExecutor` provides default parsers via `TypeParserRegistry.getInstance()` (including base types and arrays):
 
 - String (Java built-in)
 - Float (Java built-in)
@@ -327,7 +327,7 @@ annotation.
 ```
 
 ::: tip
-The permissions specified in `@CmdExecutor` will override any permission set in `@CmdMapping`.
+The permissions from `@CmdExecutor` and `@CmdMapping` are **additive** — both are checked independently. The player must have **both** the class-level `@CmdExecutor(permission=...)` and the method-level `@CmdMapping(permission=...)` to execute the command.
 :::
 
 #### OP Required

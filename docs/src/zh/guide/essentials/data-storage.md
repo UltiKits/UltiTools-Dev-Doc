@@ -34,7 +34,7 @@ public class SomeEntity extends BaseDataEntity<String> {
 `@Data`、`@Builder`、`@NoArgsConstructor`、`@AllArgsConstructor`、`@EqualsAndHashCode` 则为 Lombok 注解，用于自动生成 `getter`、`setter`、`builder`、`equals`、`hashCode` 方法。
 
 ::: warning 从 AbstractDataEntity 迁移
-从 v6.2.1 开始，`DataOperator`、`Query` 和 `UltiToolsPlugin.getDataOperator()` 要求实体继承 `BaseDataEntity<String>` 而非 `AbstractDataEntity`。如果你的实体仍然继承 `AbstractDataEntity`，请改为 `BaseDataEntity<String>`。
+从 v6.2.0 开始，`DataOperator`、`Query` 和 `UltiToolsPlugin.getDataOperator()` 要求实体继承 `BaseDataEntity<String>` 而非 `AbstractDataEntity`。如果你的实体仍然继承 `AbstractDataEntity`，请改为 `BaseDataEntity<String>`。
 :::
 
 `BaseDataEntity<String>` 提供了插入/更新/删除/加载事件的生命周期钩子：
@@ -118,7 +118,7 @@ try {
 使用示例：
 
 ```java
-AuditEntry entry = op.getById(1);
+AuditEntry entry = op.getById("some-id");
 if (entry.wasModified()) {
     System.out.println("修改于 " + entry.getTimeSinceUpdate().getSeconds() + " 秒前");
 }
@@ -187,7 +187,7 @@ List<SomeEntity> list = dataOperator.getAll(
 或按 ID 获取单个实体：
 
 ```java
-SomeEntity entity = dataOperator.getById(1);
+SomeEntity entity = dataOperator.getById("some-id");
 ```
 
 获取所有实体：

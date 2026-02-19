@@ -135,7 +135,7 @@ Use `UltiToolsAPI.getDataOperator()` to get a `DataOperator` for your data entit
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 @Table("player_stats")
-public class StatsEntity extends AbstractDataEntity {
+public class StatsEntity extends BaseDataEntity<String> {
     @Column("player_id") private String playerId;
     @Column("visits") private int visits;
 }
@@ -207,7 +207,7 @@ public void onCustomEvent(MyCustomEvent event) {
 | Config entities | Full support (`@ConfigEntity`) | **Not available** — use Bukkit `getConfig()` |
 | Data storage | `plugin.getDataOperator(Class)` | `UltiToolsAPI.getDataOperator(plugin, Class)` |
 | Hot reload | Supported via `ul reload` | Not supported — requires server restart |
-| plugin.yml | `api-version: 600` | `depend: [UltiTools]` |
+| plugin.yml | `api-version: 620` | `depend: [UltiTools]` |
 
 ## Complete Working Example
 

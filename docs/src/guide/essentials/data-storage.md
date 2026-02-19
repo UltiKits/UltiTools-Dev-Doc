@@ -36,7 +36,7 @@ public class SomeEntity extends BaseDataEntity<String> {
 `@Data`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor`, `@EqualsAndHashCode` are Lombok annotations, which are used to automatically generate `getter`, `setter`, `builder`, `equals`, `hashCode` methods.
 
 ::: warning Migration from AbstractDataEntity
-Starting from v6.2.1, `DataOperator`, `Query`, and `UltiToolsPlugin.getDataOperator()` require entities to extend `BaseDataEntity<String>` instead of `AbstractDataEntity`. If your entity still extends `AbstractDataEntity`, change it to `BaseDataEntity<String>`.
+Starting from v6.2.0, `DataOperator`, `Query`, and `UltiToolsPlugin.getDataOperator()` require entities to extend `BaseDataEntity<String>` instead of `AbstractDataEntity`. If your entity still extends `AbstractDataEntity`, change it to `BaseDataEntity<String>`.
 :::
 
 `BaseDataEntity<String>` provides lifecycle hooks for insert/update/delete/load events:
@@ -120,7 +120,7 @@ Use a try-finally block to ensure `clearCurrentUser()` is called, otherwise the 
 Example usage:
 
 ```java
-AuditEntry entry = op.getById(1);
+AuditEntry entry = op.getById("some-id");
 if (entry.wasModified()) {
     System.out.println("Modified " + entry.getTimeSinceUpdate().getSeconds() + " seconds ago");
 }
@@ -189,7 +189,7 @@ List<SomeEntity> list = dataOperator.getAll(
 Or get a single entity by ID:
 
 ```java
-SomeEntity entity = dataOperator.getById(1);
+SomeEntity entity = dataOperator.getById("some-id");
 ```
 
 Get all entities:
