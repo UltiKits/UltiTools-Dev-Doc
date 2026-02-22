@@ -81,7 +81,7 @@ The command prompts you for:
 | Package name | Derived from name | Java package (e.g., `com.ultikits.plugins.home`) |
 | Description | — | Short description of the module |
 | Author | `git config user.name` | Your name |
-| API version | `6.2.2` | UltiTools-API version |
+| API version | `6.2.3` | UltiTools-API version |
 
 It generates a complete, compilable project:
 

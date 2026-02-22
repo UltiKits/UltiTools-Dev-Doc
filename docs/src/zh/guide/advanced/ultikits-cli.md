@@ -81,7 +81,7 @@ ultikits create
 | Package name | 由名称自动推导 | Java 包名（如 `com.ultikits.plugins.home`） |
 | Description | — | 模块简短描述 |
 | Author | `git config user.name` | 作者名 |
-| API version | `6.2.2` | UltiTools-API 版本 |
+| API version | `6.2.3` | UltiTools-API 版本 |
 
 生成一个完整的、可编译的项目：
 

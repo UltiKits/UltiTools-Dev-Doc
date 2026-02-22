@@ -15,7 +15,7 @@ The External Plugin API allows **any regular Bukkit/Spigot plugin** to use UltiT
 <dependency>
     <groupId>com.ultikits</groupId>
     <artifactId>UltiTools-API</artifactId>
-    <version>6.2.2</version>
+    <version>6.2.3</version>
     <scope>provided</scope>
 </dependency>
 ```
