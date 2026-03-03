@@ -15,6 +15,8 @@ const localeZH = {
             sidebar: {
                 '/guide/': sidebarGuideZH,
                 '/api/': sidebarApiZH,
+                'v6.2.3/guide/': sidebarGuideZH,
+                'v6.2.3/api/': sidebarApiZH,
                 'v6.2.2/guide/': sidebarGuideZH,
                 'v6.2.2/api/': sidebarApiZH,
                 'v6.2.1/guide/': sidebarGuideZH_v620,
