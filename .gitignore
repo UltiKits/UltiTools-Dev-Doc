@@ -121,4 +121,4 @@ dev-dist
 
 ### Maven ###
 # Build output for the examples/ compilable-docs module
-target/
+/examples/target/

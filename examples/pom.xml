@@ -13,6 +13,11 @@
         Compilable examples embedded in the UltiTools developer documentation.
         This module is never published. Its only purpose is to fail the build
         when a documented API no longer exists in the released UltiTools-API.
+        Coverage note: this gate only protects examples that have been migrated
+        to `&lt;&lt;&lt;` snippet references into this module. Of the 215 Java code
+        blocks across the docs site, only 2 have been migrated so far; the
+        remaining 213 are still inline code blocks in docs/src and are not
+        covered or verified by this build.
     </description>
 
     <properties>

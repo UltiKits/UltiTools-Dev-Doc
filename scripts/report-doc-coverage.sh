@@ -21,7 +21,7 @@ for v in "$PREV" "$CURR"; do
     | sort -u > "$WORK/$v.classes"
 done
 
-# Scan both docs/src and examples/src: since commit a729691, page code samples
+# Scan both docs/src and examples/src: since commit 48dbeae, page code samples
 # are `<<<` snippet references into examples/src/**/*.java rather than inline
 # markdown blocks, so a class only shown via a snippet (e.g. BaseDataEntity)
 # never appears as a literal FQN in docs/src. examples/src is documentation
