@@ -23,3 +23,13 @@ jobs:
 
       - name: Compile examples against released UltiTools-API
         run: mvn -B -f examples/pom.xml compile
+
+  version-consistency:
+    name: Docs version matches latest release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check version invariant
+        run: ./scripts/check-version-consistency.sh
