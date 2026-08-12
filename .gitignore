@@ -118,3 +118,7 @@ draft.md
 CLAUDE.md
 dev-dist/CLAUDE.md
 dev-dist
+
+### Maven ###
+# Build output for the examples/ compilable-docs module
+/examples/target/

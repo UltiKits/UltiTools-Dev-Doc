@@ -16,20 +16,7 @@ Since the API is still under development, there may be problems when dealing wit
 
 Create a class that extends `BaseDataEntity<String>`, and use the `@Table` and `@Column` annotations to mark your entity class.
 
-```java
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-@Table("some_table")
-public class SomeEntity extends BaseDataEntity<String> {
-    @Column("name")
-    private String name;
-    @Column(value = "something", type = "FLOAT")
-    private double something;
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/data/UserData.java
 
 `@Table` is used to mark the data set corresponding to the class, and `@Column` is used to mark the field corresponding to the field of the data set of the class.
 
@@ -154,10 +141,7 @@ In the main class that inherits `UltiToolsPlugin`, there is a `getDataOperator` 
 
 You need to get the instance of the module main class, and then call the `getDataOperator` method.
 
-```java
-DataOperator<SomeEntity> dataOperator =
-        SomePlugin.getInstance().getDataOperator(SomeEntity.class);
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/data/UserDataService.java
 
 ::: warning
 `DataOperator` is not thread-safe. Please get `DataOperator` when you need it, and do not try to save `DataOperator` object.

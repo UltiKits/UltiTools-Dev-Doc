@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.ultikits.docs</groupId>
+    <artifactId>ultitools-doc-examples</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <description>
+        Compilable examples embedded in the UltiTools developer documentation.
+        This module is never published. Its only purpose is to fail the build
+        when a documented API no longer exists in the released UltiTools-API.
+        Coverage note: this gate only protects examples that have been migrated
+        to `&lt;&lt;&lt;` snippet references into this module. Of the 215 Java code
+        blocks across the docs site, only 2 have been migrated so far; the
+        remaining 213 are still inline code blocks in docs/src and are not
+        covered or verified by this build.
+    </description>
+
+    <properties>
+        <!-- Must equal versionsConfig.current in .vitepress/config.mts
+             and the latest <release> on Maven Central. Verified by CI. -->
+        <ultitools.version>6.2.4</ultitools.version>
+        <java.version>1.8</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>papermc</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.ultikits</groupId>
+            <artifactId>UltiTools-API</artifactId>
+            <version>${ultitools.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <version>1.21.11-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.38</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
