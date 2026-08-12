@@ -14,20 +14,7 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 
 创建一个继承 `BaseDataEntity<String>` 的类，并使用 `@Table` 和 `@Column` 注解来标记你的实体类。
 
-```java
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-@Table("some_table")
-public class SomeEntity extends BaseDataEntity<String> {
-    @Column("name")
-    private String name;
-    @Column(value = "something", type = "FLOAT")
-    private double something;
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/data/UserData.java
 
 其中，`@Table` 注解用于标记该类对应的数据表（若使用 MySQL 数据库），`@Column` 注解用于标记该类的字段对应的数据表的列。
 
@@ -152,10 +139,7 @@ UltiTools 封装了一套语义化的 CRUD 操作 API，你只需要调用相应
 
 你需要获取插件主类的实例，然后调用 `getDataOperator` 方法。
 
-```java
-DataOperator<SomeEntity> dataOperator =
-        SomePlugin.getInstance().getDataOperator(SomeEntity.class);
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/data/UserDataService.java
 
 ::: warning 请即取即用
 `DataOperator` 不是线程安全的，请在需要的时候获取 `DataOperator`，不要试图保存 `DataOperator` 对象。
