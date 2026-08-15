@@ -91,13 +91,14 @@ whatever framework is installed on the server. That asymmetry is the whole point
 
 - Compiled against an **older** API → the module provably uses only what existed
   in that version → it **cannot** hit `NoSuchMethodError` for reaching at
-  something newer than the server has.
+  something newer than the server has. It can still hit one for a *different*
+  reason — see the warning below.
 - Compiled against a **newer** API → it may reach for a method the server's
   framework does not have → `NoSuchMethodError` on startup.
 
 That is a guarantee about one failure mode, not about forward compatibility in
-general: a later framework release can still remove something the module uses.
-See the warning below.
+general: a later framework release can still remove — or silently reshape —
+something the module uses. See the warning below.
 
 So a pin that lags the latest release is **the normal state, not drift waiting
 to be fixed**. It states "this module needs the framework to be at least X",
@@ -106,21 +107,34 @@ which is the same claim the module's `plugin.yml` `api-version` makes.
 **Raise the pin only when the module actually starts using a newer API.**
 
 ::: warning The risk that runs the other way
-The framework's MINOR releases *may remove* API (again, see `COMPATIBILITY.md`).
-A module pinned to an old version that uses a since-removed type will fail with
-`NoClassDefFoundError` on a server running the newer framework.
+An old pin buys you the guarantee above and nothing else. Two things can still
+break a module whose own code never changed.
+
+**Shape 1 — a type it uses gets removed.** The framework's MINOR releases *may
+remove* API (again, see `COMPATIBILITY.md`). A module using a since-removed type
+fails with `NoClassDefFoundError` on the newer framework.
 
 Raising the pin does not **prevent** this — the class is gone from the runtime
 whatever you compiled against — but it does **surface** it: the module stops
 compiling, so you find out at build time instead of on someone's server. The
 cost is that the pin is also the floor, so raising it drops every server still
-on an older framework.
+on an older framework. Which makes raising the pin a useful *sweep* and a poor
+*fix*: bump it in a scratch build, see what fails to compile, migrate off those
+APIs, then decide separately whether the released pin should move.
 
-Which makes raising the pin a useful *sweep* and a poor *fix*: bump it in a
-scratch build, see what fails to compile, migrate off those APIs, then decide
-separately whether the released pin should move. The actual defence is
-**following deprecation notices** — reading the removal list and migrating
-before the removal ships.
+**Shape 2 — a method it calls keeps its name and changes its descriptor.** This
+one is nastier, because nothing is removed and there is nothing to deprecate. It
+has already happened: in 6.1.1 → 6.2.1 the framework changed the *type of a
+field* on `UltiToolsPlugin`, so the Lombok-generated `getContext()` changed
+return type. A return type is part of the JVM method descriptor, so every
+already-compiled module calling it got `NoSuchMethodError` — while the **source**
+stayed compatible, and recompiling fixed it with zero code changes.
+
+The defence is different for each shape. For shape 1 it is **following
+deprecation notices** — reading the removal list and migrating before the removal
+ships. For shape 2 there is no notice to follow, so the only reliable action is
+to **recompile and republish across framework MINOR versions**. A JAR you shipped
+and never rebuilt gets no protection from having pinned low.
 :::
 
 ## Current state of the modules
