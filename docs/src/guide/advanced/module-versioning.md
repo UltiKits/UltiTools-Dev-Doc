@@ -140,14 +140,22 @@ on what went: a removed **type** gives `NoClassDefFoundError`, while a removed
 The second case is not hypothetical — the current removal list includes a
 constructor, not just types.
 
-Raising the pin does not **prevent** this — the API is gone from the runtime
-whatever you compiled against — but it usually **surfaces** it: the module stops
-compiling, so you find out at build time instead of on someone's server.
+Raising the pin and rebuilding does one of two things, and you cannot tell which
+until you run it:
 
-"Usually" is doing real work there, and the rule behind it is worth stating
-directly: **the sweep only sees what your source actually names.** Everything your
-source reaches implicitly can silently re-resolve to something else, and the build
-stays green:
+- **It exposes the removal.** The build fails, so you find out here instead of on
+  someone's server, and you migrate off the removed API.
+- **It retargets the call.** Something surviving absorbs it, the build passes, and
+  the rebuilt artifact is simply fixed.
+
+Neither one repairs the JAR you **already shipped** — that keeps failing until you
+publish the rebuild. Which is why the second outcome is the dangerous one: a green
+build looks like "nothing to do here", when in fact you are holding the fix and
+have to know to ship it.
+
+And a green build is easy to get, because **the sweep only sees what your source
+actually names.** Everything your source reaches implicitly can silently
+re-resolve:
 
 - An overload absorbs the call — `m(String)` goes away, `m(Object)` survives, your
   unchanged source recompiles against the survivor.
@@ -155,10 +163,8 @@ stays green:
   type of `create()` is inferred, so redirecting `create()` to a replacement type
   recompiles cleanly while the old bytecode still references the deleted one.
 
-In both cases the sweep reports nothing and the JAR you already shipped is still
-broken. So a green scratch build is **not** proof of compatibility; it only proves
-your source still compiles. When that happens the rebuild is not a diagnostic, it
-*is* the repair — and nothing will tell you that you need to ship it.
+So a green scratch build is **not** proof of compatibility. It only proves your
+source still compiles.
 
 The cost lands only if you *ship* the raised pin: building against a newer
 framework can record newer descriptors, which means honestly raising `api-version`
