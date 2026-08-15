@@ -90,9 +90,14 @@ A module declares the framework as `provided`:
 whatever framework is installed on the server. That asymmetry is the whole point:
 
 - Compiled against an **older** API → the module provably uses only what existed
-  in that version → it runs on that version **and every later one**.
+  in that version → it **cannot** hit `NoSuchMethodError` for reaching at
+  something newer than the server has.
 - Compiled against a **newer** API → it may reach for a method the server's
   framework does not have → `NoSuchMethodError` on startup.
+
+That is a guarantee about one failure mode, not about forward compatibility in
+general: a later framework release can still remove something the module uses.
+See the warning below.
 
 So a pin that lags the latest release is **the normal state, not drift waiting
 to be fixed**. It states "this module needs the framework to be at least X",
