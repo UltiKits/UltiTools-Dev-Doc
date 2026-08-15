@@ -29,7 +29,7 @@ diff，却是 MAJOR——因为每一台授予过那个节点的服务器，现�
 
 ## 为什么模块和框架不一样
 
-`UltiTools-API` 的 `COMPATIBILITY.md` 写着：它的版本号是**产品阶段信号，不是严格
+`UltiTools-API` 的 [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/COMPATIBILITY.md) 写着：它的版本号是**产品阶段信号，不是严格
 的 semver 契约**——框架的 MINOR 版本**可以移除** API。
 
 这看起来和上面的规则自相矛盾。它不矛盾，而且在有人试图「统一」两者之前，值得先

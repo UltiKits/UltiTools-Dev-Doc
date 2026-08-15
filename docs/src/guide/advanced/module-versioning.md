@@ -32,7 +32,7 @@ node is now silently missing a permission.
 
 ## Why modules differ from the framework
 
-`UltiTools-API`'s `COMPATIBILITY.md` states that its version number is a
+`UltiTools-API`'s [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/COMPATIBILITY.md) states that its version number is a
 **product-stage signal rather than a strict semver contract** — a MINOR release
 of the framework may remove an API.
 
