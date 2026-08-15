@@ -12,7 +12,7 @@ Everything below follows from that.
 
 | | Meaning | What the server owner does |
 |---|---|---|
-| **MAJOR** | The upgrade needs a human | Edit config by hand · migrate data · re-learn a command or permission node that was renamed or removed |
+| **MAJOR** | The upgrade needs a human | Edit config by hand · migrate data · re-learn a command or permission node that was renamed or removed · **upgrade UltiTools itself** |
 | **MINOR** | New functionality, backwards compatible | Swap the JAR. Existing config keeps working; a new feature may need switching on |
 | **PATCH** | Fixes and internal changes, including CI/build-only changes | Swap the JAR. Nothing else |
 
@@ -27,8 +27,16 @@ node is now silently missing a permission.
 - [ ] Does the server owner have to edit their config file? → **MAJOR**
 - [ ] Does existing data need migrating? → **MAJOR**
 - [ ] Was any command or permission node removed or renamed? → **MAJOR**
-- [ ] All three no, but there is new functionality? → **MINOR**
-- [ ] All three no, and no new functionality? → **PATCH**
+- [ ] Did `plugin.yml`'s `api-version` go up? → **MAJOR**
+- [ ] All four no, but there is new functionality? → **MINOR**
+- [ ] All four no, and no new functionality? → **PATCH**
+
+The fourth one catches a case the other three miss, because nothing about the
+module itself changed. Raising `api-version` means owners on the older framework
+can no longer swap the JAR — they have to upgrade UltiTools first. By the
+deciding question above that is a MAJOR, even when the release is a
+source-unchanged rebuild — which is exactly what shape 2 in "The risk that runs
+the other way" below forces you to ship.
 
 ## Why modules differ from the framework
 
@@ -120,9 +128,12 @@ is how a JAR gets admitted onto a framework it cannot actually run on.
 An old pin buys you the guarantee above and nothing else. Two things can still
 break a module whose own code never changed.
 
-**Shape 1 — a type it uses gets removed.** The framework's MINOR releases *may
-remove* API (again, see `COMPATIBILITY.md`). A module using a since-removed type
-fails with `NoClassDefFoundError` on the newer framework.
+**Shape 1 — an API it uses gets removed.** The framework's MINOR releases *may
+remove* API (again, see `COMPATIBILITY.md`). Which linkage error you get depends
+on what went: a removed **type** gives `NoClassDefFoundError`, while a removed
+**method, constructor or field** gives `NoSuchMethodError` / `NoSuchFieldError`.
+The second case is not hypothetical — the current removal list includes a
+constructor, not just types.
 
 Raising the pin does not **prevent** this — the class is gone from the runtime
 whatever you compiled against — but it does **surface** it: the module stops

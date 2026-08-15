@@ -192,7 +192,8 @@ cat <<'NOTE'
       compile-time 的，它不是运行时地板 —— 地板是 plugin.yml 的 api-version，且只有
       后者会被框架检查。两个数字要一起动，否则新 JAR 会被老服务器放行然后炸掉。
 
-  正式发布的 pin 则只在模块真的开始用新 API 时才动。
+  正式发布的 pin 则只在模块真的开始用新 API 时才动 —— 上面那种描述符变更是这条规则
+  唯一的例外：源码一个字没改也必须抬 pin、重编、并把 api-version 一起抬。
 
   详见 https://dev.ultikits.com/zh/guide/advanced/module-versioning
 NOTE
