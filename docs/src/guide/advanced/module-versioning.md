@@ -73,7 +73,7 @@ refused with a warning.
 Beyond that, the number's *shape* is a message to a server owner, which is why
 its rules can differ from the framework's without either being wrong.
 
-## The `UltiTools-API` pin is a floor, not a freshness indicator
+## The `UltiTools-API` pin is a build input, not a freshness indicator
 
 A module declares the framework as `provided`:
 
@@ -101,10 +101,20 @@ general: a later framework release can still remove — or silently reshape —
 something the module uses. See the warning below.
 
 So a pin that lags the latest release is **the normal state, not drift waiting
-to be fixed**. It states "this module needs the framework to be at least X",
-which is the same claim the module's `plugin.yml` `api-version` makes.
+to be fixed**.
 
 **Raise the pin only when the module actually starts using a newer API.**
+
+One thing the pin is *not*, despite how it reads: your runtime floor. These are
+two independent numbers, and only one of them is enforced.
+
+| Number | Decides | Checked by |
+|---|---|---|
+| `UltiTools-API` version in `pom.xml` | which version's **descriptors your bytecode records** | nobody — it is `provided`, never enters your JAR, and the framework cannot see it at runtime |
+| `api-version` in `plugin.yml` | the declared runtime **minimum** | `PluginManager.isUltiToolsVersionCompatible` — the only value checked before a module is admitted |
+
+Raising the pin therefore does *not* raise the floor. Keeping the two out of sync
+is how a JAR gets admitted onto a framework it cannot actually run on.
 
 ::: warning The risk that runs the other way
 An old pin buys you the guarantee above and nothing else. Two things can still
@@ -116,11 +126,13 @@ fails with `NoClassDefFoundError` on the newer framework.
 
 Raising the pin does not **prevent** this — the class is gone from the runtime
 whatever you compiled against — but it does **surface** it: the module stops
-compiling, so you find out at build time instead of on someone's server. The
-cost is that the pin is also the floor, so raising it drops every server still
-on an older framework. Which makes raising the pin a useful *sweep* and a poor
-*fix*: bump it in a scratch build, see what fails to compile, migrate off those
-APIs, then decide separately whether the released pin should move.
+compiling, so you find out at build time instead of on someone's server. The cost
+lands only if you *ship* the raised pin: building against a newer framework can
+record newer descriptors, which means honestly raising `api-version` too, which
+drops every server still on an older framework. Which makes raising the pin a
+useful *sweep* and a poor *fix*: bump it in a scratch build, see what fails to
+compile, migrate off those APIs, then decide separately whether the released pin
+should move.
 
 **Shape 2 — a method it calls keeps its name and changes its descriptor.** This
 one is nastier, because nothing is removed and there is nothing to deprecate. It
@@ -138,14 +150,16 @@ ships.
 
 Shape 2 has no notice to follow, and **no free fix**. Rebuilding is not enough on
 its own: with the pin still at the old version, the build regenerates the *old*
-descriptor and the new artifact fails exactly as before. The fix is to **raise the
-pin to a framework version carrying the new descriptor and rebuild** — which moves
-your floor with it, because the rebuilt JAR now records the new descriptor and
-will throw `NoSuchMethodError` on frameworks *older* than that. One artifact
-cannot serve both sides of a descriptor change. So you either accept the higher
-floor (older servers stay on the older JAR) or ship separate artifacts per
-framework range — and you say so in `api-version`, rather than leaving a JAR
-claiming support it no longer has.
+descriptor and the new artifact fails exactly as before. So you must **raise the
+pin to a framework version carrying the new descriptor and rebuild**.
+
+That is still only half of it — and, per the table above, the half nobody checks.
+The rebuilt JAR now records the *new* descriptor, so it will throw
+`NoSuchMethodError` on frameworks *older* than that one. If `api-version` stays
+where it was, an old server happily admits the new JAR and then breaks on the
+first call. **Raise `api-version` to match.** One artifact cannot serve both sides
+of a descriptor change: either accept the higher floor (older servers stay on the
+older JAR) or ship separate artifacts per framework range.
 
 This is the one case where "a lagging pin is the normal state" does not apply.
 That rule says don't move the pin *without a reason*; a descriptor change is a
