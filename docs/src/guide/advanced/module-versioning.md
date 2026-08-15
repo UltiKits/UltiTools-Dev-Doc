@@ -90,10 +90,10 @@ A module declares the framework as `provided`:
 whatever framework is installed on the server. That asymmetry is the whole point:
 
 - Compiled against an **older** API → the module provably uses only what existed
-  in that version → it **cannot** hit `NoSuchMethodError` for reaching at
-  something newer than the server has. It can still hit one for a *different*
-  reason — see the warning below.
-- Compiled against a **newer** API → it may reach for a method the server's
+  in that version → it **cannot** hit `NoSuchMethodError` for referencing an API
+  newer than the server provides. It can still hit one for a *different* reason —
+  see the warning below.
+- Compiled against a **newer** API → it may reference a method the server's
   framework does not have → `NoSuchMethodError` on startup.
 
 That is a guarantee about one failure mode, not about forward compatibility in
@@ -124,20 +124,34 @@ APIs, then decide separately whether the released pin should move.
 
 **Shape 2 — a method it calls keeps its name and changes its descriptor.** This
 one is nastier, because nothing is removed and there is nothing to deprecate. It
-has already happened: in 6.1.1 → 6.2.1 the framework changed the *type of a
+has already happened: in 6.1.1 → **6.2.0** the framework changed the *type of a
 field* on `UltiToolsPlugin`, so the Lombok-generated `getContext()` changed
 return type. A return type is part of the JVM method descriptor, so every
-already-compiled module calling it got `NoSuchMethodError` — while the **source**
-stayed compatible, and recompiling fixed it with zero code changes.
+already-compiled module calling it got `NoSuchMethodError`. Whether the **source**
+also broke depends on how you called it: `getContext().getBean(X.class)` never
+names the return type and keeps compiling, but assigning the result to the old
+type — or overriding the method — does not.
 
 The defence is different for each shape. For shape 1 it is **following
 deprecation notices** — reading the removal list and migrating before the removal
-ships. For shape 2 there is no notice to follow, so the only reliable action is
-to **recompile and republish whenever the framework's version changes at all —
-including PATCH**. The version policy schedules *intentional* removals; an
-accidental descriptor change is by definition unscheduled, so no version level is
-exempt from it. A JAR you shipped and never rebuilt gets no protection from
-having pinned low.
+ships.
+
+Shape 2 has no notice to follow, and **no free fix**. Rebuilding is not enough on
+its own: with the pin still at the old version, the build regenerates the *old*
+descriptor and the new artifact fails exactly as before. The fix is to **raise the
+pin to a framework version carrying the new descriptor and rebuild** — which moves
+your floor with it, because the rebuilt JAR now records the new descriptor and
+will throw `NoSuchMethodError` on frameworks *older* than that. One artifact
+cannot serve both sides of a descriptor change. So you either accept the higher
+floor (older servers stay on the older JAR) or ship separate artifacts per
+framework range — and you say so in `api-version`, rather than leaving a JAR
+claiming support it no longer has.
+
+This is the one case where "a lagging pin is the normal state" does not apply.
+That rule says don't move the pin *without a reason*; a descriptor change is a
+reason. And since the version policy only schedules *intentional* removals, an
+accidental descriptor change is by definition unscheduled — no version level,
+PATCH included, is exempt from it.
 :::
 
 ## Current state of the modules
