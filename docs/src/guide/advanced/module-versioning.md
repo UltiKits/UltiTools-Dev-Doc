@@ -39,15 +39,39 @@ of the framework may remove an API.
 That looks like an inconsistency with the rules above. It is not, and the
 difference is worth understanding before anyone tries to unify the two.
 
-The framework has **machine consumers**. Maven resolves its version. Already
-compiled downstream plugins link against it at runtime. A version number that
-machines act on has to answer a machine's question.
+The framework's version is **resolved and linked against**. Maven resolves it to
+pick an artifact. Already compiled downstream plugins link to its classes at
+runtime. Both of those are compatibility questions, and a number that has to
+answer a compatibility question cannot be a free-form signal.
 
-Modules have **no machine consumers at all**. No module is published to a Maven
-repository. No module depends on another module. The only reader of a module's
-version number is a server owner deciding whether swapping the JAR is safe.
+A module's version is read by machines too, but only ever to **order two
+versions**, never to judge compatibility:
 
-**Same syntax, different contract, because they answer to different readers.**
+| Consumer | What it does |
+|---|---|
+| `PluginManager.hasNewerVersionLoaded` | Two JARs of the same module present → compares versions and refuses to load the older one |
+| `PluginManager.unregisterSupersededVersions` | Unloads the version the newly loaded one supersedes |
+| `UpdateManager.checkModuleUpdates` | Compares the loaded version against the published one to report "an update is available" |
+
+All three go through `VersionComparatorUtil.compare` and ask a single question:
+is A greater than B. None of them looks at whether the difference was MAJOR,
+MINOR or PATCH. Nothing resolves a module from Maven, and no module is linked
+against by anything — modules are not published to a Maven repository and do not
+depend on one another.
+
+So the split is: **the ordering is machine-consumed, the MAJOR/MINOR/PATCH
+meaning is not.** That produces one hard requirement and leaves everything else
+to the reader:
+
+::: tip The one mechanical rule
+Versions must increase monotonically and stay comparable. Going `1.10.0` →
+`1.9.0`, or switching numbering schemes mid-stream, makes the framework load the
+wrong JAR when two copies are present — silently, because the loser is simply
+refused with a warning.
+:::
+
+Beyond that, the number's *shape* is a message to a server owner, which is why
+its rules can differ from the framework's without either being wrong.
 
 ## The `UltiTools-API` pin is a floor, not a freshness indicator
 
@@ -81,10 +105,17 @@ The framework's MINOR releases *may remove* API (again, see `COMPATIBILITY.md`).
 A module pinned to an old version that uses a since-removed type will fail with
 `NoClassDefFoundError` on a server running the newer framework.
 
-The defence against that is **following deprecation notices** — reading the
-removal list and migrating before the removal ships. Raising the pin to the
-latest version does **not** help with it at all: the pin controls what you
-compile against, and the class is already gone from the runtime either way.
+Raising the pin does not **prevent** this — the class is gone from the runtime
+whatever you compiled against — but it does **surface** it: the module stops
+compiling, so you find out at build time instead of on someone's server. The
+cost is that the pin is also the floor, so raising it drops every server still
+on an older framework.
+
+Which makes raising the pin a useful *sweep* and a poor *fix*: bump it in a
+scratch build, see what fails to compile, migrate off those APIs, then decide
+separately whether the released pin should move. The actual defence is
+**following deprecation notices** — reading the removal list and migrating
+before the removal ships.
 :::
 
 ## Current state of the modules
