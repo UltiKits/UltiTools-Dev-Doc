@@ -140,15 +140,23 @@ on what went: a removed **type** gives `NoClassDefFoundError`, while a removed
 The second case is not hypothetical — the current removal list includes a
 constructor, not just types.
 
-Raising the pin does not **prevent** this — the class is gone from the runtime
-whatever you compiled against — but it does **surface** it: the module stops
-compiling, so you find out at build time instead of on someone's server. The cost
-lands only if you *ship* the raised pin: building against a newer framework can
-record newer descriptors, which means honestly raising `api-version` too, which
-drops every server still on an older framework. Which makes raising the pin a
-useful *sweep* and a poor *fix*: bump it in a scratch build, see what fails to
-compile, migrate off those APIs, then decide separately whether the released pin
-should move.
+Raising the pin does not **prevent** this — the API is gone from the runtime
+whatever you compiled against — but it usually **surfaces** it: the module stops
+compiling, so you find out at build time instead of on someone's server.
+
+"Usually" is doing real work there. A removed **type** always fails the build. A
+removed **member** only fails it when nothing else can absorb the call: if
+`m(String)` goes away while `m(Object)` survives, your unchanged source recompiles
+happily against the surviving overload. The sweep reports nothing — and the JAR
+you already shipped is still broken. In that case the rebuild is not a diagnostic,
+it *is* the repair, and nothing will tell you that you need to ship it.
+
+The cost lands only if you *ship* the raised pin: building against a newer
+framework can record newer descriptors, which means honestly raising `api-version`
+too, which drops every server still on an older framework. Which makes raising the
+pin a useful *sweep* and a poor *fix*: bump it in a scratch build, see what fails
+to compile, migrate off those APIs, then decide separately whether the released
+pin should move.
 
 **Shape 2 — a member keeps its name and changes its descriptor.** This one is
 nastier, because nothing is removed and there is nothing to deprecate. It has
@@ -196,11 +204,11 @@ Route 3 is genuinely available; don't rule it out just because it is listed last
 But it trades a build-time failure for a runtime one, so it earns its keep only
 when you *must* keep supporting older servers.
 
-This is the one case where "a lagging pin is the normal state" does not apply.
-That rule says don't move the pin *without a reason*; a descriptor change is a
-reason. And since the version policy only schedules *intentional* removals, an
-accidental descriptor change is by definition unscheduled — no version level,
-PATCH included, is exempt from it.
+Note what this does to "a lagging pin is the normal state". That rule says don't
+move the pin *without a reason* — and a descriptor change is a reason, as is
+anything the decision below routes back here. Since the version policy only
+schedules *intentional* removals, an unintended binary break is by definition
+unscheduled: no version level, PATCH included, is exempt from it.
 
 **If your linkage error is neither shape**, you have hit one of the other JLS
 categories — an instance method made `static` gives `IncompatibleClassChangeError`,
