@@ -125,8 +125,13 @@ Raising the pin therefore does *not* raise the floor. Keeping the two out of syn
 is how a JAR gets admitted onto a framework it cannot actually run on.
 
 ::: warning The risk that runs the other way
-An old pin buys you the guarantee above and nothing else. Two things can still
-break a module whose own code never changed.
+An old pin buys you the guarantee above and nothing else. A module whose own code
+never changed can still break, because what your bytecode links against is
+decided by the framework, not by you.
+
+[The JLS's binary compatibility chapter][jls13] defines the full set of changes
+that can do this, and it is longer than what follows. The two below are the ones
+this project has actually shipped — **examples, not an enumeration.**
 
 **Shape 1 — an API it uses gets removed.** The framework's MINOR releases *may
 remove* API (again, see `COMPATIBILITY.md`). Which linkage error you get depends
@@ -145,15 +150,18 @@ useful *sweep* and a poor *fix*: bump it in a scratch build, see what fails to
 compile, migrate off those APIs, then decide separately whether the released pin
 should move.
 
-**Shape 2 — a method it calls keeps its name and changes its descriptor.** This
-one is nastier, because nothing is removed and there is nothing to deprecate. It
-has already happened: in 6.1.1 → **6.2.0** the framework changed the *type of a
-field* on `UltiToolsPlugin`, so the Lombok-generated `getContext()` changed
-return type. A return type is part of the JVM method descriptor, so every
-already-compiled module calling it got `NoSuchMethodError`. Whether the **source**
-also broke depends on how you called it: `getContext().getBean(X.class)` never
-names the return type and keeps compiling, but assigning the result to the old
-type — or overriding the method — does not.
+**Shape 2 — a member keeps its name and changes its descriptor.** This one is
+nastier, because nothing is removed and there is nothing to deprecate. It has
+already happened: in 6.1.1 → **6.2.0** the framework changed the *type of a field*
+on `UltiToolsPlugin`, so the Lombok-generated `getContext()` changed return type.
+A return type is part of the JVM method descriptor, so every already-compiled
+module calling it got `NoSuchMethodError`. The same applies to a public field
+whose type changes: the compiled `getfield` still carries the old descriptor and
+fails with `NoSuchFieldError`.
+
+Whether the **source** also broke depends on how you used it:
+`getContext().getBean(X.class)` never names the return type and keeps compiling,
+but assigning the result to the old type — or overriding the method — does not.
 
 The defence is different for each shape. For shape 1 it is **following
 deprecation notices** — reading the removal list and migrating before the removal
@@ -193,6 +201,19 @@ That rule says don't move the pin *without a reason*; a descriptor change is a
 reason. And since the version policy only schedules *intentional* removals, an
 accidental descriptor change is by definition unscheduled — no version level,
 PATCH included, is exempt from it.
+
+**If your linkage error is neither shape**, you have hit one of the other JLS
+categories — an instance method made `static` gives `IncompatibleClassChangeError`,
+narrowing a member's accessibility gives `IllegalAccessError`, and there are more.
+Route yourself with one question: **did the framework remove something?**
+
+- **Yes** → it belongs on the removal list. If it is not there, please open an
+  issue; that is a policy failure, not just your problem.
+- **No** → try the rebuild path above (raise pin → rebuild → raise
+  `api-version`). If the rebuild *fails to compile*, the change broke source
+  compatibility too, and you have a migration on your hands rather than a rebuild.
+
+[jls13]: https://docs.oracle.com/javase/specs/jls/se21/html/jls-13.html
 :::
 
 ## Current state of the modules
