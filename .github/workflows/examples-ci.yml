@@ -5,6 +5,17 @@ on:
     branches: [ "**" ]
   pull_request:
     branches: [ "master" ]
+  # A new release on Maven Central produces no push and no PR here, so nothing
+  # would notice that every downstream pin just fell one release further behind
+  # — or that the docs invariant broke without anyone touching this repository.
+  # Only a timer catches that moment.
+  #
+  # `schedule` runs from the default branch only, so this takes effect once it
+  # is on master.
+  schedule:
+    - cron: '0 3 * * 1'
+  # For the manual run before cutting a release.
+  workflow_dispatch:
 
 jobs:
   compile:
@@ -31,5 +42,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check version invariant
+      # The script prints two things: the invariant (which decides the exit
+      # code) and an observational matrix of where downstream repositories pin
+      # UltiTools-API. The matrix reads other repositories through `gh`, so it
+      # needs a token; without one it says so rather than showing an empty table
+      # that reads like "nothing is lagging".
+      - name: Check version invariant and report downstream pins
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./scripts/check-version-consistency.sh
