@@ -144,12 +144,21 @@ Raising the pin does not **prevent** this — the API is gone from the runtime
 whatever you compiled against — but it usually **surfaces** it: the module stops
 compiling, so you find out at build time instead of on someone's server.
 
-"Usually" is doing real work there. A removed **type** always fails the build. A
-removed **member** only fails it when nothing else can absorb the call: if
-`m(String)` goes away while `m(Object)` survives, your unchanged source recompiles
-happily against the surviving overload. The sweep reports nothing — and the JAR
-you already shipped is still broken. In that case the rebuild is not a diagnostic,
-it *is* the repair, and nothing will tell you that you need to ship it.
+"Usually" is doing real work there, and the rule behind it is worth stating
+directly: **the sweep only sees what your source actually names.** Everything your
+source reaches implicitly can silently re-resolve to something else, and the build
+stays green:
+
+- An overload absorbs the call — `m(String)` goes away, `m(Object)` survives, your
+  unchanged source recompiles against the survivor.
+- The removed type was never written down — in `factory.create().run()` the return
+  type of `create()` is inferred, so redirecting `create()` to a replacement type
+  recompiles cleanly while the old bytecode still references the deleted one.
+
+In both cases the sweep reports nothing and the JAR you already shipped is still
+broken. So a green scratch build is **not** proof of compatibility; it only proves
+your source still compiles. When that happens the rebuild is not a diagnostic, it
+*is* the repair — and nothing will tell you that you need to ship it.
 
 The cost lands only if you *ship* the raised pin: building against a newer
 framework can record newer descriptors, which means honestly raising `api-version`
@@ -184,7 +193,15 @@ That is still only half of it — and, per the table above, the half nobody chec
 The rebuilt JAR now records the *new* descriptor, so it will throw
 `NoSuchMethodError` on frameworks *older* than that one. If `api-version` stays
 where it was, an old server happily admits the new JAR and then breaks on the
-first call. **Raise `api-version` to match.**
+first call. **Raise `api-version` too.**
+
+Raise it to what the artifact actually requires, though — not mechanically to
+whatever the pin now says. Raising the pin does not by itself mean the output
+needs the newer framework: if the rebuild only retargeted a call onto a member
+that existed in both versions, or you bumped the pin purely to sweep, the bytecode
+may still run on the old floor, and moving it would turn a compatible repair into
+a MAJOR release for no reason. Match the pin as a **conservative fallback** when
+you have not verified which symbols the artifact ended up referencing.
 
 What cannot span both sides is a *statically linked* call site — the descriptor
 is baked in at compile time, so one call site matches one side. That leaves three
