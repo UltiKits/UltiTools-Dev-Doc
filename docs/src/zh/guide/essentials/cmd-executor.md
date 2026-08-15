@@ -18,34 +18,7 @@ UltiTools-API 对原生的 `CommandExecutor` 接口进行了封装，提供了�
 `AbstractCommandExecutor` 从 v6.2.0 开始已弃用。请使用 `BaseCommandExecutor`，它提供了相同的注解驱动功能，同时支持可插拔的验证链、改进的上下文管理和自定义类型解析器支持。
 :::
 
-```java
-import com.ultikits.ultitools.abstracts.command.BaseCommandExecutor;
-import com.ultikits.ultitools.annotations.command.CmdExecutor;
-import com.ultikits.ultitools.annotations.command.CmdTarget;
-import org.bukkit.command.CommandSender;
-
-// 命令限制执行者为玩家和控制台
-@CmdTarget(CmdTarget.CmdTargetType.BOTH)
-@CmdExecutor(
-    // 命令权限（可选）
-    permission = "ultikits.example.all",
-    // 命令描述（可选）
-    description = "测试指令",
-    // 命令别称
-    alias = {"test","ts"},
-    // 是否手动注册（可选）
-    manualRegister = false,
-    // 是否需要OP权限（可选）
-    requireOp = false
-)
-public class ExampleCommand extends BaseCommandExecutor {
-
-  @Override
-  protected void handleHelp(CommandSender sender) {
-    // 向命令发送者发送帮助信息
-  }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/ExampleCommand.java
 
 这样你就完成了一个空的什么都不做的命令执行器。这里的 `@CmdTarget` 和 `@CmdExecutor` 注解是代表了该命令的发送者类型和执行器信息。我们将在下一节详细介绍这两个注解。
 
@@ -437,13 +410,7 @@ long timestamp = context.getTimestamp();
 
 验证命令发送者是否与预期的目标类型匹配（玩家、控制台或两者）：
 
-```java
-@CmdTarget(CmdTarget.CmdTargetType.PLAYER)
-@CmdExecutor(alias = {"mycmd"})
-public class PlayerOnlyCommand extends BaseCommandExecutor {
-    // 自动拒绝控制台用户
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerOnlyCommand.java
 
 #### PermissionValidator
 
@@ -510,43 +477,7 @@ public void download(@CmdSender Player player) {
 
 实现 `CommandValidator` 来创建自定义验证逻辑：
 
-```java
-public class WorldRestrictionValidator implements CommandValidator {
-
-    private final Set<String> allowedWorlds = new HashSet<>();
-
-    public WorldRestrictionValidator(String... worlds) {
-        allowedWorlds.addAll(Arrays.asList(worlds));
-    }
-
-    @Override
-    public ValidationResult validate(CommandContext context) {
-        if (!context.isPlayer()) {
-            return ValidationResult.success();
-        }
-
-        Player player = context.getPlayer();
-        if (!allowedWorlds.contains(player.getWorld().getName())) {
-            return ValidationResult.failure(
-                "你只能在以下世界中使用此命令: " + String.join(", ", allowedWorlds),
-                "command.error.wrong_world"
-            );
-        }
-
-        return ValidationResult.success();
-    }
-
-    @Override
-    public int getOrder() {
-        return 400;  // 在权限验证器之后执行
-    }
-
-    @Override
-    public String getName() {
-        return "WorldRestrictionValidator";
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/WorldRestrictionValidator.java
 
 在你的命令执行器中注册验证器：
 
@@ -636,37 +567,7 @@ public void backupWorld(@CmdSender Player player) {
 
 实现 `TypeParser<T>`：
 
-```java
-public class ColorParser implements TypeParser<Color> {
-
-    @Override
-    public Class<Color> getPrimaryType() {
-        return Color.class;
-    }
-
-    @Override
-    public List<Class<?>> getSupportedTypes() {
-        return Arrays.asList(Color.class, Color[].class);
-    }
-
-    @Override
-    public Color parse(String value) throws TypeParseException {
-        try {
-            // 解析十六进制颜色，如 "FF0000"
-            int rgb = Integer.parseInt(value, 16);
-            return Color.fromRGB(rgb);
-        } catch (NumberFormatException e) {
-            throw new TypeParseException(value, Color.class,
-                "无效的颜色格式。使用十六进制（例如 FF0000）", e);
-        }
-    }
-
-    @Override
-    public int getPriority() {
-        return 0;
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/ColorParser.java
 
 注册解析器：
 
@@ -738,15 +639,7 @@ public void randomNumber(@CmdSender Player player,
 
 如果你希望一个指令只能在游戏内使用（由玩家执行），那么可以继承 `AbstractPlayerCommandExecutor` 类，并重写 `onPlayerCommand` 方法。
 
-```java
-public class SomeCommands extends AbstractPlayerCommandExecutor {
-    @Override
-    protected boolean onPlayerCommand(Command command, String[] strings, Player player) {
-        // 你的代码
-        return true;
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerCommandExample.java
 
 除 `Player` 类型的参数外，该方法与 `CommandExecutor#onCommand` 方法相同。
 
@@ -778,15 +671,7 @@ protected List<String> onPlayerTabComplete(Command command, String[] strings, Pl
 
 如果你希望一个指令只能在控制台使用，那么可以继承 `AbstractConsoleCommandExecutor` 类，并重写 `onConsoleCommand` 方法。
 
-```java
-public class SomeCommands extends AbstractConsoleCommandExecutor {
-    @Override
-    protected boolean onConsoleCommand(CommandSender commandSender, Command command, String[] strings) {
-        // 你的代码
-        return true;
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/ConsoleCommandExample.java
 
 该方法与 `CommandExecutor#onCommand` 方法相同。
 
@@ -794,11 +679,13 @@ public class SomeCommands extends AbstractConsoleCommandExecutor {
 
 ### 指令帮助
 
-上述三个类都提供了一个 `sendHelpMessage` 方法，用于向玩家或控制台发送帮助信息。
+上述三个类都从 `AbstractCommand` 继承了 `sendHelpMessage`，它在那里声明为 `protected abstract`。
+它**不是框架替你提供的**，每个子类都必须自己实现——上面两个示例里的那个 override 就是因为这个：
 
 ```java
-sendHelpMessage(CommandSender sender) {
-    // 你的代码,向玩家发送信息
+@Override
+protected void sendHelpMessage(CommandSender sender) {
+    // 你的代码，向玩家发送信息
 }
 ```
 

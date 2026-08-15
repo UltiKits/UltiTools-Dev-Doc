@@ -21,34 +21,7 @@ and `@CmdExecutor` annotations here represent the target type and executor infor
 `AbstractCommandExecutor` is deprecated since v6.2.0. Use `BaseCommandExecutor` instead which provides the same annotation-driven features plus a pluggable validation chain, improved context management, and custom type parser support.
 :::
 
-```java
-import com.ultikits.ultitools.abstracts.command.BaseCommandExecutor;
-import com.ultikits.ultitools.annotations.command.CmdExecutor;
-import com.ultikits.ultitools.annotations.command.CmdTarget;
-import org.bukkit.command.CommandSender;
-
-// Command limits executor
-@CmdTarget(CmdTarget.CmdTargetType.BOTH)
-@CmdExecutor(
-        // Command permission (optional)
-        permission = "ultikits.example.all",
-        // Command description (optional)
-        description = "Test command",
-        // Command alias
-        alias = {"test", "ts"},
-        // Whether to register manually (optional)
-        manualRegister = false,
-        // Whether to require OP permission (optional)
-        requireOp = false
-)
-public class ExampleCommand extends BaseCommandExecutor {
-
-    @Override
-    protected void handleHelp(CommandSender sender) {
-        // Send help message to command sender
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/ExampleCommand.java
 
 You have completed an empty command executor that does nothing! The `@CmdTarget` and `@CmdExecutor` annotations here
 represent the sender type and executor information of the command. We will introduce these two annotations in detail in
@@ -476,13 +449,7 @@ The validation chain implements the Chain of Responsibility pattern, allowing yo
 
 Validates that the command sender matches the expected target type (player, console, or both):
 
-```java
-@CmdTarget(CmdTarget.CmdTargetType.PLAYER)
-@CmdExecutor(alias = {"mycmd"})
-public class PlayerOnlyCommand extends BaseCommandExecutor {
-    // Automatically rejects console users
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerOnlyCommand.java
 
 #### PermissionValidator
 
@@ -549,43 +516,7 @@ public void download(@CmdSender Player player) {
 
 Implement `CommandValidator` to create custom validation logic:
 
-```java
-public class WorldRestrictionValidator implements CommandValidator {
-
-    private final Set<String> allowedWorlds = new HashSet<>();
-
-    public WorldRestrictionValidator(String... worlds) {
-        allowedWorlds.addAll(Arrays.asList(worlds));
-    }
-
-    @Override
-    public ValidationResult validate(CommandContext context) {
-        if (!context.isPlayer()) {
-            return ValidationResult.success();
-        }
-
-        Player player = context.getPlayer();
-        if (!allowedWorlds.contains(player.getWorld().getName())) {
-            return ValidationResult.failure(
-                "You can only use this command in: " + String.join(", ", allowedWorlds),
-                "command.error.wrong_world"
-            );
-        }
-
-        return ValidationResult.success();
-    }
-
-    @Override
-    public int getOrder() {
-        return 400;  // Execute after permission validators
-    }
-
-    @Override
-    public String getName() {
-        return "WorldRestrictionValidator";
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/WorldRestrictionValidator.java
 
 Register the validator in your command executor:
 
@@ -675,37 +606,7 @@ Type parsers convert command argument strings into the types your methods requir
 
 Implement `TypeParser<T>`:
 
-```java
-public class ColorParser implements TypeParser<Color> {
-
-    @Override
-    public Class<Color> getPrimaryType() {
-        return Color.class;
-    }
-
-    @Override
-    public List<Class<?>> getSupportedTypes() {
-        return Arrays.asList(Color.class, Color[].class);
-    }
-
-    @Override
-    public Color parse(String value) throws TypeParseException {
-        try {
-            // Parse hex color like "FF0000"
-            int rgb = Integer.parseInt(value, 16);
-            return Color.fromRGB(rgb);
-        } catch (NumberFormatException e) {
-            throw new TypeParseException(value, Color.class,
-                "Invalid color format. Use hexadecimal (e.g., FF0000)", e);
-        }
-    }
-
-    @Override
-    public int getPriority() {
-        return 0;
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/ColorParser.java
 
 Register the parser:
 
@@ -778,15 +679,7 @@ public void randomNumber(@CmdSender Player player,
 If you want a command to be executed only in the game (executed by the player), you can inherit the
 `AbstractPlayerCommandExecutor` class and override the `onPlayerCommand` method.
 
-```java
-public class SomeCommands extends AbstractPlayerCommandExecutor {
-    @Override
-    protected boolean onPlayerCommand(Command command, String[] strings, Player player) {
-        // your code
-        return true;
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerCommandExample.java
 
 Except for the `Player` type parameter, this method is the same as the `CommandExecutor#onCommand` method.
 
@@ -821,15 +714,7 @@ The rest of the usage is the same as the `AbstractPlayerCommandExecutor` class.
 If you want a command to be executed only in the console, you can inherit the `AbstractConsoleCommandExecutor` class and
 override the `onConsoleCommand` method.
 
-```java
-public class SomeCommands extends AbstractConsoleCommandExecutor {
-    @Override
-    protected boolean onConsoleCommand(CommandSender commandSender, Command command, String[] strings) {
-        // your code
-        return true;
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/ConsoleCommandExample.java
 
 This method is the same as the `CommandExecutor#onCommand` method.
 
@@ -838,10 +723,13 @@ message: `This command can only be performed in CONSOLE!`
 
 ### Help Message
 
-All three classes above provide a `sendHelpMessage` method for sending help messages to players or consoles.
+All three classes above inherit `sendHelpMessage` from `AbstractCommand`, where it is declared
+`protected abstract`. It is **not** provided for you — every subclass has to implement it, which is why
+both examples above override it:
 
 ```java
-sendHelpMessage(CommandSender sender) {
+@Override
+protected void sendHelpMessage(CommandSender sender) {
     // send help message
 }
 ```
