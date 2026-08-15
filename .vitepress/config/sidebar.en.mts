@@ -129,6 +129,16 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
             }
         ]
     },
+    {
+        base: '/guide/',
+        text: 'Releasing',
+        items: [
+            {
+                text: 'Module Versioning',
+                link: 'advanced/module-versioning'
+            }
+        ]
+    },
 ]
 
 const sidebarGuideEN_v610: DefaultTheme.SidebarItem[] = [

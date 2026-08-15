@@ -129,6 +129,16 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
             }
         ]
     },
+    {
+        base: "/guide/",
+        text: '发布',
+        items: [
+            {
+                text: '模块版本规范',
+                link: 'advanced/module-versioning'
+            }
+        ]
+    },
 ]
 
 const sidebarGuideZH_v610: DefaultTheme.SidebarItem[] = [
