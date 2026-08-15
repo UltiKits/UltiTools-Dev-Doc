@@ -192,8 +192,11 @@ ships.
 
 Shape 2 has no notice to follow, and **no free fix**. Rebuilding is not enough on
 its own: with the pin still at the old version, the build regenerates the *old*
-descriptor and the new artifact fails exactly as before. So you must **raise the
-pin to a framework version carrying the new descriptor and rebuild**.
+descriptor and the new artifact fails exactly as before. So, **as long as you keep
+the direct call site**, you must **raise the pin to a framework version carrying
+the new descriptor and rebuild**. (Route 3 below is the way out of that "as long
+as": it removes the statically linked call entirely, and then the pin can stay
+where it is.)
 
 That is still only half of it — and, per the table above, the half nobody checks.
 The rebuilt JAR now records the *new* descriptor, so it will throw
