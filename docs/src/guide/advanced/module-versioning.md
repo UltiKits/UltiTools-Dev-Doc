@@ -168,9 +168,25 @@ That is still only half of it — and, per the table above, the half nobody chec
 The rebuilt JAR now records the *new* descriptor, so it will throw
 `NoSuchMethodError` on frameworks *older* than that one. If `api-version` stays
 where it was, an old server happily admits the new JAR and then breaks on the
-first call. **Raise `api-version` to match.** One artifact cannot serve both sides
-of a descriptor change: either accept the higher floor (older servers stay on the
-older JAR) or ship separate artifacts per framework range.
+first call. **Raise `api-version` to match.**
+
+What cannot span both sides is a *statically linked* call site — the descriptor
+is baked in at compile time, so one call site matches one side. That leaves three
+routes, in increasing cost:
+
+1. **Accept the higher floor** (pick this by default). Older servers stay on the
+   older JAR; the new one serves the new framework.
+2. **Ship separate artifacts per framework range**, and maintain both lines.
+3. **Write a shim**: call reflectively (`getMethod("getContext").invoke(plugin)`
+   returns `Object`, then reach `getBean` the same way), or lazily load a
+   different adapter per framework version. A reflective call site links to
+   neither return type, so one artifact really can run on both sides. The price
+   is that this path loses compile-time checking — you find out at runtime, and
+   the next time the framework reshapes it you get no build warning at all.
+
+Route 3 is genuinely available; don't rule it out just because it is listed last.
+But it trades a build-time failure for a runtime one, so it earns its keep only
+when you *must* keep supporting older servers.
 
 This is the one case where "a lagging pin is the normal state" does not apply.
 That rule says don't move the pin *without a reason*; a descriptor change is a
