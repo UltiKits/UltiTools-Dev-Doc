@@ -172,11 +172,17 @@ cat <<'NOTE'
   UltiTools-API 是 <scope>provided</scope>：模块编译时用 pin 的那个版本，运行时用
   服务器上实际装的框架。所以
 
-    · 编译 against 旧 API = 只用了那个版本就有的东西 → 能跑在该版本及以后所有服务器
+    · 编译 against 旧 API = 只用了那个版本就有的东西 → 不会因为「用了新方法」而在
+      旧服务器上炸（NoSuchMethodError）
     · 编译 against 新 API = 可能用到新方法 → 装了旧框架的服务器直接 NoSuchMethodError
 
-  下游的 pin 是地板，不是新鲜度指标。落后于最新正式版是正常状态。把所有 pin 拉到
-  最新只会收窄兼容范围，换不来任何东西 —— 只在模块真的开始用新 API 时才动它。
+  下游的 pin 是地板，不是新鲜度指标。落后于最新正式版是正常状态，不需要因为落后
+  本身去动它。
+
+  但旧 pin 不等于「向后兼容已被证明」：框架的 MINOR 版本可以移除 API，一个还在用
+  已移除类型的模块，在新框架的服务器上会 NoClassDefFoundError —— 编译时的 pin 挡不
+  住这件事。所以把 pin 临时调高、跑一次构建、看什么编译不过，是一次有价值的排查；
+  真正的防线是跟进废弃通告。正式发布的 pin 则只在模块真的开始用新 API 时才动。
 
   详见 https://dev.ultikits.com/zh/guide/advanced/module-versioning
 NOTE
