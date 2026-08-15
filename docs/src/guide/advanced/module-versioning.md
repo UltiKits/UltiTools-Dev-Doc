@@ -12,7 +12,7 @@ Everything below follows from that.
 
 | | Meaning | What the server owner does |
 |---|---|---|
-| **MAJOR** | The upgrade needs a human | Edit config by hand · migrate data · re-learn a command or permission node that was renamed or removed |
+| **MAJOR** | The upgrade needs a human | Edit config by hand · migrate data · re-learn a command or permission node that was renamed or removed · **upgrade UltiTools itself** |
 | **MINOR** | New functionality, backwards compatible | Swap the JAR. Existing config keeps working; a new feature may need switching on |
 | **PATCH** | Fixes and internal changes, including CI/build-only changes | Swap the JAR. Nothing else |
 
@@ -27,8 +27,16 @@ node is now silently missing a permission.
 - [ ] Does the server owner have to edit their config file? → **MAJOR**
 - [ ] Does existing data need migrating? → **MAJOR**
 - [ ] Was any command or permission node removed or renamed? → **MAJOR**
-- [ ] All three no, but there is new functionality? → **MINOR**
-- [ ] All three no, and no new functionality? → **PATCH**
+- [ ] Did `plugin.yml`'s `api-version` go up? → **MAJOR**
+- [ ] All four no, but there is new functionality? → **MINOR**
+- [ ] All four no, and no new functionality? → **PATCH**
+
+The fourth one catches a case the other three miss, because nothing about the
+module itself changed. Raising `api-version` means owners on the older framework
+can no longer swap the JAR — they have to upgrade UltiTools first. By the
+deciding question above that is a MAJOR, even when the release is a
+source-unchanged rebuild — which is exactly what shape 2 in "The risk that runs
+the other way" below forces you to ship.
 
 ## Why modules differ from the framework
 
@@ -73,7 +81,7 @@ refused with a warning.
 Beyond that, the number's *shape* is a message to a server owner, which is why
 its rules can differ from the framework's without either being wrong.
 
-## The `UltiTools-API` pin is a floor, not a freshness indicator
+## The `UltiTools-API` pin is a build input, not a freshness indicator
 
 A module declares the framework as `provided`:
 
@@ -90,37 +98,156 @@ A module declares the framework as `provided`:
 whatever framework is installed on the server. That asymmetry is the whole point:
 
 - Compiled against an **older** API → the module provably uses only what existed
-  in that version → it **cannot** hit `NoSuchMethodError` for reaching at
-  something newer than the server has.
-- Compiled against a **newer** API → it may reach for a method the server's
+  in that version → it **cannot** hit `NoSuchMethodError` for referencing an API
+  newer than the server provides. It can still hit one for a *different* reason —
+  see the warning below.
+- Compiled against a **newer** API → it may reference a method the server's
   framework does not have → `NoSuchMethodError` on startup.
 
 That is a guarantee about one failure mode, not about forward compatibility in
-general: a later framework release can still remove something the module uses.
-See the warning below.
+general: a later framework release can still remove — or silently reshape —
+something the module uses. See the warning below.
 
 So a pin that lags the latest release is **the normal state, not drift waiting
-to be fixed**. It states "this module needs the framework to be at least X",
-which is the same claim the module's `plugin.yml` `api-version` makes.
+to be fixed**.
 
 **Raise the pin only when the module actually starts using a newer API.**
 
+One thing the pin is *not*, despite how it reads: your runtime floor. These are
+two independent numbers, and only one of them is enforced.
+
+| Number | Decides | Checked by |
+|---|---|---|
+| `UltiTools-API` version in `pom.xml` | which version's **descriptors your bytecode records** | nobody — it is `provided`, never enters your JAR, and the framework cannot see it at runtime |
+| `api-version` in `plugin.yml` | the declared runtime **minimum** | `PluginManager.isUltiToolsVersionCompatible` — the only value checked before a module is admitted |
+
+Raising the pin therefore does *not* raise the floor. Keeping the two out of sync
+is how a JAR gets admitted onto a framework it cannot actually run on.
+
 ::: warning The risk that runs the other way
-The framework's MINOR releases *may remove* API (again, see `COMPATIBILITY.md`).
-A module pinned to an old version that uses a since-removed type will fail with
-`NoClassDefFoundError` on a server running the newer framework.
+An old pin buys you the guarantee above and nothing else. A module whose own code
+never changed can still break, because what your bytecode links against is
+decided by the framework, not by you.
 
-Raising the pin does not **prevent** this — the class is gone from the runtime
-whatever you compiled against — but it does **surface** it: the module stops
-compiling, so you find out at build time instead of on someone's server. The
-cost is that the pin is also the floor, so raising it drops every server still
-on an older framework.
+[The JLS's binary compatibility chapter][jls13] defines the full set of changes
+that can do this, and it is longer than what follows. The two below are the ones
+this project has actually shipped — **examples, not an enumeration.**
 
-Which makes raising the pin a useful *sweep* and a poor *fix*: bump it in a
-scratch build, see what fails to compile, migrate off those APIs, then decide
-separately whether the released pin should move. The actual defence is
-**following deprecation notices** — reading the removal list and migrating
-before the removal ships.
+**Shape 1 — an API it uses gets removed.** The framework's MINOR releases *may
+remove* API (again, see `COMPATIBILITY.md`). Which linkage error you get depends
+on what went: a removed **type** gives `NoClassDefFoundError`, while a removed
+**method, constructor or field** gives `NoSuchMethodError` / `NoSuchFieldError`.
+The second case is not hypothetical — the current removal list includes a
+constructor, not just types.
+
+Raising the pin and rebuilding does one of two things, and you cannot tell which
+until you run it:
+
+- **It exposes the removal.** The build fails, so you find out here instead of on
+  someone's server, and you migrate off the removed API.
+- **It retargets the call.** Something surviving absorbs it, the build passes, and
+  the rebuilt artifact is simply fixed.
+
+Neither one repairs the JAR you **already shipped** — that keeps failing until you
+publish the rebuild. Which is why the second outcome is the dangerous one: a green
+build looks like "nothing to do here", when in fact you are holding the fix and
+have to know to ship it.
+
+And a green build is easy to get, because **the sweep only sees what your source
+actually names.** Everything your source reaches implicitly can silently
+re-resolve:
+
+- An overload absorbs the call — `m(String)` goes away, `m(Object)` survives, your
+  unchanged source recompiles against the survivor.
+- The removed type was never written down — in `factory.create().run()` the return
+  type of `create()` is inferred, so redirecting `create()` to a replacement type
+  recompiles cleanly while the old bytecode still references the deleted one.
+
+So a green scratch build is **not** proof of compatibility. It only proves your
+source still compiles.
+
+The cost lands only if you *ship* the raised pin: building against a newer
+framework can record newer descriptors, which means honestly raising `api-version`
+too, which drops every server still on an older framework. Which makes raising the
+pin a useful *sweep* and a poor *fix*: bump it in a scratch build, see what fails
+to compile, migrate off those APIs, then decide separately whether the released
+pin should move.
+
+**Shape 2 — a member keeps its name and changes its descriptor.** This one is
+nastier, because nothing is removed and there is nothing to deprecate. It has
+already happened: in 6.1.1 → **6.2.0** the framework changed the *type of a field*
+on `UltiToolsPlugin`, so the Lombok-generated `getContext()` changed return type.
+A return type is part of the JVM method descriptor, so every already-compiled
+module calling it got `NoSuchMethodError`. The same applies to a public field
+whose type changes: the compiled `getfield` still carries the old descriptor and
+fails with `NoSuchFieldError`.
+
+Whether the **source** also broke depends on how you used it:
+`getContext().getBean(X.class)` never names the return type and keeps compiling,
+but assigning the result to the old type — or overriding the method — does not.
+
+The defence is different for each shape. For shape 1 it is **following
+deprecation notices** — reading the removal list and migrating before the removal
+ships.
+
+Shape 2 has no notice to follow, and **no free fix**. Rebuilding is not enough on
+its own: with the pin still at the old version, the build regenerates the *old*
+descriptor and the new artifact fails exactly as before. So, **as long as you keep
+the direct call site**, you must **raise the pin to a framework version carrying
+the new descriptor and rebuild**. (Route 3 below is the way out of that "as long
+as": it removes the statically linked call entirely, and then the pin can stay
+where it is.)
+
+That is still only half of it — and, per the table above, the half nobody checks.
+The rebuilt JAR now records the *new* descriptor, so it will throw
+`NoSuchMethodError` on frameworks *older* than that one. If `api-version` stays
+where it was, an old server happily admits the new JAR and then breaks on the
+first call. **Raise `api-version` too.**
+
+Raise it to what the artifact actually requires, though — not mechanically to
+whatever the pin now says. Raising the pin does not by itself mean the output
+needs the newer framework: if the rebuild only retargeted a call onto a member
+that existed in both versions, or you bumped the pin purely to sweep, the bytecode
+may still run on the old floor, and moving it would turn a compatible repair into
+a MAJOR release for no reason. Match the pin as a **conservative fallback** when
+you have not verified which symbols the artifact ended up referencing.
+
+What cannot span both sides is a *statically linked* call site — the descriptor
+is baked in at compile time, so one call site matches one side. That leaves three
+routes, in increasing cost:
+
+1. **Accept the higher floor** (pick this by default). Older servers stay on the
+   older JAR; the new one serves the new framework.
+2. **Ship separate artifacts per framework range**, and maintain both lines.
+3. **Write a shim**: call reflectively (`getMethod("getContext").invoke(plugin)`
+   returns `Object`, then reach `getBean` the same way), or lazily load a
+   different adapter per framework version. A reflective call site links to
+   neither return type, so one artifact really can run on both sides. The price
+   is that this path loses compile-time checking — you find out at runtime, and
+   the next time the framework reshapes it you get no build warning at all.
+
+Route 3 is genuinely available; don't rule it out just because it is listed last.
+But it trades a build-time failure for a runtime one, so it earns its keep only
+when you *must* keep supporting older servers.
+
+Note what this does to "a lagging pin is the normal state". That rule says don't
+move the pin *without a reason* — and a descriptor change is a reason, as is
+anything the decision below routes back here. Since the version policy only
+schedules *intentional* removals, an unintended binary break is by definition
+unscheduled: no version level, PATCH included, is exempt from it.
+
+**If your linkage error is neither shape**, you have hit one of the other JLS
+categories — an instance method made `static` gives `IncompatibleClassChangeError`,
+narrowing a member's accessibility gives `IllegalAccessError`, and there are more.
+Route yourself with one question: **did the framework remove something?**
+
+- **Yes** → it belongs on the removal list. If it is not there, please open an
+  issue; that is a policy failure, not just your problem.
+- **No** → try the rebuild path above (raise pin → rebuild → raise
+  `api-version`). If the rebuild *fails to compile*, the change broke source
+  compatibility too, and you have a migration on your hands rather than a rebuild.
+
+[jls13]: https://docs.oracle.com/javase/specs/jls/se21/html/jls-13.html
 :::
 
 ## Current state of the modules
