@@ -133,8 +133,11 @@ stayed compatible, and recompiling fixed it with zero code changes.
 The defence is different for each shape. For shape 1 it is **following
 deprecation notices** — reading the removal list and migrating before the removal
 ships. For shape 2 there is no notice to follow, so the only reliable action is
-to **recompile and republish across framework MINOR versions**. A JAR you shipped
-and never rebuilt gets no protection from having pinned low.
+to **recompile and republish whenever the framework's version changes at all —
+including PATCH**. The version policy schedules *intentional* removals; an
+accidental descriptor change is by definition unscheduled, so no version level is
+exempt from it. A JAR you shipped and never rebuilt gets no protection from
+having pinned low.
 :::
 
 ## Current state of the modules
