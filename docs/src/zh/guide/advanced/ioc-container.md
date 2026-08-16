@@ -31,12 +31,9 @@ UltiTools 拥有自己的 IOC 容器，基于 `SimpleContainer` 构建，使用�
 
 你可以直接使用容器对象的 `registerType()` 方法进行注册：
 
-```java "MyBean.java"
+```java
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
-import com.ultikits.ultitools.annotations.EnableAutoRegister;
-import com.ultikits.ultitools.annotations.I18n;
-import com.ultikits.ultitools.annotations.ComponentScan;
-import com.ultikits.ultitools.annotations.Component;
+import com.ultikits.ultitools.annotations.UltiToolsModule;
 
 @UltiToolsModule
 public class BasicFunctions extends UltiToolsPlugin {
@@ -45,6 +42,7 @@ public class BasicFunctions extends UltiToolsPlugin {
     public boolean registerSelf() {
         // 插件启动时执行
         getContext().registerType(MyBean.class, new MyBean());
+        return true;
     }
   
   ...
@@ -131,27 +129,7 @@ public class MyPlugin extends UltiToolsPlugin {
 
 `@PostConstruct` 注解标记一个方法在**所有依赖都被注入后且 Bean 完全初始化后**被调用。
 
-```java
-@Service
-public class DatabaseConnection {
-    private String connectionUrl;
-
-    @Autowired
-    private ConfigService config;
-
-    @PostConstruct
-    public void initialize() {
-        // 在注入完成后调用
-        this.connectionUrl = config.getDatabaseUrl();
-        // 连接到数据库
-        connectToDatabase();
-    }
-
-    private void connectToDatabase() {
-        // 初始化逻辑
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/ioc/DatabaseConnection.java
 
 **规则：**
 - 方法必须返回 `void`
@@ -163,25 +141,7 @@ public class DatabaseConnection {
 
 `@PreDestroy` 注解标记一个方法在**Bean 销毁前**被调用（当插件被禁用或容器关闭时）。
 
-```java
-@Service
-public class ResourceManager {
-    private Connection dbConnection;
-
-    @PostConstruct
-    public void connect() {
-        dbConnection = createConnection();
-    }
-
-    @PreDestroy
-    public void cleanup() {
-        // 在关闭前调用
-        if (dbConnection != null && dbConnection.isOpen()) {
-            dbConnection.close();
-        }
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/ioc/ResourceManager.java
 
 **规则：**
 - 方法必须返回 `void`
@@ -193,30 +153,7 @@ public class ResourceManager {
 
 对于复杂的 Bean 初始化或从第三方库创建 Bean，使用 `@Configuration` 注解配合 `@Bean` 工厂方法。
 
-```java
-@Configuration
-public class HttpClientConfiguration {
-
-    @Bean
-    public HttpClient createHttpClient() {
-        // 此方法的返回值会成为托管 Bean
-        return HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(30))
-            .version(HttpClient.Version.HTTP_2)
-            .build();
-    }
-
-    @Bean(name = "primaryDatabase")
-    public DataSource createDataSource() {
-        // 命名 Bean - 当存在多个相同类型的 Bean 时很有用
-        HikariConfig config = new HikariConfig();
-        config.setJdbcUrl("jdbc:mysql://localhost:3306/db");
-        config.setUsername("user");
-        config.setPassword("pass");
-        return new HikariDataSource(config);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/ioc/HttpClientConfiguration.java
 
 **何时使用：**
 - 从外部库创建 Bean（Gson、HTTP 客户端、数据库连接池）
@@ -266,23 +203,7 @@ public class MyService {
 
 ### 构造函数注入示例
 
-```java
-@Service
-public class PlayerDataService {
-    private final MyPlugin plugin;
-    private final ConfigService config;
-
-    public PlayerDataService(MyPlugin plugin, ConfigService config) {
-        this.plugin = plugin;
-        this.config = config;
-    }
-
-    public void syncPlayerData(UUID playerId) {
-        // 使用 plugin.getServer()、plugin.getLogger() 等
-        plugin.getLogger().info("Syncing data for: " + playerId);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/ioc/PlayerDataService.java
 
 ### 工作原理
 
@@ -354,12 +275,6 @@ List<PaymentProcessor> allProcessors = context.getOrderedBeansOfType(PaymentProc
 
 从 v6.2.0 开始，你可以使用 `@ConditionalOnConfig` 注解根据 YAML 配置值来条件性地注册组件。
 
-```java
-@Service
-@ConditionalOnConfig(value = "config/config.yml", path = "features.economy")
-public class EconomyService {
-    // 仅在 config.yml 中 features.economy: true 时才注册
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/ioc/EconomyService.java
 
 这消除了在 `registerSelf()` 中手动进行 `if` 判断的需要。详情请参阅[条件注册](/zh/guide/advanced/conditional-registration)指南。
