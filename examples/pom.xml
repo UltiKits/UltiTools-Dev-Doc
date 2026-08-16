@@ -15,9 +15,9 @@
         when a documented API no longer exists in the released UltiTools-API.
         Coverage note: this gate only protects examples that have been migrated
         to `&lt;&lt;&lt;` snippet references into this module. Of the 215 Java code
-        blocks across the docs site, 40 have been migrated so far; the remaining
-        175 are still inline code blocks in docs/src and are not covered or
-        verified by this build. Most of those 175 are deliberate fragments
+        blocks across the docs site, 48 have been migrated so far; the remaining
+        167 are still inline code blocks in docs/src and are not covered or
+        verified by this build. Most of those 167 are deliberate fragments
         (method bodies elided with `...`) that cannot compile standalone and are
         not migration candidates.
     </description>
