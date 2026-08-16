@@ -95,7 +95,7 @@ public class GreetingService {
 ```java
 @CmdExecutor(alias = {"greet"}, permission = "myplugin.greet", description = "Greet command")
 @CmdTarget(CmdTarget.CmdTargetType.PLAYER)
-public class GreetCommand extends AbstractCommandExecutor {
+public class GreetCommand extends BaseCommandExecutor {
 
     @Autowired
     private GreetingService greetingService;
@@ -104,6 +104,9 @@ public class GreetCommand extends AbstractCommandExecutor {
     public void greet(@CmdSender Player player) {
         greetingService.greetPlayer(player);
     }
+
+    @Override
+    protected void handleHelp(CommandSender sender) { }
 }
 ```
 

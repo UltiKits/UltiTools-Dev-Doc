@@ -104,13 +104,16 @@ public class InfoGui extends BaseInventoryPage {
 ```java
 @CmdTarget(CmdTarget.CmdTargetType.PLAYER)
 @CmdExecutor(alias = {"info"}, permission = "ultikits.info")
-public class InfoCommand extends AbstractCommandExecutor {
+public class InfoCommand extends BaseCommandExecutor {
 
     @CmdMapping(format = "")
     public void showInfo(@CmdSender Player player) {
         InfoGui gui = new InfoGui(player);
         gui.open();  // 显示给玩家
     }
+
+    @Override
+    protected void handleHelp(CommandSender sender) { }
 }
 ```
 

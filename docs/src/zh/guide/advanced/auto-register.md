@@ -105,7 +105,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 ```
 
 ## @CmdExecutor 注解
-带有此注解的继承 `AbstractCommandExecutor` 的类在自动扫描注册命令启用的情况下被自动注册
+带有此注解的命令执行器类，在启用自动扫描注册命令时会被注册
 
 详情参见 [命令执行器](/zh/guide/essentials/cmd-executor)
 

@@ -10,13 +10,7 @@ UltiTools allows you to conditionally register components based on YAML configur
 
 Add `@ConditionalOnConfig` to any component class (`@Service`, `@CmdExecutor`, `@EventListener`):
 
-```java
-@CmdExecutor(alias = {"warp"}, permission = "myplugin.command.warp")
-@ConditionalOnConfig(value = "config/config.yml", path = "enableWarp")
-public class WarpCommands extends AbstractCommandExecutor {
-    // Only registered if enableWarp: true in config.yml
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/conditional/WarpCommands.java
 
 The corresponding YAML:
 
@@ -39,31 +33,11 @@ If `enableWarp` is `false` or missing, the `WarpCommands` class is **not registe
 
 ### Conditional Service
 
-```java
-@Service
-@ConditionalOnConfig(value = "config/config.yml", path = "economy.enabled")
-public class EconomyService {
-
-    @Scheduled(period = 36000, async = true)
-    public void distributeTax() {
-        // Only runs if economy.enabled: true
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/conditional/EconomyService.java
 
 ### Conditional Event Listener
 
-```java
-@EventListener
-@ConditionalOnConfig(value = "config/config.yml", path = "welcomeMessage.enabled")
-public class WelcomeListener implements Listener {
-
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        event.getPlayer().sendMessage("Welcome to the server!");
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/conditional/WelcomeListener.java
 
 ### Nested Config Keys
 
@@ -78,25 +52,13 @@ features:
     enabled: false
 ```
 
-```java
-@CmdExecutor(alias = {"tp"}, permission = "myplugin.teleport")
-@ConditionalOnConfig(value = "config/config.yml", path = "features.teleport.enabled")
-public class TeleportCommands extends AbstractCommandExecutor {
-    // ...
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/conditional/TeleportCommands.java
 
 ### Inverted Logic with negate
 
 Use `negate = true` to register a component when the config value is `false`:
 
-```java
-@Service
-@ConditionalOnConfig(value = "config/config.yml", path = "maintenance", negate = true)
-public class NormalModeService {
-    // Only active when maintenance: false (or missing)
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/conditional/NormalModeService.java
 
 ## Complete Example
 
@@ -111,28 +73,25 @@ features:
   welcome: true
 ```
 
-```java
-@UltiToolsModule(scanBasePackages = {"com.example.plugin"})
-public class MyPlugin extends UltiToolsPlugin {
-    @Override
-    public boolean registerSelf() { return true; }
-
-    @Override
-    public void unregisterSelf() { }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/conditional/MyPlugin.java
 
 ```java
 @CmdExecutor(alias = {"home"}, permission = "myplugin.home")
 @ConditionalOnConfig(value = "config/config.yml", path = "features.home")
-public class HomeCommands extends AbstractCommandExecutor {
+public class HomeCommands extends BaseCommandExecutor {
     // Registered (features.home = true)
+
+    @Override
+    protected void handleHelp(CommandSender sender) { }
 }
 
 @CmdExecutor(alias = {"warp"}, permission = "myplugin.warp")
 @ConditionalOnConfig(value = "config/config.yml", path = "features.warp")
-public class WarpCommands extends AbstractCommandExecutor {
+public class WarpCommands extends BaseCommandExecutor {
     // Registered (features.warp = true)
+
+    @Override
+    protected void handleHelp(CommandSender sender) { }
 }
 
 @Service
