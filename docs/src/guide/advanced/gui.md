@@ -52,70 +52,11 @@ When a player opens a GUI, the following sequence occurs:
 
 ### Creating a Simple Information Panel
 
-```java
-import org.bukkit.entity.Player;
-import org.bukkit.event.inventory.InventoryOpenEvent;
-import com.ultikits.ultitools.abstracts.gui.BaseInventoryPage;
-import com.ultikits.ultitools.entities.Colors;
-import mc.obliviate.inventory.Icon;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextColor;
-
-public class InfoGui extends BaseInventoryPage {
-
-    public InfoGui(Player player) {
-        super(
-            player,
-            "info-page",
-            Component.text("Server Information").color(TextColor.color(0xFF00A6)),
-            3  // 3 rows = 27 slots
-        );
-    }
-
-    @Override
-    protected void setupContent(InventoryOpenEvent event) {
-        // Create a decorative border using gray glass
-        Icon border = createBackgroundIcon();
-        fillBorder(border);
-
-        // Create an information icon
-        Icon infoIcon = new Icon(Material.BOOK);
-        infoIcon.setName(Component.text("Server Info"));
-        infoIcon.setLore(
-            "Players online: 5",
-            "TPS: 20.0",
-            "Memory: 2GB/4GB"
-        );
-
-        // Place it in the center
-        addItem(getBottomCenterSlot(), infoIcon);
-    }
-
-    @Override
-    protected void afterSetup(InventoryOpenEvent event) {
-        // Called after content is setup (optional)
-        // Useful for animations or deferred processing
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/gui/InfoGui.java
 
 ### Opening a GUI
 
-```java
-@CmdTarget(CmdTarget.CmdTargetType.PLAYER)
-@CmdExecutor(alias = {"info"}, permission = "ultikits.info")
-public class InfoCommand extends BaseCommandExecutor {
-
-    @CmdMapping(format = "")
-    public void showInfo(@CmdSender Player player) {
-        InfoGui gui = new InfoGui(player);
-        gui.open();  // Display to player
-    }
-
-    @Override
-    protected void handleHelp(CommandSender sender) { }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/gui/InfoCommand.java
 
 ### Bottom Toolbar
 
@@ -222,63 +163,14 @@ Navigation buttons are placed at columns 3 (previous) and 5 (next) in the bottom
 Override `PREV_BUTTON_COLUMN` and `NEXT_BUTTON_COLUMN` to customize positions:
 
 ```java
-public class CustomPaginationGui extends BasePaginationPage {
-    protected static final int PREV_BUTTON_COLUMN = 0;  // Far left
-    protected static final int NEXT_BUTTON_COLUMN = 8;  // Far right
-}
+// Inside your BasePaginationPage subclass
+protected static final int PREV_BUTTON_COLUMN = 0;  // Far left
+protected static final int NEXT_BUTTON_COLUMN = 8;  // Far right
 ```
 
 ### Creating a Paginated Player List
 
-```java
-import java.util.ArrayList;
-import java.util.List;
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.entity.Player;
-import org.bukkit.event.inventory.InventoryOpenEvent;
-import com.ultikits.ultitools.abstracts.gui.BasePaginationPage;
-import com.ultikits.ultitools.entities.Colors;
-import mc.obliviate.inventory.Icon;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextColor;
-
-public class PlayerListGui extends BasePaginationPage {
-
-    public PlayerListGui(Player viewer) {
-        super(
-            viewer,
-            "player-list",
-            Component.text("Online Players").color(TextColor.color(0x00FF00)),
-            5  // 5 rows = 45 slots, 36 content slots per page
-        );
-    }
-
-    @Override
-    protected List<Icon> provideItems() {
-        List<Icon> playerIcons = new ArrayList<>();
-
-        for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-            Icon playerIcon = new Icon(Material.PLAYER_HEAD);
-            playerIcon.setName(Component.text(onlinePlayer.getName()).color(TextColor.color(0x00FF00)));
-
-            String status = onlinePlayer.isOp() ? "Operator" : "Player";
-            playerIcon.setLore(
-                "Health: " + (int) onlinePlayer.getHealth(),
-                "Status: " + status
-            );
-
-            playerIcon.onClick(event -> {
-                player.sendMessage("Clicked: " + onlinePlayer.getName());
-            });
-
-            playerIcons.add(playerIcon);
-        }
-
-        return playerIcons;
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/gui/PlayerListGui.java
 
 ### Pagination Methods
 
@@ -320,63 +212,7 @@ public abstract class BaseConfirmationPage extends BaseInventoryPage {
 
 ### Creating a Confirmation Dialog (Subclass Approach)
 
-```java
-import org.bukkit.Material;
-import org.bukkit.entity.Player;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryOpenEvent;
-import com.ultikits.ultitools.abstracts.gui.BaseConfirmationPage;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextColor;
-
-public class DeleteConfirmation extends BaseConfirmationPage {
-    private final String itemName;
-
-    public DeleteConfirmation(Player player, String itemName) {
-        super(
-            player,
-            "delete-confirm",
-            Component.text("Confirm Deletion").color(TextColor.color(0xFF0000)),
-            3
-        );
-        this.itemName = itemName;
-    }
-
-    @Override
-    protected void setupDialogContent(InventoryOpenEvent event) {
-        // Display the item being deleted in the center
-        Icon warningIcon = new Icon(Material.BARRIER);
-        warningIcon.setName(Component.text("Delete " + itemName + "?"));
-        warningIcon.setLore(
-            "Are you sure you want to delete this?",
-            "This action cannot be undone."
-        );
-        addItem(getBottomCenterSlot(), warningIcon);
-    }
-
-    @Override
-    protected String getOkButtonName() {
-        return "Delete";
-    }
-
-    @Override
-    protected String getCancelButtonName() {
-        return "Cancel";
-    }
-
-    @Override
-    protected void onConfirm(InventoryClickEvent event) {
-        // Perform deletion
-        player.sendMessage("Deleted: " + itemName);
-        // ... deletion logic ...
-    }
-
-    @Override
-    protected void onCancel(InventoryClickEvent event) {
-        player.sendMessage("Deletion cancelled");
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/gui/DeleteConfirmation.java
 
 ### Creating a Confirmation Dialog (Builder Pattern)
 
@@ -430,130 +266,13 @@ ItemStack glass = XVersionUtils.getColoredPlaneGlass(Colors.CYAN);
 
 Here's a full example combining pagination with custom actions:
 
-```java
-import org.bukkit.entity.Player;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import com.ultikits.ultitools.abstracts.gui.BasePaginationPage;
-import com.ultikits.ultitools.entities.Colors;
-import mc.obliviate.inventory.Icon;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextColor;
-
-public class WarpListGui extends BasePaginationPage {
-    private final WarpService warpService;
-
-    public WarpListGui(Player player, WarpService warpService) {
-        super(
-            player,
-            "warp-list",
-            Component.text("Warp Points").color(TextColor.color(0xFF00A6)),
-            5
-        );
-        this.warpService = warpService;
-    }
-
-    @Override
-    protected List<Icon> provideItems() {
-        List<Icon> icons = new ArrayList<>();
-
-        for (WarpData warp : warpService.getAllWarps()) {
-            Icon warpIcon = new Icon(Material.ENDER_EYE);
-            warpIcon.setName(Component.text(warp.getName()).color(TextColor.color(0xFF00A6)));
-
-            Location loc = WarpService.toLocation(warp.getLocation());
-            warpIcon.setLore(
-                String.format("World: %s", loc.getWorld().getName()),
-                String.format("X: %.1f Y: %.1f Z: %.1f", loc.getX(), loc.getY(), loc.getZ()),
-                "",
-                "Left-click: Teleport",
-                "Right-click: Delete"
-            );
-
-            warpIcon.onClick(event -> {
-                if (event.isLeftClick()) {
-                    player.performCommand("warp tp " + warp.getName());
-                    player.closeInventory();
-                } else if (event.isRightClick()) {
-                    showDeleteConfirmation(warp);
-                }
-            });
-
-            icons.add(warpIcon);
-        }
-
-        return icons;
-    }
-
-    private void showDeleteConfirmation(WarpData warp) {
-        new DeleteConfirmation(player, warp.getName(), warp).open();
-    }
-
-    private class DeleteConfirmation extends BaseConfirmationPage {
-        private final WarpData warp;
-
-        public DeleteConfirmation(Player player, String name, WarpData warp) {
-            super(
-                player,
-                "delete-warp",
-                Component.text("Delete Warp: " + name),
-                3
-            );
-            this.warp = warp;
-        }
-
-        @Override
-        protected void setupDialogContent(InventoryOpenEvent event) {
-            Icon icon = new Icon(Material.BARRIER);
-            icon.setName(Component.text("Delete warp?"));
-            addItem(getBottomCenterSlot(), icon);
-        }
-
-        @Override
-        protected void onConfirm(InventoryClickEvent event) {
-            warpService.delete(warp.getId());
-            player.sendMessage("Warp deleted");
-            refresh();  // Refresh parent GUI
-        }
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/gui/WarpListGui.java
 
 ## Advanced: Custom Button Styles
 
 Override button creation methods to customize appearance:
 
-```java
-public class CustomPaginationGui extends BasePaginationPage {
-
-    @Override
-    protected Icon createPreviousButton() {
-        return createActionButton(
-            Colors.BLUE,
-            Component.text("← Back"),
-            e -> {
-                if (!getPaginationManager().isFirstPage()) {
-                    getPaginationManager().goPreviousPage();
-                    refresh();
-                }
-            }
-        );
-    }
-
-    @Override
-    protected Icon createNextButton() {
-        return createActionButton(
-            Colors.GREEN,
-            Component.text("Next →"),
-            e -> {
-                if (!getPaginationManager().isLastPage()) {
-                    getPaginationManager().goNextPage();
-                    refresh();
-                }
-            }
-        );
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/gui/CustomPaginationGui.java
 
 ## Deprecated API
 
