@@ -10,20 +10,7 @@ UltiTools 提供了一套解耦的发布/订阅事件系统，用于模块间通
 
 通过继承 `ModuleEvent` 创建自定义事件：
 
-```java
-import com.ultikits.ultitools.events.ModuleEvent;
-import lombok.Getter;
-
-public class BalanceChangeEvent extends ModuleEvent {
-    @Getter private final UUID player;
-    @Getter private final double amount;
-
-    public BalanceChangeEvent(UUID player, double amount) {
-        this.player = player;
-        this.amount = amount;
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/eventbus/BalanceChangeEvent.java
 
 每个 `ModuleEvent` 自动携带：
 - `sourceModule` — 发布事件的模块名称（通过 `setSourceModule()` 设置）
@@ -33,19 +20,7 @@ public class BalanceChangeEvent extends ModuleEvent {
 
 在任何托管 Bean 中使用 `@ModuleEventHandler` 标记方法。框架会自动发现并注册：
 
-```java
-@Service
-public class AuditService {
-
-    @ModuleEventHandler
-    public void onBalanceChange(BalanceChangeEvent event) {
-        Bukkit.getLogger().info(
-            event.getSourceModule() + " 修改了 "
-            + event.getPlayer() + " 的余额: " + event.getAmount()
-        );
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/eventbus/AuditService.java
 
 方法必须有**且仅有一个**继承 `ModuleEvent` 的参数。
 
@@ -136,21 +111,7 @@ eventBus.publishAsync(event);
 
 实现 `Cancellable` 接口允许处理器阻止后续处理：
 
-```java
-import com.ultikits.ultitools.events.Cancellable;
-
-public class PlayerTradeEvent extends ModuleEvent implements Cancellable {
-    private boolean cancelled;
-
-    @Override
-    public boolean isCancelled() { return cancelled; }
-
-    @Override
-    public void setCancelled(boolean cancelled) { this.cancelled = cancelled; }
-
-    // ... 你的事件数据
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/eventbus/PlayerTradeEvent.java
 
 处理器可以取消事件：
 
@@ -226,22 +187,7 @@ public class EconomyService {
 
 **独立的审计模块**无需依赖经济模块即可接收事件：
 
-```java
-// 在独立的审计模块中
-@Service
-public class AuditLogService {
-
-    @ModuleEventHandler
-    public void onBalanceChange(BalanceChangeEvent event) {
-        double delta = event.getNewBalance() - event.getOldBalance();
-        Bukkit.getLogger().info(String.format(
-            "[审计] %s 余额: %.2f -> %.2f (变动: %+.2f) 来自 %s",
-            event.getPlayer(), event.getOldBalance(),
-            event.getNewBalance(), delta, event.getSourceModule()
-        ));
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/eventbus/complete/AuditLogService.java
 
 ::: tip 跨模块通信
 EventBus 非常适合模块需要对彼此的操作做出反应但又不想紧耦合的场景。例如：
