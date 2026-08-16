@@ -15,9 +15,9 @@
         when a documented API no longer exists in the released UltiTools-API.
         Coverage note: this gate only protects examples that have been migrated
         to `&lt;&lt;&lt;` snippet references into this module. Of the 215 Java code
-        blocks across the docs site, 28 have been migrated so far; the remaining
-        187 are still inline code blocks in docs/src and are not covered or
-        verified by this build. Most of those 187 are deliberate fragments
+        blocks across the docs site, 33 have been migrated so far; the remaining
+        182 are still inline code blocks in docs/src and are not covered or
+        verified by this build. Most of those 182 are deliberate fragments
         (method bodies elided with `...`) that cannot compile standalone and are
         not migration candidates.
     </description>
@@ -48,6 +48,14 @@
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
             <version>1.21.11-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- Only present so the @Configuration/@Bean example can wrap a real
+             connection pool. Same coordinates the framework itself declares. -->
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>5.1.0</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

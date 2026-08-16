@@ -34,12 +34,9 @@ Supported annotations：
 
 You can register directly using the `registerType()` method of the container object:
 
-```java "MyBean.java"
+```java
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
-import com.ultikits.ultitools.annotations.EnableAutoRegister;
-import com.ultikits.ultitools.annotations.I18n;
-import com.ultikits.ultitools.annotations.ComponentScan;
-import com.ultikits.ultitools.annotations.Component;
+import com.ultikits.ultitools.annotations.UltiToolsModule;
 
 @UltiToolsModule
 public class BasicFunctions extends UltiToolsPlugin {
@@ -48,9 +45,10 @@ public class BasicFunctions extends UltiToolsPlugin {
     public boolean registerSelf() {
         // on module register
         getContext().registerType(MyBean.class, new MyBean());
+        return true;
     }
-  
-  ...
+
+    ...
 }
 ```
 
@@ -134,27 +132,7 @@ Methods in managed beans can be automatically called at specific lifecycle point
 
 The `@PostConstruct` annotation marks a method to be called **after all dependencies have been injected** and the bean is fully initialized.
 
-```java
-@Service
-public class DatabaseConnection {
-    private String connectionUrl;
-
-    @Autowired
-    private ConfigService config;
-
-    @PostConstruct
-    public void initialize() {
-        // Called after injection is complete
-        this.connectionUrl = config.getDatabaseUrl();
-        // Connect to database
-        connectToDatabase();
-    }
-
-    private void connectToDatabase() {
-        // initialization logic here
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/ioc/DatabaseConnection.java
 
 **Rules:**
 - Method must have `void` return type
@@ -166,25 +144,7 @@ public class DatabaseConnection {
 
 The `@PreDestroy` annotation marks a method to be called **before the bean is destroyed** (when the plugin is disabled or the container shuts down).
 
-```java
-@Service
-public class ResourceManager {
-    private Connection dbConnection;
-
-    @PostConstruct
-    public void connect() {
-        dbConnection = createConnection();
-    }
-
-    @PreDestroy
-    public void cleanup() {
-        // Called before shutdown
-        if (dbConnection != null && dbConnection.isOpen()) {
-            dbConnection.close();
-        }
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/ioc/ResourceManager.java
 
 **Rules:**
 - Method must have `void` return type
@@ -196,30 +156,7 @@ public class ResourceManager {
 
 For complex bean initialization or creating beans from third-party classes, use the `@Configuration` annotation with `@Bean` factory methods.
 
-```java
-@Configuration
-public class HttpClientConfiguration {
-
-    @Bean
-    public HttpClient createHttpClient() {
-        // This method's return value becomes a managed bean
-        return HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(30))
-            .version(HttpClient.Version.HTTP_2)
-            .build();
-    }
-
-    @Bean(name = "primaryDatabase")
-    public DataSource createDataSource() {
-        // Named bean - useful when multiple beans of same type exist
-        HikariConfig config = new HikariConfig();
-        config.setJdbcUrl("jdbc:mysql://localhost:3306/db");
-        config.setUsername("user");
-        config.setPassword("pass");
-        return new HikariDataSource(config);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/ioc/HttpClientConfiguration.java
 
 **When to use:**
 - Creating beans from external libraries (Gson, HTTP clients, database connection pools)
@@ -269,23 +206,7 @@ public class MyService {
 
 ### Constructor Injection Example
 
-```java
-@Service
-public class PlayerDataService {
-    private final MyPlugin plugin;
-    private final ConfigService config;
-
-    public PlayerDataService(MyPlugin plugin, ConfigService config) {
-        this.plugin = plugin;
-        this.config = config;
-    }
-
-    public void syncPlayerData(UUID playerId) {
-        // Use plugin.getServer(), plugin.getLogger(), etc.
-        plugin.getLogger().info("Syncing data for: " + playerId);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/ioc/PlayerDataService.java
 
 ### How It Works
 
@@ -357,12 +278,6 @@ List<PaymentProcessor> allProcessors = context.getOrderedBeansOfType(PaymentProc
 
 Starting from v6.2.0, you can conditionally register components based on YAML configuration values using the `@ConditionalOnConfig` annotation.
 
-```java
-@Service
-@ConditionalOnConfig(value = "config/config.yml", path = "features.economy")
-public class EconomyService {
-    // Only registered if features.economy: true in config.yml
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/ioc/EconomyService.java
 
 This eliminates the need for manual `if` checks in `registerSelf()`. See the [Conditional Registration](/guide/advanced/conditional-registration) guide for full details.
