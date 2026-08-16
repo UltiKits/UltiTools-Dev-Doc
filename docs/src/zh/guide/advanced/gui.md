@@ -52,70 +52,11 @@ public abstract class BaseInventoryPage extends Gui {
 
 ### 创建简单的信息面板
 
-```java
-import org.bukkit.entity.Player;
-import org.bukkit.event.inventory.InventoryOpenEvent;
-import com.ultikits.ultitools.abstracts.gui.BaseInventoryPage;
-import com.ultikits.ultitools.entities.Colors;
-import mc.obliviate.inventory.Icon;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextColor;
-
-public class InfoGui extends BaseInventoryPage {
-
-    public InfoGui(Player player) {
-        super(
-            player,
-            "info-page",
-            Component.text("服务器信息").color(TextColor.color(0xFF00A6)),
-            3  // 3 行 = 27 个槽位
-        );
-    }
-
-    @Override
-    protected void setupContent(InventoryOpenEvent event) {
-        // 使用灰色玻璃创建装饰边框
-        Icon border = createBackgroundIcon();
-        fillBorder(border);
-
-        // 创建一个信息图标
-        Icon infoIcon = new Icon(Material.BOOK);
-        infoIcon.setName(Component.text("服务器信息"));
-        infoIcon.setLore(
-            "在线玩家: 5",
-            "TPS: 20.0",
-            "内存: 2GB/4GB"
-        );
-
-        // 放在中心
-        addItem(getBottomCenterSlot(), infoIcon);
-    }
-
-    @Override
-    protected void afterSetup(InventoryOpenEvent event) {
-        // 在内容设置后调用（可选）
-        // 用于动画或延迟处理
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/gui/InfoGui.java
 
 ### 打开 GUI
 
-```java
-@CmdTarget(CmdTarget.CmdTargetType.PLAYER)
-@CmdExecutor(alias = {"info"}, permission = "ultikits.info")
-public class InfoCommand extends BaseCommandExecutor {
-
-    @CmdMapping(format = "")
-    public void showInfo(@CmdSender Player player) {
-        InfoGui gui = new InfoGui(player);
-        gui.open();  // 显示给玩家
-    }
-
-    @Override
-    protected void handleHelp(CommandSender sender) { }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/gui/InfoCommand.java
 
 ### 底部工具栏
 
@@ -222,63 +163,14 @@ public abstract class BasePaginationPage extends BaseInventoryPage {
 重写 `PREV_BUTTON_COLUMN` 和 `NEXT_BUTTON_COLUMN` 来自定义位置：
 
 ```java
-public class CustomPaginationGui extends BasePaginationPage {
-    protected static final int PREV_BUTTON_COLUMN = 0;  // 最左边
-    protected static final int NEXT_BUTTON_COLUMN = 8;  // 最右边
-}
+// 写在你的 BasePaginationPage 子类里
+protected static final int PREV_BUTTON_COLUMN = 0;  // 最左边
+protected static final int NEXT_BUTTON_COLUMN = 8;  // 最右边
 ```
 
 ### 创建分页玩家列表
 
-```java
-import java.util.ArrayList;
-import java.util.List;
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.entity.Player;
-import org.bukkit.event.inventory.InventoryOpenEvent;
-import com.ultikits.ultitools.abstracts.gui.BasePaginationPage;
-import com.ultikits.ultitools.entities.Colors;
-import mc.obliviate.inventory.Icon;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextColor;
-
-public class PlayerListGui extends BasePaginationPage {
-
-    public PlayerListGui(Player viewer) {
-        super(
-            viewer,
-            "player-list",
-            Component.text("在线玩家").color(TextColor.color(0x00FF00)),
-            5  // 5 行 = 45 个槽位，每页 36 个内容槽位
-        );
-    }
-
-    @Override
-    protected List<Icon> provideItems() {
-        List<Icon> playerIcons = new ArrayList<>();
-
-        for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-            Icon playerIcon = new Icon(Material.PLAYER_HEAD);
-            playerIcon.setName(Component.text(onlinePlayer.getName()).color(TextColor.color(0x00FF00)));
-
-            String status = onlinePlayer.isOp() ? "管理员" : "玩家";
-            playerIcon.setLore(
-                "生命值: " + (int) onlinePlayer.getHealth(),
-                "身份: " + status
-            );
-
-            playerIcon.onClick(event -> {
-                player.sendMessage("点击了: " + onlinePlayer.getName());
-            });
-
-            playerIcons.add(playerIcon);
-        }
-
-        return playerIcons;
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/gui/PlayerListGui.java
 
 ### 分页方法
 
@@ -320,63 +212,7 @@ public abstract class BaseConfirmationPage extends BaseInventoryPage {
 
 ### 创建确认对话框（子类方法）
 
-```java
-import org.bukkit.Material;
-import org.bukkit.entity.Player;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryOpenEvent;
-import com.ultikits.ultitools.abstracts.gui.BaseConfirmationPage;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextColor;
-
-public class DeleteConfirmation extends BaseConfirmationPage {
-    private final String itemName;
-
-    public DeleteConfirmation(Player player, String itemName) {
-        super(
-            player,
-            "delete-confirm",
-            Component.text("确认删除").color(TextColor.color(0xFF0000)),
-            3
-        );
-        this.itemName = itemName;
-    }
-
-    @Override
-    protected void setupDialogContent(InventoryOpenEvent event) {
-        // 在中心显示要删除的项目
-        Icon warningIcon = new Icon(Material.BARRIER);
-        warningIcon.setName(Component.text("删除 " + itemName + "？"));
-        warningIcon.setLore(
-            "您确定要删除此项吗？",
-            "此操作无法撤销。"
-        );
-        addItem(getBottomCenterSlot(), warningIcon);
-    }
-
-    @Override
-    protected String getOkButtonName() {
-        return "删除";
-    }
-
-    @Override
-    protected String getCancelButtonName() {
-        return "取消";
-    }
-
-    @Override
-    protected void onConfirm(InventoryClickEvent event) {
-        // 执行删除
-        player.sendMessage("已删除: " + itemName);
-        // ... 删除逻辑 ...
-    }
-
-    @Override
-    protected void onCancel(InventoryClickEvent event) {
-        player.sendMessage("删除已取消");
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/gui/DeleteConfirmation.java
 
 ### 创建确认对话框（构建器模式）
 
@@ -430,130 +266,13 @@ ItemStack glass = XVersionUtils.getColoredPlaneGlass(Colors.CYAN);
 
 以下是结合分页和自定义操作的完整示例：
 
-```java
-import org.bukkit.entity.Player;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import com.ultikits.ultitools.abstracts.gui.BasePaginationPage;
-import com.ultikits.ultitools.entities.Colors;
-import mc.obliviate.inventory.Icon;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextColor;
-
-public class WarpListGui extends BasePaginationPage {
-    private final WarpService warpService;
-
-    public WarpListGui(Player player, WarpService warpService) {
-        super(
-            player,
-            "warp-list",
-            Component.text("传送点").color(TextColor.color(0xFF00A6)),
-            5
-        );
-        this.warpService = warpService;
-    }
-
-    @Override
-    protected List<Icon> provideItems() {
-        List<Icon> icons = new ArrayList<>();
-
-        for (WarpData warp : warpService.getAllWarps()) {
-            Icon warpIcon = new Icon(Material.ENDER_EYE);
-            warpIcon.setName(Component.text(warp.getName()).color(TextColor.color(0xFF00A6)));
-
-            Location loc = WarpService.toLocation(warp.getLocation());
-            warpIcon.setLore(
-                String.format("世界: %s", loc.getWorld().getName()),
-                String.format("X: %.1f Y: %.1f Z: %.1f", loc.getX(), loc.getY(), loc.getZ()),
-                "",
-                "左键: 传送",
-                "右键: 删除"
-            );
-
-            warpIcon.onClick(event -> {
-                if (event.isLeftClick()) {
-                    player.performCommand("warp tp " + warp.getName());
-                    player.closeInventory();
-                } else if (event.isRightClick()) {
-                    showDeleteConfirmation(warp);
-                }
-            });
-
-            icons.add(warpIcon);
-        }
-
-        return icons;
-    }
-
-    private void showDeleteConfirmation(WarpData warp) {
-        new DeleteConfirmation(player, warp.getName(), warp).open();
-    }
-
-    private class DeleteConfirmation extends BaseConfirmationPage {
-        private final WarpData warp;
-
-        public DeleteConfirmation(Player player, String name, WarpData warp) {
-            super(
-                player,
-                "delete-warp",
-                Component.text("删除传送点: " + name),
-                3
-            );
-            this.warp = warp;
-        }
-
-        @Override
-        protected void setupDialogContent(InventoryOpenEvent event) {
-            Icon icon = new Icon(Material.BARRIER);
-            icon.setName(Component.text("删除传送点？"));
-            addItem(getBottomCenterSlot(), icon);
-        }
-
-        @Override
-        protected void onConfirm(InventoryClickEvent event) {
-            warpService.delete(warp.getId());
-            player.sendMessage("传送点已删除");
-            refresh();  // 刷新父级 GUI
-        }
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/gui/WarpListGui.java
 
 ## 高级：自定义按钮样式
 
 重写按钮创建方法来自定义外观：
 
-```java
-public class CustomPaginationGui extends BasePaginationPage {
-
-    @Override
-    protected Icon createPreviousButton() {
-        return createActionButton(
-            Colors.BLUE,
-            Component.text("← 返回"),
-            e -> {
-                if (!getPaginationManager().isFirstPage()) {
-                    getPaginationManager().goPreviousPage();
-                    refresh();
-                }
-            }
-        );
-    }
-
-    @Override
-    protected Icon createNextButton() {
-        return createActionButton(
-            Colors.GREEN,
-            Component.text("下一页 →"),
-            e -> {
-                if (!getPaginationManager().isLastPage()) {
-                    getPaginationManager().goNextPage();
-                    refresh();
-                }
-            }
-        );
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/gui/CustomPaginationGui.java
 
 ## 弃用的 API
 
