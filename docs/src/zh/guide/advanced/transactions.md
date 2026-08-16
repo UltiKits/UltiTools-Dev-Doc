@@ -99,49 +99,7 @@ dataOperator.updateAll(accounts); // 全部更新或全部不更新
 
 ## 完整示例
 
-```java
-@Service
-public class EconomyService {
-
-    @Autowired
-    private UltiToolsPlugin plugin;
-
-    public boolean transfer(String fromUuid, String toUuid, double amount) {
-        DataOperator<AccountEntity> dataOperator =
-            plugin.getDataOperator(AccountEntity.class);
-
-        try {
-            dataOperator.transaction(() -> {
-                AccountEntity from = dataOperator.query()
-                    .where("playerId").eq(fromUuid).first();
-                AccountEntity to = dataOperator.query()
-                    .where("playerId").eq(toUuid).first();
-
-                if (from == null || to == null) {
-                    throw new RuntimeException("账户不存在");
-                }
-                if (from.getBalance() < amount) {
-                    throw new RuntimeException("余额不足");
-                }
-
-                from.setBalance(from.getBalance() - amount);
-                to.setBalance(to.getBalance() + amount);
-
-                try {
-                    dataOperator.update(from);
-                    dataOperator.update(to);
-                } catch (IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            return true;
-        } catch (Exception e) {
-            // 事务自动回滚
-            return false;
-        }
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/transactions/EconomyService.java
 
 ::: tip
 对于简单的单实体操作，你不需要事务。事务在需要确保多个操作同时成功或同时失败时最为有用。
@@ -155,49 +113,13 @@ public class EconomyService {
 
 `@Transactional` 注解仅适用于 `@Service` Bean 中的方法，因为事务通过 CGLIB 代理实现：
 
-```java
-@Service
-public class PaymentService {
-    @Transactional
-    public void processPayment(String playerId, double amount) {
-        // 此方法将自动被包装在一个事务中
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/transactions/PaymentService.java
 
 ### 基本用法
 
 直接在服务方法上添加 `@Transactional` 注解：
 
-```java
-@Service
-public class AccountService {
-
-    @Autowired
-    private UltiToolsPlugin plugin;
-
-    @Transactional
-    public void transfer(String fromPlayerId, String toPlayerId, double amount) {
-        DataOperator<AccountEntity> dataOperator =
-            plugin.getDataOperator(AccountEntity.class);
-
-        AccountEntity from = dataOperator.query()
-            .where("playerId").eq(fromPlayerId).first();
-        AccountEntity to = dataOperator.query()
-            .where("playerId").eq(toPlayerId).first();
-
-        from.setBalance(from.getBalance() - amount);
-        to.setBalance(to.getBalance() + amount);
-
-        try {
-            dataOperator.update(from);
-            dataOperator.update(to);
-        } catch (IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/transactions/AccountService.java
 
 方法成功完成时事务提交，抛出异常时自动回滚。
 
@@ -230,26 +152,7 @@ public class AccountService {
 
 使用 `REQUIRES_NEW` 的例子：
 
-```java
-@Service
-public class AuditService {
-
-    @Autowired
-    private UltiToolsPlugin plugin;
-
-    // 此方法总是获得独立事务，即使从另一个事务方法调用
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void logAudit(String message) {
-        DataOperator<AuditLogEntity> dataOperator =
-            plugin.getDataOperator(AuditLogEntity.class);
-        AuditLogEntity log = AuditLogEntity.builder()
-            .message(message)
-            .timestamp(System.currentTimeMillis())
-            .build();
-        dataOperator.insert(log);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/transactions/AuditService.java
 
 ### 隔离级别
 
@@ -303,25 +206,7 @@ public void importData(String source) throws WarningException {
 
 在只读查询方法上标记 `readOnly = true`，允许数据库应用优化：
 
-```java
-@Service
-public class PlayerRepository {
-
-    @Autowired
-    private UltiToolsPlugin plugin;
-
-    @Transactional(readOnly = true)
-    public List<PlayerEntity> getAllPlayers() {
-        return plugin.getDataOperator(PlayerEntity.class).getAll();
-    }
-
-    @Transactional(readOnly = true)
-    public PlayerEntity getPlayerById(UUID uuid) {
-        return plugin.getDataOperator(PlayerEntity.class).query()
-            .where("uuid").eq(uuid.toString()).first();
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/transactions/PlayerRepository.java
 
 ### 超时配置
 
@@ -346,38 +231,11 @@ public void bulkProcessing() {
 
 2. **自调用绕过代理**：在同一类中调用 `@Transactional` 方法会绕过代理：
 
-```java
-@Service
-public class BadExample {
-
-    @Transactional
-    public void transactionalMethod() { }
-
-    public void callingMethod() {
-        // 错误：绕过代理，事务不生效
-        this.transactionalMethod();
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/transactions/BadExample.java
 
 修复方法是注入服务或通过容器调用：
 
-```java
-@Service
-public class GoodExample {
-
-    @Autowired
-    private BadExample service;  // 注入自己以进行外部调用
-
-    public void callingMethod() {
-        // 正确：通过代理调用，事务生效
-        service.transactionalMethod();
-    }
-
-    @Transactional
-    public void transactionalMethod() { }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/transactions/GoodExample.java
 
 3. **非 final 类**：类不能是 `final`（CGLIB 限制）。方法也必须是可重写的。
 
@@ -399,29 +257,4 @@ public class GoodExample {
 
 结合两者的例子：
 
-```java
-@Service
-public class ComplexService {
-
-    @Autowired
-    private UltiToolsPlugin plugin;
-
-    // 声明式用于简单的方法级事务
-    @Transactional
-    public void simpleOperation() {
-        // 自动事务管理
-    }
-
-    // 编程式用于复杂的多步工作流
-    public void complexWorkflow() {
-        DataOperator<Entity> dataOp = plugin.getDataOperator(Entity.class);
-
-        // 显式事务与细粒度控制
-        dataOp.transaction(() -> {
-            // 多个协调操作
-            step1();
-            step2();
-            step3();
-        });
-    }
-}
+<<< @/../examples/src/main/java/com/ultikits/docs/transactions/ComplexService.java
