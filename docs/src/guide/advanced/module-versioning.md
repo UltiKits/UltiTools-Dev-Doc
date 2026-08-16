@@ -43,9 +43,9 @@ A module's version is also read by machines, but only to order two versions, nev
 
 All three go through `VersionComparatorUtil.compare` and ask whether A is greater than B. None of them looks at whether the difference is MAJOR, MINOR or PATCH.
 
-Nor does anything resolve one module from Maven for another module to use. None of the official modules declares a dependency on a sibling module in its pom. A module built as a multi-module project, such as `UltiBot`, depends on its own submodules, which is internal to that build rather than one module depending on another. The linkage argument that constrains the framework's version number therefore does not apply to a module's. If you publish your own module for others to depend on, it no longer holds for yours, and the framework's convention applies instead.
+Nor does anything resolve one module from Maven for another module to use. None of the official modules declares a dependency on a sibling module in its pom. A module built as a multi-module project, such as `UltiBot`, depends on its own submodules, which is internal to that build rather than one module depending on another. The linkage argument that constrains the framework's version number therefore does not apply to a module's. If you publish your own module for others to compile and link against, that argument starts applying to yours: your version number now has to answer a compatibility question, so what you need is a stricter contract that preserves compatibility, not the framework's looser one.
 
-So the split is that the **order** of a module's version is machine-consumed while the **meaning** of MAJOR, MINOR and PATCH is not. That produces one mandatory rule and leaves the rest to the author's judgement.
+So the split is that the order of a module's version is machine-consumed while the meaning of MAJOR, MINOR and PATCH is not. That produces one mandatory rule and leaves the rest to the author's judgement.
 
 ::: tip The one mandatory rule
 Versions must increase monotonically and stay comparable. Going from `1.10.0` back to `1.9.0`, or switching numbering schemes partway through, makes the framework load the wrong JAR when two copies are present, with no clear indication: the losing one is simply refused with a warning in the log.
@@ -69,7 +69,7 @@ A module declares the framework as `provided`:
 `provided` means the module compiles against the pinned version and runs against whatever framework is installed on the server. That asymmetry is central to how this works:
 
 - Compiled against an older API, every symbol the compiler wrote into the bytecode exists in that version, so the module does not get a `NoSuchMethodError` for referencing something newer than the server provides. It can still get one for other reasons, described in [Compatibility breaks caused by the framework](#compatibility-breaks-caused-by-the-framework).
-- Compiled against a newer API, the module may reference a method the server's framework does not have, producing a `NoSuchMethodError` on startup.
+- Compiled against a newer API, the module may reference a method the server's framework does not have, producing a `NoSuchMethodError` the first time that call site is reached.
 
 The scope of the first point matters. It describes statically linked references in one direction and is not a general guarantee: a later framework release can still remove or reshape something the module uses, and anything reached by reflection was never covered, because the compiler did not record it.
 
@@ -84,7 +84,7 @@ The pin is not the module's runtime floor. These are two independent numbers, an
 | The `UltiTools-API` version in `pom.xml` | Which version's descriptors your bytecode records | Nothing. It is `provided`, does not enter the JAR, and the framework cannot read it at runtime |
 | `api-version` in `plugin.yml` | The declared runtime floor | `PluginManager.isUltiToolsVersionCompatible`. This is the only framework version consulted before a module is admitted |
 
-Raising the pin does not raise the floor. When the two disagree, a JAR is admitted onto a framework it cannot actually run on.
+Raising the pin does not raise the floor. A gap between the two numbers is not itself a fault: bytecode built against a newer pin still runs on the declared floor as long as every member it references already exists there. What breaks is a JAR whose bytecode references a symbol the framework version named in `api-version` does not declare, because that server admits it and then fails when the call site is reached.
 
 More than this one number is checked before a module is admitted: the JAR is structurally validated first, and a module is also refused when a newer copy of itself is already loaded. The full test is `passesCompatibilityGates`, which is `!hasNewerVersionLoaded && isUltiToolsVersionCompatible`. Only `api-version` has anything to do with which framework versions the module can run on, which is why this page discusses only that one.
 
@@ -184,10 +184,10 @@ The script cannot make this decision for you. It receives one module JAR and one
 
 There are two more situations the script states rather than guesses at. A reference whose hierarchy leaves both JARs is listed as inconclusive and does not affect the exit code; this happens when a framework class inherits from a type the API JAR does not bundle, such as a server API or a UI library, in which case a module calling the inherited method is behaving normally. And if `javap` itself fails, the script stops rather than analysing incomplete output.
 
+A manual check runs into one more detail: the constant pool records the static type of the receiver at the call site, not the class that declares the member. When you call an inherited framework method from your own plugin class, the recorded owner is your own class, in the form `com/example/MyPlugin.getContext:()…`. Filtering for references whose owner is already inside the framework's package therefore misses every inherited call, and since plugins extend `UltiToolsPlugin`, those account for most of them.
+
 ::: tip Why a script instead of running javap directly
 Running `javap -s` on a single class shows the descriptor of a member, but the question here is whether anything in the whole JAR references a symbol the target framework does not have, which requires comparing two artifacts.
-
-One detail also affects manual checks: the constant pool records the static type of the receiver at the call site, not the class that declares the member. When you call an inherited framework method from your own plugin class, the recorded owner is your own class, in the form `com/example/MyPlugin.getContext:()…`. Filtering for references whose owner is already inside the framework's package therefore misses every inherited call, and since plugins extend `UltiToolsPlugin`, those account for most of them.
 :::
 
 ### Supporting two framework versions at once
