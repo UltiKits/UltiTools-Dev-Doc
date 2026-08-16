@@ -282,7 +282,15 @@ will hit.
 
 #### Reading the output: two causes, opposite fixes
 
-Look at which generation of type the missing symbols name:
+First tell the two shapes apart, because they need different work:
+
+- **The name is gone entirely** — no overload of it survives, or the class itself
+  is absent. That is shape 1, a removal. Check that release's removal list; you
+  have a source migration, not a rebuild.
+- **A symbol of the same name is still there, with a different descriptor.** That
+  is shape 2, and only then does the table below apply.
+
+For shape 2, look at which generation of type the missing symbol names:
 
 | The missing symbol names | What it means | Fix |
 |---|---|---|
@@ -292,6 +300,17 @@ Look at which generation of type the missing symbols name:
 Getting this backwards is easy and the two fixes point in opposite directions,
 which is why it is worth reading the symbol rather than reaching for whichever
 number is more convenient.
+
+The script cannot make this call for you: it is given one module JAR and one
+framework JAR, so it can see that a symbol is absent but not *why*, and it never
+sees your pin at all. It reports; you diagnose.
+
+Two more things it will tell you rather than guess about. Anything whose
+supertype chain leaves both JARs — a framework class inheriting from a server API
+or a GUI library the API JAR does not bundle — is listed as **inconclusive** and
+does not set the exit code, because reporting a valid inherited call as missing
+would be a false positive. And if `javap` itself fails, the run aborts instead of
+analysing partial output, since fewer references read as a clean bill of health.
 
 ::: tip Why a script rather than `javap` by hand
 `javap -s` on a single class does answer "what is this member's descriptor", but

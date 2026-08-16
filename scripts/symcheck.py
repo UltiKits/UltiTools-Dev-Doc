@@ -66,13 +66,24 @@ USAGE = "用法 / usage: symcheck.py <module.jar> <UltiTools-API-<floor>.jar>"
 # 读的是**常量池**（`javap -v`）而不是反汇编注释（`javap -c`）：`-c` 在「所有者就是当前类」
 # 时会省略类名，而那正是本脚本必须抓的继承调用。常量池永远写全。注意关键字在 `//` **之前**，
 # 所以按 `-c` 写的正则拿到 `-v` 上会静默少匹配。
+# The member name is quoted for constructors and static initialisers —
+# `Owner."<init>":(…)V` — so an unquoted-only pattern drops every constructor
+# reference. That matters more than it sounds: a removed *constructor* is on the
+# framework's own removal list, and a checker blind to constructors answers
+# "nothing missing" for exactly that removal.
+# 构造器和静态初始化块的成员名是带引号的 —— `Owner."<init>":(…)V` —— 只认不带引号的
+# 写法会丢掉每一个构造器引用。而框架的移除清单上就有一个构造器，对它报「无缺失」是最坏的答案。
 REF = re.compile(
     r"=\s*(?:Methodref|Fieldref|InterfaceMethodref)\s+\S+\s+"
-    r"//\s*([\w/$]+)\.([\w$<>]+):(\S+)"
+    r'//\s*([\w/$]+)\.("?[\w$<>]+"?):(\S+)'
 )
 # `#N = Class #M // com/foo/Bar` — a type named without touching a member
 # (a cast, an instanceof, a catch clause, a supertype).
 CLS = re.compile(r"=\s*Class\s+\S+\s+//\s*([\w/$;\[\]]+)")
+# Types named only inside a descriptor: `()Lcom/foo/Removed;` never produces a
+# Class entry of its own, so a method that merely returns a removed type would
+# otherwise be invisible here.
+DESC_TYPE = re.compile(r"L([\w/$]+);")
 
 
 def die(msg, code=2):
@@ -99,16 +110,32 @@ def class_names(root):
 
 def run_javap(flags, root, names):
     """javap over every class at once. Batched because per-class spawning dominates
-    the runtime on a JAR with a few hundred classes."""
+    the runtime on a JAR with a few hundred classes.
+
+    A failed batch is fatal rather than skipped. Partial output here does not look
+    like an error downstream — it looks like *fewer references*, which is to say a
+    clean bill of health. A checker whose failure mode is "reports nothing missing"
+    is worse than no checker.
+    一个批次失败必须直接终止，不能跳过：这里的残缺输出在下游看起来不像错误，
+    看起来像**引用更少**，也就是一份「没问题」的报告。一个失败时会报告「无缺失」的
+    检查器，比没有检查器更糟。
+    """
     if not names:
         return ""
     out = []
     # Keep argv under typical limits.
     for i in range(0, len(names), 400):
-        r = subprocess.run(
-            ["javap", *flags, "-cp", str(root), *names[i:i + 400]],
-            capture_output=True, text=True,
-        )
+        batch = names[i:i + 400]
+        try:
+            r = subprocess.run(
+                ["javap", *flags, "-cp", str(root), *batch],
+                capture_output=True, text=True,
+            )
+        except FileNotFoundError:
+            die("找不到 javap，请确认 JDK 在 PATH 上 / javap not found; is a JDK on PATH?")
+        if r.returncode != 0:
+            die("javap 失败，结果不可信，已中止 / javap failed, results would be "
+                f"unreliable:\n{r.stderr.strip()[:800]}")
         out.append(r.stdout)
     return "\n".join(out)
 
@@ -143,7 +170,22 @@ def strip_generics(line):
 
 
 def parse_decl(line):
-    """(fqcn, [supertypes]) for a javap class-declaration line, or None."""
+    """(fqcn, [supertypes]) for a javap class-declaration line, or None.
+
+    The clauses are sliced at keyword boundaries rather than matched with a
+    character class. `extends A implements B` is one run of `[\\w.$,\\s]`, so a
+    greedy match for the `extends` clause swallows the `implements` clause with it
+    and indexes a supertype literally named "A implements B" — which resolves to
+    nothing, so the real framework base is never reached and every inherited
+    reference under that class is silently skipped. `class X extends Base
+    implements Listener` is an ordinary shape, not a corner case.
+
+    子句按关键字边界切，而不是用字符类匹配：`extends A implements B` 在
+    `[\\w.$,\\s]` 看来是连续的一段，贪婪匹配 `extends` 会把 `implements` 子句一起吞掉，
+    于是索引出一个名叫 "A implements B" 的父类型——它解析不到任何东西，真正的框架基类
+    就够不到了，那个类底下所有继承引用都会被静默跳过。而
+    `class X extends Base implements Listener` 是再普通不过的写法。
+    """
     if not line.endswith("{"):
         return None
     flat = strip_generics(line)
@@ -152,14 +194,14 @@ def parse_decl(line):
         return None
     name = m.group(1)
     rest = flat[m.end():].rstrip("{ ").strip()
+
+    marks = [(mm.start(), mm.group(1)) for mm in re.finditer(r"\b(extends|implements)\b", rest)]
     supers = []
-    for clause in ("extends", "implements"):
-        hit = re.search(rf"\b{clause}\s+([\w.$,\s]+)", rest)
-        if hit:
-            supers += [s.strip() for s in hit.group(1).split(",") if s.strip()]
-    # `extends`/`implements` keywords survive the split above when a type list runs
-    # into the next clause; drop them rather than indexing a class called "implements".
-    return name, [s for s in supers if s not in ("extends", "implements")]
+    for idx, (pos, keyword) in enumerate(marks):
+        end = marks[idx + 1][0] if idx + 1 < len(marks) else len(rest)
+        chunk = rest[pos + len(keyword):end]
+        supers += [s.strip() for s in chunk.split(",") if s.strip()]
+    return name, supers
 
 
 def index(root, names):
@@ -212,9 +254,56 @@ def declares(table, fqcn, member):
     return None
 
 
-def reaches_framework(mod_index, fw_index, fqcn):
+def resolve(merged, fw_index, owner, member):
+    """Resolve `member` from `owner` the way the JVM does, across both JARs at once.
+
+    Returns one of:
+      ("module", cls)  the module declares it — not a framework question
+      ("framework", cls)
+      ("missing", None)      the walk stayed inside known classes and found nothing
+      ("unknown", cls)       the walk left both JARs, so the answer is not knowable
+                             from these two inputs alone
+
+    The last case is the one worth keeping separate. A framework class can inherit
+    from something the API JAR does not bundle (a server API, a GUI library), and a
+    module calling that inherited method is perfectly valid. Reporting it as
+    "missing" would be a false positive, and a self-check tool that cries wolf gets
+    switched off — after which it protects nothing. So an unresolved external branch
+    is reported as inconclusive and does not set the exit code.
+
+    最后一种要单独留出来。框架类可能继承自 API JAR 里没打包的东西（服务端 API、GUI 库），
+    而模块调用那样一个继承来的方法完全合法。把它报成「缺失」就是假阳性，而一个会乱叫的
+    自查工具会被关掉——关掉之后它什么也保护不了。所以无法解析的外部分支报为「无法判定」，
+    且不影响退出码。
+    """
+    seen, stack, hit_unknown = set(), [owner], None
+    while stack:
+        cls = stack.pop()
+        if cls in seen:
+            continue
+        seen.add(cls)
+        entry = merged.get(cls)
+        if entry is None:
+            # A type from neither JAR: java.*, org.bukkit.*, a shaded library.
+            # java.* is always present at runtime and never the question here.
+            if not cls.startswith(("java.", "javax.")):
+                hit_unknown = hit_unknown or cls
+            continue
+        supers, members = entry
+        if member in members:
+            return ("framework" if cls in fw_index else "module"), cls
+        stack.extend(supers)
+    return ("unknown", hit_unknown) if hit_unknown else ("missing", None)
+
+
+def touches_framework(merged, fw_index, fqcn):
     """True when fqcn or any of its supertypes is a framework class — i.e. a
-    reference under this owner can legitimately resolve into the framework."""
+    reference under this owner can legitimately resolve into the framework.
+
+    Walks the merged table, so an intermediate module base class
+    (`MyPlugin -> ModuleBase -> UltiToolsPlugin`) does not break the chain.
+    走合并表，所以中间隔着一层模块自己的基类时链条不会断。
+    """
     seen, stack = set(), [fqcn]
     while stack:
         cls = stack.pop()
@@ -223,7 +312,7 @@ def reaches_framework(mod_index, fw_index, fqcn):
         seen.add(cls)
         if cls in fw_index:
             return True
-        entry = mod_index.get(cls)
+        entry = merged.get(cls)
         if entry:
             stack.extend(entry[0])
     return False
@@ -249,14 +338,26 @@ def main():
         mod_index = index(mod_d, mod_names)
         fw_index = index(fw_d, fw_names)
 
-        disasm = run_javap(["-p", "-v"], mod_d, mod_names)
-        refs = sorted(set(REF.findall(disasm)))
-        type_refs = sorted(set(CLS.findall(disasm)))
+        # Module entries win a name clash: a module class shadowing a framework one
+        # is what the module's own bytecode was compiled against.
+        merged = {**fw_index, **mod_index}
 
-        missing_types, missing_members, checked = [], [], 0
-        # Owners of member references count as referenced types too — a type can be
-        # reachable through a member reference without ever getting its own Class entry.
+        disasm = run_javap(["-p", "-v"], mod_d, mod_names)
+        refs = sorted({(o, n.strip('"'), d) for o, n, d in REF.findall(disasm)})
+        type_refs = set(CLS.findall(disasm))
+
+        missing_types, missing_members, inconclusive, checked = [], [], [], 0
+        # Three sources, because each one alone has a blind spot: a bare Class entry
+        # (casts, catch clauses), the owner of a member reference, and the types
+        # spelled inside descriptors — the last covers a method that merely returns
+        # a framework type without ever constructing or casting it.
         named_types = set(type_refs) | {owner for owner, _, _ in refs}
+        for _, _, desc in refs:
+            named_types |= set(DESC_TYPE.findall(desc))
+        for _, entry in mod_index.items():
+            for _, d in entry[1]:
+                named_types |= set(DESC_TYPE.findall(d))
+
         for slash in sorted(named_types):
             dotted = re.sub(r"^\[+L?|;$", "", slash).replace("/", ".")   # unwrap array descriptors
             if dotted.startswith("com.ultikits.ultitools.") and dotted not in fw_index:
@@ -265,30 +366,21 @@ def main():
 
         for owner_slash, name, desc in refs:
             owner = owner_slash.replace("/", ".")
-            # Declared by the module itself → not a framework question at all.
-            if declares(mod_index, owner, (name, desc)):
-                continue
-            # Owner neither is nor extends anything in the framework → not ours.
-            if not (owner in fw_index or reaches_framework(mod_index, fw_index, owner)):
-                continue
+            if not touches_framework(merged, fw_index, owner):
+                continue          # nothing in this reference's hierarchy is ours
             checked += 1
             # The owner class itself is gone — already reported as a missing type,
             # and reporting every member on top of it is noise, not information.
             if owner in missing_type_set:
                 continue
-            if declares(fw_index, owner, (name, desc)):
+            kind, where = resolve(merged, fw_index, owner, (name, desc))
+            if kind in ("module", "framework"):
                 continue
-            # Inherited call: the owner is a module class, so resolution has to
-            # continue into the framework through its supertypes.
-            found = False
-            entry = mod_index.get(owner)
-            if entry:
-                for parent in entry[0]:
-                    if declares(fw_index, parent, (name, desc)):
-                        found = True
-                        break
-            if not found:
-                missing_members.append(f"{owner}.{name}:{desc}")
+            if kind == "unknown":
+                inconclusive.append(f"{owner}.{name}:{desc}  （链上有本次比对之外的类 "
+                                    f"/ hierarchy leaves both JARs at {where}）")
+                continue
+            missing_members.append(f"{owner}.{name}:{desc}")
 
         print(f"模块 / module:    {pathlib.Path(mod_jar).name}")
         print(f"目标框架 / target: {pathlib.Path(fw_jar).name}")
@@ -301,18 +393,30 @@ def main():
             print(f"  [缺成员 missing member] {m}")
         if not missing_types and not missing_members:
             print("  （无 / none）")
+        if inconclusive:
+            print()
+            print("── 无法判定 / inconclusive（不影响退出码 / does not affect the exit code） ──")
+            for i in inconclusive:
+                print(f"  {i}")
         print()
 
         total = len(missing_types) + len(missing_members)
         print(f"缺失合计 / total missing: {total}")
         if total:
             print()
-            print("两类成因，修法相反 —— 看缺失符号里写的是哪一代类型：")
-            print("Two causes, opposite fixes — read which generation of type the symbol names:")
-            print("  · 新类型 / the newer type  → 产物比声明的地板新，**抬 api-version**，pin 不动")
-            print("                                the artifact outran its declared floor: raise api-version")
-            print("  · 旧类型 / the older type  → pin 停在老版本没跟上，**抬 pin 并重编**")
-            print("                                the pin lagged: raise the pin and rebuild")
+            print("先分清是「被移除」还是「描述符变了」，这决定了修法：")
+            print("First tell a removal apart from a descriptor change — the fix differs:")
+            print("  · 符号在目标框架里**整个没有**（这个名字一个重载都不剩，或类没了）")
+            print("    → 多半是一次移除，见该版本的移除清单，需要**改源码迁移**")
+            print("      likely a removal: check that release's removal list; you have a migration")
+            print("  · 同名符号**还在**、只是描述符不同 → 是描述符变更，再看它写的是哪一代类型：")
+            print("      · 新类型（如 BaseDataEntity）→ 产物比声明的地板新，**抬 api-version**，pin 不动")
+            print("      · 旧类型（如 AbstractDataEntity）→ pin 没跟上，**抬 pin 并重编**")
+            print()
+            print("  注意：本工具只拿到「模块 JAR + 一个框架 JAR」，看不到你的 pin，")
+            print("  也无法替你区分上面两种；上面是判读方法，不是自动结论。")
+            print("  This tool sees one module JAR and one framework JAR — not your pin —")
+            print("  so the above is how to read the output, not a verdict it can reach for you.")
         return 1 if total else 0
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

@@ -122,3 +122,7 @@ dev-dist
 ### Maven ###
 # Build output for the examples/ compilable-docs module
 /examples/target/
+
+# Python bytecode from running scripts/ locally
+__pycache__/
+*.pyc
