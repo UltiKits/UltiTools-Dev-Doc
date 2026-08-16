@@ -130,7 +130,7 @@ This has happened twice.
 
 The second case occurred in a PATCH release, which shows that no version level is exempt. The version policy schedules intentional removals, so an unintended binary break is by definition unscheduled, and PATCH is not an exception.
 
-`Query.first()` deserves a separate note: a module that only uses `.query()….first()` calls none of the `DataOperator` methods and is affected all the same, so a list organised around `DataOperator` would not cover it.
+A module that only uses `.query()….first()` calls none of the `DataOperator` methods and is affected all the same, so a list organised around `DataOperator` would not cover it.
 
 #### Both directions
 
@@ -186,7 +186,7 @@ There are two more situations the script states rather than guesses at. A refere
 
 A manual check runs into one more detail: the constant pool records the static type of the receiver at the call site, not the class that declares the member. When you call an inherited framework method from your own plugin class, the recorded owner is your own class, in the form `com/example/MyPlugin.getContext:()…`. Filtering for references whose owner is already inside the framework's package therefore misses every inherited call, and since plugins extend `UltiToolsPlugin`, those account for most of them.
 
-::: tip Why a script instead of running javap directly
+::: tip The limits of a manual check
 Running `javap -s` on a single class shows the descriptor of a member, but the question here is whether anything in the whole JAR references a symbol the target framework does not have, which requires comparing two artifacts.
 :::
 
