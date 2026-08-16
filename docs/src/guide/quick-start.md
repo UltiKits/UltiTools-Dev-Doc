@@ -76,34 +76,7 @@ Create a new class that extends `UltiToolsPlugin`, similar to traditional Paper 
 UltiTools modules also need to override the startup and shutdown methods.
 But UltiToolsPlugin adds an optional `UltiToolsPlugin#reloadSelf()` method for execution when the module is reloaded.
 
-```java
-// This annotation contains automatic registration and must be added to the module main class
-@UltiToolsModule
-public class MyPlugin extends UltiToolsPlugin {
-    @Override
-    public boolean registerSelf() {
-      // Executed when the module is started
-      // If false is returned, UltiTools will not load this module
-      return true;
-    }
-    
-    @Override
-    public void unregisterSelf() {
-      // Optional, 
-      // if you only need to unregister all commands and listeners, 
-      // you don't need to override this method
-      // Executed when the module is unregistered
-    }
-    
-    @Override
-    public void reloadSelf() {
-      // Optional,
-      // if you only need to reload the module configuration file,
-      // you don't need to override this method
-      // Executed when the module is reloaded
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/quickstart/MyPlugin.java
 
 Then you have completed an UltiTools module that does nothing.
 
@@ -119,47 +92,7 @@ The following section describes the legacy connector approach, which is still su
 
 Create a new class that extends `UltiToolsPlugin`, this class will be the connector class of your plugin.
 
-```java
-import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
-import com.ultikits.ultitools.annotations.EnableAutoRegister;
-
-import java.io.IOException;
-import java.util.List;
-
-// This annotation is required for automatic registration
-@EnableAutoRegister(scanPackage = "com.ultikits.plugin.ultikitsapiexample")
-public class UltiToolsConnector extends UltiToolsPlugin {
-
-    // If you need to connect to UltiTools-API, you need to override this constructor with parameters,
-    // the other one without parameters is for module development.
-    // Please do not use the constructor without parameters here
-    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass) {
-      super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass);
-    }
-    @Override
-    public boolean registerSelf() {
-        // Executed when the module is started
-        // If false is returned, UltiTools will not load this module
-        return true;
-    }
-
-    @Override
-    public void unregisterSelf() {
-        // Optional,
-        // if you only need to unregister all commands and listeners,
-        // you don't need to override this method
-        // Executed when the module is unregistered
-    }
-
-    @Override
-    public void reloadSelf() {
-        // Optional,
-        // if you only need to reload the module configuration file,
-        // you don't need to override this method
-        // Executed when the module is reloaded
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/quickstart/UltiToolsConnector.java
 
 ### Register your connector class (Legacy)
 

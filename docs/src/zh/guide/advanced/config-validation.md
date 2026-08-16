@@ -12,27 +12,7 @@ UltiTools 为配置字段提供了声明式的校验注解。当配置值校验�
 
 校验数值是否在指定范围内（包含边界）。
 
-```java
-import com.ultikits.ultitools.annotations.config.Range;
-
-@Getter
-@Setter
-@ConfigEntity("config/config.yml")
-public class MyConfig extends AbstractConfigEntity {
-
-    @Range(min = 1, max = 10)
-    @ConfigEntry(path = "maxHomes", comment = "每个玩家的最大家数量 (1-10)")
-    private int maxHomes = 5;
-
-    @Range(min = 0.0, max = 100.0)
-    @ConfigEntry(path = "taxRate", comment = "税率百分比 (0-100)")
-    private double taxRate = 5.0;
-
-    public MyConfig(String configFilePath) {
-        super(configFilePath);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/validation/MyConfig.java
 
 如果服主设置了 `maxHomes: 999`，该值会被重置为 `5`（默认值），并在控制台显示警告。
 
@@ -110,41 +90,7 @@ private String displayName = "Default Name";
 
 ## 完整示例
 
-```java
-@Getter
-@Setter
-@ConfigEntity("config/config.yml")
-public class PluginConfig extends AbstractConfigEntity {
-
-    @Range(min = 0, max = 300)
-    @ConfigEntry(path = "teleport.warmup", comment = "传送等待时间（秒）(0-300)")
-    private int teleportWarmup = 3;
-
-    @Range(min = 0, max = 3600)
-    @ConfigEntry(path = "teleport.cooldown", comment = "传送冷却时间（秒）(0-3600)")
-    private int teleportCooldown = 60;
-
-    @Range(min = 1, max = 100)
-    @ConfigEntry(path = "home.maxHomes", comment = "每个玩家的最大家数量 (1-100)")
-    private int maxHomes = 5;
-
-    @NotEmpty
-    @ConfigEntry(path = "messages.prefix", comment = "插件消息前缀")
-    private String messagePrefix = "[MyPlugin]";
-
-    @Size(min = 1, max = 20)
-    @ConfigEntry(path = "worlds.allowed", comment = "插件生效的世界列表")
-    private List<String> allowedWorlds = Arrays.asList("world");
-
-    @Pattern(regex = "^(DIAMOND|GOLD|IRON|STONE|WOOD)$")
-    @ConfigEntry(path = "gui.borderItem", comment = "GUI 边框材料")
-    private String borderItem = "DIAMOND";
-
-    public PluginConfig(String configFilePath) {
-        super(configFilePath);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/validation/PluginConfig.java
 
 ## 行为说明
 

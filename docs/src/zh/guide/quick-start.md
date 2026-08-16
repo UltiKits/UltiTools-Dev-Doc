@@ -71,30 +71,7 @@ authors: [ yourname ]
 新建一个主类继承 `UltiToolsPlugin` ，类似传统的Paper插件，UltiTools模块也需要重写启动和关闭方法。
 但是UltiToolsPlugin增加了一个可选的 `UltiToolsPlugin#reloadSelf()` 方法，用于模块重载时执行。
 
-```java
-// 此注解包含了自动注册，必须添加到模块主类上
-@UltiToolsModule
-public class MyPlugin extends UltiToolsPlugin {
-    @Override
-    public boolean registerSelf() {
-      // 插件启动时执行
-      // 如果返回false则会阻止UltiTools加载该模块
-      return true;
-    }
-    
-    @Override
-    public void unregisterSelf() {
-      // 可选，如果只是注销所有命令和监听器的话，不需要重写这个方法
-      // 插件关闭时执行
-    }
-    
-    @Override
-    public void reloadSelf() {
-      // 可选，如果只是重载模块配置文件的话，不需要重写这个方法
-      // 插件重载时执行
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/quickstart/MyPlugin.java
 
 这样就已经完成了一个什么功能都没有的UltiTools模块。
 
@@ -110,44 +87,7 @@ public class MyPlugin extends UltiToolsPlugin {
 
 新建一个类继承 `UltiToolsPlugin` ，这个类将会作为你的插件的入口类。
 
-```java
-import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
-import com.ultikits.ultitools.annotations.EnableAutoRegister;
-
-import java.io.IOException;
-import java.util.List;
-
-// 此注解是必须的，指定了自动注册的扫描包名
-@EnableAutoRegister(scanPackage = "com.ultikits.plugin.ultikitsapiexample")
-public class UltiToolsConnector extends UltiToolsPlugin {
-
-    // 如果需要连接到UltiTools-API，则需要重写这个有参数的构造函数，另一个无参数的是给模块开发使用的。
-    // 在这里请不要使用无参数的构造函数
-    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass) {
-      super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass);
-    }
-
-    @Override
-    public boolean registerSelf() throws IOException {
-      // 插件启动时执行
-      // 如果返回false则会阻止UltiTools加载该模块
-      return true;
-    }
-
-
-    @Override
-    public void unregisterSelf() {
-        // 可选，如果只是注销所有命令和监听器的话，不需要重写这个方法
-        // 插件关闭时执行
-    }
-
-    @Override
-    public void reloadSelf() {
-        // 可选，如果只是重载模块配置文件的话，不需要重写这个方法
-        // 插件重载时执行
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/quickstart/UltiToolsConnector.java
 
 ### 将入口类注册到UltiTools插件管理器（旧版）
 

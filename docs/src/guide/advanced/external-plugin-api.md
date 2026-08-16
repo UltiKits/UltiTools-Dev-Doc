@@ -35,26 +35,7 @@ depend: [UltiTools]
 
 ### 3. Connect and Disconnect
 
-```java
-package com.example.myplugin;
-
-import org.bukkit.plugin.java.JavaPlugin;
-import com.ultikits.ultitools.api.UltiToolsAPI;
-
-public class MyExternalPlugin extends JavaPlugin {
-
-    @Override
-    public void onEnable() {
-        UltiToolsAPI.connect(this);
-        // Your plugin is now wired into UltiTools!
-    }
-
-    @Override
-    public void onDisable() {
-        UltiToolsAPI.disconnect(this);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/external/MyExternalPlugin.java
 
 That's it. The framework automatically scans `com.example.myplugin` (derived from your main class) for annotated classes.
 
@@ -75,40 +56,13 @@ When `connect()` is called, the framework scans your plugin's base package and r
 
 Services work exactly like in UltiTools modules — use `@Service` and `@Autowired`:
 
-```java
-@Service
-public class GreetingService {
-
-    @Autowired
-    private StatsService statsService; // Injected by the IoC container
-
-    public void greetPlayer(Player player) {
-        player.sendMessage("Welcome! You have " + statsService.getVisits(player) + " visits.");
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/external/GreetingService.java
 
 ## Writing Commands
 
 Use `@CmdExecutor` and `@CmdMapping` just like a UltiTools module:
 
-```java
-@CmdExecutor(alias = {"greet"}, permission = "myplugin.greet", description = "Greet command")
-@CmdTarget(CmdTarget.CmdTargetType.PLAYER)
-public class GreetCommand extends BaseCommandExecutor {
-
-    @Autowired
-    private GreetingService greetingService;
-
-    @CmdMapping(format = "")
-    public void greet(@CmdSender Player player) {
-        greetingService.greetPlayer(player);
-    }
-
-    @Override
-    protected void handleHelp(CommandSender sender) { }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/external/GreetCommand.java
 
 ::: tip
 Command descriptions use the raw `description` attribute from `@CmdExecutor`. The `i18n()` method is not available for external plugins — use plain strings.
@@ -116,54 +70,15 @@ Command descriptions use the raw `description` attribute from `@CmdExecutor`. Th
 
 ## Writing Event Listeners
 
-```java
-@EventListener
-public class JoinListener implements Listener {
-
-    @Autowired
-    private GreetingService greetingService;
-
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        greetingService.greetPlayer(event.getPlayer());
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/external/JoinListener.java
 
 ## Data Storage
 
 Use `UltiToolsAPI.getDataOperator()` to get a `DataOperator` for your data entities. Data is stored in **your plugin's own data folder**, not UltiTools' folder.
 
-```java
-@Data @Builder @NoArgsConstructor @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-@Table("player_stats")
-public class StatsEntity extends BaseDataEntity<String> {
-    @Column("player_id") private String playerId;
-    @Column("visits") private int visits;
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/external/StatsEntity.java
 
-```java
-@Service
-public class StatsService {
-
-    private final JavaPlugin plugin;
-    private final DataOperator<StatsEntity> dataOp;
-
-    public StatsService(JavaPlugin plugin) {
-        this.plugin = plugin;
-        this.dataOp = UltiToolsAPI.getDataOperator(plugin, StatsEntity.class);
-    }
-
-    public int getVisits(Player player) {
-        StatsEntity stats = dataOp.query()
-            .where("playerId").eq(player.getUniqueId().toString())
-            .first();
-        return stats != null ? stats.getVisits() : 0;
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/external/StatsService.java
 
 ::: tip
 The storage backend (JSON, SQLite, or MySQL) is determined by the UltiTools server configuration, not your plugin. Your code works the same regardless.
