@@ -106,7 +106,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
 ## @CmdExecutor
 
-Class that extends `AbstractCommandExecutor` with this annotation will be automatically registered when the command is automatically scanned and registered.
+Class that extends `BaseCommandExecutor` with this annotation will be automatically registered when the command is automatically scanned and registered.
 
 For details please see [Command Executor](/guide/essentials/cmd-executor)
 

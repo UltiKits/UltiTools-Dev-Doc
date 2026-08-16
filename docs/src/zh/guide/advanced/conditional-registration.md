@@ -10,13 +10,7 @@ UltiTools 允许你根据 YAML 配置值来条件性地注册组件。这让服�
 
 在任意组件类（`@Service`、`@CmdExecutor`、`@EventListener`）上添加 `@ConditionalOnConfig`：
 
-```java
-@CmdExecutor(alias = {"warp"}, permission = "myplugin.command.warp")
-@ConditionalOnConfig(value = "config/config.yml", path = "enableWarp")
-public class WarpCommands extends AbstractCommandExecutor {
-    // 仅在 config.yml 中 enableWarp: true 时才注册
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/conditional/WarpCommands.java
 
 对应的 YAML 配置：
 
@@ -39,31 +33,11 @@ enableWarp: true
 
 ### 条件服务
 
-```java
-@Service
-@ConditionalOnConfig(value = "config/config.yml", path = "economy.enabled")
-public class EconomyService {
-
-    @Scheduled(period = 36000, async = true)
-    public void distributeTax() {
-        // 仅在 economy.enabled: true 时运行
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/conditional/EconomyService.java
 
 ### 条件事件监听器
 
-```java
-@EventListener
-@ConditionalOnConfig(value = "config/config.yml", path = "welcomeMessage.enabled")
-public class WelcomeListener implements Listener {
-
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        event.getPlayer().sendMessage("欢迎来到服务器！");
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/conditional/WelcomeListener.java
 
 ### 嵌套配置键
 
@@ -78,25 +52,13 @@ features:
     enabled: false
 ```
 
-```java
-@CmdExecutor(alias = {"tp"}, permission = "myplugin.teleport")
-@ConditionalOnConfig(value = "config/config.yml", path = "features.teleport.enabled")
-public class TeleportCommands extends AbstractCommandExecutor {
-    // ...
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/conditional/TeleportCommands.java
 
 ### 反转逻辑（negate）
 
 使用 `negate = true` 在配置值为 `false` 时注册组件：
 
-```java
-@Service
-@ConditionalOnConfig(value = "config/config.yml", path = "maintenance", negate = true)
-public class NormalModeService {
-    // 仅在 maintenance: false（或缺失）时生效
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/conditional/NormalModeService.java
 
 ## 完整示例
 
@@ -111,28 +73,25 @@ features:
   welcome: true
 ```
 
-```java
-@UltiToolsModule(scanBasePackages = {"com.example.plugin"})
-public class MyPlugin extends UltiToolsPlugin {
-    @Override
-    public boolean registerSelf() { return true; }
-
-    @Override
-    public void unregisterSelf() { }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/conditional/MyPlugin.java
 
 ```java
 @CmdExecutor(alias = {"home"}, permission = "myplugin.home")
 @ConditionalOnConfig(value = "config/config.yml", path = "features.home")
-public class HomeCommands extends AbstractCommandExecutor {
+public class HomeCommands extends BaseCommandExecutor {
     // 已注册（features.home = true）
+
+    @Override
+    protected void handleHelp(CommandSender sender) { }
 }
 
 @CmdExecutor(alias = {"warp"}, permission = "myplugin.warp")
 @ConditionalOnConfig(value = "config/config.yml", path = "features.warp")
-public class WarpCommands extends AbstractCommandExecutor {
+public class WarpCommands extends BaseCommandExecutor {
     // 已注册（features.warp = true）
+
+    @Override
+    protected void handleHelp(CommandSender sender) { }
 }
 
 @Service
