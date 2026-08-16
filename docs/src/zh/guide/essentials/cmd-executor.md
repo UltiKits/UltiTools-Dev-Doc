@@ -28,39 +28,7 @@ UltiTools-API 对原生的 `CommandExecutor` 接口进行了封装，提供了�
 
 如果你的模块存在大量的命令执行器而不想手动注册，也可以使用 UltiTools 提供的自动注册功能，详情可以查看[这篇文章](/zh/guide/advanced/auto-register)。
 
-```java
-import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
-import com.ultikits.ultitools.annotations.ContextEntry;
-import com.ultikits.ultitools.annotations.EnableAutoRegister;
-
-import java.io.IOException;
-import java.util.List;
-
-public class UltiToolsConnector extends UltiToolsPlugin {
-    
-    public UltiToolsConnector(String name, String version, List<String> authors, List<String> depend, int loadPriority, String mainClass) {
-        super(name, version, authors, depend, loadPriority, mainClass);
-    }
-
-    @Override
-    public boolean registerSelf() throws IOException {
-        // 注册命令
-        getCommandManager().register(this, ExampleCommand.class);
-        return true;
-    }
-
-    @Override
-    public void unregisterSelf() {
-
-    }
-
-    @Override
-    public void reloadSelf() {
-        super.reloadSelf();
-    }
-}
-
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/UltiToolsConnector.java
 
 ## 基于映射的命令执行器
 
@@ -480,31 +448,11 @@ public void download(@CmdSender Player player) {
 
 在你的命令执行器中注册验证器：
 
-```java
-public class MyCommand extends BaseCommandExecutor {
-
-    public MyCommand() {
-        super();
-        addValidator(new WorldRestrictionValidator("world", "world_nether"));
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/ValidatorCommand.java
 
 或使用自定义验证链：
 
-```java
-ValidatorChain chain = ValidatorChain.builder()
-    .add(SenderTypeValidator.fromAnnotation(null))
-    .add(new PermissionValidator("myadmin.use", false))
-    .add(new WorldRestrictionValidator("world"))
-    .build();
-
-public class MyCommand extends BaseCommandExecutor {
-    public MyCommand() {
-        super(chain);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/ChainCommand.java
 
 ### 验证器执行顺序
 
@@ -591,38 +539,9 @@ public void setColor(@CmdSender Player player, @CmdParam("color") Color color) {
 
 支持数组的高级解析器：
 
+<<< @/../examples/src/main/java/com/ultikits/docs/command/RangeParser.java
+
 ```java
-public class RangeParser implements TypeParser<IntRange> {
-
-    @Override
-    public Class<IntRange> getPrimaryType() {
-        return IntRange.class;
-    }
-
-    @Override
-    public List<Class<?>> getSupportedTypes() {
-        return Arrays.asList(IntRange.class, IntRange[].class);
-    }
-
-    @Override
-    public IntRange parse(String value) throws TypeParseException {
-        String[] parts = value.split("-");
-        if (parts.length != 2) {
-            throw new TypeParseException(value, IntRange.class,
-                "范围格式: min-max（例如 1-100）");
-        }
-
-        try {
-            int min = Integer.parseInt(parts[0]);
-            int max = Integer.parseInt(parts[1]);
-            return new IntRange(min, max);
-        } catch (NumberFormatException e) {
-            throw new TypeParseException(value, IntRange.class,
-                "范围边界必须是整数", e);
-        }
-    }
-}
-
 // 使用方式
 @CmdMapping(format = "random <range>")
 public void randomNumber(@CmdSender Player player,

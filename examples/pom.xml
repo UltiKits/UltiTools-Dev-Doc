@@ -14,10 +14,10 @@
         This module is never published. Its only purpose is to fail the build
         when a documented API no longer exists in the released UltiTools-API.
         Coverage note: this gate only protects examples that have been migrated
-        to `&lt;&lt;&lt;` snippet references into this module. Of the 217 Java code
-        blocks across the docs site, 74 have been migrated so far; the remaining
-        143 are still inline code blocks in docs/src and are not covered or
-        verified by this build. Most of those 143 are deliberate fragments
+        to `&lt;&lt;&lt;` snippet references into this module. Of the 218 Java code
+        blocks across the docs site, 78 have been migrated so far; the remaining
+        140 are still inline code blocks in docs/src and are not covered or
+        verified by this build. Most of those 140 are deliberate fragments
         (method bodies elided with `...`) that cannot compile standalone and are
         not migration candidates.
     </description>

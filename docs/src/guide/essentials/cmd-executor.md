@@ -36,39 +36,7 @@ If your module has a large number of command executors and you don't want to reg
 the automatic registration provided by UltiTools, for details, please refer
 to [this article](/guide/advanced/auto-register).
 
-```java
-import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
-import com.ultikits.ultitools.annotations.ContextEntry;
-import com.ultikits.ultitools.annotations.EnableAutoRegister;
-
-import java.io.IOException;
-import java.util.List;
-
-public class UltiToolsConnector extends UltiToolsPlugin {
-
-    public UltiToolsConnector(String name, String version, List<String> authors, List<String> depend, int loadPriority, String mainClass) {
-        super(name, version, authors, depend, loadPriority, mainClass);
-    }
-
-    @Override
-    public boolean registerSelf() throws IOException {
-        // register command
-        getCommandManager().register(this, ExampleCommand.class);
-        return true;
-    }
-
-    @Override
-    public void unregisterSelf() {
-
-    }
-
-    @Override
-    public void reloadSelf() {
-        super.reloadSelf();
-    }
-}
-
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/UltiToolsConnector.java
 
 ## Mapping-based command executor
 
@@ -519,31 +487,11 @@ Implement `CommandValidator` to create custom validation logic:
 
 Register the validator in your command executor:
 
-```java
-public class MyCommand extends BaseCommandExecutor {
-
-    public MyCommand() {
-        super();
-        addValidator(new WorldRestrictionValidator("world", "world_nether"));
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/ValidatorCommand.java
 
 Or use a custom validator chain:
 
-```java
-ValidatorChain chain = ValidatorChain.builder()
-    .add(SenderTypeValidator.fromAnnotation(null))
-    .add(new PermissionValidator("myadmin.use", false))
-    .add(new WorldRestrictionValidator("world"))
-    .build();
-
-public class MyCommand extends BaseCommandExecutor {
-    public MyCommand() {
-        super(chain);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/ChainCommand.java
 
 ### Validator Execution Order
 
@@ -630,38 +578,9 @@ public void setColor(@CmdSender Player player, @CmdParam("color") Color color) {
 
 Advanced parser with array support:
 
+<<< @/../examples/src/main/java/com/ultikits/docs/command/RangeParser.java
+
 ```java
-public class RangeParser implements TypeParser<IntRange> {
-
-    @Override
-    public Class<IntRange> getPrimaryType() {
-        return IntRange.class;
-    }
-
-    @Override
-    public List<Class<?>> getSupportedTypes() {
-        return Arrays.asList(IntRange.class, IntRange[].class);
-    }
-
-    @Override
-    public IntRange parse(String value) throws TypeParseException {
-        String[] parts = value.split("-");
-        if (parts.length != 2) {
-            throw new TypeParseException(value, IntRange.class,
-                "Range format: min-max (e.g., 1-100)");
-        }
-
-        try {
-            int min = Integer.parseInt(parts[0]);
-            int max = Integer.parseInt(parts[1]);
-            return new IntRange(min, max);
-        } catch (NumberFormatException e) {
-            throw new TypeParseException(value, IntRange.class,
-                "Range bounds must be integers", e);
-        }
-    }
-}
-
 // Usage
 @CmdMapping(format = "random <range>")
 public void randomNumber(@CmdSender Player player,
