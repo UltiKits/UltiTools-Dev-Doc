@@ -68,8 +68,8 @@ A module declares the framework as `provided`:
 
 `provided` means the module compiles against the pinned version and runs against whatever framework is installed on the server. That asymmetry is central to how this works:
 
-- Compiled against an **older** API, every symbol the compiler wrote into the bytecode exists in that version, so the module does not get a `NoSuchMethodError` for referencing something newer than the server provides. It can still get one for other reasons, described in [Compatibility breaks caused by the framework](#compatibility-breaks-caused-by-the-framework).
-- Compiled against a **newer** API, the module may reference a method the server's framework does not have, producing a `NoSuchMethodError` on startup.
+- Compiled against an older API, every symbol the compiler wrote into the bytecode exists in that version, so the module does not get a `NoSuchMethodError` for referencing something newer than the server provides. It can still get one for other reasons, described in [Compatibility breaks caused by the framework](#compatibility-breaks-caused-by-the-framework).
+- Compiled against a newer API, the module may reference a method the server's framework does not have, producing a `NoSuchMethodError` on startup.
 
 The scope of the first point matters. It describes statically linked references in one direction and is not a general guarantee: a later framework release can still remove or reshape something the module uses, and anything reached by reflection was never covered, because the compiler did not record it.
 
@@ -100,21 +100,21 @@ A successful build only shows that the source still compiles. What breaks an alr
 
 ### Removed API
 
-A MINOR release of the framework may remove API, as described in `COMPATIBILITY.md`. Which linkage error you get depends on what was removed: removing a **type** produces `NoClassDefFoundError`, while removing a **method, constructor or field** produces `NoSuchMethodError` or `NoSuchFieldError`. The second case is not hypothetical, as the current removal list includes a constructor and not only types.
+A MINOR release of the framework may remove API, as described in `COMPATIBILITY.md`. Which linkage error you get depends on what was removed: removing a type produces `NoClassDefFoundError`, while removing a method, constructor or field produces `NoSuchMethodError` or `NoSuchFieldError`. The second case is not hypothetical, as the current removal list includes a constructor and not only types.
 
 Raising the pin and rebuilding produces one of two outcomes, and you cannot tell which until you run it:
 
 - The build fails. The removal is exposed here rather than on a server owner's machine, and you migrate away from the removed API.
 - The build succeeds. Some surviving member absorbed the call, and the rebuilt artifact is already fixed.
 
-Neither outcome repairs the JAR you have **already published**. That one keeps failing until you release the rebuild, which makes the second outcome the one to watch: a successful build looks like there is nothing to do, when in fact the fix is in your hands and has to be published.
+Neither outcome repairs the JAR you have already published. That one keeps failing until you release the rebuild, which makes the second outcome the one to watch: a successful build looks like there is nothing to do, when in fact the fix is in your hands and has to be published.
 
 A successful build is not hard to get, because this check only covers what the source names explicitly. Anything the source reaches implicitly may be resolved somewhere else:
 
 - An overload absorbs the call. `m(String)` is removed, `m(Object)` remains, and unmodified source compiles against the surviving one.
 - The removed type never appears in the source. In `factory.create().run()`, the return type of `create()` is inferred, so pointing `create()` at a replacement type still compiles cleanly while the old bytecode continues to reference the deleted one.
 
-The cost only arrives if you **publish** the raised pin: building against a newer framework may record newer descriptors, which means raising `api-version` as well, which leaves behind every server still on the older framework. Raising the pin is therefore useful as a check and poor as a fix. Raise it in a throwaway build, see what fails to compile, migrate away from those APIs, then decide separately whether the released pin should move.
+The cost only arrives if you publish the raised pin: building against a newer framework may record newer descriptors, which means raising `api-version` as well, which leaves behind every server still on the older framework. Raising the pin is therefore useful as a check and poor as a fix. Raise it in a throwaway build, see what fails to compile, migrate away from those APIs, then decide separately whether the released pin should move.
 
 The way to handle this situation is to follow deprecation notices and migrate before the removal is released.
 
