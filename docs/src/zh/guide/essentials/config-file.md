@@ -12,18 +12,7 @@ UltiTools提供了优雅的单例模式的封装API，让你可以像操作对�
 
 根据你的配置文件的键值对结构，创建一个类，继承 `AbstractConfigEntity` 类。
 
-```java
-@Getter
-@Setter
-@ConfigEntity("some/path/to/config")
-public class SomeConfig extends AbstractConfigEntity {
-    @ConfigEntry(path = "somepath", comment = "somecomment")
-    private boolean something = false;
-    public SomeConfig(String configFilePath) {
-        super(configFilePath);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/config/SomeConfig.java
 
 #### @ConfigEntity
 
@@ -72,31 +61,7 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 它可以处理大多数情况，但并不是所有情况。如果你需要解析一个更复杂的对象，你可以创建一个继承 `ConfigParser` 类的类，并在 `parser` 属性中指定它。
 
 ::: tip 自定义解析器示例
-```java
-public class StringHashMapParser extends ConfigParser<HashMap<String, String>> {
-    @Override
-    public HashMap<String, String> parse(Object object) {
-        if (!(object instanceof ConfigurationSection)) {
-            return null;
-        }
-        ConfigurationSection section = (ConfigurationSection) object;
-        HashMap<String, String> map = new HashMap<>();
-        for (String key : section.getKeys(false)) {
-            map.put(key, section.getString(key));
-        }
-        return map;
-    }
-
-    @Override
-    public MemorySection serializeToMemorySection(HashMap<String, String> object) {
-        MemorySection memorySection = new MemoryConfiguration();
-        for (String key : object.keySet()) {
-            memorySection.set(key, object.get(key));
-        }
-        return memorySection;
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/config/StringHashMapParser.java
 :::
 
 #### @Getter 和 @Setter
@@ -158,25 +123,7 @@ public List<AbstractConfigEntity> getAllConfigs() {
 
 从 v6.2.0 开始，UltiTools 提供了校验注解来防止无效的配置值。详情请参阅[配置校验](/zh/guide/advanced/config-validation)指南。
 
-```java
-@Getter
-@Setter
-@ConfigEntity("config/config.yml")
-public class MyConfig extends AbstractConfigEntity {
-
-    @Range(min = 1, max = 100)
-    @ConfigEntry(path = "maxHomes", comment = "每个玩家的最大家数量 (1-100)")
-    private int maxHomes = 5;
-
-    @NotEmpty
-    @ConfigEntry(path = "serverName", comment = "服务器显示名称")
-    private String serverName = "My Server";
-
-    public MyConfig(String configFilePath) {
-        super(configFilePath);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/config/MyConfig.java
 
 可用的校验注解：`@Range`、`@NotEmpty`、`@Size`、`@Pattern`（来自 `com.ultikits.ultitools.annotations.config` 包）。
 
