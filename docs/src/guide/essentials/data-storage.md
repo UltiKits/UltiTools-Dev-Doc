@@ -42,20 +42,7 @@ Starting from v6.2.0, `DataOperator`, `Query`, and `UltiToolsPlugin.getDataOpera
 
 For entities that require audit tracking of creation and modification, use `AuditableDataEntity`:
 
-```java
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-@Table("audit_log")
-public class AuditEntry extends AuditableDataEntity<String> {
-    @Column("action")
-    private String action;
-    @Column("details")
-    private String details;
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/data/AuditEntry.java
 
 `AuditableDataEntity<String>` extends `BaseDataEntity<String>` and automatically manages:
 

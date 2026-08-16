@@ -40,20 +40,7 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 
 对于需要跟踪创建和修改的实体，可以使用 `AuditableDataEntity`：
 
-```java
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-@Table("audit_log")
-public class AuditEntry extends AuditableDataEntity<String> {
-    @Column("action")
-    private String action;
-    @Column("details")
-    private String details;
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/data/AuditEntry.java
 
 `AuditableDataEntity<String>` 继承了 `BaseDataEntity<String>`，自动管理以下字段：
 

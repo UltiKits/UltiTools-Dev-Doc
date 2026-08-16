@@ -12,27 +12,7 @@ UltiTools provides declarative validation annotations for configuration fields. 
 
 Validates that a numeric value falls within a specified range (inclusive).
 
-```java
-import com.ultikits.ultitools.annotations.config.Range;
-
-@Getter
-@Setter
-@ConfigEntity("config/config.yml")
-public class MyConfig extends AbstractConfigEntity {
-
-    @Range(min = 1, max = 10)
-    @ConfigEntry(path = "maxHomes", comment = "Maximum number of homes (1-10)")
-    private int maxHomes = 5;
-
-    @Range(min = 0.0, max = 100.0)
-    @ConfigEntry(path = "taxRate", comment = "Tax rate percentage (0-100)")
-    private double taxRate = 5.0;
-
-    public MyConfig(String configFilePath) {
-        super(configFilePath);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/validation/MyConfig.java
 
 If a server admin sets `maxHomes: 999`, it will be reset to `5` (the default) and a warning will appear in the console.
 
@@ -110,41 +90,7 @@ private String displayName = "Default Name";
 
 ## Complete Example
 
-```java
-@Getter
-@Setter
-@ConfigEntity("config/config.yml")
-public class PluginConfig extends AbstractConfigEntity {
-
-    @Range(min = 0, max = 300)
-    @ConfigEntry(path = "teleport.warmup", comment = "Teleport warmup in seconds (0-300)")
-    private int teleportWarmup = 3;
-
-    @Range(min = 0, max = 3600)
-    @ConfigEntry(path = "teleport.cooldown", comment = "Teleport cooldown in seconds (0-3600)")
-    private int teleportCooldown = 60;
-
-    @Range(min = 1, max = 100)
-    @ConfigEntry(path = "home.maxHomes", comment = "Maximum homes per player (1-100)")
-    private int maxHomes = 5;
-
-    @NotEmpty
-    @ConfigEntry(path = "messages.prefix", comment = "Chat prefix for plugin messages")
-    private String messagePrefix = "[MyPlugin]";
-
-    @Size(min = 1, max = 20)
-    @ConfigEntry(path = "worlds.allowed", comment = "Worlds where the plugin is active")
-    private List<String> allowedWorlds = Arrays.asList("world");
-
-    @Pattern(regex = "^(DIAMOND|GOLD|IRON|STONE|WOOD)$")
-    @ConfigEntry(path = "gui.borderItem", comment = "Border item material")
-    private String borderItem = "DIAMOND";
-
-    public PluginConfig(String configFilePath) {
-        super(configFilePath);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/validation/PluginConfig.java
 
 ## Behavior
 

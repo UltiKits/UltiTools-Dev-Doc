@@ -35,26 +35,7 @@ depend: [UltiTools]
 
 ### 3. 连接和断开
 
-```java
-package com.example.myplugin;
-
-import org.bukkit.plugin.java.JavaPlugin;
-import com.ultikits.ultitools.api.UltiToolsAPI;
-
-public class MyExternalPlugin extends JavaPlugin {
-
-    @Override
-    public void onEnable() {
-        UltiToolsAPI.connect(this);
-        // 你的插件已接入 UltiTools！
-    }
-
-    @Override
-    public void onDisable() {
-        UltiToolsAPI.disconnect(this);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/external/MyExternalPlugin.java
 
 就这样。框架会自动扫描 `com.example.myplugin`（从主类名推导出）中的注解类。
 
@@ -75,40 +56,13 @@ public class MyExternalPlugin extends JavaPlugin {
 
 服务的写法与 UltiTools 模块完全一样——使用 `@Service` 和 `@Autowired`：
 
-```java
-@Service
-public class GreetingService {
-
-    @Autowired
-    private StatsService statsService; // 由 IoC 容器注入
-
-    public void greetPlayer(Player player) {
-        player.sendMessage("欢迎！你已经访问了 " + statsService.getVisits(player) + " 次。");
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/external/GreetingService.java
 
 ## 编写命令
 
 像 UltiTools 模块一样使用 `@CmdExecutor` 和 `@CmdMapping`：
 
-```java
-@CmdExecutor(alias = {"greet"}, permission = "myplugin.greet", description = "Greet command")
-@CmdTarget(CmdTarget.CmdTargetType.PLAYER)
-public class GreetCommand extends BaseCommandExecutor {
-
-    @Autowired
-    private GreetingService greetingService;
-
-    @CmdMapping(format = "")
-    public void greet(@CmdSender Player player) {
-        greetingService.greetPlayer(player);
-    }
-
-    @Override
-    protected void handleHelp(CommandSender sender) { }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/external/GreetCommand.java
 
 ::: tip
 命令描述使用 `@CmdExecutor` 的原始 `description` 属性。外部插件不支持 `i18n()` 方法——请使用纯字符串。
@@ -116,54 +70,15 @@ public class GreetCommand extends BaseCommandExecutor {
 
 ## 编写事件监听器
 
-```java
-@EventListener
-public class JoinListener implements Listener {
-
-    @Autowired
-    private GreetingService greetingService;
-
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        greetingService.greetPlayer(event.getPlayer());
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/external/JoinListener.java
 
 ## 数据存储
 
 使用 `UltiToolsAPI.getDataOperator()` 获取数据操作器。数据存储在**你插件自己的数据文件夹**中，而不是 UltiTools 的文件夹。
 
-```java
-@Data @Builder @NoArgsConstructor @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-@Table("player_stats")
-public class StatsEntity extends BaseDataEntity<String> {
-    @Column("player_id") private String playerId;
-    @Column("visits") private int visits;
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/external/StatsEntity.java
 
-```java
-@Service
-public class StatsService {
-
-    private final JavaPlugin plugin;
-    private final DataOperator<StatsEntity> dataOp;
-
-    public StatsService(JavaPlugin plugin) {
-        this.plugin = plugin;
-        this.dataOp = UltiToolsAPI.getDataOperator(plugin, StatsEntity.class);
-    }
-
-    public int getVisits(Player player) {
-        StatsEntity stats = dataOp.query()
-            .where("playerId").eq(player.getUniqueId().toString())
-            .first();
-        return stats != null ? stats.getVisits() : 0;
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/external/StatsService.java
 
 ::: tip
 存储后端（JSON、SQLite 或 MySQL）由 UltiTools 服务端配置决定，而非你的插件。你的代码无论使用哪种后端都一样。

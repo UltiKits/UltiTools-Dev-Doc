@@ -125,50 +125,7 @@ int deleted = dataOperator.query()
 
 Here is a complete example of a service using the Query DSL:
 
-```java
-@Service
-public class HomeServiceImpl implements HomeService {
-
-    private final UltiToolsPlugin plugin;
-
-    @Autowired
-    public HomeServiceImpl(UltiToolsPlugin plugin) {
-        this.plugin = plugin;
-    }
-
-    @Override
-    public HomeEntity getHome(String playerUuid, String homeName) {
-        return plugin.getDataOperator(HomeEntity.class).query()
-            .where("playerId").eq(playerUuid)
-            .and("name").eq(homeName)
-            .first();
-    }
-
-    @Override
-    public List<HomeEntity> getAllHomes(String playerUuid) {
-        return plugin.getDataOperator(HomeEntity.class).query()
-            .where("playerId").eq(playerUuid)
-            .orderBy("name")
-            .list();
-    }
-
-    @Override
-    public boolean homeExists(String playerUuid, String homeName) {
-        return plugin.getDataOperator(HomeEntity.class).query()
-            .where("playerId").eq(playerUuid)
-            .and("name").eq(homeName)
-            .exists();
-    }
-
-    @Override
-    public void deleteHome(String playerUuid, String homeName) {
-        plugin.getDataOperator(HomeEntity.class).query()
-            .where("playerId").eq(playerUuid)
-            .and("name").eq(homeName)
-            .delete();
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/query/HomeServiceImpl.java
 
 ::: tip Legacy API
 The `WhereCondition` API still works and is not deprecated. The Query DSL is a higher-level alternative that is more readable for complex queries. You can mix both approaches freely.

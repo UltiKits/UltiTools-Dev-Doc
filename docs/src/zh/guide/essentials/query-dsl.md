@@ -125,50 +125,7 @@ int deleted = dataOperator.query()
 
 以下是使用查询 DSL 的完整服务示例：
 
-```java
-@Service
-public class HomeServiceImpl implements HomeService {
-
-    private final UltiToolsPlugin plugin;
-
-    @Autowired
-    public HomeServiceImpl(UltiToolsPlugin plugin) {
-        this.plugin = plugin;
-    }
-
-    @Override
-    public HomeEntity getHome(String playerUuid, String homeName) {
-        return plugin.getDataOperator(HomeEntity.class).query()
-            .where("playerId").eq(playerUuid)
-            .and("name").eq(homeName)
-            .first();
-    }
-
-    @Override
-    public List<HomeEntity> getAllHomes(String playerUuid) {
-        return plugin.getDataOperator(HomeEntity.class).query()
-            .where("playerId").eq(playerUuid)
-            .orderBy("name")
-            .list();
-    }
-
-    @Override
-    public boolean homeExists(String playerUuid, String homeName) {
-        return plugin.getDataOperator(HomeEntity.class).query()
-            .where("playerId").eq(playerUuid)
-            .and("name").eq(homeName)
-            .exists();
-    }
-
-    @Override
-    public void deleteHome(String playerUuid, String homeName) {
-        plugin.getDataOperator(HomeEntity.class).query()
-            .where("playerId").eq(playerUuid)
-            .and("name").eq(homeName)
-            .delete();
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/query/HomeServiceImpl.java
 
 ::: tip 旧版 API
 `WhereCondition` API 仍然可用且未被弃用。查询 DSL 是一个更高级的替代方案，对于复杂查询可读性更好。你可以自由混合使用两种方式。
