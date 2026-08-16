@@ -111,7 +111,7 @@ public final class UltiKitsExample extends JavaPlugin {
                 Collections.singletonList("wisdomme"),  // 作者
                 Collections.emptyList(),  // 加载后依赖
                 620,  // UltiTools API 需求最低版本
-                "com.ultikits.plugin.ultikitsapiexample.UltiToolsConnector"  // 连接类的完整类名
+                "com.ultikits.docs.quickstart.UltiToolsConnector"  // 连接类的完整类名
         );
     }
 

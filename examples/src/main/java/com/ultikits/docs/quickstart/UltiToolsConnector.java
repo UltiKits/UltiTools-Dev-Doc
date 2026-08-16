@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.UUID;
 
 // This annotation is required for automatic registration
-@EnableAutoRegister(scanPackage = "com.ultikits.plugin.ultikitsapiexample")
+@EnableAutoRegister(scanPackage = "com.ultikits.docs.quickstart")
 public class UltiToolsConnector extends UltiToolsPlugin {
 
     // If you need to connect to UltiTools-API, you need to override this constructor with parameters,

@@ -116,7 +116,7 @@ public final class UltiKitsExample extends JavaPlugin {
                 Collections.singletonList("wisdomme"),  // Authors
                 Collections.emptyList(),  // Load after
                 620,  // UltiTools API minimum version
-                "com.ultikits.plugin.ultikitsapiexample.UltiToolsConnector"  // Full class name of the connector class
+                "com.ultikits.docs.quickstart.UltiToolsConnector"  // Full class name of the connector class
         );
     }
 

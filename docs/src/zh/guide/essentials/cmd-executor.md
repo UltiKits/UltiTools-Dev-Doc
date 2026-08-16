@@ -29,7 +29,6 @@ UltiTools-API 对原生的 `CommandExecutor` 接口进行了封装，提供了�
 如果你的模块存在大量的命令执行器而不想手动注册，也可以使用 UltiTools 提供的自动注册功能，详情可以查看[这篇文章](/zh/guide/advanced/auto-register)。
 
 ```java
-import com.ultikits.plugin.ultikitsapiexample.context.ContextConfig;
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
 import com.ultikits.ultitools.annotations.ContextEntry;
 import com.ultikits.ultitools.annotations.EnableAutoRegister;

@@ -37,7 +37,6 @@ the automatic registration provided by UltiTools, for details, please refer
 to [this article](/guide/advanced/auto-register).
 
 ```java
-import com.ultikits.plugin.ultikitsapiexample.context.ContextConfig;
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
 import com.ultikits.ultitools.annotations.ContextEntry;
 import com.ultikits.ultitools.annotations.EnableAutoRegister;
