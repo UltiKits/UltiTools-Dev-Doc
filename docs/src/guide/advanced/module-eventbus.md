@@ -10,20 +10,7 @@ UltiTools provides a decoupled publish/subscribe event system for inter-module c
 
 Create a custom event by extending `ModuleEvent`:
 
-```java
-import com.ultikits.ultitools.events.ModuleEvent;
-import lombok.Getter;
-
-public class BalanceChangeEvent extends ModuleEvent {
-    @Getter private final UUID player;
-    @Getter private final double amount;
-
-    public BalanceChangeEvent(UUID player, double amount) {
-        this.player = player;
-        this.amount = amount;
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/eventbus/BalanceChangeEvent.java
 
 Every `ModuleEvent` automatically carries:
 - `sourceModule` — the name of the module that published the event (set via `setSourceModule()`)
@@ -33,19 +20,7 @@ Every `ModuleEvent` automatically carries:
 
 Mark a method with `@ModuleEventHandler` in any managed bean. The framework discovers and registers it automatically:
 
-```java
-@Service
-public class AuditService {
-
-    @ModuleEventHandler
-    public void onBalanceChange(BalanceChangeEvent event) {
-        Bukkit.getLogger().info(
-            event.getSourceModule() + " changed balance for "
-            + event.getPlayer() + " by " + event.getAmount()
-        );
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/eventbus/AuditService.java
 
 The method must have **exactly one parameter** that extends `ModuleEvent`.
 
@@ -136,21 +111,7 @@ eventBus.publishAsync(event);
 
 Implement `Cancellable` to allow handlers to prevent further processing:
 
-```java
-import com.ultikits.ultitools.events.Cancellable;
-
-public class PlayerTradeEvent extends ModuleEvent implements Cancellable {
-    private boolean cancelled;
-
-    @Override
-    public boolean isCancelled() { return cancelled; }
-
-    @Override
-    public void setCancelled(boolean cancelled) { this.cancelled = cancelled; }
-
-    // ... your event data
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/eventbus/PlayerTradeEvent.java
 
 A handler can cancel the event:
 
@@ -226,22 +187,7 @@ public class EconomyService {
 
 **Separate audit module** receives it without depending on the economy module:
 
-```java
-// In a separate audit module
-@Service
-public class AuditLogService {
-
-    @ModuleEventHandler
-    public void onBalanceChange(BalanceChangeEvent event) {
-        double delta = event.getNewBalance() - event.getOldBalance();
-        Bukkit.getLogger().info(String.format(
-            "[Audit] %s balance: %.2f -> %.2f (delta: %+.2f) from %s",
-            event.getPlayer(), event.getOldBalance(),
-            event.getNewBalance(), delta, event.getSourceModule()
-        ));
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/eventbus/complete/AuditLogService.java
 
 ::: tip Cross-Module Communication
 The EventBus is ideal for scenarios where modules need to react to each other's actions without tight coupling. Examples:
