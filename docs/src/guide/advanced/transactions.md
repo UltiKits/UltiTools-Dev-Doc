@@ -99,49 +99,7 @@ You don't need to know which backend is active — the same transaction API work
 
 ## Complete Example
 
-```java
-@Service
-public class EconomyService {
-
-    @Autowired
-    private UltiToolsPlugin plugin;
-
-    public boolean transfer(String fromUuid, String toUuid, double amount) {
-        DataOperator<AccountEntity> dataOperator =
-            plugin.getDataOperator(AccountEntity.class);
-
-        try {
-            dataOperator.transaction(() -> {
-                AccountEntity from = dataOperator.query()
-                    .where("playerId").eq(fromUuid).first();
-                AccountEntity to = dataOperator.query()
-                    .where("playerId").eq(toUuid).first();
-
-                if (from == null || to == null) {
-                    throw new RuntimeException("Account not found");
-                }
-                if (from.getBalance() < amount) {
-                    throw new RuntimeException("Insufficient balance");
-                }
-
-                from.setBalance(from.getBalance() - amount);
-                to.setBalance(to.getBalance() + amount);
-
-                try {
-                    dataOperator.update(from);
-                    dataOperator.update(to);
-                } catch (IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            return true;
-        } catch (Exception e) {
-            // Transaction rolled back automatically
-            return false;
-        }
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/transactions/EconomyService.java
 
 ::: tip
 For simple single-entity operations, you don't need transactions. Transactions are most useful when you need to ensure multiple operations succeed or fail together.
@@ -155,49 +113,13 @@ The `@Transactional` annotation provides declarative transaction management on s
 
 The `@Transactional` annotation only works on methods within `@Service` beans, since transactions are implemented via CGLIB proxies:
 
-```java
-@Service
-public class PaymentService {
-    @Transactional
-    public void processPayment(String playerId, double amount) {
-        // This method will be wrapped in a transaction automatically
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/transactions/PaymentService.java
 
 ### Basic Usage
 
 Simply add `@Transactional` to a service method:
 
-```java
-@Service
-public class AccountService {
-
-    @Autowired
-    private UltiToolsPlugin plugin;
-
-    @Transactional
-    public void transfer(String fromPlayerId, String toPlayerId, double amount) {
-        DataOperator<AccountEntity> dataOperator =
-            plugin.getDataOperator(AccountEntity.class);
-
-        AccountEntity from = dataOperator.query()
-            .where("playerId").eq(fromPlayerId).first();
-        AccountEntity to = dataOperator.query()
-            .where("playerId").eq(toPlayerId).first();
-
-        from.setBalance(from.getBalance() - amount);
-        to.setBalance(to.getBalance() + amount);
-
-        try {
-            dataOperator.update(from);
-            dataOperator.update(to);
-        } catch (IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/transactions/AccountService.java
 
 The method executes within a transaction that commits on success or rolls back on exception.
 
@@ -230,26 +152,7 @@ The `propagation` attribute controls how the method behaves when called within a
 
 Example with `REQUIRES_NEW`:
 
-```java
-@Service
-public class AuditService {
-
-    @Autowired
-    private UltiToolsPlugin plugin;
-
-    // This method always gets its own transaction, even if called from another transactional method
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void logAudit(String message) {
-        DataOperator<AuditLogEntity> dataOperator =
-            plugin.getDataOperator(AuditLogEntity.class);
-        AuditLogEntity log = AuditLogEntity.builder()
-            .message(message)
-            .timestamp(System.currentTimeMillis())
-            .build();
-        dataOperator.insert(log);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/transactions/AuditService.java
 
 ### Isolation Levels
 
@@ -303,25 +206,7 @@ public void importData(String source) throws WarningException {
 
 Mark read-only query methods with `readOnly = true` to allow the database to apply optimizations:
 
-```java
-@Service
-public class PlayerRepository {
-
-    @Autowired
-    private UltiToolsPlugin plugin;
-
-    @Transactional(readOnly = true)
-    public List<PlayerEntity> getAllPlayers() {
-        return plugin.getDataOperator(PlayerEntity.class).getAll();
-    }
-
-    @Transactional(readOnly = true)
-    public PlayerEntity getPlayerById(UUID uuid) {
-        return plugin.getDataOperator(PlayerEntity.class).query()
-            .where("uuid").eq(uuid.toString()).first();
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/transactions/PlayerRepository.java
 
 ### Timeout Configuration
 
@@ -346,38 +231,11 @@ A value of `-1` (default) means no timeout.
 
 2. **Self-invocation bypass**: Calling a `@Transactional` method from another method in the same class bypasses the proxy:
 
-```java
-@Service
-public class BadExample {
-
-    @Transactional
-    public void transactionalMethod() { }
-
-    public void callingMethod() {
-        // WRONG: This bypasses the proxy, transaction NOT applied
-        this.transactionalMethod();
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/transactions/BadExample.java
 
 To fix, inject the service or call via the container:
 
-```java
-@Service
-public class GoodExample {
-
-    @Autowired
-    private BadExample service;  // Inject yourself for external calls
-
-    public void callingMethod() {
-        // CORRECT: This goes through the proxy, transaction IS applied
-        service.transactionalMethod();
-    }
-
-    @Transactional
-    public void transactionalMethod() { }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/transactions/GoodExample.java
 
 3. **Non-final classes**: The class cannot be `final` (CGLIB limitation). The same applies to methods — they must be overridable.
 
@@ -399,29 +257,4 @@ Both approaches achieve the same result. Choose based on your use case:
 
 Example combining both:
 
-```java
-@Service
-public class ComplexService {
-
-    @Autowired
-    private UltiToolsPlugin plugin;
-
-    // Declarative for simple method-level transactions
-    @Transactional
-    public void simpleOperation() {
-        // Automatic transaction management
-    }
-
-    // Programmatic for complex multi-step workflows
-    public void complexWorkflow() {
-        DataOperator<Entity> dataOp = plugin.getDataOperator(Entity.class);
-
-        // Explicit transaction with fine-grained control
-        dataOp.transaction(() -> {
-            // Multiple coordinated operations
-            step1();
-            step2();
-            step3();
-        });
-    }
-}
+<<< @/../examples/src/main/java/com/ultikits/docs/transactions/ComplexService.java
