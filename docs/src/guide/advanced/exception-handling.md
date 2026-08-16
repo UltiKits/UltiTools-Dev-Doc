@@ -10,18 +10,7 @@ UltiTools provides declarative exception handling through the `@ExceptionCatch` 
 
 Add `@ExceptionCatch` to any method inside a managed bean (such as a `@Service`):
 
-```java
-@Service
-public class FileService {
-
-    @ExceptionCatch
-    public String readFile(String path) {
-        // If any exception occurs, it will be caught and logged
-        // The method returns null
-        return new String(Files.readAllBytes(Paths.get(path)));
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/exception/FileService.java
 
 By default:
 - All `Exception` types are caught
@@ -41,25 +30,7 @@ By default:
 
 Specify which exception types should be caught:
 
-```java
-@Service
-public class DataService {
-
-    @ExceptionCatch(IOException.class)
-    public String loadData() {
-        // Only IOException will be caught
-        // Other exceptions will propagate up
-        return readFromFile();
-    }
-
-    @ExceptionCatch({IOException.class, SQLException.class})
-    public List<User> fetchUsers() {
-        // Both IOException and SQLException will be caught
-        // Subclasses are also caught
-        return queryDatabase();
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/exception/DataService.java
 
 ::: tip Exception Hierarchy
 When you specify an exception type, the framework also catches its subclasses. For example, `@ExceptionCatch(IOException.class)` will catch `FileNotFoundException`, `EOFException`, and other subclasses of `IOException`.
@@ -69,25 +40,7 @@ When you specify an exception type, the framework also catches its subclasses. F
 
 Suppress logging for expected or non-critical exceptions:
 
-```java
-@Service
-public class ConfigService {
-
-    @ExceptionCatch(silent = true)
-    public void saveOptionalConfig() {
-        // Any exception is caught and NOT logged
-        // Useful for non-critical background operations
-        writeConfigBackup();
-    }
-
-    @ExceptionCatch(value = FileNotFoundException.class, silent = true)
-    public boolean fileExists(String path) {
-        // FileNotFoundException is silently caught
-        // Other exceptions are still logged
-        return checkFile(path);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/exception/ConfigService.java
 
 Use `silent = true` for:
 - Non-critical operations (e.g., optional backups)
@@ -98,29 +51,7 @@ Use `silent = true` for:
 
 Control what value is returned when an exception is caught:
 
-```java
-@Service
-public class MoneyService {
-
-    @ExceptionCatch(defaultValue = "0")
-    public int getBalance(String accountId) {
-        // If exception occurs, returns 0 instead of null
-        return queryBalance(accountId);
-    }
-
-    @ExceptionCatch(defaultValue = "false")
-    public boolean isPlayerOnline(String playerName) {
-        // Returns false instead of null
-        return checkDatabase(playerName);
-    }
-
-    @ExceptionCatch(defaultValue = "empty")
-    public List<User> getAllUsers() {
-        // Returns empty list instead of null
-        return queryAllUsers();
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/exception/MoneyService.java
 
 Supported default value expressions:
 - `"null"` — returns null (default for objects)
@@ -143,40 +74,11 @@ The `defaultValue` expression is parsed according to the method's return type. I
 
 Implement custom logic for exception handling by creating an `ExceptionHandler` bean:
 
-```java
-@Service
-public class LoggingExceptionHandler implements ExceptionHandler {
-
-    @Override
-    public Object handleException(Throwable exception, Object target, Method method, Object[] args) {
-        // Log detailed exception information
-        System.out.println("Exception in: " + method.getDeclaringClass().getSimpleName() + "." + method.getName());
-        System.out.println("Message: " + exception.getMessage());
-        exception.printStackTrace();
-        return null;
-    }
-
-    @Override
-    public boolean supports(Class<? extends Throwable> exceptionType) {
-        // This handler supports any exception
-        return true;
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/exception/LoggingExceptionHandler.java
 
 Register the handler and reference it by name:
 
-```java
-@Service
-public class MyService {
-
-    @ExceptionCatch(handler = "loggingExceptionHandler")
-    public String processData() {
-        // If an exception occurs, LoggingExceptionHandler.handleException() is called
-        return getData();
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/exception/MyService.java
 
 ::: tip Handler Interface
 Custom handlers implement the `ExceptionHandler` interface with:
@@ -215,52 +117,7 @@ Supported bean types:
 
 ## Complete Example
 
-```java
-@Service
-public class UserDatabaseService {
-
-    @Autowired
-    private UltiToolsPlugin plugin;
-
-    // Safe read: returns null on any exception, with logging
-    @ExceptionCatch
-    public User findById(String userId) {
-        DataOperator<User> op = plugin.getDataOperator(User.class);
-        return op.query().where("id").eq(userId).first();
-    }
-
-    // Safe read with default: returns empty list if query fails
-    @ExceptionCatch(defaultValue = "empty")
-    public List<User> findByRole(String role) {
-        DataOperator<User> op = plugin.getDataOperator(User.class);
-        return op.query().where("role").eq(role).list();
-    }
-
-    // Safe with silent mode: no logging for file-not-found
-    @ExceptionCatch(value = FileNotFoundException.class, silent = true)
-    public String loadUserData(String filename) {
-        return readFile(filename);
-    }
-
-    // Safe with custom handler: detailed error reporting
-    @ExceptionCatch(
-        value = {SQLException.class, IOException.class},
-        handler = "detailedErrorHandler",
-        defaultValue = "null"
-    )
-    public String exportUsers() {
-        // If SQLException or IOException occurs, detailedErrorHandler is invoked
-        return performExport();
-    }
-
-    // Critical operation: no exception catching, propagates up
-    public void deleteUser(String userId) {
-        // No @ExceptionCatch - exceptions must be handled by caller
-        DataOperator<User> op = plugin.getDataOperator(User.class);
-        op.query().where("id").eq(userId).delete();
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/exception/UserDatabaseService.java
 
 ::: tip Best Practices
 1. **Use for fault tolerance** — Catch exceptions in methods where failures are expected or non-critical

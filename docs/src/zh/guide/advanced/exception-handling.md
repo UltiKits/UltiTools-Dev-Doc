@@ -10,18 +10,7 @@ UltiTools 通过 `@ExceptionCatch` 注解提供声明式异常处理。无需在
 
 在任意受容器管理的 Bean（如 `@Service`）的方法上添加 `@ExceptionCatch`：
 
-```java
-@Service
-public class FileService {
-
-    @ExceptionCatch
-    public String readFile(String path) {
-        // 如果发生任何异常，框架会自动捕获并记录日志
-        // 方法返回 null
-        return new String(Files.readAllBytes(Paths.get(path)));
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/exception/FileService.java
 
 默认行为：
 - 捕获所有 `Exception` 类型（及其子类）
@@ -41,25 +30,7 @@ public class FileService {
 
 指定应该被捕获的异常类型：
 
-```java
-@Service
-public class DataService {
-
-    @ExceptionCatch(IOException.class)
-    public String loadData() {
-        // 只捕获 IOException
-        // 其他异常会向上传播
-        return readFromFile();
-    }
-
-    @ExceptionCatch({IOException.class, SQLException.class})
-    public List<User> fetchUsers() {
-        // IOException 和 SQLException 都会被捕获
-        // 它们的子类也会被捕获
-        return queryDatabase();
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/exception/DataService.java
 
 ::: tip 异常继承关系
 当指定异常类型时，框架也会捕获其子类。例如，`@ExceptionCatch(IOException.class)` 会捕获 `FileNotFoundException`、`EOFException` 等 IOException 的子类。
@@ -69,25 +40,7 @@ public class DataService {
 
 对于已预期的或非关键异常，禁用日志记录：
 
-```java
-@Service
-public class ConfigService {
-
-    @ExceptionCatch(silent = true)
-    public void saveOptionalConfig() {
-        // 任何异常都被捕获且不记录日志
-        // 适用于非关键的后台操作
-        writeConfigBackup();
-    }
-
-    @ExceptionCatch(value = FileNotFoundException.class, silent = true)
-    public boolean fileExists(String path) {
-        // FileNotFoundException 被静默捕获
-        // 其他异常仍会被记录
-        return checkFile(path);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/exception/ConfigService.java
 
 何时使用 `silent = true`：
 - 非关键操作（如可选备份）
@@ -98,29 +51,7 @@ public class ConfigService {
 
 控制异常被捕获时返回的值：
 
-```java
-@Service
-public class MoneyService {
-
-    @ExceptionCatch(defaultValue = "0")
-    public int getBalance(String accountId) {
-        // 异常发生时返回 0，而不是 null
-        return queryBalance(accountId);
-    }
-
-    @ExceptionCatch(defaultValue = "false")
-    public boolean isPlayerOnline(String playerName) {
-        // 返回 false 而不是 null
-        return checkDatabase(playerName);
-    }
-
-    @ExceptionCatch(defaultValue = "empty")
-    public List<User> getAllUsers() {
-        // 返回空列表而不是 null
-        return queryAllUsers();
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/exception/MoneyService.java
 
 支持的默认值表达式：
 - `"null"` — 返回 null（对象的默认值）
@@ -143,40 +74,11 @@ public class MoneyService {
 
 通过创建 `ExceptionHandler` Bean 来实现自定义异常处理逻辑：
 
-```java
-@Service
-public class LoggingExceptionHandler implements ExceptionHandler {
-
-    @Override
-    public Object handleException(Throwable exception, Object target, Method method, Object[] args) {
-        // 记录详细的异常信息
-        System.out.println("异常发生于: " + method.getDeclaringClass().getSimpleName() + "." + method.getName());
-        System.out.println("错误信息: " + exception.getMessage());
-        exception.printStackTrace();
-        return null;
-    }
-
-    @Override
-    public boolean supports(Class<? extends Throwable> exceptionType) {
-        // 此处理器支持任何异常
-        return true;
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/exception/LoggingExceptionHandler.java
 
 注册并通过名称引用处理器：
 
-```java
-@Service
-public class MyService {
-
-    @ExceptionCatch(handler = "loggingExceptionHandler")
-    public String processData() {
-        // 如果发生异常，会调用 LoggingExceptionHandler.handleException()
-        return getData();
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/exception/MyService.java
 
 ::: tip 处理器接口
 自定义处理器实现 `ExceptionHandler` 接口，包含以下方法：
@@ -215,52 +117,7 @@ public class NonManagedClass {
 
 ## 完整示例
 
-```java
-@Service
-public class UserDatabaseService {
-
-    @Autowired
-    private UltiToolsPlugin plugin;
-
-    // 安全读取：任何异常都会被捕获并记录日志，返回 null
-    @ExceptionCatch
-    public User findById(String userId) {
-        DataOperator<User> op = plugin.getDataOperator(User.class);
-        return op.query().where("id").eq(userId).first();
-    }
-
-    // 安全读取并带默认值：查询失败时返回空列表
-    @ExceptionCatch(defaultValue = "empty")
-    public List<User> findByRole(String role) {
-        DataOperator<User> op = plugin.getDataOperator(User.class);
-        return op.query().where("role").eq(role).list();
-    }
-
-    // 安全操作且静默模式：文件未找到异常不记录日志
-    @ExceptionCatch(value = FileNotFoundException.class, silent = true)
-    public String loadUserData(String filename) {
-        return readFile(filename);
-    }
-
-    // 安全操作且带自定义处理器：详细的错误报告
-    @ExceptionCatch(
-        value = {SQLException.class, IOException.class},
-        handler = "detailedErrorHandler",
-        defaultValue = "null"
-    )
-    public String exportUsers() {
-        // 如果发生 SQLException 或 IOException，会调用 detailedErrorHandler
-        return performExport();
-    }
-
-    // 关键操作：不捕获异常，异常向上传播
-    public void deleteUser(String userId) {
-        // 没有 @ExceptionCatch - 异常必须由调用者处理
-        DataOperator<User> op = plugin.getDataOperator(User.class);
-        op.query().where("id").eq(userId).delete();
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/exception/UserDatabaseService.java
 
 ::: tip 最佳实践
 1. **用于容错** — 在预期会出现故障或非关键的方法上捕获异常

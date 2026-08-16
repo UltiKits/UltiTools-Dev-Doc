@@ -10,23 +10,7 @@
 
 在托管 Bean 中的任何 `Map<UUID, ?>` 字段上添加 `@PlayerCache` 注解：
 
-```java
-@Service
-public class CooldownService {
-
-    @PlayerCache
-    private final Map<UUID, Long> cooldowns = new ConcurrentHashMap<>();
-
-    public boolean isOnCooldown(UUID playerId) {
-        Long expiry = cooldowns.get(playerId);
-        return expiry != null && System.currentTimeMillis() < expiry;
-    }
-
-    public void setCooldown(UUID playerId, long durationMs) {
-        cooldowns.put(playerId, System.currentTimeMillis() + durationMs);
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/cache/CooldownService.java
 
 当玩家退出时，框架会自动调用 `cooldowns.remove(playerUuid)`，无需手动清理。
 
@@ -34,46 +18,7 @@ public class CooldownService {
 
 如果需要在清除缓存前持久化数据，设置 `saveBeforeRemove = true` 并实现 `PlayerCacheSaver` 接口：
 
-```java
-@Service
-public class PlayerSettingsService implements PlayerCacheSaver {
-
-    @Autowired
-    private UltiToolsPlugin plugin;
-
-    @PlayerCache(saveBeforeRemove = true)
-    private final Map<UUID, PlayerSettings> settingsCache = new ConcurrentHashMap<>();
-
-    public PlayerSettings getSettings(UUID playerId) {
-        return settingsCache.computeIfAbsent(playerId, this::loadFromDatabase);
-    }
-
-    public void updateSetting(UUID playerId, String key, Object value) {
-        PlayerSettings settings = getSettings(playerId);
-        settings.set(key, value);
-        // 修改暂存在内存中，直到玩家退出或手动保存
-    }
-
-    @Override
-    public void savePlayerData(UUID playerId) {
-        PlayerSettings settings = settingsCache.get(playerId);
-        if (settings != null && settings.isDirty()) {
-            try {
-                plugin.getDataOperator(PlayerSettingsEntity.class).update(settings.toEntity());
-            } catch (IllegalAccessException e) {
-                plugin.getLogger().warning("保存玩家设置失败: " + playerId);
-            }
-        }
-    }
-
-    private PlayerSettings loadFromDatabase(UUID playerId) {
-        PlayerSettingsEntity entity = plugin.getDataOperator(PlayerSettingsEntity.class).query()
-            .where("playerId").eq(playerId.toString())
-            .first();
-        return entity != null ? PlayerSettings.fromEntity(entity) : new PlayerSettings();
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/cache/PlayerSettingsService.java
 
 当玩家退出时，框架会：
 1. 调用 `savePlayerData(playerUuid)`（因为 `saveBeforeRemove = true`）
@@ -99,26 +44,7 @@ public interface PlayerCacheSaver {
 
 一个 Bean 可以有多个 `@PlayerCache` 字段，每个都会独立清理：
 
-```java
-@Service
-public class GameService implements PlayerCacheSaver {
-
-    @PlayerCache
-    private final Map<UUID, Integer> scores = new ConcurrentHashMap<>();
-
-    @PlayerCache(saveBeforeRemove = true)
-    private final Map<UUID, Inventory> openInventories = new ConcurrentHashMap<>();
-
-    @PlayerCache
-    private final Map<UUID, Long> lastActivity = new ConcurrentHashMap<>();
-
-    @Override
-    public void savePlayerData(UUID playerId) {
-        // 仅对 saveBeforeRemove=true 的字段触发调用，
-        // 但你可以在这里保存所有数据
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/cache/GameService.java
 
 ## 使用要求
 
@@ -129,51 +55,7 @@ public class GameService implements PlayerCacheSaver {
 
 ## 完整示例
 
-```java
-@Service
-public class TeleportRequestService implements PlayerCacheSaver {
-
-    @Autowired
-    private UltiToolsPlugin plugin;
-
-    // 待处理的传送请求：请求者 -> 目标
-    @PlayerCache
-    private final Map<UUID, UUID> pendingRequests = new ConcurrentHashMap<>();
-
-    // 玩家的传送偏好设置（退出时保存）
-    @PlayerCache(saveBeforeRemove = true)
-    private final Map<UUID, TeleportPrefs> preferences = new ConcurrentHashMap<>();
-
-    public void sendRequest(UUID from, UUID to) {
-        pendingRequests.put(from, to);
-    }
-
-    public UUID getRequest(UUID from) {
-        return pendingRequests.get(from);
-    }
-
-    public void acceptRequest(UUID from) {
-        pendingRequests.remove(from);
-    }
-
-    public TeleportPrefs getPreferences(UUID playerId) {
-        return preferences.computeIfAbsent(playerId, id -> new TeleportPrefs());
-    }
-
-    @Override
-    public void savePlayerData(UUID playerId) {
-        TeleportPrefs prefs = preferences.get(playerId);
-        if (prefs != null) {
-            try {
-                plugin.getDataOperator(TeleportPrefsEntity.class)
-                    .update(prefs.toEntity(playerId));
-            } catch (IllegalAccessException e) {
-                plugin.getLogger().warning("保存传送偏好失败: " + e.getMessage());
-            }
-        }
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/cache/TeleportRequestService.java
 
 ::: tip
 `@PlayerCache` 可以消除 Minecraft 插件中最常见的内存泄漏来源。建议在每个存储玩家状态的 `Map<UUID, ?>` 字段上使用它。
