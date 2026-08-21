@@ -25,7 +25,7 @@
     <properties>
         <!-- Must equal versionsConfig.current in .vitepress/config.mts
              and the latest <release> on Maven Central. Verified by CI. -->
-        <ultitools.version>6.2.4</ultitools.version>
+        <ultitools.version>6.2.5</ultitools.version>
         <java.version>1.8</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
