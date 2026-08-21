@@ -1,5 +1,5 @@
 import {navEN} from "./nav.en.mjs";
-import {sidebarApiEN, sidebarGuideEN, sidebarGuideEN_v620, sidebarGuideEN_v610} from "./sidebar.en.mjs";
+import {sidebarApiEN, sidebarGuideEN, sidebarGuideEN_v624, sidebarGuideEN_v620, sidebarGuideEN_v610} from "./sidebar.en.mjs";
 import {textEN} from "./text.en.mjs";
 import {socialEN} from "./social.en.mjs";
 
@@ -14,9 +14,11 @@ const localeEN = {
             sidebar: {
                 '/guide/': sidebarGuideEN,
                 '/api/': sidebarApiEN,
-                'v6.2.3/guide/': sidebarGuideEN,
+                'v6.2.4/guide/': sidebarGuideEN_v624,
+                'v6.2.4/api/': sidebarApiEN,
+                'v6.2.3/guide/': sidebarGuideEN_v624,
                 'v6.2.3/api/': sidebarApiEN,
-                'v6.2.2/guide/': sidebarGuideEN,
+                'v6.2.2/guide/': sidebarGuideEN_v624,
                 'v6.2.2/api/': sidebarApiEN,
                 'v6.2.1/guide/': sidebarGuideEN_v620,
                 'v6.2.1/api/': sidebarApiEN,
