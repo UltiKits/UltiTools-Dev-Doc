@@ -80,3 +80,5 @@ const members = [
 </script>
 
 <VPTeamMembers size="small" :members="members" />
+
+[CI rehearsal probe link](./gate-rehearsal-nonexistent-target.md)
