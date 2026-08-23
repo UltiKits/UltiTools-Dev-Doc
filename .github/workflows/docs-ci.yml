@@ -1,0 +1,50 @@
+name: Docs
+
+on:
+  pull_request:
+    branches: [ "master" ]
+  # A push straight to master (e.g. two PRs merged back-to-back) can combine
+  # cleanly on each branch yet break once integrated — this is the backstop
+  # that catches that cross-PR interaction on master itself.
+  push:
+    branches: [ "master" ]
+  # No `schedule` here: unlike examples-ci.yml, this workflow doesn't depend on
+  # Maven Central's release cadence — nothing external can silently drift out
+  # from under it, so a timer would be pure overhead.
+  # No `workflow_dispatch` either — there is no pre-release manual-run use case
+  # for a doc-only build/parity gate.
+
+# Both jobs only read the repository, build the site, and run a local script —
+# neither needs write access, so the default token is narrowed to read-only.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Site builds with dead-link checking
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node from .node-version
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: npm
+
+      - name: Install dependencies with npm ci
+        run: npm ci
+
+      - name: Build site with dead-link checking
+        run: npm run build
+
+  bilingual-parity:
+    name: Bilingual page tree and sidebar coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check bilingual page tree and sidebar coverage
+        run: bash scripts/check-bilingual-parity.sh
