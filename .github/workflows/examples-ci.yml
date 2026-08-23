@@ -24,6 +24,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # 构建期会执行仓库外的代码，不持久化凭据可避免 token 落到 .git/config
+          persist-credentials: false
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -44,6 +47,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # 构建期会执行仓库外的代码，不持久化凭据可避免 token 落到 .git/config
+          persist-credentials: false
 
       # The script prints two things: the invariant (which decides the exit
       # code) and an observational matrix of where downstream repositories pin
