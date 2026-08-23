@@ -38,6 +38,9 @@ jobs:
   version-consistency:
     name: Docs version matches latest release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,7 +50,115 @@ jobs:
       # UltiTools-API. The matrix reads other repositories through `gh`, so it
       # needs a token; without one it says so rather than showing an empty table
       # that reads like "nothing is lagging".
+      #
+      # `id: check` is required for the "Open or update release-sync issue"
+      # step below to read this step's $GITHUB_OUTPUT values via
+      # `steps.check.outputs.*` — without it, that expression resolves to an
+      # empty string with no error, so the issue would still open but its
+      # body's version-number column would be silently blank.
       - name: Check version invariant and report downstream pins
+        id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./scripts/check-version-consistency.sh
+
+      # D-14: only these three events may open/update the status light —
+      # `pull_request` is excluded on purpose. This is a public repo, fork PRs
+      # are a normal path, and a fork PR's GITHUB_TOKEN is always read-only,
+      # so this step would just fail there every time.
+      #
+      # D-15: the `push` branch is gated by event name plus `github.ref`, not
+      # by `github.ref` alone, and the other two events aren't gated by ref at
+      # all — `workflow_dispatch` runs the workflow definition of whichever
+      # branch was selected, and its `github.ref` is that branch, not master.
+      # Gating on ref instead of event name would make the branch drill
+      # required by GATE-08 unable to ever reach this step.
+      #
+      # `steps.check.outputs.kind` not being empty or `unknown` is D-11: exit
+      # code 2 (the three values couldn't even be parsed) still turns the job
+      # red, but must NOT open a status light — a single curl timeout opening
+      # an issue that says "still unresolved until closed" would be a false
+      # statement, and GATE-07's entire value rests on that sentence being
+      # trustworthy.
+      #
+      # Actions only implicitly appends `success()` when a step has NO `if:`
+      # at all — once a custom `if:` is written, the status function must be
+      # spelled out explicitly, or this step would also run when Step 2
+      # succeeds.
+      - name: Open or update release-sync issue
+        if: |
+          failure() &&
+          (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+           (github.event_name == 'push' && github.ref == 'refs/heads/master')) &&
+          steps.check.outputs.kind != '' && steps.check.outputs.kind != 'unknown'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          DOC_VER: ${{ steps.check.outputs.doc_ver }}
+          POM_VER: ${{ steps.check.outputs.pom_ver }}
+          CENTRAL_VER: ${{ steps.check.outputs.central_ver }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # D-04: idempotent label create. Fails non-zero when the label
+          # already exists — that's the expected "already there" outcome, not
+          # an error. Must run before the query below: a newly created issue
+          # needs to carry this label, so the label has to exist first no
+          # matter what the query finds. Both streams are swallowed, not just
+          # stderr — most runs find the label already there, and a red-looking
+          # "already exists" line on every single run would drown out real
+          # failures in the Actions log.
+          gh label create release-sync \
+            --color b60205 \
+            --description "文档站版本与最新正式版不同步" >/dev/null 2>&1 || true
+
+          # Written to a temp file and referenced with -F rather than passed
+          # inline, to avoid stacking YAML folding + bash quoting + Markdown
+          # backtick escaping three levels deep.
+          cat > "$RUNNER_TEMP/release-sync-body.md" <<BODY
+          未关闭即代表文档站落后于最新正式版。
+
+          | | |
+          |---|---|
+          | config.mts current | \`${DOC_VER}\` |
+          | examples/pom.xml | \`${POM_VER}\` |
+          | Maven Central | \`${CENTRAL_VER}\` |
+
+          失败 run：${RUN_URL}
+          BODY
+
+          # D-02/D-03: dedupe scope is `--state open` only, dedupe key is the
+          # label only — not title, not the union of both (two parts that
+          # must always be kept in sync is exactly the shape Phase 1's D-01
+          # rejected for a different gate).
+          #
+          # This query is deliberately NOT `|| true`-guarded. Written as
+          # `if ! existing=$(...); then ... exit 1; fi` so "the query itself
+          # failed" and "there genuinely is no open status light" stay two
+          # distinguishable states. Swallowing the failure collapses both into
+          # the same empty string, and an empty string here means "nothing
+          # open yet" — so one transient network blip or auth failure would
+          # open a duplicate issue, which is exactly what D-02/D-03's dedupe
+          # exists to prevent.
+          #
+          # `// empty` on the jq filter matters for the same reason: `.[0]`
+          # on an empty array evaluates to `null`, which gh prints as the
+          # literal string `null`, and `[ -z "$existing" ]` would not read
+          # that as "nothing". `// empty` makes "nothing" a real empty string.
+          if ! existing=$(gh issue list --state open --label release-sync \
+              --json number --jq '.[0].number // empty'); then
+            echo "::error::查询已有 release-sync 状态灯失败（网络或鉴权问题）。不吞掉这个失败，是为了不让它被误判为「没有已开状态灯」而新开一条重复 issue。"
+            exit 1
+          fi
+
+          # D-01: fixed title, no version number — open/closed alone is the
+          # invariant's boolean. `existing` non-empty currently always edits;
+          # D-08's "only edit when the version numbers actually changed" is
+          # left to a later phase.
+          if [ -z "$existing" ]; then
+            gh issue create \
+              --title "docs: 文档版本与最新正式版不同步" \
+              --label release-sync \
+              -F "$RUNNER_TEMP/release-sync-body.md"
+          else
+            gh issue edit "$existing" -F "$RUNNER_TEMP/release-sync-body.md"
+          fi

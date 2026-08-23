@@ -1,0 +1,261 @@
+#!/usr/bin/env bash
+# End-to-end test harness for check-version-consistency.sh's exit-code tiers
+# and $GITHUB_OUTPUT contract (02-01-PLAN.md Task 1). This does NOT reimplement
+# any of the script's parsing/comparison logic — every case runs the real
+# scripts/check-version-consistency.sh in an isolated fixture tree and asserts
+# on its exit code and written outputs. Duplicating the logic here would just
+# create a second copy that could silently drift from the thing it's supposed
+# to be testing.
+#
+# Output style mirrors check-bilingual-parity.sh: one PASS/FAIL line per case,
+# a single status variable collected across all cases, one exit at the end.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SCRIPT="$ROOT/scripts/check-version-consistency.sh"
+
+status=0
+skipped=""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fixture helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Builds a temp tree shaped like the real repo root (only the three paths the
+# script actually touches: scripts/, .vitepress/config.mts, examples/pom.xml),
+# with the real script copied in. The script locates its root via
+# `ROOT="$(cd "$(dirname "$0")/.." && pwd)"`, so copying it into
+# <tmp>/scripts/check-version-consistency.sh makes ROOT resolve to <tmp> —
+# no path-rewriting needed.
+make_fixture() {
+  local dir doc_ver="$1" pom_ver="$2"
+  dir=$(mktemp -d)
+  mkdir -p "$dir/scripts" "$dir/.vitepress" "$dir/examples"
+  cp "$SCRIPT" "$dir/scripts/check-version-consistency.sh"
+  chmod +x "$dir/scripts/check-version-consistency.sh"
+  if [ -n "$doc_ver" ]; then
+    echo "  current: 'v${doc_ver}'," > "$dir/.vitepress/config.mts"
+  else
+    echo "  current: 'not-a-version'," > "$dir/.vitepress/config.mts"
+  fi
+  if [ -n "$pom_ver" ]; then
+    echo "<ultitools.version>${pom_ver}</ultitools.version>" > "$dir/examples/pom.xml"
+  else
+    echo "<ultitools.version>not-a-version</ultitools.version>" > "$dir/examples/pom.xml"
+  fi
+  printf '%s' "$dir"
+}
+
+# Runs the fixture's copy of the script with `gh` removed from PATH, so it
+# always takes the early-return branch (script lines ~90-96) instead of
+# making 19 `gh api` calls per case. This also happens to exercise exactly
+# the exit path RESEARCH Anti-Pattern 1 warns about — output must be written
+# before this early `exit`, not just before the script's final exit.
+#
+# Note: the script's tail exit (its very last line) is NOT covered by this
+# harness — it shares the same write-before-exit point as the early-return
+# path this harness does cover, so covering one covers the property for both.
+run_without_gh() {
+  local dir="$1" out_file="$2"
+  shift 2
+  local gh_path
+  gh_path=$(command -v gh 2>/dev/null || true)
+  local filtered_path="$PATH"
+  if [ -n "$gh_path" ]; then
+    local gh_dir
+    gh_dir=$(dirname "$gh_path")
+    filtered_path=$(printf '%s' "$PATH" | tr ':' '\n' | grep -Fxv "$gh_dir" | tr '\n' ':')
+    filtered_path="${filtered_path%:}"
+  fi
+  set +e
+  ( cd "$dir" && PATH="$filtered_path" GITHUB_OUTPUT="$out_file" "$@" "./scripts/check-version-consistency.sh" >/dev/null 2>&1 )
+  local rc=$?
+  set -e
+  return $rc
+}
+
+get_output_value() {
+  local out_file="$1" key="$2"
+  grep -E "^${key}=" "$out_file" 2>/dev/null | tail -1 | cut -d= -f2-
+}
+
+report() {
+  local name="$1" ok="$2" detail="$3"
+  if [ "$ok" = "0" ]; then
+    echo "  PASS: $name"
+  else
+    echo "  FAIL: $name — $detail"
+    status=1
+  fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Case A: unresolvable version → exit 2, kind=unknown, doc_ver empty
+# ─────────────────────────────────────────────────────────────────────────────
+
+run_case_a() {
+  local dir out_file rc
+  dir=$(make_fixture "" "6.2.4")
+  out_file=$(mktemp)
+  rc=0
+  run_without_gh "$dir" "$out_file" || rc=$?
+  local kind doc_ver
+  kind=$(get_output_value "$out_file" kind)
+  doc_ver=$(get_output_value "$out_file" doc_ver)
+  local ok=0
+  [ "$rc" = "2" ] || { ok=1; }
+  [ "$kind" = "unknown" ] || { ok=1; }
+  [ -z "$doc_ver" ] || { ok=1; }
+  report "A_exit2_unknown" "$ok" "rc=$rc kind=$kind doc_ver=$doc_ver (want rc=2 kind=unknown doc_ver=empty)"
+  rm -rf "$dir" "$out_file"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Case B: both versions pinned below the real Central release → exit 1, broken
+# ─────────────────────────────────────────────────────────────────────────────
+
+run_case_b() {
+  local central="$1"
+  local dir out_file rc
+  dir=$(make_fixture "6.2.4" "6.2.4")
+  out_file=$(mktemp)
+  rc=0
+  run_without_gh "$dir" "$out_file" || rc=$?
+  local kind doc_ver pom_ver
+  kind=$(get_output_value "$out_file" kind)
+  doc_ver=$(get_output_value "$out_file" doc_ver)
+  pom_ver=$(get_output_value "$out_file" pom_ver)
+  local ok=0
+  [ "$rc" = "1" ] || { ok=1; }
+  [ -n "$kind" ] && [ "$kind" != "unknown" ] || { ok=1; }
+  [ "$doc_ver" = "6.2.4" ] || { ok=1; }
+  [ "$pom_ver" = "6.2.4" ] || { ok=1; }
+  report "B_exit1_broken" "$ok" "rc=$rc kind=$kind doc_ver=$doc_ver pom_ver=$pom_ver (want rc=1 kind non-empty/non-unknown doc_ver=pom_ver=6.2.4)"
+  rm -rf "$dir" "$out_file"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Case C: both versions match the real Central release → exit 0, kind empty
+# ─────────────────────────────────────────────────────────────────────────────
+
+run_case_c() {
+  local central="$1"
+  local dir out_file rc
+  dir=$(make_fixture "$central" "$central")
+  out_file=$(mktemp)
+  rc=0
+  run_without_gh "$dir" "$out_file" || rc=$?
+  local kind
+  kind=$(get_output_value "$out_file" kind)
+  local ok=0
+  [ "$rc" = "0" ] || { ok=1; }
+  [ -z "$kind" ] || { ok=1; }
+  report "C_exit0_ok" "$ok" "rc=$rc kind=$kind (want rc=0 kind=empty, central=$central)"
+  rm -rf "$dir" "$out_file"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Case D: output file has all four keys before both failing exits
+# (RESEARCH Anti-Pattern 1: output written after exit is never readable)
+# ─────────────────────────────────────────────────────────────────────────────
+
+run_case_d() {
+  local ok=0
+
+  local dir_a out_a
+  dir_a=$(make_fixture "" "6.2.4")
+  out_a=$(mktemp)
+  run_without_gh "$dir_a" "$out_a" || true
+  if [ ! -s "$out_a" ]; then
+    ok=1
+  else
+    for key in doc_ver pom_ver central_ver kind; do
+      grep -q "^${key}=" "$out_a" || ok=1
+    done
+  fi
+  rm -rf "$dir_a" "$out_a"
+
+  local dir_b out_b
+  dir_b=$(make_fixture "6.2.4" "6.2.4")
+  out_b=$(mktemp)
+  run_without_gh "$dir_b" "$out_b" || true
+  if [ ! -s "$out_b" ]; then
+    ok=1
+  else
+    for key in doc_ver pom_ver central_ver kind; do
+      grep -q "^${key}=" "$out_b" || ok=1
+    done
+  fi
+  rm -rf "$dir_b" "$out_b"
+
+  report "D_output_before_exit" "$ok" "both failing fixtures must produce a \$GITHUB_OUTPUT file with all four keys present"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Case E: GITHUB_OUTPUT unset → script does not error under set -u, same rc
+# ─────────────────────────────────────────────────────────────────────────────
+
+run_case_e() {
+  local dir rc_with rc_without
+  dir=$(make_fixture "6.2.4" "6.2.4")
+  local out_file
+  out_file=$(mktemp)
+  rc_with=0
+  run_without_gh "$dir" "$out_file" || rc_with=$?
+
+  local gh_path filtered_path
+  gh_path=$(command -v gh 2>/dev/null || true)
+  filtered_path="$PATH"
+  if [ -n "$gh_path" ]; then
+    local gh_dir
+    gh_dir=$(dirname "$gh_path")
+    filtered_path=$(printf '%s' "$PATH" | tr ':' '\n' | grep -Fxv "$gh_dir" | tr '\n' ':')
+    filtered_path="${filtered_path%:}"
+  fi
+  set +e
+  ( cd "$dir" && PATH="$filtered_path" env -u GITHUB_OUTPUT "./scripts/check-version-consistency.sh" >/dev/null 2>&1 )
+  rc_without=$?
+  set -e
+
+  local ok=0
+  [ "$rc_with" = "$rc_without" ] || { ok=1; }
+  report "E_no_github_output" "$ok" "rc_with_output=$rc_with rc_without_output=$rc_without (want equal, want no error from set -u)"
+  rm -rf "$dir" "$out_file"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Network-dependent setup for B/C: fetch the real Central release once.
+# A/D/E never touch the network and always run.
+# ─────────────────────────────────────────────────────────────────────────────
+
+echo "test-version-signal: probing Maven Central for the real <release> value"
+real_central=$(curl -sfL --connect-timeout 10 --max-time 30 \
+  https://repo1.maven.org/maven2/com/ultikits/UltiTools-API/maven-metadata.xml 2>/dev/null \
+  | grep -oE '<release>[^<]+</release>' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+') || true
+
+echo
+run_case_a
+run_case_d
+run_case_e
+
+if [ -n "$real_central" ]; then
+  run_case_b "$real_central"
+  run_case_c "$real_central"
+else
+  echo "  SKIP: B_exit1_broken (Maven Central unreachable)"
+  echo "  SKIP: C_exit0_ok (Maven Central unreachable)"
+  skipped="B_exit1_broken C_exit0_ok"
+  status=1
+fi
+
+echo
+if [ -n "$skipped" ]; then
+  echo "SKIPPED (network unavailable, does not count as passed):$skipped"
+fi
+if [ "$status" = "0" ]; then
+  echo "test-version-signal: all cases PASS"
+else
+  echo "test-version-signal: FAILED (see above)"
+fi
+
+exit "$status"

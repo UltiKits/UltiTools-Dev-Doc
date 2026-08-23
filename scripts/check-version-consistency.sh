@@ -35,14 +35,44 @@ echo "  examples/pom.xml   : ${pom_ver:-<未找到>}"
 echo "  Maven Central      : ${central_ver:-<未找到>}"
 
 invariant_status=0
+# `kind` collects the same judgment as invariant_status but as a text label
+# the issue-opening workflow step can branch on directly — never grepped from
+# this script's Chinese stdout, which a wording tweak would silently break.
+# Mirrors `parity_status` in check-bilingual-parity.sh.
+kind=""
 if [ -z "$doc_ver" ] || [ -z "$pom_ver" ] || [ -z "$central_ver" ]; then
-  echo "  FAIL: 三者中有值未能解析出来"
-  invariant_status=1
+  # A value that failed to parse (network down, grep pattern stopped
+  # matching) is a different situation from a confirmed mismatch — the check
+  # itself couldn't reach a conclusion. Nagios-style UNKNOWN vs CRITICAL.
+  echo "  UNKNOWN: 三者中有值未能解析出来"
+  invariant_status=2
+  kind="unknown"
 elif [ "$doc_ver" = "$pom_ver" ] && [ "$pom_ver" = "$central_ver" ]; then
   echo "  OK: 文档已与最新正式版同步"
 else
   echo "  FAIL: 版本不一致 — 文档需要同步到 $central_ver"
   invariant_status=1
+  # Direction (behind / internally mismatched / ahead) is a later phase's
+  # concern — this value only proves the delivery pipe carries a real one.
+  kind="broken"
+fi
+
+# Hand the same three version numbers plus `kind` to the workflow step that
+# opens/updates the release-sync issue, so it never has to re-derive them by
+# parsing this script's human-readable stdout above. Guarded so a developer
+# running this locally (no $GITHUB_OUTPUT in the environment) is unaffected.
+#
+# Placement is a hard requirement, not style: the script has two exit paths
+# below (the early return when `gh` is missing, and the final exit at the end
+# of the file) — this write must happen before both, or a `gh`-less runner
+# would silently hand the issue-opening step a set of empty values.
+if [ -n "${GITHUB_OUTPUT:-}" ]; then
+  {
+    echo "doc_ver=${doc_ver:-}"
+    echo "pom_ver=${pom_ver:-}"
+    echo "central_ver=${central_ver:-}"
+    echo "kind=${kind:-}"
+  } >> "$GITHUB_OUTPUT"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
