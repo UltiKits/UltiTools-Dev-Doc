@@ -78,7 +78,7 @@ authors: [ yourname ]
 ## 使用UltiTools-API
 
 ::: tip 自 v6.2.2 起
-你可以使用更简单的外部插件 API：在你的插件 `onEnable()` 中调用 `UltiToolsAPI.connect(this)` 即可。详情请参阅[外部插件 API 指南](../advanced/external-plugin-api.md)。
+你可以使用更简单的外部插件 API：在你的插件 `onEnable()` 中调用 `UltiToolsAPI.connect(this)` 即可。详情请参阅[外部插件 API 指南](./advanced/external-plugin-api.md)。
 :::
 
 以下部分介绍的是旧版连接器方式，该方式仍然受支持，但不再推荐用于新项目。
