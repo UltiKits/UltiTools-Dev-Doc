@@ -126,3 +126,18 @@ dev-dist
 # Python bytecode from running scripts/ locally
 __pycache__/
 *.pyc
+
+# GSD planning artifacts (local only)
+.planning/
+
+# Claude Code / GSD local instruction file (local only)
+.claude/
+
+# GSD runtime state (local only)
+.gsd/
+
+# Eclipse / JDT-LS metadata generated when opening examples/ in an IDE
+.classpath
+.project
+.factorypath
+.settings/
