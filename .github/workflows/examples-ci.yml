@@ -21,6 +21,13 @@ jobs:
   compile:
     name: Compile documentation examples
     runs-on: ubuntu-latest
+    # Only checks out the repo and runs `mvn compile` — no GitHub API writes
+    # happen here, so this job gets nothing beyond read access to contents.
+    # It does NOT inherit version-consistency's `issues: write`; permissions
+    # declared per job, not once at the top of this file (see that job's
+    # permissions block for why a top-level declaration would be wrong here).
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,6 +48,23 @@ jobs:
   version-consistency:
     name: Docs version matches latest release
     runs-on: ubuntu-latest
+    # This file had no `permissions` block before this Phase, so both jobs
+    # inherited the repository's default token permissions (confirmed via
+    # `gh api repos/UltiKits/UltiTools-Dev-Doc/actions/permissions/workflow`:
+    # `default_workflow_permissions: write`). Declaring per job — not once at
+    # the top of the file — is the point of this hardening: `compile` and
+    # this job need different capabilities, and one shared top-level block
+    # would hand `compile` a write scope it never uses.
+    #
+    # `issues: write` is here because this job's entire output IS a GitHub
+    # issue object — opening/updating/closing `release-sync`.
+    # `contents: read` has to be declared right alongside it: once ANY
+    # permission key is declared, every other permission implicitly becomes
+    # `none`, and dropping `contents: read` here would silently break
+    # `actions/checkout@v4` two lines below with no obvious error pointing
+    # back at this block.
+    # These two keys are the whole of what this job needs — no
+    # `pull-requests`, no `contents: write`.
     permissions:
       contents: read
       issues: write
@@ -68,30 +92,31 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./scripts/check-version-consistency.sh
 
-      # D-14: only these three events may open/update the status light —
-      # `pull_request` is excluded on purpose. This is a public repo, fork PRs
-      # are a normal path, and a fork PR's GITHUB_TOKEN is always read-only,
-      # so this step would just fail there every time.
-      #
-      # D-15: the `push` branch is gated by event name plus `github.ref`, not
-      # by `github.ref` alone, and the other two events aren't gated by ref at
-      # all — `workflow_dispatch` runs the workflow definition of whichever
-      # branch was selected, and its `github.ref` is that branch, not master.
-      # Gating on ref instead of event name would make the branch drill
-      # required by GATE-08 unable to ever reach this step.
-      #
-      # `steps.check.outputs.kind` not being empty or `unknown` is D-11: exit
-      # code 2 (the three values couldn't even be parsed) still turns the job
-      # red, but must NOT open a status light — a single curl timeout opening
-      # an issue that says "still unresolved until closed" would be a false
-      # statement, and GATE-07's entire value rests on that sentence being
-      # trustworthy.
-      #
-      # Actions only implicitly appends `success()` when a step has NO `if:`
-      # at all — once a custom `if:` is written, the status function must be
-      # spelled out explicitly, or this step would also run when Step 2
-      # succeeds.
       - name: Open or update release-sync issue
+        # Why `pull_request` is excluded: this is a public repo, fork PRs are
+        # a normal path, and a fork PR's GITHUB_TOKEN is always read-only, so
+        # this step would just fail there every time. Same reasoning rules
+        # out a plain feature branch too — a temporary version-number edit
+        # there shouldn't open a real issue on a public repo either (D-14).
+        #
+        # Why event name, not branch: `workflow_dispatch` runs the workflow
+        # definition of whichever branch was selected, and its `github.ref`
+        # at that point IS that branch, not master. Gating on `github.ref`
+        # instead of `github.event_name` would make the branch drill required
+        # by GATE-08 unable to ever reach this step (D-15).
+        #
+        # Why the status function must be spelled out explicitly: Actions
+        # only implicitly appends `success()` when a step has NO `if:` at
+        # all. Once a custom `if:` is written, that implicit append stops —
+        # omitting `failure()` here would let this step also run when Step 2
+        # succeeds (RESEARCH Anti-Pattern 3).
+        #
+        # Why `steps.check.outputs.kind` must be non-empty and non-`unknown`:
+        # exit code 2 (the three values couldn't even be parsed) still turns
+        # the job red, but must NOT open a status light — a single curl
+        # timeout opening an issue that says "still unresolved until closed"
+        # would be a false statement, and GATE-07's entire value rests on
+        # that sentence being trustworthy (D-11).
         if: |
           failure() &&
           (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
@@ -150,6 +175,12 @@ jobs:
           # on an empty array evaluates to `null`, which gh prints as the
           # literal string `null`, and `[ -z "$existing" ]` would not read
           # that as "nothing". `// empty` makes "nothing" a real empty string.
+          #
+          # This is not the same class of failure as the `|| true` pipelines
+          # in check-version-consistency.sh (lines 19-22 there): that
+          # convention covers failures that are allowed and don't change the
+          # conclusion. This query's failure DOES change the next step's
+          # judgment (create vs. skip), so it does not get the same treatment.
           if ! existing=$(gh issue list --state open --label release-sync \
               --json number --jq '.[0].number // empty'); then
             echo "::error::查询已有 release-sync 状态灯失败（网络或鉴权问题）。不吞掉这个失败，是为了不让它被误判为「没有已开状态灯」而新开一条重复 issue。"
