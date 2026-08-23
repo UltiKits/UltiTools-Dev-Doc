@@ -110,7 +110,7 @@ Then you have completed an UltiTools module that does nothing.
 ## Use UltiTools-API
 
 ::: tip Since v6.2.2
-You can use the simpler External Plugin API: `UltiToolsAPI.connect(this)` in your plugin's `onEnable()`. See the [External Plugin API guide](../advanced/external-plugin-api.md) for details.
+You can use the simpler External Plugin API: `UltiToolsAPI.connect(this)` in your plugin's `onEnable()`. See the [External Plugin API guide](./advanced/external-plugin-api.md) for details.
 :::
 
 The following section describes the legacy connector approach, which is still supported but no longer recommended for new projects.

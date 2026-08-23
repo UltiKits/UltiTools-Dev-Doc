@@ -3,7 +3,8 @@
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
-    "preview": "vitepress preview"
+    "preview": "vitepress preview",
+    "check:parity": "bash scripts/check-bilingual-parity.sh"
   },
   "devDependencies": {
     "@nolebase/markdown-it-bi-directional-links": "^2.18.2",
