@@ -26,6 +26,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # 构建期会执行依赖里的任意 Node 代码，不持久化凭据可避免 token 落到 .git/config
+          persist-credentials: false
 
       - name: Set up Node from .node-version
         uses: actions/setup-node@v4
@@ -45,6 +48,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # 构建期会执行依赖里的任意 Node 代码，不持久化凭据可避免 token 落到 .git/config
+          persist-credentials: false
 
       - name: Check bilingual page tree and sidebar coverage
         run: bash scripts/check-bilingual-parity.sh
