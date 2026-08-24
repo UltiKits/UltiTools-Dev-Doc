@@ -128,6 +128,7 @@ jobs:
           DOC_VER: ${{ steps.check.outputs.doc_ver }}
           POM_VER: ${{ steps.check.outputs.pom_ver }}
           CENTRAL_VER: ${{ steps.check.outputs.central_ver }}
+          KIND: ${{ steps.check.outputs.kind }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           # D-04: idempotent label create. Fails non-zero when the label
@@ -142,11 +143,56 @@ jobs:
             --color b60205 \
             --description "文档站版本与最新正式版不同步" >/dev/null 2>&1 || true
 
+          # D-12/GATE-07: three shapes of exit-1 share this one status light,
+          # but the GATE-07 sentence is only true as a plain statement for
+          # `behind`. For `mismatch`/`ahead` it still appears verbatim — the
+          # GATE-07 acceptance check greps for it literally — but qualified
+          # with "this status light's usual meaning is X; this trigger is not
+          # that one" so the body never asserts something false for the
+          # shape that actually fired. Fix guidance (element 4) is two lines
+          # naming the two files either way; only the target values differ.
+          case "$KIND" in
+            behind)
+              directional_note="未关闭即代表文档站落后于最新正式版。"
+              fix_line1="1. 把 \`.vitepress/config.mts\` 的 \`versionsConfig.current\` 改成 \`${CENTRAL_VER}\`"
+              fix_line2="2. 把 \`examples/pom.xml\` 的 \`<ultitools.version>\` 改成 \`${CENTRAL_VER}\`"
+              ;;
+            mismatch)
+              directional_note="本状态灯的常规含义是：未关闭即代表文档站落后于最新正式版。本次触发的不是这一种——本仓库内部两处版本号不一致：\`.vitepress/config.mts\` 记录的是 \`${DOC_VER}\`，\`examples/pom.xml\` 记录的是 \`${POM_VER}\`。"
+              fix_line1="1. 把 \`.vitepress/config.mts\` 的 \`versionsConfig.current\`（当前 \`${DOC_VER}\`）与 \`examples/pom.xml\` 的 \`<ultitools.version>\`（当前 \`${POM_VER}\`）改成同一个值"
+              fix_line2="2. 对齐后再确认这个值与 Maven Central 的 \`${CENTRAL_VER}\` 一致"
+              ;;
+            ahead)
+              directional_note="本状态灯的常规含义是：未关闭即代表文档站落后于最新正式版。本次触发的不是这一种——文档站版本号超前于 Maven Central 已收录的最新正式版 \`${CENTRAL_VER}\`。"
+              fix_line1="1. 确认这不是误改：如果是，把 \`.vitepress/config.mts\` 的 \`versionsConfig.current\` 改回 \`${CENTRAL_VER}\`"
+              fix_line2="2. 同时把 \`examples/pom.xml\` 的 \`<ultitools.version>\` 改回 \`${CENTRAL_VER}\`"
+              ;;
+          esac
+
+          # D-05: link to the framework release automation's own `docs: sync
+          # v<central>` issue in this repo, if one exists. Optional body
+          # segment — query failure or a genuine miss both degrade to the
+          # same "not found" wording, never to a fail-loud step (this is a
+          # supplementary link, not the dedupe query Task 3 owns).
+          sync_issue_url=$(gh issue list --search "in:title \"docs: sync v${CENTRAL_VER}\"" \
+            --state all --json number,url --jq '.[0].url // empty') || sync_issue_url=""
+          if [ -n "$sync_issue_url" ]; then
+            sync_note="框架侧发布联动开出的同步 issue：${sync_issue_url}"
+          else
+            sync_note="未找到对应的同步 issue。框架仓库的发布联动在 \`DOCS_REPO_TOKEN\` 未配置时会静默跳过开 issue 这一步——那条 warning 只写进框架仓库自己的 Actions 日志，本仓库看不到。"
+          fi
+
           # Written to a temp file and referenced with -F rather than passed
           # inline, to avoid stacking YAML folding + bash quoting + Markdown
           # backtick escaping three levels deep.
+          #
+          # The HTML comment line after the table is D-08's machine-readable
+          # anchor: a later run reads it back (Task 3) to decide whether the
+          # numbers actually changed, instead of parsing the Chinese prose
+          # above — the same reason D-13 rules out grepping this script's
+          # stdout. It renders invisibly to a human reading the issue.
           cat > "$RUNNER_TEMP/release-sync-body.md" <<BODY
-          未关闭即代表文档站落后于最新正式版。
+          ${directional_note}
 
           | | |
           |---|---|
@@ -154,7 +200,14 @@ jobs:
           | examples/pom.xml | \`${POM_VER}\` |
           | Maven Central | \`${CENTRAL_VER}\` |
 
+          <!-- release-sync-state: doc=${DOC_VER} pom=${POM_VER} central=${CENTRAL_VER} -->
+
           失败 run：${RUN_URL}
+
+          ${fix_line1}
+          ${fix_line2}
+
+          ${sync_note}
           BODY
 
           # D-02/D-03: dedupe scope is `--state open` only, dedupe key is the
