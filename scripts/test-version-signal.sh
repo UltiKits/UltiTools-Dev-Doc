@@ -64,7 +64,28 @@ make_fixture() {
 # directory of symlinks to every entry EXCEPT `gh`, and substitutes that shim
 # in PATH in the same position — every other tool in that directory stays
 # reachable, only `gh` itself is genuinely gone. Non-`gh` directories pass
-# through unchanged. Cached per-run since PATH doesn't change between cases.
+# through unchanged.
+#
+# Intended to build the shim exactly once per harness run (PATH doesn't
+# change between cases). PR #39 round-3 review caught that this caching was
+# broken in practice: every call site invoked this function inside a `$(...)`
+# command substitution (`filtered_path=$(strip_gh_from_path)`), which forks a
+# subshell — the `_GH_SHIM_PATH="$result"` assignment below landed in that
+# subshell's copy of the variable and was discarded the moment the
+# substitution completed, so the cache check at the top always saw an empty
+# `_GH_SHIM_PATH` and the whole shim directory (one `mktemp -d` plus one
+# `ln -s` per PATH entry) was rebuilt from scratch on every single case. This
+# is why the `version-signal-regression-tests` CI job went from ~13s to
+# ~1m36s after that fix pass landed.
+#
+# Fix: call this function once at top level (a plain statement, NOT inside
+# `$(...)`) before any case runs — see the priming call near the bottom of
+# this file. A plain top-level call executes in the current shell, so the
+# `_GH_SHIM_PATH="$result"` assignment persists for the rest of the script.
+# Every later call (direct or still inside a subshell, e.g. run_case_e's own
+# `$(...)` usage below) then hits the cache-hit branch immediately and does
+# no rebuilding — the caching this comment always claimed to do now actually
+# happens.
 _GH_SHIM_PATH=""
 strip_gh_from_path() {
   if [ -n "$_GH_SHIM_PATH" ]; then
@@ -104,13 +125,18 @@ strip_gh_from_path() {
 # Note: the script's tail exit (its very last line) is NOT covered by this
 # harness — it shares the same write-before-exit point as the early-return
 # path this harness does cover, so covering one covers the property for both.
+#
+# Reads `$_GH_SHIM_PATH` directly rather than calling `strip_gh_from_path`
+# through another command substitution — the priming call below already
+# populated it once at top level; going through `$(...)` here again would
+# still return the right value (the function's own cache check would hit),
+# but there is no reason to pay for a subshell fork on every case just to
+# read a variable that is already in scope.
 run_without_gh() {
   local dir="$1" out_file="$2"
   shift 2
-  local filtered_path
-  filtered_path=$(strip_gh_from_path)
   set +e
-  ( cd "$dir" && PATH="$filtered_path" GITHUB_OUTPUT="$out_file" "$@" "./scripts/check-version-consistency.sh" >/dev/null 2>&1 )
+  ( cd "$dir" && PATH="$_GH_SHIM_PATH" GITHUB_OUTPUT="$out_file" "$@" "./scripts/check-version-consistency.sh" >/dev/null 2>&1 )
   local rc=$?
   set -e
   return $rc
@@ -371,10 +397,12 @@ run_case_e() {
   rc_with=0
   run_without_gh "$dir" "$out_file" || rc_with=$?
 
-  local filtered_path
-  filtered_path=$(strip_gh_from_path)
+  # Reads the already-primed `$_GH_SHIM_PATH` directly (see the priming
+  # call below and the comment on `run_without_gh` above) instead of
+  # `$(strip_gh_from_path)` — same reasoning: no subshell fork needed just
+  # to read a variable already in scope.
   set +e
-  ( cd "$dir" && PATH="$filtered_path" env -u GITHUB_OUTPUT "./scripts/check-version-consistency.sh" >/dev/null 2>&1 )
+  ( cd "$dir" && PATH="$_GH_SHIM_PATH" env -u GITHUB_OUTPUT "./scripts/check-version-consistency.sh" >/dev/null 2>&1 )
   rc_without=$?
   set -e
 
@@ -393,6 +421,26 @@ echo "test-version-signal: probing Maven Central for the real <release> value"
 real_central=$(curl -sfL --connect-timeout 10 --max-time 30 \
   https://repo1.maven.org/maven2/com/ultikits/UltiTools-API/maven-metadata.xml 2>/dev/null \
   | grep -oE '<release>[^<]+</release>' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+') || true
+
+# Prime the `gh`-shim cache exactly once, as a plain top-level statement
+# (NOT `$(strip_gh_from_path)`) so the assignment inside the function lands
+# in THIS shell rather than a discarded subshell copy — see the comment on
+# `strip_gh_from_path` above for the full explanation of why every prior
+# per-case call was silently rebuilding the shim from scratch.
+#
+# Also doubles as an immediate, permanent re-proof of the isolation property
+# every case relies on: if `gh` were still reachable under the shimmed PATH
+# (e.g. a future PATH layout this shim-building logic doesn't handle), every
+# downstream case would silently exercise the wrong code path in
+# check-version-consistency.sh — the `command -v gh` early-return branch —
+# instead of what each case's assertions assume, with no case-level symptom
+# pointing back at the actual cause. Failing loudly here, once, up front, is
+# cheaper than debugging that from seven confusing case failures.
+strip_gh_from_path >/dev/null
+if PATH="$_GH_SHIM_PATH" command -v gh >/dev/null 2>&1; then
+  echo "FATAL: gh is still reachable under the shimmed PATH — isolation broken, refusing to run cases on an assumption that no longer holds" >&2
+  exit 1
+fi
 
 echo
 run_case_a
