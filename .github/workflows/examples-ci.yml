@@ -48,6 +48,33 @@ jobs:
   version-consistency:
     name: Docs version matches latest release
     runs-on: ubuntu-latest
+    # WR-01 fix: without this, two runs of this job can execute in parallel —
+    # e.g. a `push` to master landing at the same wall-clock moment as the
+    # weekly `schedule` cron, or two pushes to master in quick succession.
+    # Both runs would query `gh issue list --state open --label release-sync`
+    # before either has created one, both see an empty result, and both call
+    # `gh issue create` — this is the actual mechanism that produces the
+    # duplicate-issue scenario CR-01's fix has to clean up after the fact.
+    #
+    # Group is one fixed string, not `${{ github.ref }}`-scoped: the
+    # `release-sync` issue is a single repo-wide resource (D-01 — one
+    # constant-titled status light, not one per branch), so runs on
+    # different refs still have to serialize against each other, not just
+    # runs on the same ref.
+    #
+    # `cancel-in-progress: false` (queue, don't cancel): a run cancelled
+    # mid-`run:` step can be cut off between its `gh issue create`/`edit`/
+    # `close` call and this job's own bookkeeping — GitHub Actions does not
+    # roll back a partially-executed `run:` step, so a cancelled run can
+    # leave an issue open/created/edited with no further step ever
+    # completing to close it. That is the exact "status light stuck lying"
+    # failure this whole Phase exists to prevent, so this job accepts
+    # queuing delay over that risk. `compile` has no such queue below it
+    # deliberately: it performs no GitHub API writes, so cancelling it
+    # mid-run has no state to leave dangling.
+    concurrency:
+      group: release-sync-status-light
+      cancel-in-progress: false
     # This file had no `permissions` block before this Phase, so both jobs
     # inherited the repository's default token permissions (confirmed via
     # `gh api repos/UltiKits/UltiTools-Dev-Doc/actions/permissions/workflow`:
