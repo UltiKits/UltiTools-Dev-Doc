@@ -46,6 +46,55 @@ make_fixture() {
   printf '%s' "$dir"
 }
 
+# Builds a PATH with `gh` genuinely unreachable — checked by looking for an
+# executable named `gh` in every PATH directory, not just the one directory
+# `command -v gh` happened to report first. On a merged-/usr system (Ubuntu,
+# and GitHub Actions' ubuntu-latest runners are merged-/usr too) `/bin` is a
+# symlink to `/usr/bin`, and a typical PATH lists both; stripping only the
+# one directory `command -v gh` resolves to leaves `gh` reachable via its
+# sibling entry — `command -v gh` still finds it, just under the other name.
+#
+# A directory that contains `gh` can't simply be dropped from PATH wholesale
+# though: on the same merged-/usr systems this is guarding against, that
+# directory is also where core utilities the target script itself needs
+# (grep, curl, sort, ...) live — dropping it takes those with it and the
+# script under test fails for an unrelated reason (rc 127, command not
+# found) before it ever reaches its own `command -v gh` check. So instead,
+# for each PATH directory that contains `gh`, this rebuilds it as a shim
+# directory of symlinks to every entry EXCEPT `gh`, and substitutes that shim
+# in PATH in the same position — every other tool in that directory stays
+# reachable, only `gh` itself is genuinely gone. Non-`gh` directories pass
+# through unchanged. Cached per-run since PATH doesn't change between cases.
+_GH_SHIM_PATH=""
+strip_gh_from_path() {
+  if [ -n "$_GH_SHIM_PATH" ]; then
+    printf '%s' "$_GH_SHIM_PATH"
+    return 0
+  fi
+  local p result="" shim_root=""
+  IFS=':' read -ra _psplit <<< "$PATH"
+  for p in "${_psplit[@]}"; do
+    [ -z "$p" ] && continue
+    if [ -x "$p/gh" ]; then
+      [ -z "$shim_root" ] && shim_root=$(mktemp -d)
+      local shim_dir entry base
+      shim_dir="$shim_root/$(printf '%s' "$p" | tr '/' '_')"
+      mkdir -p "$shim_dir"
+      for entry in "$p"/*; do
+        [ -e "$entry" ] || continue
+        base=$(basename "$entry")
+        [ "$base" = "gh" ] && continue
+        ln -s "$entry" "$shim_dir/$base" 2>/dev/null || true
+      done
+      result="${result:+$result:}$shim_dir"
+    else
+      result="${result:+$result:}$p"
+    fi
+  done
+  _GH_SHIM_PATH="$result"
+  printf '%s' "$result"
+}
+
 # Runs the fixture's copy of the script with `gh` removed from PATH, so it
 # always takes the early-return branch (script lines ~90-96) instead of
 # making 19 `gh api` calls per case. This also happens to exercise exactly
@@ -58,15 +107,8 @@ make_fixture() {
 run_without_gh() {
   local dir="$1" out_file="$2"
   shift 2
-  local gh_path
-  gh_path=$(command -v gh 2>/dev/null || true)
-  local filtered_path="$PATH"
-  if [ -n "$gh_path" ]; then
-    local gh_dir
-    gh_dir=$(dirname "$gh_path")
-    filtered_path=$(printf '%s' "$PATH" | tr ':' '\n' | grep -Fxv "$gh_dir" | tr '\n' ':')
-    filtered_path="${filtered_path%:}"
-  fi
+  local filtered_path
+  filtered_path=$(strip_gh_from_path)
   set +e
   ( cd "$dir" && PATH="$filtered_path" GITHUB_OUTPUT="$out_file" "$@" "./scripts/check-version-consistency.sh" >/dev/null 2>&1 )
   local rc=$?
@@ -261,15 +303,8 @@ run_case_e() {
   rc_with=0
   run_without_gh "$dir" "$out_file" || rc_with=$?
 
-  local gh_path filtered_path
-  gh_path=$(command -v gh 2>/dev/null || true)
-  filtered_path="$PATH"
-  if [ -n "$gh_path" ]; then
-    local gh_dir
-    gh_dir=$(dirname "$gh_path")
-    filtered_path=$(printf '%s' "$PATH" | tr ':' '\n' | grep -Fxv "$gh_dir" | tr '\n' ':')
-    filtered_path="${filtered_path%:}"
-  fi
+  local filtered_path
+  filtered_path=$(strip_gh_from_path)
   set +e
   ( cd "$dir" && PATH="$filtered_path" env -u GITHUB_OUTPUT "./scripts/check-version-consistency.sh" >/dev/null 2>&1 )
   rc_without=$?
