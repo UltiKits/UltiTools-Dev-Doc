@@ -384,3 +384,41 @@ jobs:
               gh issue close "$existing" -c "版本已恢复同步：\`${DOC_VER}\` == \`${POM_VER}\` == \`${CENTRAL_VER}\`。"
             done <<< "$existing_numbers"
           fi
+
+  version-signal-regression-tests:
+    name: check-version-consistency.sh regression tests
+    runs-on: ubuntu-latest
+    # WR-05 fix: scripts/test-version-signal.sh guards the two silent-
+    # wrong-answer bugs this Phase exists to avoid (the two-digit-PATCH
+    # lexicographic-compare bug in F_two_digit_patch, and the mismatch-
+    # before-direction judgment order in G_mismatch) — until now nothing
+    # ran it, so a regression on either bug would ship silently. It needs
+    # no GitHub API access (every case strips `gh` from PATH so the script
+    # always takes its early-return branch), so no `permissions` beyond
+    # the job-default read-only scope is required.
+    #
+    # Excluded from `pull_request`: 4 of its 7 cases probe Maven Central
+    # over the network, and the harness itself is written to fail (not
+    # silently skip) when that network is unreachable — a deliberate
+    # choice so an unreachable-network environment doesn't quietly stop
+    # providing coverage forever. Running that as a required `pull_request`
+    # check would fail unrelated PRs on a transient network blip that has
+    # nothing to do with the PR's own content. `push` triggers on every
+    # branch (`branches: ["**"]` above), so a same-repo PR's source branch
+    # still gets this coverage via its own push events; a fork PR's branch
+    # never produces a push event against this repository and so misses
+    # coverage until it lands on a branch here — an accepted, documented
+    # gap (see WR-05, .planning/phases/02-version-sync-signal/02-REVIEW.md),
+    # not a silent one.
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 构建期会执行仓库外的代码，不持久化凭据可避免 token 落到 .git/config
+          persist-credentials: false
+
+      - name: Run check-version-consistency.sh regression tests
+        run: bash scripts/test-version-signal.sh
