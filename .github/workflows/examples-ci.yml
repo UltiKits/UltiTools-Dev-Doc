@@ -201,8 +201,18 @@ jobs:
           # segment — query failure or a genuine miss both degrade to the
           # same "not found" wording, never to a fail-loud step (this is a
           # supplementary link, not the dedupe query Task 3 owns).
+          #
+          # `--limit 5`: this only ever consumes `.[0]`, and `gh issue list`'s
+          # default limit (30) is already far more than this exact-title
+          # search could plausibly ever match — the framework's release
+          # automation opens at most one `docs: sync v<X>` issue per release.
+          # Making the limit explicit here anyway (rather than relying on the
+          # default) documents that assumption instead of leaving it implicit,
+          # and keeps this call site consistent with the two dedupe queries
+          # below, which need an explicit limit for a real reason (they
+          # consume the full result, not just `.[0]`).
           sync_issue_url=$(gh issue list --search "in:title \"docs: sync v${CENTRAL_VER}\"" \
-            --state all --json number,url --jq '.[0].url // empty') || sync_issue_url=""
+            --state all --limit 5 --json number,url --jq '.[0].url // empty') || sync_issue_url=""
           if [ -n "$sync_issue_url" ]; then
             sync_note="框架侧发布联动开出的同步 issue：${sync_issue_url}"
           else
@@ -262,8 +272,22 @@ jobs:
           # judgment (create vs. skip vs. edit), so it does not get the same
           # treatment. D-05's link query above stays `|| true`-guarded — it's
           # an optional body segment, not this decision.
+          #
+          # `--limit 100`: `gh issue list` defaults to `--limit 30`, and this
+          # query's result feeds `sort_by(.number) | .[0]` below — silently
+          # truncating at 30 would mean the "pick the oldest of N open
+          # release-sync issues" logic never sees issue #31 onward if more
+          # than 30 ever accumulate, the same silent-boundary-truncation
+          # shape as CR-01's `.[0]`-only bug, just at the pagination boundary
+          # instead of the first element. `release-sync` is a single
+          # repo-wide status light (D-01) — normal operation holds at most 1
+          # open, and even the worst realistic race (overlapping runs before
+          # the WR-01 concurrency guard existed, or a hand-opened duplicate)
+          # stays in the single digits. 100 is comfortably above any
+          # plausible count while still bounding the request, rather than
+          # requesting an unbounded number of issues on every run.
           if ! existing_json=$(gh issue list --state open --label release-sync \
-              --json number,body); then
+              --limit 100 --json number,body); then
             echo "::error::查询已有 release-sync 状态灯失败（网络或鉴权问题）。不吞掉这个失败，是为了不让它被误判为「没有已开状态灯」而新开一条重复 issue。"
             exit 1
           fi
@@ -368,8 +392,17 @@ jobs:
           # 代表文档站落后于最新正式版」这句话变成假话。这一步存在的唯一
           # 目的就是保证「恢复」等价于「关闭全部」，所以必须逐条处理，不能
           # 只挑一条。
+          #
+          # `--limit 100`：`gh issue list` 默认只取 30 条，而这里取的是全部
+          # 结果集，不是 `.[0]`——默认值会在这里静默截断，是和上面
+          # `.[0]`-only 那个 bug 同一种失败形状，只是发生在分页边界而不是第
+          # 一个元素上。`release-sync` 是单一的仓库级状态灯（D-01），正常
+          # 情况下最多一条 open，即使遇到最坏的现实场景（WR-01 并发保护上线
+          # 前的重叠运行、或人工手开的重复 issue）也停留在个位数。100 已经
+          # 远高于任何现实场景会出现的数量，同时仍然是一个显式的上限，而不
+          # 是让每次运行都发出一个无上限的请求。
           if ! existing_numbers=$(gh issue list --state open --label release-sync \
-              --json number --jq '.[].number'); then
+              --limit 100 --json number --jq '.[].number'); then
             echo "::error::查询已有 release-sync 状态灯失败（网络或鉴权问题）。不吞掉这个失败，是为了不让本来绿的 job 悄悄保持绿色，而状态灯其实还没被关掉。"
             exit 1
           fi
