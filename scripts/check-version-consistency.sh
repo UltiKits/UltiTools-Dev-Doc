@@ -10,6 +10,16 @@
 #      lagging pin is not a defect — see the note printed with the table.
 set -euo pipefail
 
+# Version-aware less-than for X.Y.Z strings. Never use shell's `<`/`>` string
+# test operators here — those are lexicographic, and `6.2.10` sorts before
+# `6.2.9` lexicographically the moment any segment gains a second digit
+# (RESEARCH Pitfall 3; the two-digit-PATCH regression case in
+# test-version-signal.sh guards exactly this). `sort -V` (GNU coreutils,
+# preinstalled on ubuntu-latest runners) does the numeric-aware compare.
+version_lt() {
+  [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -n1)" = "$1" ]
+}
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -52,9 +62,16 @@ elif [ "$doc_ver" = "$pom_ver" ] && [ "$pom_ver" = "$central_ver" ]; then
 else
   echo "  FAIL: 版本不一致 — 文档需要同步到 $central_ver"
   invariant_status=1
-  # Direction (behind / internally mismatched / ahead) is a later phase's
-  # concern — this value only proves the delivery pipe carries a real one.
-  kind="broken"
+  # Order matters: internal mismatch must be checked before direction, or
+  # "changed one file but forgot the other" would get misreported as a
+  # direction problem instead of what it actually is (D-12).
+  if [ "$doc_ver" != "$pom_ver" ]; then
+    kind="mismatch"       # this repo's own two files disagree
+  elif version_lt "$pom_ver" "$central_ver"; then
+    kind="behind"         # the shape GATE-07's sentence is actually about
+  else
+    kind="ahead"          # edited early, or Central hasn't caught up yet
+  fi
 fi
 
 # Hand the same three version numbers plus `kind` to the workflow step that

@@ -111,7 +111,7 @@ run_case_a() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Case B: both versions pinned below the real Central release → exit 1, broken
+# Case B: both versions pinned below the real Central release → exit 1, behind
 # ─────────────────────────────────────────────────────────────────────────────
 
 run_case_b() {
@@ -127,10 +127,68 @@ run_case_b() {
   pom_ver=$(get_output_value "$out_file" pom_ver)
   local ok=0
   [ "$rc" = "1" ] || { ok=1; }
-  [ -n "$kind" ] && [ "$kind" != "unknown" ] || { ok=1; }
+  [ "$kind" = "behind" ] || { ok=1; }
   [ "$doc_ver" = "6.2.4" ] || { ok=1; }
   [ "$pom_ver" = "6.2.4" ] || { ok=1; }
-  report "B_exit1_broken" "$ok" "rc=$rc kind=$kind doc_ver=$doc_ver pom_ver=$pom_ver (want rc=1 kind non-empty/non-unknown doc_ver=pom_ver=6.2.4)"
+  report "B_exit1_behind" "$ok" "rc=$rc kind=$kind doc_ver=$doc_ver pom_ver=$pom_ver (want rc=1 kind=behind doc_ver=pom_ver=6.2.4, central=$central)"
+  rm -rf "$dir" "$out_file"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Case F: two-digit PATCH regression guard (02-02 Task 1's red case). Both
+# version files pinned at 6.2.10 while the real Central release is 6.2.5 →
+# doc == pom > central, the "ahead" shape. Under lexicographic string
+# comparison, "6.2.10" sorts BEFORE "6.2.5" (the character '1' < '5'), so a
+# `version_lt`/kind implementation using shell `<`/`>` string tests would
+# misjudge this as "behind" instead of "ahead" — exactly the two-digit-PATCH
+# failure RESEARCH Pitfall 3 describes. This case goes red under that bug and
+# green once `sort -V` (numeric-aware) is used.
+#
+# Note: if Maven Central's real <release> itself ever reaches 6.2.10 or
+# higher, all three values become equal and this case's fixture stops
+# exercising the intended shape (rc would be 0, not 1) — the fixture value
+# would need to be bumped past whatever Central's release has become.
+# ─────────────────────────────────────────────────────────────────────────────
+
+run_case_f() {
+  local central="$1"
+  local dir out_file rc
+  dir=$(make_fixture "6.2.10" "6.2.10")
+  out_file=$(mktemp)
+  rc=0
+  run_without_gh "$dir" "$out_file" || rc=$?
+  local kind
+  kind=$(get_output_value "$out_file" kind)
+  local ok=0
+  [ "$rc" = "1" ] || { ok=1; }
+  [ "$kind" = "ahead" ] || { ok=1; }
+  report "F_two_digit_patch" "$ok" "rc=$rc kind=$kind (want rc=1 kind=ahead; doc=pom=6.2.10 > central=$central — a lexicographic-compare bug would report kind=behind instead)"
+  rm -rf "$dir" "$out_file"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Case G: internal mismatch — config.mts and pom.xml disagree with each other.
+# Guards judgment ORDER: `doc != pom` must be checked before the direction
+# comparison, or "changed one file but forgot the other" gets misreported as
+# a direction problem (behind/ahead) instead of what it actually is.
+# ─────────────────────────────────────────────────────────────────────────────
+
+run_case_g() {
+  local dir out_file rc
+  dir=$(make_fixture "6.2.5" "6.2.4")
+  out_file=$(mktemp)
+  rc=0
+  run_without_gh "$dir" "$out_file" || rc=$?
+  local kind doc_ver pom_ver
+  kind=$(get_output_value "$out_file" kind)
+  doc_ver=$(get_output_value "$out_file" doc_ver)
+  pom_ver=$(get_output_value "$out_file" pom_ver)
+  local ok=0
+  [ "$rc" = "1" ] || { ok=1; }
+  [ "$kind" = "mismatch" ] || { ok=1; }
+  [ "$doc_ver" = "6.2.5" ] || { ok=1; }
+  [ "$pom_ver" = "6.2.4" ] || { ok=1; }
+  report "G_mismatch" "$ok" "rc=$rc kind=$kind doc_ver=$doc_ver pom_ver=$pom_ver (want rc=1 kind=mismatch doc_ver=6.2.5 pom_ver=6.2.4)"
   rm -rf "$dir" "$out_file"
 }
 
@@ -241,10 +299,14 @@ run_case_e
 if [ -n "$real_central" ]; then
   run_case_b "$real_central"
   run_case_c "$real_central"
+  run_case_f "$real_central"
+  run_case_g
 else
-  echo "  SKIP: B_exit1_broken (Maven Central unreachable)"
+  echo "  SKIP: B_exit1_behind (Maven Central unreachable)"
   echo "  SKIP: C_exit0_ok (Maven Central unreachable)"
-  skipped="B_exit1_broken C_exit0_ok"
+  echo "  SKIP: F_two_digit_patch (Maven Central unreachable)"
+  echo "  SKIP: G_mismatch (Maven Central unreachable)"
+  skipped="B_exit1_behind C_exit0_ok F_two_digit_patch G_mismatch"
   status=1
 fi
 
