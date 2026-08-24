@@ -21,9 +21,19 @@ jobs:
   compile:
     name: Compile documentation examples
     runs-on: ubuntu-latest
+    # Only checks out the repo and runs `mvn compile` — no GitHub API writes
+    # happen here, so this job gets nothing beyond read access to contents.
+    # It does NOT inherit version-consistency's `issues: write`; permissions
+    # declared per job, not once at the top of this file (see that job's
+    # permissions block for why a top-level declaration would be wrong here).
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # 构建期会执行仓库外的代码，不持久化凭据可避免 token 落到 .git/config
+          persist-credentials: false
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -38,16 +48,446 @@ jobs:
   version-consistency:
     name: Docs version matches latest release
     runs-on: ubuntu-latest
+    # WR-01 fix: without this, two runs of this job can execute in parallel —
+    # e.g. a `push` to master landing at the same wall-clock moment as the
+    # weekly `schedule` cron, or two pushes to master in quick succession.
+    # Both runs would query `gh issue list --state open --label release-sync`
+    # before either has created one, both see an empty result, and both call
+    # `gh issue create` — this is the actual mechanism that produces the
+    # duplicate-issue scenario CR-01's fix has to clean up after the fact.
+    #
+    # PR #39 round-3 review fix (replaces the earlier fixed-string
+    # `group: release-sync-status-light`): a single fixed group covers EVERY
+    # trigger of this job, not just the three that can mutate the
+    # `release-sync` issue. The "Open or update"/"Close if recovered" steps
+    # below both gate on event via `if:` and intentionally do nothing for a
+    # feature-branch `push` or a `pull_request` run — but a fixed-string
+    # `concurrency.group` does not know that. GitHub Actions allows at most
+    # one PENDING run per group, and queuing a new run into an occupied
+    # group CANCELS whatever was already pending there. So a feature-branch
+    # push queued behind a pending `schedule` run would cancel that
+    # scheduled run outright — the mutating run silently never executes, a
+    # drift that week opens no issue, a recovery that week closes none, and
+    # nothing in the Actions log calls this out as a failure because the
+    # cancelled run's steps never even started. That is strictly worse than
+    # the duplicate-issue bug this block was added to fix: a duplicate issue
+    # is visible and self-correcting (CR-01's own dedupe/close-all logic
+    # cleans it up on the next green run); a silently skipped mutation is
+    # invisible and does not self-correct — GATE-07's whole premise is that
+    # this status light's state can be trusted, and "did the check even run"
+    # failing silently breaks that premise more fundamentally than a stray
+    # duplicate ever did.
+    #
+    # Fix: only the three event/ref combinations that can reach the mutating
+    # steps below share the fixed group; every other event computes a group
+    # name unique to its own run (`github.run_id`), so it is alone in its
+    # own group — nothing else can be pending there to cancel, and it can
+    # never displace a pending mutating run either. The mutating events
+    # (`schedule`, `workflow_dispatch`, `push` to `refs/heads/master`) still
+    # funnel into the one shared `release-sync-status-light` group, so
+    # WR-01's original guarantee — those three still serialize against each
+    # other — holds unchanged.
+    #
+    # Alternatives considered and rejected:
+    #   - Scope the group by `github.ref` (e.g.
+    #     `release-sync-status-light-${{ github.ref }}`). Rejected: this
+    #     stops feature branches from cancelling the scheduled run, but it
+    #     also un-serializes the three mutating triggers from each other
+    #     whenever, say, `workflow_dispatch` is run against a non-master ref
+    #     — the exact race WR-01 exists to close would reopen for that
+    #     combination.
+    #   - Drop `concurrency` from this job entirely and rely on the existing
+    #     dedupe logic (CR-01's sort-by-number-and-close-all, D-02/D-03's
+    #     open-issue dedupe) to clean up after races instead of preventing
+    #     them. Rejected: dedupe cleans up *duplicate* issues; it does
+    #     nothing for the cancelled-run case, which produces no issue and no
+    #     signal at all — there is nothing to deduplicate.
+    #   - Set `cancel-in-progress: true` on the shared group. Rejected: the
+    #     comment on `cancel-in-progress: false` below already establishes
+    #     why a mid-`run:` cancellation is unacceptable here (a cancelled
+    #     run can leave an issue open/created/edited with no later step ever
+    #     closing it) — switching it to `true` would make that failure mode
+    #     the common case instead of a rare one.
+    concurrency:
+      group: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/master')) && 'release-sync-status-light' || format('release-sync-status-light-solo-{0}', github.run_id) }}
+      cancel-in-progress: false
+    # This file had no `permissions` block before this Phase, so both jobs
+    # inherited the repository's default token permissions (confirmed via
+    # `gh api repos/UltiKits/UltiTools-Dev-Doc/actions/permissions/workflow`:
+    # `default_workflow_permissions: write`). Declaring per job — not once at
+    # the top of the file — is the point of this hardening: `compile` and
+    # this job need different capabilities, and one shared top-level block
+    # would hand `compile` a write scope it never uses.
+    #
+    # `issues: write` is here because this job's entire output IS a GitHub
+    # issue object — opening/updating/closing `release-sync`.
+    # `contents: read` has to be declared right alongside it: once ANY
+    # permission key is declared, every other permission implicitly becomes
+    # `none`, and dropping `contents: read` here would silently break
+    # `actions/checkout@v4` two lines below with no obvious error pointing
+    # back at this block.
+    # These two keys are the whole of what this job needs — no
+    # `pull-requests`, no `contents: write`.
+    permissions:
+      contents: read
+      issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # 构建期会执行仓库外的代码，不持久化凭据可避免 token 落到 .git/config
+          persist-credentials: false
 
       # The script prints two things: the invariant (which decides the exit
       # code) and an observational matrix of where downstream repositories pin
       # UltiTools-API. The matrix reads other repositories through `gh`, so it
       # needs a token; without one it says so rather than showing an empty table
       # that reads like "nothing is lagging".
+      #
+      # `id: check` is required for the "Open or update release-sync issue"
+      # step below to read this step's $GITHUB_OUTPUT values via
+      # `steps.check.outputs.*` — without it, that expression resolves to an
+      # empty string with no error, so the issue would still open but its
+      # body's version-number column would be silently blank.
       - name: Check version invariant and report downstream pins
+        id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./scripts/check-version-consistency.sh
+
+      - name: Open or update release-sync issue
+        # Why `pull_request` is excluded: this is a public repo, fork PRs are
+        # a normal path, and a fork PR's GITHUB_TOKEN is always read-only, so
+        # this step would just fail there every time. Same reasoning rules
+        # out a plain feature branch too — a temporary version-number edit
+        # there shouldn't open a real issue on a public repo either (D-14).
+        #
+        # Why event name, not branch: `workflow_dispatch` runs the workflow
+        # definition of whichever branch was selected, and its `github.ref`
+        # at that point IS that branch, not master. Gating on `github.ref`
+        # instead of `github.event_name` would make the branch drill required
+        # by GATE-08 unable to ever reach this step (D-15).
+        #
+        # Why the status function must be spelled out explicitly: Actions
+        # only implicitly appends `success()` when a step has NO `if:` at
+        # all. Once a custom `if:` is written, that implicit append stops —
+        # omitting `failure()` here would let this step also run when Step 2
+        # succeeds (RESEARCH Anti-Pattern 3).
+        #
+        # Why `steps.check.outputs.kind` must be non-empty and non-`unknown`:
+        # exit code 2 (the three values couldn't even be parsed) still turns
+        # the job red, but must NOT open a status light — a single curl
+        # timeout opening an issue that says "still unresolved until closed"
+        # would be a false statement, and GATE-07's entire value rests on
+        # that sentence being trustworthy (D-11).
+        if: |
+          failure() &&
+          (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+           (github.event_name == 'push' && github.ref == 'refs/heads/master')) &&
+          steps.check.outputs.kind != '' && steps.check.outputs.kind != 'unknown'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          DOC_VER: ${{ steps.check.outputs.doc_ver }}
+          POM_VER: ${{ steps.check.outputs.pom_ver }}
+          CENTRAL_VER: ${{ steps.check.outputs.central_ver }}
+          KIND: ${{ steps.check.outputs.kind }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # D-04: idempotent label create. Fails non-zero when the label
+          # already exists — that's the expected "already there" outcome, not
+          # an error. Must run before the query below: a newly created issue
+          # needs to carry this label, so the label has to exist first no
+          # matter what the query finds. Both streams are swallowed, not just
+          # stderr — most runs find the label already there, and a red-looking
+          # "already exists" line on every single run would drown out real
+          # failures in the Actions log.
+          gh label create release-sync \
+            --color b60205 \
+            --description "文档站版本与最新正式版不同步" >/dev/null 2>&1 || true
+
+          # D-12/GATE-07: three shapes of exit-1 share this one status light,
+          # but the GATE-07 sentence is only true as a plain statement for
+          # `behind`. For `mismatch`/`ahead` it still appears verbatim — the
+          # GATE-07 acceptance check greps for it literally — but qualified
+          # with "this status light's usual meaning is X; this trigger is not
+          # that one" so the body never asserts something false for the
+          # shape that actually fired. Fix guidance (element 4) is two lines
+          # naming the two files either way; only the target values differ.
+          case "$KIND" in
+            behind)
+              directional_note="未关闭即代表文档站落后于最新正式版。"
+              fix_line1="1. 把 \`.vitepress/config.mts\` 的 \`versionsConfig.current\` 改成 \`${CENTRAL_VER}\`"
+              fix_line2="2. 把 \`examples/pom.xml\` 的 \`<ultitools.version>\` 改成 \`${CENTRAL_VER}\`"
+              ;;
+            mismatch)
+              directional_note="本状态灯的常规含义是：未关闭即代表文档站落后于最新正式版。本次触发的不是这一种——本仓库内部两处版本号不一致：\`.vitepress/config.mts\` 记录的是 \`${DOC_VER}\`，\`examples/pom.xml\` 记录的是 \`${POM_VER}\`。"
+              fix_line1="1. 把 \`.vitepress/config.mts\` 的 \`versionsConfig.current\`（当前 \`${DOC_VER}\`）与 \`examples/pom.xml\` 的 \`<ultitools.version>\`（当前 \`${POM_VER}\`）改成同一个值"
+              fix_line2="2. 对齐后再确认这个值与 Maven Central 的 \`${CENTRAL_VER}\` 一致"
+              ;;
+            ahead)
+              directional_note="本状态灯的常规含义是：未关闭即代表文档站落后于最新正式版。本次触发的不是这一种——文档站版本号超前于 Maven Central 已收录的最新正式版 \`${CENTRAL_VER}\`。"
+              fix_line1="1. 确认这不是误改：如果是，把 \`.vitepress/config.mts\` 的 \`versionsConfig.current\` 改回 \`${CENTRAL_VER}\`"
+              fix_line2="2. 同时把 \`examples/pom.xml\` 的 \`<ultitools.version>\` 改回 \`${CENTRAL_VER}\`"
+              ;;
+          esac
+
+          # D-05: link to the framework release automation's own `docs: sync
+          # v<central>` issue in this repo, if one exists. Optional body
+          # segment — query failure or a genuine miss both degrade to the
+          # same "not found" wording, never to a fail-loud step (this is a
+          # supplementary link, not the dedupe query Task 3 owns).
+          #
+          # `--limit 5`: this only ever consumes `.[0]`, and `gh issue list`'s
+          # default limit (30) is already far more than this exact-title
+          # search could plausibly ever match — the framework's release
+          # automation opens at most one `docs: sync v<X>` issue per release.
+          # Making the limit explicit here anyway (rather than relying on the
+          # default) documents that assumption instead of leaving it implicit,
+          # and keeps this call site consistent with the two dedupe queries
+          # below, which need an explicit limit for a real reason (they
+          # consume the full result, not just `.[0]`).
+          sync_issue_url=$(gh issue list --search "in:title \"docs: sync v${CENTRAL_VER}\"" \
+            --state all --limit 5 --json number,url --jq '.[0].url // empty') || sync_issue_url=""
+          if [ -n "$sync_issue_url" ]; then
+            sync_note="框架侧发布联动开出的同步 issue：${sync_issue_url}"
+          else
+            sync_note="未找到对应的同步 issue。框架仓库的发布联动在 \`DOCS_REPO_TOKEN\` 未配置时会静默跳过开 issue 这一步——那条 warning 只写进框架仓库自己的 Actions 日志，本仓库看不到。"
+          fi
+
+          # Written to a temp file and referenced with -F rather than passed
+          # inline, to avoid stacking YAML folding + bash quoting + Markdown
+          # backtick escaping three levels deep.
+          #
+          # The HTML comment line after the table is D-08's machine-readable
+          # anchor: a later run reads it back (Task 3) to decide whether the
+          # numbers actually changed, instead of parsing the Chinese prose
+          # above — the same reason D-13 rules out grepping this script's
+          # stdout. It renders invisibly to a human reading the issue.
+          cat > "$RUNNER_TEMP/release-sync-body.md" <<BODY
+          ${directional_note}
+
+          | | |
+          |---|---|
+          | config.mts current | \`${DOC_VER}\` |
+          | examples/pom.xml | \`${POM_VER}\` |
+          | Maven Central | \`${CENTRAL_VER}\` |
+
+          <!-- release-sync-state: doc=${DOC_VER} pom=${POM_VER} central=${CENTRAL_VER} -->
+
+          失败 run：${RUN_URL}
+
+          ${fix_line1}
+          ${fix_line2}
+
+          ${sync_note}
+          BODY
+
+          # D-02/D-03: dedupe scope is `--state open` only, dedupe key is the
+          # label only — not title, not the union of both (two parts that
+          # must always be kept in sync is exactly the shape Phase 1's D-01
+          # rejected for a different gate).
+          #
+          # This query is deliberately NOT `|| true`-guarded. Written as
+          # `if ! existing_json=$(...); then ... exit 1; fi` so "the query
+          # itself failed" and "there genuinely is no open status light" stay
+          # two distinguishable states. Swallowing the failure collapses both
+          # into the same empty string, and an empty string here means
+          # "nothing open yet" — so one transient network blip or auth
+          # failure would open a duplicate issue, which is exactly what
+          # D-02/D-03's dedupe exists to prevent.
+          #
+          # One query serves two purposes now (`number` for the D-02/D-03
+          # dedupe decision, `body` for D-08's diff below) rather than firing
+          # the request twice for one round of judgment.
+          #
+          # This is not the same class of failure as the `|| true` pipelines
+          # in check-version-consistency.sh (lines 19-22 there): that
+          # convention covers failures that are allowed and don't change the
+          # conclusion. This query's failure DOES change the next step's
+          # judgment (create vs. skip vs. edit), so it does not get the same
+          # treatment. D-05's link query above stays `|| true`-guarded — it's
+          # an optional body segment, not this decision.
+          #
+          # `--limit 100`: `gh issue list` defaults to `--limit 30`, and this
+          # query's result feeds `sort_by(.number) | .[0]` below — silently
+          # truncating at 30 would mean the "pick the oldest of N open
+          # release-sync issues" logic never sees issue #31 onward if more
+          # than 30 ever accumulate, the same silent-boundary-truncation
+          # shape as CR-01's `.[0]`-only bug, just at the pagination boundary
+          # instead of the first element. `release-sync` is a single
+          # repo-wide status light (D-01) — normal operation holds at most 1
+          # open, and even the worst realistic race (overlapping runs before
+          # the WR-01 concurrency guard existed, or a hand-opened duplicate)
+          # stays in the single digits. 100 is comfortably above any
+          # plausible count while still bounding the request, rather than
+          # requesting an unbounded number of issues on every run.
+          if ! existing_json=$(gh issue list --state open --label release-sync \
+              --limit 100 --json number,body); then
+            echo "::error::查询已有 release-sync 状态灯失败（网络或鉴权问题）。不吞掉这个失败，是为了不让它被误判为「没有已开状态灯」而新开一条重复 issue。"
+            exit 1
+          fi
+
+          # CR-01 修复：正常情况下应当只有 0 或 1 条打开的 release-sync issue，
+          # 但重叠的 workflow 运行（见下面 job 级 concurrency 块之前的历史行为）
+          # 或人工手开的第二条，都可能让这个数字变成 2 或更多。选哪一条作为本次
+          # 更新的目标必须是确定性的，不能依赖 gh 未文档化的默认排序——这里显式
+          # 按 issue number 升序排序后取最小的一条（即最早开出的那条）为canonical
+          # 目标。多出来的那些不在这一步处理：它们会在下面「Close if recovered」
+          # 那一步被全部关闭，而不是在这里被合并或编辑。
+          existing_count=$(printf '%s' "$existing_json" | jq -r 'length')
+          if [ "$existing_count" -gt 1 ]; then
+            echo "::warning::发现 ${existing_count} 条同时处于 open 状态的 release-sync 状态灯，预期最多 1 条。本步骤只更新其中编号最小（最早开出）的一条；其余的会在 recovered 时由下面的关闭步骤统一关闭，不在这里逐条处理。"
+          fi
+
+          # `// empty` on both jq filters matters: `.[0]` on an empty array
+          # evaluates to `null`, which gh's jq prints as the literal string
+          # `null`, and `[ -z "$existing" ]` would not read that as "nothing".
+          # `// empty` makes "nothing" a real empty string.
+          # `sort_by(.number)` makes the `.[0]` pick explicit and deterministic
+          # rather than relying on `gh issue list`'s incidental default order.
+          existing=$(printf '%s' "$existing_json" | jq -r 'sort_by(.number) | .[0].number // empty')
+          existing_body=$(printf '%s' "$existing_json" | jq -r 'sort_by(.number) | .[0].body // empty')
+
+          # D-08: read the PREVIOUS run's numbers back from the machine-
+          # readable state marker Task 2 writes (`doc=`/`pom=`/`central=`),
+          # never by parsing the Chinese prose above it — the same reason
+          # D-13 rules out grepping this script's stdout for the
+          # script→workflow leg. Fixed key names, not a positional/format
+          # guess.
+          #
+          # Extraction failure (e.g. a hand-opened `release-sync` issue with
+          # no marker — T-02-10's accepted case) leaves the three prev_*
+          # values empty, which can never equal a real version number — that
+          # steers into the "edit" branch below, the safe degradation
+          # direction: writing the body again costs nothing, but silently
+          # concluding "unchanged" when we genuinely can't tell would leave a
+          # stale/marker-less body sitting there indefinitely.
+          prev_doc=$(printf '%s' "$existing_body" | grep -oE 'doc=[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d= -f2) || prev_doc=""
+          prev_pom=$(printf '%s' "$existing_body" | grep -oE 'pom=[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d= -f2) || prev_pom=""
+          prev_central=$(printf '%s' "$existing_body" | grep -oE 'central=[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d= -f2) || prev_central=""
+
+          # D-01: fixed title, no version number — open/closed alone is the
+          # invariant's boolean. Three-way dispatch, no `continue-on-error`
+          # on any of them: this job is already red because the invariant
+          # broke, but "did the issue actually get opened/updated" still
+          # needs its own CI-level failure signal — the issue IS this job's
+          # output (D-07's reasoning, mirrored for the open side).
+          if [ -z "$existing" ]; then
+            gh issue create \
+              --title "docs: 文档版本与最新正式版不同步" \
+              --label release-sync \
+              -F "$RUNNER_TEMP/release-sync-body.md"
+          elif [ "$prev_doc" = "$DOC_VER" ] && [ "$prev_pom" = "$POM_VER" ] && [ "$prev_central" = "$CENTRAL_VER" ]; then
+            # D-08: numbers unchanged since the open issue's body was last
+            # written — do nothing at all: no state transition, no comment,
+            # no body rewrite. A year of "still broken" reruns must not turn
+            # into 52 comments (or 52 no-op body rewrites) on the same issue.
+            echo "状态灯已在（issue #$existing），版本号未变，跳过写操作。"
+          else
+            gh issue edit "$existing" -F "$RUNNER_TEMP/release-sync-body.md"
+          fi
+
+      - name: Close release-sync issue if recovered
+        # T-02-07 的不对称容错姿态：这一步与上面开 issue 那一步写法相同——都没有
+        # continue-on-error，两条查询命令都不用 `|| true` 兜底——但失败之后的
+        # 后果不对称。开 issue 那一步失败时，job 已经因为不变式破裂而红，那一步
+        # 再失败不改变结论；这一步的 job 本来是绿的（success() 才会走到这里），
+        # 关闭动作一旦失败就会把这个本该绿的 job 拖红，这正是 D-07 要的效果：
+        # 关闭失败不能悄悄留下一盏关不掉、但看起来和「真的还坏着」一模一样的
+        # 状态灯。
+        #
+        # 将来也不要在这里补 continue-on-error：框架侧 publish-packages.yml
+        # 上的那个开关保护的是「已经成功的发布」这个已经完成的成果；这个 job
+        # 的产出就是信号本身，关闭动作失败没有别的东西需要被保护。
+        #
+        # if: 事件面与开 issue 那一步完全一致（D-14），仍按事件名而非
+        # github.ref 卡，理由同 D-15——分支演练要在非 master 分支上 dispatch
+        # 到这里。状态函数必须显式写出来：Actions 只在 step 完全没有 if: 时
+        # 才隐式附加 success()，一旦写了自定义 if:，隐式附加就不再生效。
+        if: |
+          success() &&
+          (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+           (github.event_name == 'push' && github.ref == 'refs/heads/master'))
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          DOC_VER: ${{ steps.check.outputs.doc_ver }}
+          POM_VER: ${{ steps.check.outputs.pom_ver }}
+          CENTRAL_VER: ${{ steps.check.outputs.central_ver }}
+        run: |
+          # D-02/D-03: 查询姿态与开 issue 那一步同一个姿态——不用 `|| true`
+          # 兜底。一次查询失败如果被吞掉，existing_numbers 会变成空，代码就会
+          # 当作「没有状态灯要关」而静静走完，job 保持绿色，而状态灯还亮着——
+          # 外观与「真的还坏着」一模一样。这正是 D-07 要除掉的失败形状。
+          #
+          # CR-01 修复：这里改成取全部（`.[]`）而不是只取 `.[0]`。正常情况下
+          # open 的 release-sync issue 最多只有一条，但重叠的 workflow 运行、
+          # 或人工手开的重复 issue，都可能让这个数字变成 2 条以上——旧写法
+          # 只关掉排第一的那条，其余的会被永远遗漏在 open 状态，让「未关闭即
+          # 代表文档站落后于最新正式版」这句话变成假话。这一步存在的唯一
+          # 目的就是保证「恢复」等价于「关闭全部」，所以必须逐条处理，不能
+          # 只挑一条。
+          #
+          # `--limit 100`：`gh issue list` 默认只取 30 条，而这里取的是全部
+          # 结果集，不是 `.[0]`——默认值会在这里静默截断，是和上面
+          # `.[0]`-only 那个 bug 同一种失败形状，只是发生在分页边界而不是第
+          # 一个元素上。`release-sync` 是单一的仓库级状态灯（D-01），正常
+          # 情况下最多一条 open，即使遇到最坏的现实场景（WR-01 并发保护上线
+          # 前的重叠运行、或人工手开的重复 issue）也停留在个位数。100 已经
+          # 远高于任何现实场景会出现的数量，同时仍然是一个显式的上限，而不
+          # 是让每次运行都发出一个无上限的请求。
+          if ! existing_numbers=$(gh issue list --state open --label release-sync \
+              --limit 100 --json number --jq '.[].number'); then
+            echo "::error::查询已有 release-sync 状态灯失败（网络或鉴权问题）。不吞掉这个失败，是为了不让本来绿的 job 悄悄保持绿色，而状态灯其实还没被关掉。"
+            exit 1
+          fi
+
+          # existing_numbers 为空是最常见的情况——绝大多数绿色运行都没有状态灯
+          # 要关，这不是错误。非空时逐条关闭：`gh issue close` 自带 -c/--comment
+          # 参数，一次性完成「追一条已恢复评论」加「关闭」两个动作
+          # （RESEARCH Pattern 2），不需要先单独发一条评论再关闭。多条时每条
+          # 都各自收到同一句「已恢复」评论并各自关闭，不合并成一条评论。
+          if [ -n "$existing_numbers" ]; then
+            while IFS= read -r existing; do
+              gh issue close "$existing" -c "版本已恢复同步：\`${DOC_VER}\` == \`${POM_VER}\` == \`${CENTRAL_VER}\`。"
+            done <<< "$existing_numbers"
+          fi
+
+  version-signal-regression-tests:
+    name: check-version-consistency.sh regression tests
+    runs-on: ubuntu-latest
+    # WR-05 fix: scripts/test-version-signal.sh guards the two silent-
+    # wrong-answer bugs this Phase exists to avoid (the two-digit-PATCH
+    # lexicographic-compare bug in F_two_digit_patch, and the mismatch-
+    # before-direction judgment order in G_mismatch) — until now nothing
+    # ran it, so a regression on either bug would ship silently. It needs
+    # no GitHub API access (every case strips `gh` from PATH so the script
+    # always takes its early-return branch), so no `permissions` beyond
+    # the job-default read-only scope is required.
+    #
+    # Excluded from `pull_request`: 4 of its 7 cases probe Maven Central
+    # over the network, and the harness itself is written to fail (not
+    # silently skip) when that network is unreachable — a deliberate
+    # choice so an unreachable-network environment doesn't quietly stop
+    # providing coverage forever. Running that as a required `pull_request`
+    # check would fail unrelated PRs on a transient network blip that has
+    # nothing to do with the PR's own content. `push` triggers on every
+    # branch (`branches: ["**"]` above), so a same-repo PR's source branch
+    # still gets this coverage via its own push events; a fork PR's branch
+    # never produces a push event against this repository and so misses
+    # coverage until it lands on a branch here — an accepted, documented
+    # gap (see WR-05, .planning/phases/02-version-sync-signal/02-REVIEW.md),
+    # not a silent one.
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 构建期会执行仓库外的代码，不持久化凭据可避免 token 落到 .git/config
+          persist-credentials: false
+
+      - name: Run check-version-consistency.sh regression tests
+        run: bash scripts/test-version-signal.sh
