@@ -216,39 +216,73 @@ jobs:
           # rejected for a different gate).
           #
           # This query is deliberately NOT `|| true`-guarded. Written as
-          # `if ! existing=$(...); then ... exit 1; fi` so "the query itself
-          # failed" and "there genuinely is no open status light" stay two
-          # distinguishable states. Swallowing the failure collapses both into
-          # the same empty string, and an empty string here means "nothing
-          # open yet" — so one transient network blip or auth failure would
-          # open a duplicate issue, which is exactly what D-02/D-03's dedupe
-          # exists to prevent.
+          # `if ! existing_json=$(...); then ... exit 1; fi` so "the query
+          # itself failed" and "there genuinely is no open status light" stay
+          # two distinguishable states. Swallowing the failure collapses both
+          # into the same empty string, and an empty string here means
+          # "nothing open yet" — so one transient network blip or auth
+          # failure would open a duplicate issue, which is exactly what
+          # D-02/D-03's dedupe exists to prevent.
           #
-          # `// empty` on the jq filter matters for the same reason: `.[0]`
-          # on an empty array evaluates to `null`, which gh prints as the
-          # literal string `null`, and `[ -z "$existing" ]` would not read
-          # that as "nothing". `// empty` makes "nothing" a real empty string.
+          # One query serves two purposes now (`number` for the D-02/D-03
+          # dedupe decision, `body` for D-08's diff below) rather than firing
+          # the request twice for one round of judgment.
           #
           # This is not the same class of failure as the `|| true` pipelines
           # in check-version-consistency.sh (lines 19-22 there): that
           # convention covers failures that are allowed and don't change the
           # conclusion. This query's failure DOES change the next step's
-          # judgment (create vs. skip), so it does not get the same treatment.
-          if ! existing=$(gh issue list --state open --label release-sync \
-              --json number --jq '.[0].number // empty'); then
+          # judgment (create vs. skip vs. edit), so it does not get the same
+          # treatment. D-05's link query above stays `|| true`-guarded — it's
+          # an optional body segment, not this decision.
+          if ! existing_json=$(gh issue list --state open --label release-sync \
+              --json number,body); then
             echo "::error::查询已有 release-sync 状态灯失败（网络或鉴权问题）。不吞掉这个失败，是为了不让它被误判为「没有已开状态灯」而新开一条重复 issue。"
             exit 1
           fi
 
+          # `// empty` on both jq filters matters: `.[0]` on an empty array
+          # evaluates to `null`, which gh's jq prints as the literal string
+          # `null`, and `[ -z "$existing" ]` would not read that as "nothing".
+          # `// empty` makes "nothing" a real empty string.
+          existing=$(printf '%s' "$existing_json" | jq -r '.[0].number // empty')
+          existing_body=$(printf '%s' "$existing_json" | jq -r '.[0].body // empty')
+
+          # D-08: read the PREVIOUS run's numbers back from the machine-
+          # readable state marker Task 2 writes (`doc=`/`pom=`/`central=`),
+          # never by parsing the Chinese prose above it — the same reason
+          # D-13 rules out grepping this script's stdout for the
+          # script→workflow leg. Fixed key names, not a positional/format
+          # guess.
+          #
+          # Extraction failure (e.g. a hand-opened `release-sync` issue with
+          # no marker — T-02-10's accepted case) leaves the three prev_*
+          # values empty, which can never equal a real version number — that
+          # steers into the "edit" branch below, the safe degradation
+          # direction: writing the body again costs nothing, but silently
+          # concluding "unchanged" when we genuinely can't tell would leave a
+          # stale/marker-less body sitting there indefinitely.
+          prev_doc=$(printf '%s' "$existing_body" | grep -oE 'doc=[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d= -f2) || prev_doc=""
+          prev_pom=$(printf '%s' "$existing_body" | grep -oE 'pom=[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d= -f2) || prev_pom=""
+          prev_central=$(printf '%s' "$existing_body" | grep -oE 'central=[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d= -f2) || prev_central=""
+
           # D-01: fixed title, no version number — open/closed alone is the
-          # invariant's boolean. `existing` non-empty currently always edits;
-          # D-08's "only edit when the version numbers actually changed" is
-          # left to a later phase.
+          # invariant's boolean. Three-way dispatch, no `continue-on-error`
+          # on any of them: this job is already red because the invariant
+          # broke, but "did the issue actually get opened/updated" still
+          # needs its own CI-level failure signal — the issue IS this job's
+          # output (D-07's reasoning, mirrored for the open side).
           if [ -z "$existing" ]; then
             gh issue create \
               --title "docs: 文档版本与最新正式版不同步" \
               --label release-sync \
               -F "$RUNNER_TEMP/release-sync-body.md"
+          elif [ "$prev_doc" = "$DOC_VER" ] && [ "$prev_pom" = "$POM_VER" ] && [ "$prev_central" = "$CENTRAL_VER" ]; then
+            # D-08: numbers unchanged since the open issue's body was last
+            # written — do nothing at all: no state transition, no comment,
+            # no body rewrite. A year of "still broken" reruns must not turn
+            # into 52 comments (or 52 no-op body rewrites) on the same issue.
+            echo "状态灯已在（issue #$existing），版本号未变，跳过写操作。"
           else
             gh issue edit "$existing" -F "$RUNNER_TEMP/release-sync-body.md"
           fi
