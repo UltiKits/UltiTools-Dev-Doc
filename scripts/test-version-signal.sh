@@ -177,25 +177,76 @@ run_case_b() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Case F: two-digit PATCH regression guard (02-02 Task 1's red case). Both
-# version files pinned at 6.2.10 while the real Central release is 6.2.5 →
-# doc == pom > central, the "ahead" shape. Under lexicographic string
-# comparison, "6.2.10" sorts BEFORE "6.2.5" (the character '1' < '5'), so a
-# `version_lt`/kind implementation using shell `<`/`>` string tests would
-# misjudge this as "behind" instead of "ahead" — exactly the two-digit-PATCH
-# failure RESEARCH Pitfall 3 describes. This case goes red under that bug and
-# green once `sort -V` (numeric-aware) is used.
+# Case F: two-digit PATCH regression guard (02-02 Task 1's red case).
 #
-# Note: if Maven Central's real <release> itself ever reaches 6.2.10 or
-# higher, all three values become equal and this case's fixture stops
-# exercising the intended shape (rc would be 0, not 1) — the fixture value
-# would need to be bumped past whatever Central's release has become.
+# The fixture used to be hardcoded at 6.2.10 against whatever the real
+# Central release happened to be. That only worked while Central's real
+# <release> stayed below 6.2.10 — once Central reaches 6.2.10 the three
+# values become equal (rc=0, not 1) and past it the shape flips to "behind"
+# (rc=1, kind=behind) — either way the fixed `kind=ahead` assertion goes red
+# on a date that has nothing to do with a real regression in this script.
+#
+# So the fixture is derived from the real fetched `central` value instead:
+# `segment_is_trap_usable`/`lex_trap_value` (below) construct a segment one
+# digit longer than the corresponding central segment, leading with '1' and
+# zero-filled after — e.g. central patch "5" -> trap "10", central patch
+# "25" -> trap "100". This is always both (a) numerically greater than the
+# original segment (an N+1-digit number is always greater than any N-digit
+# number) and (b) lexicographically LESS than it as a plain string, UNLESS
+# the original segment's own string is already the minimal representative of
+# its digit-length class — i.e. "0", or "1" followed only by zeros (1, 10,
+# 100, ...; proof: no string representing an integer greater than 10^k can
+# be a lexicographic prefix-match-then-undercut of "1" + k zeros, since every
+# digit in "1"+zeros is already at its minimum for a valid, non-leading-zero
+# representation). `segment_is_trap_usable` rejects exactly those inputs, and
+# the case cascades from patch to minor to major until it finds a segment the
+# trap can be built on — which also means the case still goes red if
+# `version_lt` were reverted to lexicographic string comparison, the actual
+# regression RESEARCH Pitfall 3 describes, regardless of what Central's real
+# release happens to be on the day this runs.
 # ─────────────────────────────────────────────────────────────────────────────
+
+# True (rc 0) iff `s` (a decimal integer segment, no leading zeros) can host
+# the two-digit trap described above — false only for "0" and pure powers of
+# ten ("1", "10", "100", ...), where the segment's digits are already at
+# their minimum for that digit length and cannot be undercut.
+segment_is_trap_usable() {
+  local s="$1"
+  [ "$s" = "0" ] && return 1
+  printf '%s' "$s" | grep -qE '^10*$' && return 1
+  return 0
+}
+
+# Given a usable segment string, returns the smallest trap value: one digit
+# longer, leading '1', the rest zeros (i.e. 10^len(s)).
+lex_trap_value() {
+  local s="$1" len zeros=""
+  len=${#s}
+  local i=0
+  while [ "$i" -lt "$len" ]; do zeros="${zeros}0"; i=$((i + 1)); done
+  printf '1%s' "$zeros"
+}
 
 run_case_f() {
   local central="$1"
+  local c_major c_minor c_patch
+  IFS='.' read -r c_major c_minor c_patch <<< "$central"
+
+  local fixture_major="$c_major" fixture_minor="$c_minor" fixture_patch="$c_patch" trap_segment
+  if segment_is_trap_usable "$c_patch"; then
+    fixture_patch=$(lex_trap_value "$c_patch")
+    trap_segment="patch"
+  elif segment_is_trap_usable "$c_minor"; then
+    fixture_minor=$(lex_trap_value "$c_minor")
+    trap_segment="minor"
+  else
+    fixture_major=$(lex_trap_value "$c_major")
+    trap_segment="major"
+  fi
+  local fixture_ver="${fixture_major}.${fixture_minor}.${fixture_patch}"
+
   local dir out_file rc
-  dir=$(make_fixture "6.2.10" "6.2.10")
+  dir=$(make_fixture "$fixture_ver" "$fixture_ver")
   out_file=$(mktemp)
   rc=0
   run_without_gh "$dir" "$out_file" || rc=$?
@@ -204,7 +255,7 @@ run_case_f() {
   local ok=0
   [ "$rc" = "1" ] || { ok=1; }
   [ "$kind" = "ahead" ] || { ok=1; }
-  report "F_two_digit_patch" "$ok" "rc=$rc kind=$kind (want rc=1 kind=ahead; doc=pom=6.2.10 > central=$central — a lexicographic-compare bug would report kind=behind instead)"
+  report "F_two_digit_patch" "$ok" "rc=$rc kind=$kind (want rc=1 kind=ahead; fixture=doc=pom=$fixture_ver > central=$central, trap built on the $trap_segment segment — a lexicographic-compare bug would report kind=behind or mismatch instead)"
   rm -rf "$dir" "$out_file"
 }
 
