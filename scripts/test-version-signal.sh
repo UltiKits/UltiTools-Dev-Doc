@@ -239,9 +239,26 @@ run_case_f() {
   elif segment_is_trap_usable "$c_minor"; then
     fixture_minor=$(lex_trap_value "$c_minor")
     trap_segment="minor"
-  else
+  elif segment_is_trap_usable "$c_major"; then
     fixture_major=$(lex_trap_value "$c_major")
     trap_segment="major"
+  else
+    # No segment can host the trap: patch, minor, and major are all "0" or a
+    # pure power of ten (e.g. central "1.0.0"). Applying lex_trap_value to
+    # the major segment unconditionally here (the prior behavior) would
+    # silently build a fixture like "10.0.0", which both a correct numeric
+    # compare AND a reverted lexicographic compare classify as "ahead" —
+    # the case would pass either way, so a version_lt regression at exactly
+    # this boundary would go undetected while the case still reports green.
+    # Reporting a SKIP (and failing the run, same as the network-unreachable
+    # path below) keeps that hole visible instead of quietly waving it
+    # through. Not expected to trigger against a real Maven Central release
+    # for this project (currently 6.2.5), since that would require Central's
+    # <release> itself to be something like "1.0.0".
+    echo "  SKIP: F_two_digit_patch (central=$central has no trap-usable segment — major, minor, and patch are all \"0\" or a power of ten; the regression guard cannot be constructed for this input)"
+    skipped="${skipped:+$skipped }F_two_digit_patch"
+    status=1
+    return 0
   fi
   local fixture_ver="${fixture_major}.${fixture_minor}.${fixture_patch}"
 
