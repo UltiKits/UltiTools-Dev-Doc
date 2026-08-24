@@ -241,12 +241,26 @@ jobs:
             exit 1
           fi
 
+          # CR-01 修复：正常情况下应当只有 0 或 1 条打开的 release-sync issue，
+          # 但重叠的 workflow 运行（见下面 job 级 concurrency 块之前的历史行为）
+          # 或人工手开的第二条，都可能让这个数字变成 2 或更多。选哪一条作为本次
+          # 更新的目标必须是确定性的，不能依赖 gh 未文档化的默认排序——这里显式
+          # 按 issue number 升序排序后取最小的一条（即最早开出的那条）为canonical
+          # 目标。多出来的那些不在这一步处理：它们会在下面「Close if recovered」
+          # 那一步被全部关闭，而不是在这里被合并或编辑。
+          existing_count=$(printf '%s' "$existing_json" | jq -r 'length')
+          if [ "$existing_count" -gt 1 ]; then
+            echo "::warning::发现 ${existing_count} 条同时处于 open 状态的 release-sync 状态灯，预期最多 1 条。本步骤只更新其中编号最小（最早开出）的一条；其余的会在 recovered 时由下面的关闭步骤统一关闭，不在这里逐条处理。"
+          fi
+
           # `// empty` on both jq filters matters: `.[0]` on an empty array
           # evaluates to `null`, which gh's jq prints as the literal string
           # `null`, and `[ -z "$existing" ]` would not read that as "nothing".
           # `// empty` makes "nothing" a real empty string.
-          existing=$(printf '%s' "$existing_json" | jq -r '.[0].number // empty')
-          existing_body=$(printf '%s' "$existing_json" | jq -r '.[0].body // empty')
+          # `sort_by(.number)` makes the `.[0]` pick explicit and deterministic
+          # rather than relying on `gh issue list`'s incidental default order.
+          existing=$(printf '%s' "$existing_json" | jq -r 'sort_by(.number) | .[0].number // empty')
+          existing_body=$(printf '%s' "$existing_json" | jq -r 'sort_by(.number) | .[0].body // empty')
 
           # D-08: read the PREVIOUS run's numbers back from the machine-
           # readable state marker Task 2 writes (`doc=`/`pom=`/`central=`),
@@ -316,19 +330,30 @@ jobs:
           CENTRAL_VER: ${{ steps.check.outputs.central_ver }}
         run: |
           # D-02/D-03: 查询姿态与开 issue 那一步同一个姿态——不用 `|| true`
-          # 兜底。一次查询失败如果被吞掉，existing 会变成空，代码就会当作
-          # 「没有状态灯要关」而静静走完，job 保持绿色，而状态灯还亮着——
+          # 兜底。一次查询失败如果被吞掉，existing_numbers 会变成空，代码就会
+          # 当作「没有状态灯要关」而静静走完，job 保持绿色，而状态灯还亮着——
           # 外观与「真的还坏着」一模一样。这正是 D-07 要除掉的失败形状。
-          if ! existing=$(gh issue list --state open --label release-sync \
-              --json number --jq '.[0].number // empty'); then
+          #
+          # CR-01 修复：这里改成取全部（`.[]`）而不是只取 `.[0]`。正常情况下
+          # open 的 release-sync issue 最多只有一条，但重叠的 workflow 运行、
+          # 或人工手开的重复 issue，都可能让这个数字变成 2 条以上——旧写法
+          # 只关掉排第一的那条，其余的会被永远遗漏在 open 状态，让「未关闭即
+          # 代表文档站落后于最新正式版」这句话变成假话。这一步存在的唯一
+          # 目的就是保证「恢复」等价于「关闭全部」，所以必须逐条处理，不能
+          # 只挑一条。
+          if ! existing_numbers=$(gh issue list --state open --label release-sync \
+              --json number --jq '.[].number'); then
             echo "::error::查询已有 release-sync 状态灯失败（网络或鉴权问题）。不吞掉这个失败，是为了不让本来绿的 job 悄悄保持绿色，而状态灯其实还没被关掉。"
             exit 1
           fi
 
-          # existing 为空是最常见的情况——绝大多数绿色运行都没有状态灯要关，
-          # 这不是错误。非空时才需要关闭：下面这条命令自带 -c/--comment
+          # existing_numbers 为空是最常见的情况——绝大多数绿色运行都没有状态灯
+          # 要关，这不是错误。非空时逐条关闭：`gh issue close` 自带 -c/--comment
           # 参数，一次性完成「追一条已恢复评论」加「关闭」两个动作
-          # （RESEARCH Pattern 2），不需要先单独发一条评论再关闭。
-          if [ -n "$existing" ]; then
-            gh issue close "$existing" -c "版本已恢复同步：\`${DOC_VER}\` == \`${POM_VER}\` == \`${CENTRAL_VER}\`。"
+          # （RESEARCH Pattern 2），不需要先单独发一条评论再关闭。多条时每条
+          # 都各自收到同一句「已恢复」评论并各自关闭，不合并成一条评论。
+          if [ -n "$existing_numbers" ]; then
+            while IFS= read -r existing; do
+              gh issue close "$existing" -c "版本已恢复同步：\`${DOC_VER}\` == \`${POM_VER}\` == \`${CENTRAL_VER}\`。"
+            done <<< "$existing_numbers"
           fi
