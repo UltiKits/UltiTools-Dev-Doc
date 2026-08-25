@@ -61,7 +61,7 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 它可以处理大多数情况，但并不是所有情况。如果你需要解析一个更复杂的对象，你可以创建一个继承 `ConfigParser` 类的类，并在 `parser` 属性中指定它。
 
 ::: tip 内置解析器示例
-`StringHashMapParser` 是框架内置、可直接复用的实现，通过 `@ConfigEntry(parser = ...)` 直接引用即可，不需要另外自己实现一个解析器。
+`StringHashMapParser` 是框架内置、可直接复用的实现，完整类名为 `com.ultikits.ultitools.interfaces.impl.pasers.StringHashMapParser`，通过 `@ConfigEntry(parser = StringHashMapParser.class)` 直接引用即可，不需要另外自己实现一个解析器。下方代码仅用于展示其实现逻辑，请导入上面给出的框架类，不要导入这个示例文件。
 <<< @/../examples/src/main/java/com/ultikits/docs/config/StringHashMapParser.java
 :::
 

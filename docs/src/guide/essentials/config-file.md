@@ -73,7 +73,7 @@ object in the configuration file to the type of the configuration item. The defa
 inherit the `ConfigParser` class and specify it in the `parser` attribute.
 
 ::: tip Built-in Parser
-`StringHashMapParser` is a built-in, ready-to-use implementation. Reference it directly with `@ConfigEntry(parser = ...)` instead of writing a new parser for this shape of data.
+`StringHashMapParser` is a built-in, ready-to-use implementation at `com.ultikits.ultitools.interfaces.impl.pasers.StringHashMapParser`. Reference it directly with `@ConfigEntry(parser = StringHashMapParser.class)` instead of writing a new parser for this shape of data. The snippet below reproduces its logic for illustration only; import the framework class above, not this file.
 <<< @/../examples/src/main/java/com/ultikits/docs/config/StringHashMapParser.java
 :::
 
