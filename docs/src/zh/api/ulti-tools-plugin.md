@@ -28,7 +28,7 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 ## 构造器概要
 :::tabs
 == 构造器
-`UltiToolsPlugin()`
+`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass)` `@Deprecated`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
 :::
 
 ## 方法概要
@@ -98,7 +98,7 @@ equals, getClass, hashCode, notify, notifyAll, toString, wait, wait, wait
 
 ### 从接口继承的方法
 ::: info com.ultikits.ultitools.interfaces.IPlugin
-minUltiToolsVersion, pluginName, registerSelf, reloadSelf, unregisterSelf
+registerSelf, reloadSelf, unregisterSelf
 :::
 
 ::: info com.ultikits.ultitools.interfaces.Localized
@@ -111,5 +111,5 @@ getAllConfigs, getConfig, saveConfig
 
 ## 构造器详细资料
 ::: info UltiToolsPlugin
-UltiToolsPlugin()
+`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass)` `@Deprecated`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
 :::
