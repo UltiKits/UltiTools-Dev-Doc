@@ -31,7 +31,7 @@ the next section.
 
 ::: warning The six-parameter connector constructor is marked for removal
 The example below calls the six-parameter `UltiToolsPlugin` constructor, which carries `@Deprecated(since = "6.0.8", forRemoval = true)` and hardcodes the resource folder path, so javac reports a removal warning on every build.
-Switch to `UltiToolsAPI.connect(this)`, or call the seven-parameter constructor and pass `resourceFolderPath` yourself: both are supported on v6.2.5.
+Move the integration to the External Plugin API and call `UltiToolsAPI.connect` from your own `JavaPlugin`, or keep the connector and call the seven-parameter constructor passing `resourceFolderPath` yourself: both are supported on v6.2.5.
 The replacement signature for connectors is still being decided in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217), and the removal itself is tracked in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213).
 :::
 

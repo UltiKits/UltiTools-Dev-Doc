@@ -53,7 +53,7 @@ public class PluginMain extends UltiToolsPlugin {
 
 ::: warning 六参数连接器构造器已标记为待移除
 下面示例中的构造器对应 `UltiToolsPlugin` 上带 `@Deprecated(since = "6.0.8", forRemoval = true)` 的重载，它把资源目录路径写死，凡是用到的地方 javac 都会产生一条移除警告，页面下方 `@ContextEntry` 示例里的同一个构造器也是如此。
-改用 `UltiToolsAPI.connect(this)`，或改调七参数构造器并自行传入 `resourceFolderPath`：这两种写法在 v6.2.5 上都可用。
+改用外部插件 API，在你自己的 `JavaPlugin` 里调用 `UltiToolsAPI.connect`，或者保留连接器、改调七参数构造器并自行传入 `resourceFolderPath`：这两种写法在 v6.2.5 上都可用。
 连接器的替代签名仍在 [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217) 中讨论，移除动作本身跟踪于 [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213)。
 :::
 

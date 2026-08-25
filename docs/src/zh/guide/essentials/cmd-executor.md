@@ -26,7 +26,7 @@ UltiTools-API 对原生的 `CommandExecutor` 接口进行了封装，提供了�
 
 ::: warning 六参数连接器构造器已标记为待移除
 下面的示例调用的是六参数 `UltiToolsPlugin` 构造器，它带有 `@Deprecated(since = "6.0.8", forRemoval = true)` 并把资源目录路径写死，因此每次编译都会产生一条移除警告。
-改用 `UltiToolsAPI.connect(this)`，或改调七参数构造器并自行传入 `resourceFolderPath`：这两种写法在 v6.2.5 上都可用。
+改用外部插件 API，在你自己的 `JavaPlugin` 里调用 `UltiToolsAPI.connect`，或者保留连接器、改调七参数构造器并自行传入 `resourceFolderPath`：这两种写法在 v6.2.5 上都可用。
 连接器的替代签名仍在 [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217) 中讨论，移除动作本身跟踪于 [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213)。
 :::
 
