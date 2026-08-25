@@ -15,7 +15,7 @@ DataOperator<HomeEntity> dataOperator = plugin.getDataOperator(HomeEntity.class)
 
 // Find all homes belonging to a player
 List<HomeEntity> homes = dataOperator.query()
-    .where("playerId").eq(playerUuid)
+    .where("player_id").eq(playerUuid)
     .list();
 ```
 
@@ -28,7 +28,7 @@ Use `where()` to start your first condition, and `and()` to add additional condi
 ```java
 // Find a specific home by player and name
 HomeEntity home = dataOperator.query()
-    .where("playerId").eq(playerUuid)
+    .where("player_id").eq(playerUuid)
     .and("name").eq("base")
     .first();
 ```
@@ -107,12 +107,12 @@ Every query chain must end with a terminal operation:
 ```java
 // Check if a player has any homes
 boolean hasHomes = dataOperator.query()
-    .where("playerId").eq(playerUuid)
+    .where("player_id").eq(playerUuid)
     .exists();
 
 // Count homes for a player
 long homeCount = dataOperator.query()
-    .where("playerId").eq(playerUuid)
+    .where("player_id").eq(playerUuid)
     .count();
 
 // Delete all homes in a specific world

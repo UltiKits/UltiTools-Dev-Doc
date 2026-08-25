@@ -18,7 +18,7 @@ UltiTools提供了优雅的单例模式的封装API，让你可以像操作对�
 
 `@ConfigEntity` 注解用于标记一个配置文件的位置，需要一个字符串参数，用于指定配置文件在插件配置文件夹中的路径。通常这个路径与你在开发过程中resource文件夹目录中的路径是相同的。
 
-但是这里的字符串也可以指向一个文件夹。如果你指定的是一个文件夹，则整个文件夹下的所有配置文件都会被加载为当前配置类。
+但是这里的字符串也可以指向一个文件夹。如果你指定的是一个文件夹，则该文件夹下只有 `.yml` 文件会被加载为当前配置类，其余类型会被静默跳过。
 
 ```java
 @Getter
@@ -60,7 +60,8 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 `parser` 属性用于指定该配置项的解析器。解析器用于将配置文件中的对象转换为配置项的类型。默认的解析器是 `DefaultConfigParser` ，
 它可以处理大多数情况，但并不是所有情况。如果你需要解析一个更复杂的对象，你可以创建一个继承 `ConfigParser` 类的类，并在 `parser` 属性中指定它。
 
-::: tip 自定义解析器示例
+::: tip 内置解析器示例
+`StringHashMapParser` 是框架内置、可直接复用的实现，完整类名为 `com.ultikits.ultitools.interfaces.impl.pasers.StringHashMapParser`，通过 `@ConfigEntry(parser = StringHashMapParser.class)` 直接引用即可，不需要另外自己实现一个解析器。下方代码仅用于展示其实现逻辑，请导入上面给出的框架类，不要导入这个示例文件。
 <<< @/../examples/src/main/java/com/ultikits/docs/config/StringHashMapParser.java
 :::
 
@@ -111,6 +112,7 @@ boolean something = someConfig.getSomething();
 ### 手动注册
 
 你可以重写你的插件主类中的 `getAllConfigs` 方法来注册配置文件。
+这条路径仅在插件主类未启用自动配置注册（`@EnableAutoRegister` 或 `@UltiToolsModule`，其 `config` 属性默认为 `true`）时才会生效：一旦启用，`getAllConfigs` 就不会被调用，即使你重写了它。`@ConfigEntity` 在两条路径下都是必需的，但它本身并不决定哪条路径生效。
 
 ```java
 @Override
@@ -142,5 +144,5 @@ public List<AbstractConfigEntity> getAllConfigs() {
 `UltiToolsPlugin` 提供了 `getConfigManager#reloadConfigs` 方法，你可以在需要的时候调用它来重新加载配置文件。
 
 ```java
-Someplugin.getConfigManager().reloadConfigs();
+SomePlugin.getConfigManager().reloadConfigs(SomePlugin.getInstance());
 ```

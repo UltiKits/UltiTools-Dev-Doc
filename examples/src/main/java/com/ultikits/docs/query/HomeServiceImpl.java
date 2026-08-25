@@ -32,7 +32,7 @@ public class HomeServiceImpl implements HomeService {
     @Override
     public HomeEntity getHome(String playerUuid, String homeName) {
         return plugin.getDataOperator(HomeEntity.class).query()
-            .where("playerId").eq(playerUuid)
+            .where("player_id").eq(playerUuid)
             .and("name").eq(homeName)
             .first();
     }
@@ -40,7 +40,7 @@ public class HomeServiceImpl implements HomeService {
     @Override
     public List<HomeEntity> getAllHomes(String playerUuid) {
         return plugin.getDataOperator(HomeEntity.class).query()
-            .where("playerId").eq(playerUuid)
+            .where("player_id").eq(playerUuid)
             .orderBy("name")
             .list();
     }
@@ -48,7 +48,7 @@ public class HomeServiceImpl implements HomeService {
     @Override
     public boolean homeExists(String playerUuid, String homeName) {
         return plugin.getDataOperator(HomeEntity.class).query()
-            .where("playerId").eq(playerUuid)
+            .where("player_id").eq(playerUuid)
             .and("name").eq(homeName)
             .exists();
     }
@@ -56,7 +56,7 @@ public class HomeServiceImpl implements HomeService {
     @Override
     public void deleteHome(String playerUuid, String homeName) {
         plugin.getDataOperator(HomeEntity.class).query()
-            .where("playerId").eq(playerUuid)
+            .where("player_id").eq(playerUuid)
             .and("name").eq(homeName)
             .delete();
     }

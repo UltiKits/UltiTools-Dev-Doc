@@ -34,7 +34,7 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 | `onLoad()` | 在从数据存储加载实体后调用 |
 | `validate()` | 实体有效返回 `true` |
 | `isNew()` | 实体无 ID 时返回 `true` |
-| `copyWithoutId()` | 创建不含 ID 的实体副本 |
+| `copyWithoutId()` | 创建不含 ID 的实体副本，前提是实体类自行实现 `Cloneable` |
 
 ### AuditableDataEntity <Badge type="tip" text="v6.2.0+" />
 
@@ -108,7 +108,7 @@ if (entry.wasModified()) {
 
 ### @Column 注解
 
-`@Column` 注解有三个属性，`value` 属性用于指定该字段对应的数据表的列，`type` 属性用于指定该字段对应的数据表的列的类型。
+`@Column` 注解有两个属性，`value` 属性用于指定该字段对应的数据表的列，`type` 属性用于指定该字段对应的数据表的列的类型。
 
 type 属性的默认值为 `VARCHAR(255)`。
 
@@ -194,9 +194,15 @@ dataOperator.update("name", "newName", entityId);
 使用实体对象更新：
 
 ```java
-entity.setName("newName");
-dataOperator.update(entity);
+try {
+    entity.setName("newName");
+    dataOperator.update(entity);
+} catch (IllegalAccessException e) {
+    // 处理异常或继续向上抛出
+}
 ```
+
+该重载声明了受检异常 `IllegalAccessException`，调用方需要声明或捕获它。
 
 ### 删除
 

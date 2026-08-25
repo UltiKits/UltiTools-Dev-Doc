@@ -7,8 +7,8 @@ import java.util.List;
 
 public class UltiToolsConnector extends UltiToolsPlugin {
 
-    public UltiToolsConnector(String name, String version, List<String> authors, List<String> depend, int loadPriority, String mainClass) {
-        super(name, version, authors, depend, loadPriority, mainClass);
+    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass) {
+        super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass);
     }
 
     @Override

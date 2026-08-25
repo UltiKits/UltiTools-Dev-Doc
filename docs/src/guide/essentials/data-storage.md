@@ -36,7 +36,7 @@ Starting from v6.2.0, `DataOperator`, `Query`, and `UltiToolsPlugin.getDataOpera
 | `onLoad()` | Called after the entity is loaded from the data store |
 | `validate()` | Returns `true` if the entity is valid |
 | `isNew()` | Returns `true` if the entity has no ID |
-| `copyWithoutId()` | Creates a copy of the entity without the ID |
+| `copyWithoutId()` | Creates a copy of the entity without the ID. The entity class must implement `Cloneable`. |
 
 ### AuditableDataEntity <Badge type="tip" text="v6.2.0+" />
 
@@ -110,7 +110,7 @@ if (entry.wasModified()) {
 
 ### @Column
 
-`@Column` annotation has three attributes, `value` attribute is used to specify the column of the data set corresponding to the field, `type` attribute is used to specify the type of the column of the data set corresponding to the field.
+`@Column` annotation has two attributes, `value` attribute is used to specify the column of the data set corresponding to the field, `type` attribute is used to specify the type of the column of the data set corresponding to the field.
 
 The default value of the `type` attribute is `VARCHAR(255)`.
 
@@ -196,9 +196,15 @@ dataOperator.update("name", "newName", entityId);
 Update by entity object:
 
 ```java
-entity.setName("newName");
-dataOperator.update(entity);
+try {
+    entity.setName("newName");
+    dataOperator.update(entity);
+} catch (IllegalAccessException e) {
+    // handle or rethrow
+}
 ```
+
+This overload declares `throws IllegalAccessException`, so the calling method must declare or catch it.
 
 ### Delete
 

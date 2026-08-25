@@ -203,7 +203,7 @@ For the last parameter in a method, you can use an array type by adding `...` to
 
 ```java
 @CmdMapping(format = "add <name...>")
-public void addPoint(@CmdSender Player player, @CmdParam(value = "name...") String[] name) {
+public void addPoint(@CmdSender Player player, @CmdParam("name") String[] name) {
   ...
 }
 ```
@@ -241,19 +241,6 @@ public static SomeType toSomeType(String s) {
   return result;
 }
 ```
-
-Then, add the converter in the constructor:
-
-```java
-public SomeCommand() {
-  super();
-  getParsers().put(Arrays.asList(SomeType.class, SomeType[].class), SomeType::toSomeType);
-}
-```
-
-::: warning
-Make sure to add the array type as well; otherwise, variable parameters won't be parsed.
-:::
 
 ### Permission
 
@@ -450,16 +437,15 @@ public void expensiveOperation(@CmdSender Player player) {
 Access cooldown state programmatically:
 
 ```java
-@Autowired
-private CooldownValidator cooldownValidator;
-
 public void checkCooldown(UUID playerId, String methodKey) {
-    long remaining = cooldownValidator.getRemainingCooldown(playerId, methodKey);
+    long remaining = getCooldownValidator().getRemainingCooldown(playerId, methodKey);
     if (remaining > 0) {
         // Player is on cooldown
     }
 }
 ```
+
+The cooldown validator is obtained through `getCooldownValidator()`, an instance field on `BaseCommandExecutor`. Each command executor holds its own instance, so this call only reports cooldown state for the current executor.
 
 #### UsageLockValidator
 
@@ -505,7 +491,7 @@ Validators execute in order by their `getOrder()` value (lower values first):
 
 ## Async Commands <Badge type="tip" text="v6.2.0+" />
 
-Use `@AsyncCommand` to execute commands asynchronously without blocking the server thread. This is cleaner than the deprecated `@RunAsync`:
+Use `@AsyncCommand` to execute commands asynchronously without blocking the server thread. It offers more configuration options than `@RunAsync`:
 
 ```java
 @CmdMapping(format = "backup")
@@ -527,7 +513,7 @@ public void backupWorld(@CmdSender Player player) {
 @AsyncCommand(
     showProcessing = true,                      // Show "Processing..." message
     processingMessageKey = "command.backup.processing",  // Custom i18n message
-    timeout = 60                                // 60 second timeout (0 = no timeout)
+    timeout = 60                                // 60 second timeout (0 = no timeout, defaults to 30 if omitted)
 )
 @CmdMapping(format = "backup")
 public void backupWorld(@CmdSender Player player) {
@@ -612,7 +598,7 @@ From Minecraft 1.13, the Bukkit API provides a new `TabCompleter` interface for 
 
 UltiTools has encapsulated this interface to provide a more concise way of command completion.
 
-You need to inherit the `AbstractTabExecutor` class and override the `onTabComplete` method.
+You need to inherit the `AbstractTabExecutor` class and override the `onPlayerTabComplete` method.
 
 ```java
 

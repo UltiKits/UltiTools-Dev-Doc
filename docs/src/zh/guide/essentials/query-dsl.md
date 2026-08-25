@@ -15,7 +15,7 @@ DataOperator<HomeEntity> dataOperator = plugin.getDataOperator(HomeEntity.class)
 
 // 查找某个玩家的所有家
 List<HomeEntity> homes = dataOperator.query()
-    .where("playerId").eq(playerUuid)
+    .where("player_id").eq(playerUuid)
     .list();
 ```
 
@@ -28,7 +28,7 @@ List<HomeEntity> homes = dataOperator.query()
 ```java
 // 根据玩家和名称查找特定的家
 HomeEntity home = dataOperator.query()
-    .where("playerId").eq(playerUuid)
+    .where("player_id").eq(playerUuid)
     .and("name").eq("base")
     .first();
 ```
@@ -107,12 +107,12 @@ List<PlayerEntity> pageResults = dataOperator.query()
 ```java
 // 检查玩家是否有家
 boolean hasHomes = dataOperator.query()
-    .where("playerId").eq(playerUuid)
+    .where("player_id").eq(playerUuid)
     .exists();
 
 // 统计玩家的家数量
 long homeCount = dataOperator.query()
-    .where("playerId").eq(playerUuid)
+    .where("player_id").eq(playerUuid)
     .count();
 
 // 删除特定世界的所有家

@@ -175,7 +175,7 @@ public class PointSuggest {
 
 ```java
 @CmdMapping(format = "add <name...>")
-public void addPoint(@CmdSender Player player, @CmdParam(value = "name...") String[] name) {
+public void addPoint(@CmdSender Player player, @CmdParam("name") String[] name) {
   ...
 }
 ```
@@ -213,19 +213,6 @@ public static SomeType toSomeType(String s) {
   return result;
 }
 ```
-
-然后在在构造函数中添加该转换器：
-
-```java
-public SomeCommand() {
-  super();
-  getParsers().put(Arrays.asList(SomeType.class, SomeType[].class), SomeType::toSomeType);
-}
-```
-
-::: warning
-请同时添加数组类型，否则将无法解析不定参数
-:::
 
 ### 权限
 
@@ -411,16 +398,15 @@ public void expensiveOperation(@CmdSender Player player) {
 以编程方式访问冷却状态：
 
 ```java
-@Autowired
-private CooldownValidator cooldownValidator;
-
 public void checkCooldown(UUID playerId, String methodKey) {
-    long remaining = cooldownValidator.getRemainingCooldown(playerId, methodKey);
+    long remaining = getCooldownValidator().getRemainingCooldown(playerId, methodKey);
     if (remaining > 0) {
         // 玩家仍在冷却中
     }
 }
 ```
+
+冷却校验器通过 `getCooldownValidator()` 获取，它是 `BaseCommandExecutor` 上的一个实例字段。每个命令执行器各持有自己的一份，因此该调用只能取到当前执行器的冷却状态。
 
 #### UsageLockValidator
 
@@ -466,7 +452,7 @@ public void download(@CmdSender Player player) {
 
 ## 异步命令 <Badge type="tip" text="v6.2.0+" />
 
-使用 `@AsyncCommand` 以异步方式执行命令而不阻塞服务器线程。这比已弃用的 `@RunAsync` 更简洁：
+使用 `@AsyncCommand` 以异步方式执行命令而不阻塞服务器线程。它比 `@RunAsync` 提供更多配置选项：
 
 ```java
 @CmdMapping(format = "backup")
@@ -488,7 +474,7 @@ public void backupWorld(@CmdSender Player player) {
 @AsyncCommand(
     showProcessing = true,                      // 显示"处理中..."消息
     processingMessageKey = "command.backup.processing",  // 自定义 i18n 消息
-    timeout = 60                                // 60 秒超时（0 = 无超时）
+    timeout = 60                                // 60 秒超时（0 = 无超时，不设置时默认 30 秒）
 )
 @CmdMapping(format = "backup")
 public void backupWorld(@CmdSender Player player) {
@@ -571,7 +557,7 @@ public void randomNumber(@CmdSender Player player,
 
 UltiTools 对该接口进行了封装，提供了一个更加简洁的命令补全方式。
 
-你只需要继承 `AbstractTabExecutor` 类，并重写 `onTabComplete` 方法。
+你只需要继承 `AbstractTabExecutor` 类，并重写 `onPlayerTabComplete` 方法。
 
 ```java
 @Override
