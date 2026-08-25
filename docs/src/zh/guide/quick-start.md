@@ -65,6 +65,8 @@ main: com.test.plugin.MyPlugin
 api-version: 620
 # 模块作者
 authors: [ yourname ]
+# UltiTools 检查更新时使用的唯一标识符
+identify-string: test-plugin
 ```
 
 ### 编写模块主类

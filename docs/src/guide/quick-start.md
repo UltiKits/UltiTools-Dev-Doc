@@ -69,6 +69,8 @@ api-version: 620
 # Module authors
 authors: 
   - yourname
+# Unique identifier used by UltiTools to check for updates
+identify-string: test-plugin
 ```
 
 ### Create the main class of the module
