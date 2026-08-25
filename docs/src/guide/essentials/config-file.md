@@ -127,7 +127,7 @@ Please refer to [this article](/guide/advanced/auto-register) for more informati
 ### Manually register
 
 You can register the config file by override the `getAllConfigs` method in your plugin main class.
-This path only applies when automatic registration (above) does not already pick up the class: if `@ConfigEntity` is present, automatic registration takes priority and `getAllConfigs` is not called.
+This path only applies when the plugin class does not enable automatic config registration (`@EnableAutoRegister` or `@UltiToolsModule`, whose `config` attribute defaults to `true`): when it is enabled, `getAllConfigs` is never called even if you override it. `@ConfigEntity` on the config class is required either way; it does not by itself decide which path runs.
 
 ```java
 

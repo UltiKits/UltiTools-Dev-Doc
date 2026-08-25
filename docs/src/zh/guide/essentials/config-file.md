@@ -112,7 +112,7 @@ boolean something = someConfig.getSomething();
 ### 手动注册
 
 你可以重写你的插件主类中的 `getAllConfigs` 方法来注册配置文件。
-这条路径仅在自动注册（见上文）未命中该类时才会生效：只要类上有 `@ConfigEntity`，自动注册就会优先处理，`getAllConfigs` 不会被调用。
+这条路径仅在插件主类未启用自动配置注册（`@EnableAutoRegister` 或 `@UltiToolsModule`，其 `config` 属性默认为 `true`）时才会生效：一旦启用，`getAllConfigs` 就不会被调用，即使你重写了它。`@ConfigEntity` 在两条路径下都是必需的，但它本身并不决定哪条路径生效。
 
 ```java
 @Override
