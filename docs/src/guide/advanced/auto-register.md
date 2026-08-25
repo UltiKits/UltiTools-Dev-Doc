@@ -53,6 +53,12 @@ public class PluginMain extends UltiToolsPlugin {
 
 ## @EnableAutoRegister
 
+::: warning The six-parameter connector constructor is marked for removal
+The constructor in the example below matches the `UltiToolsPlugin` overload that carries `@Deprecated(since = "6.0.8", forRemoval = true)` and hardcodes the resource folder path, so javac reports a removal warning wherever it is used, including the identical constructor in the `@ContextEntry` example further down.
+Switch to `UltiToolsAPI.connect(this)`, or call the seven-parameter constructor and pass `resourceFolderPath` yourself: both are supported on v6.2.5.
+The replacement signature for connectors is still being decided in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217), and the removal itself is tracked in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213).
+:::
+
 `@UltiToolsModule` contains the `@EnableAutoRegister` annotation. If you cannot use `@UltiToolsModule`, you can use the `@EnableAutoRegister` annotation, such as if you want to use UltiTools' automatic registration in your own plugin.
 
 Add this annotation above the class that extends `UltiToolsPlugin`, UltiTools will automatically register according to your configuration when loading your module:
@@ -82,6 +88,8 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 ```
 
 ## @ContextEntry
+
+The connector constructor in this example is the same six-parameter overload described under `@EnableAutoRegister`.
 
 Add this annotation above the class that extends `UltiToolsPlugin`, UltiTools will automatically register Bean for the specified class when loading your module.
 
