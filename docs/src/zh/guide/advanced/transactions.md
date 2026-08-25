@@ -97,6 +97,12 @@ dataOperator.updateAll(accounts); // 全部更新或全部不更新
 
 你不需要知道当前使用的是哪个后端——相同的事务 API 适用于所有存储类型。
 
+::: warning 当前只有 JSON 后端会回滚
+上面的表格描述的是设计意图：JSON 操作器会做一次深拷贝快照并在失败时恢复，而 MySQL 与 SQLite 的操作器构造时不注入事务管理器，`transaction(...)` 只是在 autocommit 连接上执行回调，其中每条语句执行即提交。
+需要一组写入原子时改用 JSON 后端，或自取 JDBC 连接、关闭 autocommit 并自行提交或回滚：两种做法都不依赖关系型操作器提供这项保证。
+接线事务管理器、让 `transaction()` 与 `insertAll`、`updateAll` 在关系型后端上真正原子的修法跟踪于 [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307)。
+:::
+
 ## 完整示例
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/EconomyService.java

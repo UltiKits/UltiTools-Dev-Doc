@@ -97,6 +97,12 @@ Transactions work transparently across all storage backends:
 
 You don't need to know which backend is active — the same transaction API works for all storage types.
 
+::: warning Only the JSON backend rolls back today
+The table above describes the intended design: the JSON operator takes a deep-copy snapshot and restores it on failure, while the MySQL and SQLite operators are constructed without a transaction manager, so `transaction(...)` runs the callable on an autocommit connection and every statement inside it commits as it executes.
+Use the JSON backend where a group of writes has to be atomic, or take your own JDBC connection, turn off autocommit and commit or roll back yourself: both keep the guarantee out of the relational operators.
+Wiring the transaction manager so that `transaction()`, `insertAll` and `updateAll` become atomic on the relational backends is tracked in [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307).
+:::
+
 ## Complete Example
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/EconomyService.java
