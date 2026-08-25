@@ -60,7 +60,7 @@ The basic container widget that holds other widgets and optionally provides a ba
 
 ```java
 Container.builder()
-    .background(IconWrapper.of(Material.GRAY_STAINED_GLASS_PANE)) // set background
+    .background(IconWrapper.builder(new ItemStack(Material.GRAY_STAINED_GLASS_PANE)).name(" ").build()) // set background
     .child(widget1) // add a single child
     .children(listWidgets) // add multiple children
     .build();
@@ -153,10 +153,10 @@ A `Navigator` lets you switch “pages” inside the same GUI window by swapping
 
 ```java
 // in root build method
-return new Navigator("home", Map.of(
-    "home", (context) -> new HomePageWidget(),
-    "settings", (context) -> new SettingsPageWidget()
-));
+Map<String, RouteBuilder> routes = new HashMap<>();
+routes.put("home", (context) -> new HomePageWidget());
+routes.put("settings", (context) -> new SettingsPageWidget());
+return new Navigator("home", routes);
 
 // push from child
 Navigator.of(context).push("settings");
