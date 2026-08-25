@@ -25,6 +25,12 @@ public class BackListener implements Listener {
 
 在继承了 `UltiToolsPlugin` 的类中的 `registerSelf` 中注册监听器。
 
+::: warning 六参数连接器构造器已标记为待移除
+下面的示例调用的是六参数 `UltiToolsPlugin` 构造器，它带有 `@Deprecated(since = "6.0.8", forRemoval = true)` 并把资源目录路径写死，因此每次编译都会产生一条移除警告。
+改用外部插件 API，在你自己的 `JavaPlugin` 里调用 `UltiToolsAPI.connect`，或者保留连接器、改调七参数构造器并自行传入 `resourceFolderPath`：这两种写法在 v6.2.5 上都可用。
+连接器的替代签名仍在 [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217) 中讨论，移除动作本身跟踪于 [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213)。
+:::
+
 <<< @/../examples/src/main/java/com/ultikits/docs/listener/UltiToolsConnector.java
 
 当然，你也可以使用 UltiTools 提供的自动注册功能，详情可以查看[这篇文章](/zh/guide/advanced/auto-register)。
@@ -56,6 +62,12 @@ TempListener.common(PlayerInteractEvent.class)
 - `priority(EventPriority priority)` — 设置处理器优先级（默认：`NORMAL`）。
 - `build()` — 构建并返回 `TempListener`（需要手动 `register()`）。
 - `listen(TempEventHandler<E> handler)` — 一步构建并立即注册。
+
+::: warning build() 返回的监听器不带你设置的过滤器
+`build()` 调用的是 `SimpleTempListener` 的三参构造器，它只赋值事件类、优先级与处理器，`filter` 保持字段初值 `(ignored) -> true`，因此这样构建出的监听器会对该类型的每一个事件执行处理器；`listen(...)` 确实传入了过滤器，但返回类型是 `void`，拿不到调用 `unregister()` 的句柄。
+直接构造 `new SimpleTempListener<>(eventClass, priority, handler, filter)` 并调用它的 `register()`：本页下方的旧版小节写明这种写法仍然可用，而且它是目前唯一能同时带过滤器又能手动注销的写法。
+让 `build()` 传递过滤器的修法跟踪于 [issue #313](https://github.com/UltiKits/UltiTools-Reborn/issues/313)。
+:::
 
 **示例：等待玩家与特定方块交互**
 
