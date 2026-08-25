@@ -15,7 +15,7 @@ UltiTools-API 6.2.2 及更高版本可用。
 <dependency>
     <groupId>com.ultikits</groupId>
     <artifactId>UltiTools-API</artifactId>
-    <version>6.2.4</version>
+    <version>6.2.5</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -89,13 +89,14 @@ depend: [UltiTools]
 使用 `UltiToolsAPI.getEventBus()` 进行插件间通信：
 
 ```java
-// 发布事件
+// 发布事件（MyCustomEvent 必须继承 ModuleEvent）
 UltiToolsAPI.getEventBus().publish(new MyCustomEvent(data));
 
 // 在 @Service 类中通过注解订阅
 @ModuleEventHandler
 public void onCustomEvent(MyCustomEvent event) {
     // 处理来自任何模块或外部插件的事件
+    // 参数类型不继承 ModuleEvent 时会被跳过，只打一条 WARNING 日志，不会注册
 }
 ```
 
