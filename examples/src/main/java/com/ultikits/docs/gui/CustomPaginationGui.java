@@ -10,9 +10,12 @@ import java.util.List;
 
 public class CustomPaginationGui extends BasePaginationPage {
 
-    // Move the navigation buttons to the far edges of the toolbar.
-    protected static final int PREV_BUTTON_COLUMN = 0;
-    protected static final int NEXT_BUTTON_COLUMN = 8;
+    @Override
+    protected void setupNavigationButtons() {
+        // Move the navigation buttons to the far edges of the toolbar.
+        addToBottomRow(0, createPreviousButton());
+        addToBottomRow(8, createNextButton());
+    }
 
     public CustomPaginationGui(Player player) {
         super(player, "custom-pagination", "Custom Pagination", 5);
