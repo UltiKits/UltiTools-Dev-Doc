@@ -122,6 +122,8 @@ GridView.<ShopItem>builder()
 
 当界面需要根据用户操作发生变化（如翻页、选中物品）时，需要使用 **StatefulWidget**。
 
+本示例中的重建流程，受本页开头那条状态限制的影响。
+
 ### 示例：简单的计数器
 
 <<< @/../examples/src/main/java/com/ultikits/docs/declarative/CounterWidget.java

@@ -134,6 +134,8 @@ GridView.<ShopItem>builder()
 
 When a UI needs to change in response to user actions (pagination, selection), use `StatefulWidget`.
 
+The rebuild sequence in this example is subject to the state limitation described at the top of this page.
+
 ### Example: simple counter
 
 <<< @/../examples/src/main/java/com/ultikits/docs/declarative/CounterWidget.java
