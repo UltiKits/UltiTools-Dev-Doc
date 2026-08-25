@@ -1,7 +1,9 @@
 # 声明式 GUI
 
-::: warning 实验性功能
-该框架目前处于实验性状态，可能存在未知的问题，欢迎通过 GitHub Issue 提交问题反馈。
+::: warning 实验性功能，v6.2.5 存在已知缺口
+已打开的界面会保持打开时构建出的组件树：`DeclarativeGui.setState` 会调度一次构建但不标记任何 Element 为脏，`State.setState` 标脏但不调度构建，第 4 节列出的若干 builder 方法只把值存进字段，渲染路径上没有读取方。
+把状态放在 `DeclarativeGui` 子类自己的字段里直接修改，并在下一 tick 关闭后重新打开同一个实例：`onClose` 会释放渲染器并把 `initialized` 置回 false，下一次 `onOpen` 会重新执行 `build(BuildContext)`。
+三处渲染接缝跟踪于 [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200)，其它问题仍然欢迎通过 GitHub Issue 反馈。
 :::
 
 ## 1. 简介 (Introduction)

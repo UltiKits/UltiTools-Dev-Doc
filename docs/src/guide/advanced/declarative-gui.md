@@ -1,7 +1,9 @@
 # Declarative GUI
 
-::: warning Experimental feature
-This framework is currently experimental and may contain unknown issues. Please report bugs via GitHub Issues.
+::: warning Experimental feature with known gaps in v6.2.5
+An open GUI keeps the widget tree that was built when it opened: `DeclarativeGui.setState` schedules a build but marks no element dirty, `State.setState` marks the element dirty but schedules no build, and several builder methods listed in section 4 store their value with no consumer on the render path.
+Keep the state in fields of your `DeclarativeGui` subclass, change them directly, and reopen the same instance on the next tick: `onClose` disposes the renderer and resets `initialized`, so the next `onOpen` runs `build(BuildContext)` again with the new values.
+The three rendering seams are tracked in [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200); please keep reporting anything else through GitHub Issues.
 :::
 
 ## 1. Introduction
