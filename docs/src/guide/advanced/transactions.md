@@ -8,6 +8,12 @@ UltiTools provides programmatic transaction support through the `DataOperator` i
 
 ## Basic Usage
 
+::: warning These examples are atomic only on the JSON backend
+On MySQL and SQLite `transaction(...)` runs its block with no transaction manager attached, so each write commits as it executes and a failure part way through leaves the earlier writes in place.
+Do not use the transfer pattern below on a relational backend; take a JDBC connection yourself and manage the boundary there, or keep the entity on the JSON backend.
+The mechanism is described under How It Works below, and the fix is tracked in [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307).
+:::
+
 ### Void Transaction
 
 Use `transaction(Runnable)` for operations that don't return a value:

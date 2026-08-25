@@ -8,6 +8,12 @@ UltiTools 通过 `DataOperator` 接口提供编程式事务支持。事务确保
 
 ## 基本用法
 
+::: warning 本节示例只在 JSON 后端上是原子的
+在 MySQL 与 SQLite 上，`transaction(...)` 执行代码块时没有挂事务管理器，每次写入执行即提交，中途失败时先前的写入会留在库里。
+不要在关系型后端上照抄下面的转账写法；请自行获取 JDBC 连接并在那里管理边界，或者把该实体留在 JSON 后端。
+机制见下方工作原理一节，修法跟踪于 [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307)。
+:::
+
 ### 无返回值事务
 
 使用 `transaction(Runnable)` 执行不需要返回值的操作：
