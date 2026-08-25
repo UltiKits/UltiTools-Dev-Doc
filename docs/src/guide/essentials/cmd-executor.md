@@ -29,6 +29,12 @@ the next section.
 
 ## Register command
 
+::: warning The six-parameter connector constructor is marked for removal
+The example below calls the six-parameter `UltiToolsPlugin` constructor, which carries `@Deprecated(since = "6.0.8", forRemoval = true)` and hardcodes the resource folder path, so javac reports a removal warning on every build.
+Switch to `UltiToolsAPI.connect(this)`, or call the seven-parameter constructor and pass `resourceFolderPath` yourself: both are supported on v6.2.5.
+The replacement signature for connectors is still being decided in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217), and the removal itself is tracked in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213).
+:::
+
 The same as spigot development, with the executor, you need to register it. We can use
 the `getCommandManager().register()` method to register the command in the `registerSelf` method.
 
@@ -93,6 +99,12 @@ public void addPoint(@CmdSender Player player, @CmdParam("name") String name) {
 Till now, you only need to register the command executor to complete all the work.
 
 ### Tab completion
+
+::: warning Tab completion on BaseCommandExecutor comes from the command mappings
+On a class extending `BaseCommandExecutor`, `suggest(Player, Command, String[])` returns prefix matches taken from the `@CmdMapping` format list while the player types the first argument and an empty list from the second argument onward, and the `suggest` attribute of `@CmdParam` is never read.
+Override `protected List<String> suggest(Player player, Command command, String[] args)` in your own executor and return the completions per `args.length`: the method is protected and its javadoc invites the override.
+Wiring the annotation-driven completer into `BaseCommandExecutor` is tracked in [issue #210](https://github.com/UltiKits/UltiTools-Reborn/issues/210).
+:::
 
 Need Tab suggestion for each command parameter, but don't want to write a lot of code?
 
@@ -159,6 +171,12 @@ protected List<String> suggest(Player player, Command command, String[] strings)
 :::
 
 #### @CmdSuggest
+
+::: warning @CmdSuggest has no reader in the BaseCommandExecutor path
+The class in the example below extends `BaseCommandExecutor`, and that class never inspects `@CmdSuggest`; the two places that read the annotation are the deprecated `AbstractCommandExecutor` and the unwired `MethodInvocationCompleter`, so the methods in `PointSuggest` are never looked up and never called.
+Override `suggest(Player, Command, String[])` in your executor and call the shared class from there: the reusable methods stay in one place, they just stop depending on the annotation.
+Wiring the annotation-driven completer into `BaseCommandExecutor` is tracked in [issue #210](https://github.com/UltiKits/UltiTools-Reborn/issues/210).
+:::
 
 If you want a completion method to be shared with other command classes, you can create a class and write methods which
 you want to reuse in other class.
