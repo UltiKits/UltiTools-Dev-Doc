@@ -168,8 +168,8 @@ For complex bean initialization or creating beans from third-party classes, use 
 - Class must be annotated with `@Configuration`
 - Methods must be annotated with `@Bean`
 - Return type becomes the bean type
-- Bean name defaults to method name, or use `@Bean(name="customName")`
-- Factory methods can accept `@Autowired` dependencies
+- Bean name defaults to method name.
+- Factory methods are invoked with no arguments; they cannot accept `@Autowired` parameters.
 
 ## Plugin Instance Injection <Badge type="tip" text="v6.2.0+" />
 
@@ -262,7 +262,7 @@ public class DirectBankProcessor implements PaymentProcessor {
 - Default priority is 0
 - Only affects `getBean(Class)` lookup of interface types
 - When multiple beans match, the highest priority bean is returned
-- Order is preserved in `getBeansOfType()` and `getOrderedBeansOfType()` (highest first)
+- Only `getOrderedBeansOfType()` returns results ordered by priority (highest first); `getBeansOfType()` returns an unordered map.
 
 ```java
 // Usage
