@@ -81,7 +81,7 @@ depend: [UltiTools]
 <<< @/../examples/src/main/java/com/ultikits/docs/external/StatsService.java
 
 ::: tip
-存储后端（JSON、SQLite 或 MySQL）由 UltiTools 服务端配置决定，而非你的插件。你的代码无论使用哪种后端都一样。
+存储后端（JSON、SQLite 或 MySQL）由 UltiTools 服务端配置决定，而非你的插件。你的代码无论使用哪种后端都一样。查询列名必须使用实体的 @Column 值，而不是 Java 字段名。
 :::
 
 ## 事件总线

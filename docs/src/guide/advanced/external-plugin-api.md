@@ -81,7 +81,7 @@ Use `UltiToolsAPI.getDataOperator()` to get a `DataOperator` for your data entit
 <<< @/../examples/src/main/java/com/ultikits/docs/external/StatsService.java
 
 ::: tip
-The storage backend (JSON, SQLite, or MySQL) is determined by the UltiTools server configuration, not your plugin. Your code works the same regardless.
+The storage backend (JSON, SQLite, or MySQL) is determined by the UltiTools server configuration, not your plugin. Your code works the same regardless. Query column names must still match the entity's @Column value, not the Java field name.
 :::
 
 ## EventBus
