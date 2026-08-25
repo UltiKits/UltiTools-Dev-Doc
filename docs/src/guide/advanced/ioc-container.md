@@ -237,6 +237,12 @@ private YourPlugin plugin;       // Via concrete type
 
 ## Service Priority
 
+::: warning getBean(Class) returns the first assignable bean, not the highest priority one
+`getBean(Class)` walks the bean definitions and returns the first assignable match, then caches that result in `typeMappings` for every later lookup, while `priority` is read only by `getServicePriority`, which serves `getOrderedBeansOfType` and `getHighestPriorityBean`.
+Call `context.getHighestPriorityBean(PaymentProcessor.class)` wherever the priority matters; the `@Autowired` field injection shown below cannot be redirected, because `AutowireFactory` delegates to `getBean(field.getType())` and no annotation or switch changes that.
+Making `getBean` delegate to `getHighestPriorityBean` on ambiguity is tracked in [issue #202](https://github.com/UltiKits/UltiTools-Reborn/issues/202).
+:::
+
 When multiple implementations of the same interface exist, use the `priority` attribute of the `@Service` annotation to control which one is returned by `getBean(Class)`.
 
 ```java
