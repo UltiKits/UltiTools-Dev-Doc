@@ -165,8 +165,8 @@ public class MyPlugin extends UltiToolsPlugin {
 - 类必须用 `@Configuration` 注解
 - 方法必须用 `@Bean` 注解
 - 返回类型变成 Bean 类型
-- Bean 名称默认为方法名，或使用 `@Bean(name="customName")`
-- 工厂方法可以接受 `@Autowired` 依赖
+- Bean 名称默认为方法名。
+- 工厂方法以零参数方式被调用；不能接受 `@Autowired` 形参。
 
 ## 插件实例注入 <Badge type="tip" text="v6.2.0+" />
 
@@ -259,7 +259,7 @@ public class DirectBankProcessor implements PaymentProcessor {
 - 默认优先级为 0
 - 仅影响接口类型的 `getBean(Class)` 查找
 - 当多个 Bean 匹配时，返回优先级最高的 Bean
-- 在 `getBeansOfType()` 和 `getOrderedBeansOfType()` 中保持顺序（最高优先级在前）
+- 只有 `getOrderedBeansOfType()` 按优先级排序返回（最高优先级在前）；`getBeansOfType()` 返回的是无序 map。
 
 ```java
 // 使用方式

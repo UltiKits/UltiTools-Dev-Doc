@@ -22,7 +22,7 @@ Mark a method with `@ModuleEventHandler` in any managed bean. The framework disc
 
 <<< @/../examples/src/main/java/com/ultikits/docs/eventbus/AuditService.java
 
-The method must have **exactly one parameter** that extends `ModuleEvent`.
+The method must be public, and must have **exactly one parameter** that extends `ModuleEvent`.
 
 ### Annotation Attributes
 

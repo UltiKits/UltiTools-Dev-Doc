@@ -346,6 +346,6 @@ public class ExampleShopPage extends DeclarativeGui {
     @Override
     protected boolean onGuiClick(@NotNull InventoryClickEvent event) {
         // extra click handling (if needed)
-        return true;  // cancel default behaviour to prevent item pickup
+        return false;  // keep the event cancelled so the item cannot be picked up
     }
 }

@@ -22,7 +22,7 @@ UltiTools 提供了一套解耦的发布/订阅事件系统，用于模块间通
 
 <<< @/../examples/src/main/java/com/ultikits/docs/eventbus/AuditService.java
 
-方法必须有**且仅有一个**继承 `ModuleEvent` 的参数。
+方法必须是 public 的，且必须有**且仅有一个**继承 `ModuleEvent` 的参数。
 
 ### 注解属性
 

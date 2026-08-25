@@ -35,7 +35,7 @@ public class InfoGui extends BaseInventoryPage {
             "Memory: 2GB/4GB"
         );
 
-        // Place it in the center
+        // Place it at the center of the bottom row
         addItem(getBottomCenterSlot(), infoIcon);
     }
 

@@ -21,9 +21,9 @@ public class HttpClientConfiguration {
             .build();
     }
 
-    @Bean(name = "primaryDatabase")
+    @Bean
     public DataSource createDataSource() {
-        // Named bean - useful when multiple beans of same type exist
+        // This bean is looked up by its default name (the method name): createDataSource
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl("jdbc:mysql://localhost:3306/db");
         config.setUsername("user");

@@ -160,12 +160,15 @@ Navigation buttons are placed at columns 3 (previous) and 5 (next) in the bottom
         col 0   col 1   col 2   col 3   col 4   col 5   col 6   col 7   col 8
 ```
 
-Override `PREV_BUTTON_COLUMN` and `NEXT_BUTTON_COLUMN` to customize positions:
+Override `setupNavigationButtons()` to customize positions. Redeclaring the `PREV_BUTTON_COLUMN` / `NEXT_BUTTON_COLUMN` constants in a subclass does not work, because Java resolves `static` fields by declared type, not by the runtime instance. The base class's own `setupNavigationButtons()` always reads its own constants:
 
 ```java
 // Inside your BasePaginationPage subclass
-protected static final int PREV_BUTTON_COLUMN = 0;  // Far left
-protected static final int NEXT_BUTTON_COLUMN = 8;  // Far right
+@Override
+protected void setupNavigationButtons() {
+    addToBottomRow(0, createPreviousButton());  // Far left
+    addToBottomRow(8, createNextButton());       // Far right
+}
 ```
 
 ### Creating a Paginated Player List

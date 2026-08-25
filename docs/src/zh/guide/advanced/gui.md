@@ -160,12 +160,15 @@ public abstract class BasePaginationPage extends BaseInventoryPage {
      列 0  列 1  列 2    列 3   列 4   列 5    列 6  列 7   列 8
 ```
 
-重写 `PREV_BUTTON_COLUMN` 和 `NEXT_BUTTON_COLUMN` 来自定义位置：
+重写 `setupNavigationButtons()` 来自定义位置。在子类里重新声明 `PREV_BUTTON_COLUMN` / `NEXT_BUTTON_COLUMN` 常量不起作用，因为 Java 按声明类型而非运行时实例解析 `static` 字段，基类自己的 `setupNavigationButtons()` 永远读的是基类的常量：
 
 ```java
 // 写在你的 BasePaginationPage 子类里
-protected static final int PREV_BUTTON_COLUMN = 0;  // 最左边
-protected static final int NEXT_BUTTON_COLUMN = 8;  // 最右边
+@Override
+protected void setupNavigationButtons() {
+    addToBottomRow(0, createPreviousButton());  // 最左边
+    addToBottomRow(8, createNextButton());       // 最右边
+}
 ```
 
 ### 创建分页玩家列表

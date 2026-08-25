@@ -51,7 +51,7 @@ new MyFirstGui(player).open();
 
 ```java
 Container.builder()
-    .background(IconWrapper.of(Material.GRAY_STAINED_GLASS_PANE)) // 设置背景
+    .background(IconWrapper.builder(new ItemStack(Material.GRAY_STAINED_GLASS_PANE)).name(" ").build()) // 设置背景
     .child(widget1) // 添加单个子组件
     .children(listWidgets) // 添加多个子组件
     .build();
@@ -138,10 +138,10 @@ ItemDisplay.builder(item)
 
 ```java
 // 在根 build 方法中
-return new Navigator("home", Map.of(
-    "home", (context) -> new HomePageWidget(),
-    "settings", (context) -> new SettingsPageWidget()
-));
+Map<String, RouteBuilder> routes = new HashMap<>();
+routes.put("home", (context) -> new HomePageWidget());
+routes.put("settings", (context) -> new SettingsPageWidget());
+return new Navigator("home", routes);
 
 // 在子组件中跳转
 Navigator.of(context).push("settings");
