@@ -24,7 +24,7 @@ public class DeleteConfirmation extends BaseConfirmationPage {
 
     @Override
     protected void setupDialogContent(InventoryOpenEvent event) {
-        // Display the item being deleted in the center
+        // Display the item being deleted, centered between the Cancel and OK buttons
         Icon warningIcon = new Icon(Material.BARRIER);
         warningIcon.setName("Delete " + itemName + "?");
         warningIcon.setLore(
