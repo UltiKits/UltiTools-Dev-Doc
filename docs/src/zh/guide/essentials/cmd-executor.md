@@ -436,6 +436,12 @@ public void download(@CmdSender Player player) {
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ValidatorCommand.java
 
+::: warning 自定义验证链会替换掉全部四个默认验证器
+把 `ValidatorChain` 传给 `super(...)` 会跳过 `createDefaultValidatorChain()`，因此 `SenderTypeValidator`（类上的 `@CmdTarget`）、`PermissionValidator`（`@CmdExecutor` 上的 `permission` 值）、`UsageLockValidator`（`@UsageLimit`）与 `CooldownValidator`（`@CmdCD`）都不在链里，而执行锁与冷却的副作用仍然每次照常执行。
+改用上面那种写法：调用 `super()` 后用 `addValidator(...)` 注册自己的验证器，四个默认验证器保留，你的验证器按 `getOrder()` 排序。
+在自定义链下保留默认验证器的修法跟踪于 [issue #312](https://github.com/UltiKits/UltiTools-Reborn/issues/312)。
+:::
+
 或使用自定义验证链：
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ChainCommand.java
