@@ -107,6 +107,12 @@ dataOperator.updateAll(accounts); // 全部更新或全部不更新
 
 ## 声明式事务 <Badge type="tip" text="v6.2.0+" />
 
+::: warning v6.2.5 中没有任何代码读取 @Transactional
+v6.2.5 里创建代理的 `aop` 包在自身之外没有任何引用：没有 bean 后置处理器被注册，`TransactionInterceptor` 从不被实例化，因此带注解的方法与不带注解的方法执行路径完全相同，不提交、不回滚，也不打日志。
+把这些方法改回本页前面的编程式写法，或者直接移除该注解，并在升级之前完成：[issue #190](https://github.com/UltiKits/UltiTools-Reborn/issues/190) 的接线已合入开发分支，未包含在 v6.2.5，接线落地后仍然声明 `@Transactional` 的模块可能在加载期被拒绝。
+MySQL 与 SQLite 上的原子性还取决于 [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307) 里的事务管理器接线。
+:::
+
 `@Transactional` 注解提供了声明式事务管理，可以在服务方法上使用。相比编程式事务，这种方式代码更简洁，并且与 IoC 容器深度集成。
 
 ### 前置条件

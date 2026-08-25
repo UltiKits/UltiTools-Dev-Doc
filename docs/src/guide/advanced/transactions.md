@@ -107,6 +107,12 @@ For simple single-entity operations, you don't need transactions. Transactions a
 
 ## Declarative Transactions <Badge type="tip" text="v6.2.0+" />
 
+::: warning Nothing in v6.2.5 reads @Transactional
+The `aop` package that would create the proxies is not referenced anywhere outside itself in v6.2.5: no bean post processor is registered and `TransactionInterceptor` is never instantiated, so an annotated method takes exactly the same path as an unannotated one, with no commit, no rollback and no log line.
+Move these methods to the programmatic form shown earlier on this page, or drop the annotation, and do it before you upgrade: the wiring in [issue #190](https://github.com/UltiKits/UltiTools-Reborn/issues/190) is merged into the development branch but is not part of v6.2.5, and once it lands a module that still declares `@Transactional` can be rejected at load time.
+Atomicity on the MySQL and SQLite backends additionally depends on the transaction manager wiring tracked in [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307).
+:::
+
 The `@Transactional` annotation provides declarative transaction management on service methods. This approach is cleaner than programmatic transactions and integrates seamlessly with the IoC container.
 
 ### Prerequisites
