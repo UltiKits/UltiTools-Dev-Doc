@@ -47,6 +47,12 @@ new MyFirstGui(player).open();
 ## 4. 常用组件详解 (Widget Reference)
 
 ### 4.1 Container (容器)
+::: warning 背景图标被保存但不参与渲染
+`.background(...)` 把 `IconWrapper` 存进一个只有 `getBackground()` 读取的字段，而渲染路径上没有任何代码调用这个 getter，容器覆盖的槽位保持为空。
+为每个需要填充的槽位加一个指定 `slot` 的 `ItemDisplay` 子组件，复用同一个 `ItemStack`（例如灰色玻璃板）：这相当于把背景展开成显式子节点。
+把这些只存不渲染的 builder 方法补上实现或删除的工作跟踪于 [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200)。
+:::
+
 最基础的容器组件，用于包裹其他组件，并可以设置背景。
 
 ```java
@@ -87,6 +93,12 @@ ItemDisplay.builder(itemStack)
 ```
 
 ### 4.4 GridView (网格布局)
+::: warning 槽位只由 startSlot 与 columns 计算
+`.rows(...)` 写入的是 `maxRows`，它唯一的读取方 `getMaxRows()` 无人调用，而 `Builder.calculateSlot(int)` 只用 `startSlot` 与 `columns` 推算每个位置，因此更长的列表会继续往下排，不在你设定的行数处截断。
+在传给 `.items(...)` 之前先把列表截断到 `rows * columns` 条：行数上限由你自己的代码执行。
+把这些只存不渲染的 builder 方法补上实现或删除的工作跟踪于 [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200)。
+:::
+
 非常适合用于展示列表数据（如商店商品、背包内容）。它可以自动计算行列位置。
 
 ```java
@@ -134,6 +146,12 @@ ItemDisplay.builder(item)
 ```
 
 ### 6.2 导航与路由 (Navigation)
+::: warning 路由改变的是 history，不是界面
+`push(String)` 通过 `setState` 生效，只标脏而不调度构建，因此路由被压进了 history，界面仍停在原页面；`Navigator.of(context)` 另外带有 `@Nullable`，当前 Element 上方没有 `Navigator` 时返回 null，链式调用会当场抛出 `NullPointerException`。
+把当前路由放在 `DeclarativeGui` 子类的字段里，在 `build(BuildContext)` 中按它切换子树，并按页首那条说明重开界面；若坚持使用 `Navigator.of(context)`，先判空再调用。
+导航接缝跟踪于 [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200)。
+:::
+
 框架提供了 `Navigator` 组件用于在同一个 GUI 窗口内切换“页面”（实际上是切换 Widget 树）。
 
 ```java
@@ -155,6 +173,8 @@ Navigator.of(context).push("settings");
 ---
 
 ## 7. 完整示例：商店页面
+
+本示例中的分页、单选与购买按钮行为，受本页开头那条状态限制的影响。
 
 1.  **布局**: 使用 `Container` + `GridView`。
 2.  **分页**: 使用 `currentPage` 状态控制数据切片。
