@@ -6,6 +6,12 @@ Automatic exception catching and handling for service methods.
 
 UltiTools provides declarative exception handling through the `@ExceptionCatch` annotation. Instead of wrapping service method calls in try-catch blocks, you simply annotate a method and the framework handles exceptions automatically based on your configuration.
 
+::: warning @ExceptionCatch has no reader in v6.2.5
+The `aop` package is connected to the rest of the framework only by two javadoc references in v6.2.5: no proxy is created, no advisor is registered and `ExceptionInterceptor` is never instantiated, so an annotated method throws exactly as it would without the annotation and `silent`, `value`, `defaultValue` and `handler` all stay inert.
+Wrap the call in an ordinary try-catch until the wiring ships: everything described on this page, including the handler lookup by name further down, depends on that one missing connection.
+The wiring is merged into the development branch but is not part of v6.2.5; it is tracked in [issue #190](https://github.com/UltiKits/UltiTools-Reborn/issues/190).
+:::
+
 ## Basic Usage
 
 Add `@ExceptionCatch` to any method inside a managed bean (such as a `@Service`):
