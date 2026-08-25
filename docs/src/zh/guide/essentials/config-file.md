@@ -144,5 +144,5 @@ public List<AbstractConfigEntity> getAllConfigs() {
 `UltiToolsPlugin` 提供了 `getConfigManager#reloadConfigs` 方法，你可以在需要的时候调用它来重新加载配置文件。
 
 ```java
-Someplugin.getConfigManager().reloadConfigs(Someplugin.getInstance());
+SomePlugin.getConfigManager().reloadConfigs(SomePlugin.getInstance());
 ```
