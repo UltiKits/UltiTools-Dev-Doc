@@ -24,8 +24,8 @@ The `@ConfigEntity` annotation is used to mark the location of a configuration f
 to specify the path of the configuration file in the plugin configuration folder. Usually this path is the same as the
 path in the resource folder directory during your development.
 
-The parameter here can also point to a folder. If you specify a folder, all configuration files in the folder will be
-loaded as the current configuration class.
+The parameter here can also point to a folder. If you specify a folder, only `.yml` files in the folder are loaded as
+the current configuration class; other file types are silently skipped.
 
 ```java
 @Getter
@@ -72,7 +72,8 @@ object in the configuration file to the type of the configuration item. The defa
 , it can handle most of the case but not all. If you need to parse a more complex object, you can create a class that 
 inherit the `ConfigParser` class and specify it in the `parser` attribute.
 
-::: tip Custom Parser Example
+::: tip Built-in Parser
+`StringHashMapParser` is a built-in, ready-to-use implementation. Reference it directly with `@ConfigEntry(parser = ...)` instead of writing a new parser for this shape of data.
 <<< @/../examples/src/main/java/com/ultikits/docs/config/StringHashMapParser.java
 :::
 
@@ -126,6 +127,7 @@ Please refer to [this article](/guide/advanced/auto-register) for more informati
 ### Manually register
 
 You can register the config file by override the `getAllConfigs` method in your plugin main class.
+This path only applies when automatic registration (above) does not already pick up the class: if `@ConfigEntity` is present, automatic registration takes priority and `getAllConfigs` is not called.
 
 ```java
 
@@ -160,7 +162,7 @@ If you save the config file, some comments in the file may disappear.
 when needed.
 
 ```java
-SomePlugin.getConfigManager().reloadConfigs();
+SomePlugin.getConfigManager().reloadConfigs(SomePlugin.getInstance());
 ```
 
 
