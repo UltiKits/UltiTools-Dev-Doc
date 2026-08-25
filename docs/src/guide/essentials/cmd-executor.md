@@ -494,7 +494,7 @@ Register the validator in your command executor:
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ValidatorCommand.java
 
 ::: warning A custom chain replaces all four default validators
-Passing a `ValidatorChain` to `super(...)` skips `createDefaultValidatorChain()`, so `SenderTypeValidator` (the class-level `@CmdTarget`), `PermissionValidator` (the `permission` value on `@CmdExecutor`), `UsageLockValidator` (`@UsageLimit`) and `CooldownValidator` (`@CmdCD`) are all absent from the chain, while the lock and cooldown side effects still run on every execution.
+Passing a `ValidatorChain` to `super(...)` skips `createDefaultValidatorChain()`, so `SenderTypeValidator` (the class-level `@CmdTarget`), `PermissionValidator` (`requireOp` and the method-level `@CmdMapping` permissions, though the class-level `permission` is still enforced by Bukkit), `UsageLockValidator` (`@UsageLimit`) and `CooldownValidator` (`@CmdCD`) are all absent from the chain, while the lock and cooldown side effects still run on every execution.
 Use the form shown just above instead: call `super()` and register your validator with `addValidator(...)`, which keeps the four defaults and orders yours by `getOrder()`.
 Restoring the default validators under a custom chain is tracked in [issue #312](https://github.com/UltiKits/UltiTools-Reborn/issues/312).
 :::
