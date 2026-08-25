@@ -98,7 +98,7 @@ identify-string: test-plugin
 
 ::: warning 无需手动注销
 `PluginManager` 未提供取回已注册实例的方法，手动构造一个实例传给 `unregister()` 会因 context 未初始化而抛出 `NullPointerException`。
-删掉这段注销调用即可。UltiTools 在自己 `onDisable()` 时会通过 `PluginManager.close()` 自动注销全部连接器。
+删掉这段注销调用即可：UltiTools 在自己 `onDisable()` 时会通过 `PluginManager.close()` 自动注销全部连接器。
 计划在 6.3.0 修复，详见 [issue #30](https://github.com/UltiKits/UltiTools-Dev-Doc/issues/30)。
 :::
 
