@@ -138,6 +138,12 @@ dataOperator.updateAll(accounts); // 全部更新或全部不更新
 
 ### 传播行为
 
+::: warning 其中三个模式没有对应实现
+在 `TransactionInterceptor` 中，`REQUIRES_NEW`、`NOT_SUPPORTED` 与 `NESTED` 三个分支都只写了一行注释便落到普通路径，就拦截器自身而言，`REQUIRES_NEW` 会加入现有事务，`NOT_SUPPORTED` 继续在事务内执行，`NESTED` 等同于 `REQUIRED`；而在 v6.2.5 上拦截器根本不会运行。
+不要依赖这三行：需要的事务边界改用编程式事务 API 表达。
+[issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307) 的计划是只保留可实现的取值，因此这三行预期会被删除，而不是补上实现。
+:::
+
 `propagation` 属性控制方法在现有事务中的行为：
 
 | 模式 | 行为 |

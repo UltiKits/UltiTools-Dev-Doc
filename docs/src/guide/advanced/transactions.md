@@ -138,6 +138,12 @@ The `@Transactional` annotation accepts several configuration options:
 
 ### Propagation Modes
 
+::: warning Three of these modes have no implementation behind them
+In `TransactionInterceptor` the `REQUIRES_NEW`, `NOT_SUPPORTED` and `NESTED` branches each carry a comment and then fall through to the ordinary path, so on the interceptor's own terms `REQUIRES_NEW` joins the existing transaction, `NOT_SUPPORTED` keeps running inside it and `NESTED` behaves like `REQUIRED`; in v6.2.5 the interceptor never runs at all.
+Do not rely on these three rows: express the boundary you need with the programmatic transaction API instead.
+The plan in [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307) is to keep only the values that can be implemented, so expect these three rows to be removed rather than filled in.
+:::
+
 The `propagation` attribute controls how the method behaves when called within an existing transaction:
 
 | Mode | Behavior |
