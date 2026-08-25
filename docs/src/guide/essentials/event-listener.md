@@ -42,12 +42,9 @@ Starting with v6.1.0, use the modern `TempListener` builder API for cleaner, mor
 ```java
 // Simple usage - listen to all block interactions
 TempListener.common(PlayerInteractEvent.class)
-    .eventHandler(event -> {
+    .listen(event -> {
         player.sendMessage("You clicked a block!");
         return true; // return true to auto-unregister
-    })
-    .listen(event -> {
-        return true; // auto-unregister after handling
     });
 ```
 

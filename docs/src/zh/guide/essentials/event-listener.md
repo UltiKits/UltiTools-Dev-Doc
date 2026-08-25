@@ -43,11 +43,8 @@ UltiTools 对 Bukkit 的事件监听器进行了封装，你可以十分便捷�
 ```java
 // 简单使用 - 监听所有方块交互事件
 TempListener.common(PlayerInteractEvent.class)
-    .eventHandler(event -> {
-        player.sendMessage("你点击了一个方块！");
-        return true; // 返回 true 自动注销监听器
-    })
     .listen(event -> {
+        player.sendMessage("你点击了一个方块！");
         return true; // 返回 true 自动注销监听器
     });
 ```
