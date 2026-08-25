@@ -239,6 +239,12 @@ WhereCondition.builder().column("somecol").value(someval).build();
 
 For operations that need to succeed or fail together, see the [Transactions](/guide/advanced/transactions) guide.
 
+::: warning Only the JSON backend rolls this block back
+The MySQL and SQLite operators are constructed without a transaction manager, and `transaction(...)` runs the callable directly when none is set, so the connection stays in autocommit and each `insert` below is committed on its own.
+Use the JSON backend when this block has to be atomic, or take your own JDBC connection, turn off autocommit and commit or roll back yourself: the Transactions guide describes both.
+Wiring the transaction manager into the relational operators is tracked in [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307).
+:::
+
 ```java
 dataOperator.transaction(() -> {
     dataOperator.insert(entity1);

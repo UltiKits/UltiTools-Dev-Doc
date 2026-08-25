@@ -237,6 +237,12 @@ WhereCondition.builder().column("somecol").value(someval).build();
 
 对于需要同时成功或同时失败的操作，请参阅[事务](/zh/guide/advanced/transactions)指南。
 
+::: warning 只有 JSON 后端会回滚这段代码
+MySQL 与 SQLite 的操作器在构造时不注入事务管理器，而 `transaction(...)` 在管理器为 null 时直接执行回调，连接始终处于 autocommit 状态，下面每一条 `insert` 各自独立提交。
+需要这段代码原子时，改用 JSON 后端，或自取 JDBC 连接、关闭 autocommit 并自行提交或回滚：事务指南对两种做法都有说明。
+把事务管理器接进关系型操作器的修法跟踪于 [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307)。
+:::
+
 ```java
 dataOperator.transaction(() -> {
     dataOperator.insert(entity1);
