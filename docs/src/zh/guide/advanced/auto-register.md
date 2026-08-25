@@ -27,8 +27,6 @@ import com.ultikits.ultitools.annotations.Autowired;
         config = true,
         // 扫描包名
         scanBasePackages = {"com.test.plugin"},
-        // 指定特定的类扫描
-        scanBasePackageClasses = {},
         // 多语言支持
         i18n = {"zh", "en"}
 )

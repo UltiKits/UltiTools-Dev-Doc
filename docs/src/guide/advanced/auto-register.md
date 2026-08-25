@@ -27,8 +27,6 @@ import com.ultikits.ultitools.annotations.Autowired;
         config = true,
         // scan package
         scanBasePackages = {"com.test.plugin"},
-        // scan class
-        scanBasePackageClasses = {},
         // i18n support
         i18n = {"zh", "en"}
 )
