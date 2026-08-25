@@ -104,7 +104,7 @@ Since your plugin is not loaded by UltiTools, you need to manually register your
 ::: warning Manual unregistration is unnecessary
 `PluginManager` provides no way to retrieve an already-registered instance, so passing a newly constructed one to `unregister()` throws `NullPointerException` because its context was never initialized.
 Delete this call: UltiTools already unregisters every connector automatically through `PluginManager.close()` when it disables.
-Planned to land in 6.3.0, tracked in [issue #30](https://github.com/UltiKits/UltiTools-Dev-Doc/issues/30).
+The legacy connector path this example belongs to is on the removal list in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213), whose open question is being answered in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217).
 :::
 
 ```java
