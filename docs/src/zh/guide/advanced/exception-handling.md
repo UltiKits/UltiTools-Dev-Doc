@@ -22,7 +22,7 @@ UltiTools 通过 `@ExceptionCatch` 注解提供声明式异常处理。无需在
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `value` | `Class<? extends Throwable>[]` | `{Exception.class}` | 要捕获的异常类型。子类会自动被包含。 |
-| `silent` | `boolean` | `false` | 为 true 时，异常被静默捕获，不记录日志。为 false 时，异常被记录为警告。 |
+| `silent` | `boolean` | `false` | 为 true 时，异常被静默捕获，不记录日志。为 false 时，异常被记录为警告。无论哪种情况，异常都会被同时上报给框架的 ErrorReportCollector。 |
 | `handler` | `String` | `""` | 自定义异常处理器 Bean 的名称。该 Bean 必须实现 `ExceptionHandler` 接口。 |
 | `defaultValue` | `String` | `""` | 异常被捕获时返回的值的表达式。 |
 

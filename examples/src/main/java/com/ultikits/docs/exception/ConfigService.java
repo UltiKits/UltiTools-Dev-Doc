@@ -34,7 +34,7 @@ public class ConfigService {
     @ExceptionCatch(value = FileNotFoundException.class, silent = true)
     public boolean fileExists(String path) {
         // FileNotFoundException is silently caught
-        // Other exceptions are still logged
+        // Other exceptions propagate up uncaught (not caught, not logged)
         return checkFile(path);
     }
 

@@ -22,7 +22,7 @@ By default:
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `value` | `Class<? extends Throwable>[]` | `{Exception.class}` | Exception types to catch. Subclasses are automatically included. |
-| `silent` | `boolean` | `false` | If true, exceptions are caught without logging. If false, caught exceptions are logged as warnings. |
+| `silent` | `boolean` | `false` | If true, exceptions are caught without logging. If false, caught exceptions are logged as warnings. Either way, the exception is also reported to the framework's ErrorReportCollector. |
 | `handler` | `String` | `""` | Name of a custom exception handler bean. The bean must implement `ExceptionHandler`. |
 | `defaultValue` | `String` | `""` | Expression specifying the return value when an exception is caught. |
 
