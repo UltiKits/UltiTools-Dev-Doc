@@ -37,7 +37,8 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 
 | 限定符和类型                                          | 方法和说明                                                                       |
 |-------------------------------------------------|-----------------------------------------------------------------------------|
-| `static CommandManager `                        | static CommandManager                                                       |
+| `static CommandManager `                        | getCommandManager\()                                                        |
+| `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.Class\<T> configType)                                  |
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
 | `static ConfigManager `                         | getConfigManager\()                                                         |
 | `<T extends BaseDataEntity<String>>DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
@@ -48,13 +49,13 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `static VersionWrapper`                         | getVersionWrapper\() `@Deprecated`                                          |
 | `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
 | `java.lang.String`                              | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
-| `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType)          |
+| `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
 
 == 静态方法
 
 | 限定符和类型                                          | 方法和说明                                                                       |
 |-------------------------------------------------|-----------------------------------------------------------------------------|
-| `static CommandManager `                        | static CommandManager                                                       |
+| `static CommandManager `                        | getCommandManager\()                                                        |
 | `static ConfigManager `                         | getConfigManager\()                                                         |
 | `static ListenerManager`                        | getListenerManager\()                                                       |
 | `static PluginManager`                          | getPluginManager\()                                                         |
@@ -64,19 +65,21 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 
 | 限定符和类型                                          | 方法和说明                                                                       |
 |-------------------------------------------------|-----------------------------------------------------------------------------|
+| `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.Class\<T> configType)                                  |
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
 | `<T extends BaseDataEntity<String>>DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
 | `Language`                                      | getLanguage\()                                                              |
 | `java.lang.String`                              | getLanguageCode()                                                           |
 | `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
 | `java.lang.String`                              | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
-| `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType)          |
+| `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
 
 == 具体方法
 
 | 限定符和类型                                          | 方法和说明                                                                       |
 |-------------------------------------------------|-----------------------------------------------------------------------------|
-| `static CommandManager `                        | static CommandManager                                                       |
+| `static CommandManager `                        | getCommandManager\()                                                        |
+| `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.Class\<T> configType)                                  |
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
 | `static ConfigManager `                         | getConfigManager\()                                                         |
 | `<T extends BaseDataEntity<String>>DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
@@ -87,7 +90,7 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `static VersionWrapper`                         | getVersionWrapper\() `@Deprecated`                                          |
 | `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
 | `java.lang.String`                              | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
-| `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType)          |
+| `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
 
 :::
 
