@@ -175,7 +175,7 @@ public class PointSuggest {
 
 ```java
 @CmdMapping(format = "add <name...>")
-public void addPoint(@CmdSender Player player, @CmdParam(value = "name...") String[] name) {
+public void addPoint(@CmdSender Player player, @CmdParam("name") String[] name) {
   ...
 }
 ```
@@ -213,19 +213,6 @@ public static SomeType toSomeType(String s) {
   return result;
 }
 ```
-
-然后在在构造函数中添加该转换器：
-
-```java
-public SomeCommand() {
-  super();
-  getParsers().put(Arrays.asList(SomeType.class, SomeType[].class), SomeType::toSomeType);
-}
-```
-
-::: warning
-请同时添加数组类型，否则将无法解析不定参数
-:::
 
 ### 权限
 

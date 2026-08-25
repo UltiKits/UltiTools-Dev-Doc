@@ -203,7 +203,7 @@ For the last parameter in a method, you can use an array type by adding `...` to
 
 ```java
 @CmdMapping(format = "add <name...>")
-public void addPoint(@CmdSender Player player, @CmdParam(value = "name...") String[] name) {
+public void addPoint(@CmdSender Player player, @CmdParam("name") String[] name) {
   ...
 }
 ```
@@ -241,19 +241,6 @@ public static SomeType toSomeType(String s) {
   return result;
 }
 ```
-
-Then, add the converter in the constructor:
-
-```java
-public SomeCommand() {
-  super();
-  getParsers().put(Arrays.asList(SomeType.class, SomeType[].class), SomeType::toSomeType);
-}
-```
-
-::: warning
-Make sure to add the array type as well; otherwise, variable parameters won't be parsed.
-:::
 
 ### Permission
 
