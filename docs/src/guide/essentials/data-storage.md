@@ -196,8 +196,12 @@ dataOperator.update("name", "newName", entityId);
 Update by entity object:
 
 ```java
-entity.setName("newName");
-dataOperator.update(entity);
+try {
+    entity.setName("newName");
+    dataOperator.update(entity);
+} catch (IllegalAccessException e) {
+    // handle or rethrow
+}
 ```
 
 This overload declares `throws IllegalAccessException`, so the calling method must declare or catch it.

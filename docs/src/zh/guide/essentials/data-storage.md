@@ -194,8 +194,12 @@ dataOperator.update("name", "newName", entityId);
 使用实体对象更新：
 
 ```java
-entity.setName("newName");
-dataOperator.update(entity);
+try {
+    entity.setName("newName");
+    dataOperator.update(entity);
+} catch (IllegalAccessException e) {
+    // 处理异常或继续向上抛出
+}
 ```
 
 该重载声明了受检异常 `IllegalAccessException`，调用方需要声明或捕获它。
