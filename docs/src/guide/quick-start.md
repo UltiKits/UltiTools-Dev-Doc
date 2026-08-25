@@ -89,7 +89,7 @@ Then you have completed an UltiTools module that does nothing.
 You can use the simpler External Plugin API: `UltiToolsAPI.connect(this)` in your plugin's `onEnable()`. See the [External Plugin API guide](./advanced/external-plugin-api.md) for details.
 :::
 
-The following section describes the legacy connector approach, which is still supported but no longer recommended for new projects.
+The following section describes the legacy connector approach, which is still supported but no longer recommended for new projects. Its six-parameter constructor is marked for removal, so prefer `UltiToolsAPI.connect(this)` or the seven-parameter overload that takes `resourceFolderPath`; the replacement signature is being decided in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217) and the removal is tracked in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213).
 
 ### Create a connector class (Legacy)
 
