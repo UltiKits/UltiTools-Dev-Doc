@@ -101,6 +101,12 @@ Create a new class that extends `UltiToolsPlugin`, this class will be the connec
 
 Since your plugin is not loaded by UltiTools, you need to manually register your connector class to the UltiTools plugin manager.
 
+::: warning Manual unregistration is unnecessary
+`PluginManager` provides no way to retrieve an already-registered instance, so passing a newly constructed one to `unregister()` throws `NullPointerException` because its context was never initialized.
+Delete this call. UltiTools already unregisters every connector automatically through `PluginManager.close()` when it disables.
+Planned to land in 6.3.0, tracked in [issue #30](https://github.com/UltiKits/UltiTools-Dev-Doc/issues/30).
+:::
+
 ```java
 import com.ultikits.ultitools.UltiTools;
 import org.bukkit.plugin.java.JavaPlugin;
