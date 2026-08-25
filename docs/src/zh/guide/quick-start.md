@@ -27,13 +27,14 @@ footer: false
 <dependency>
   <groupId>com.ultikits</groupId>
   <artifactId>UltiTools-API</artifactId>
-  <version>6.2.4</version>
+  <version>6.2.5</version>
+  <scope>provided</scope>
 </dependency>
 ```
 
 ```groovy [Gradle]
 dependencies {
-  implementation 'com.ultikits:UltiTools-API:6.2.4'
+  compileOnly 'com.ultikits:UltiTools-API:6.2.5'
 }
 ```
 
@@ -64,6 +65,8 @@ main: com.test.plugin.MyPlugin
 api-version: 620
 # 模块作者
 authors: [ yourname ]
+# UltiTools 检查更新时使用的唯一标识符
+identify-string: test-plugin
 ```
 
 ### 编写模块主类
@@ -92,6 +95,12 @@ authors: [ yourname ]
 ### 将入口类注册到UltiTools插件管理器（旧版）
 
 由于你的插件并不是由UltiTools加载，所以你需要手动将你的入口类注册到UltiTools插件管理器中。
+
+::: warning 无需手动注销
+`PluginManager` 未提供取回已注册实例的方法，手动构造一个实例传给 `unregister()` 会因 context 未初始化而抛出 `NullPointerException`。
+删掉这段注销调用即可：UltiTools 在自己 `onDisable()` 时会通过 `PluginManager.close()` 自动注销全部连接器。
+计划在 6.3.0 修复，详见 [issue #30](https://github.com/UltiKits/UltiTools-Dev-Doc/issues/30)。
+:::
 
 ```java
 import com.ultikits.ultitools.UltiTools;

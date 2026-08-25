@@ -33,7 +33,7 @@ public class StatsService {
 
     public int getVisits(Player player) {
         StatsEntity stats = dataOp.query()
-            .where("playerId").eq(player.getUniqueId().toString())
+            .where("player_id").eq(player.getUniqueId().toString())
             .first();
         return stats != null ? stats.getVisits() : 0;
     }

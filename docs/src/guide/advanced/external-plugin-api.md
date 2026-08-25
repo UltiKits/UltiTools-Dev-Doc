@@ -15,7 +15,7 @@ The External Plugin API allows **any regular Bukkit/Spigot plugin** to use UltiT
 <dependency>
     <groupId>com.ultikits</groupId>
     <artifactId>UltiTools-API</artifactId>
-    <version>6.2.4</version>
+    <version>6.2.5</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -81,7 +81,7 @@ Use `UltiToolsAPI.getDataOperator()` to get a `DataOperator` for your data entit
 <<< @/../examples/src/main/java/com/ultikits/docs/external/StatsService.java
 
 ::: tip
-The storage backend (JSON, SQLite, or MySQL) is determined by the UltiTools server configuration, not your plugin. Your code works the same regardless.
+The storage backend (JSON, SQLite, or MySQL) is determined by the UltiTools server configuration, not your plugin. Your code works the same regardless. Query column names must still match the entity's @Column value, not the Java field name.
 :::
 
 ## EventBus
@@ -89,13 +89,14 @@ The storage backend (JSON, SQLite, or MySQL) is determined by the UltiTools serv
 Use `UltiToolsAPI.getEventBus()` for inter-plugin communication:
 
 ```java
-// Publish an event
+// Publish an event (MyCustomEvent must extend ModuleEvent)
 UltiToolsAPI.getEventBus().publish(new MyCustomEvent(data));
 
 // Subscribe via annotation in a @Service class
 @ModuleEventHandler
 public void onCustomEvent(MyCustomEvent event) {
     // Handle event from any module or external plugin
+    // A handler parameter that does not extend ModuleEvent is skipped with a WARNING log, not registered
 }
 ```
 

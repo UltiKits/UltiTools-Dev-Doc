@@ -28,7 +28,7 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 ## 构造器概要
 :::tabs
 == 构造器
-`UltiToolsPlugin()`
+`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass)` `@Deprecated`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
 :::
 
 ## 方法概要
@@ -37,7 +37,8 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 
 | 限定符和类型                                          | 方法和说明                                                                       |
 |-------------------------------------------------|-----------------------------------------------------------------------------|
-| `static CommandManager `                        | static CommandManager                                                       |
+| `static CommandManager `                        | getCommandManager\()                                                        |
+| `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.Class\<T> configType)                                  |
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
 | `static ConfigManager `                         | getConfigManager\()                                                         |
 | `<T extends BaseDataEntity<String>>DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
@@ -48,13 +49,13 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `static VersionWrapper`                         | getVersionWrapper\() `@Deprecated`                                          |
 | `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
 | `java.lang.String`                              | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
-| `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType)          |
+| `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
 
 == 静态方法
 
 | 限定符和类型                                          | 方法和说明                                                                       |
 |-------------------------------------------------|-----------------------------------------------------------------------------|
-| `static CommandManager `                        | static CommandManager                                                       |
+| `static CommandManager `                        | getCommandManager\()                                                        |
 | `static ConfigManager `                         | getConfigManager\()                                                         |
 | `static ListenerManager`                        | getListenerManager\()                                                       |
 | `static PluginManager`                          | getPluginManager\()                                                         |
@@ -64,19 +65,21 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 
 | 限定符和类型                                          | 方法和说明                                                                       |
 |-------------------------------------------------|-----------------------------------------------------------------------------|
+| `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.Class\<T> configType)                                  |
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
 | `<T extends BaseDataEntity<String>>DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
 | `Language`                                      | getLanguage\()                                                              |
 | `java.lang.String`                              | getLanguageCode()                                                           |
 | `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
 | `java.lang.String`                              | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
-| `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType)          |
+| `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
 
 == 具体方法
 
 | 限定符和类型                                          | 方法和说明                                                                       |
 |-------------------------------------------------|-----------------------------------------------------------------------------|
-| `static CommandManager `                        | static CommandManager                                                       |
+| `static CommandManager `                        | getCommandManager\()                                                        |
+| `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.Class\<T> configType)                                  |
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
 | `static ConfigManager `                         | getConfigManager\()                                                         |
 | `<T extends BaseDataEntity<String>>DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
@@ -87,7 +90,7 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `static VersionWrapper`                         | getVersionWrapper\() `@Deprecated`                                          |
 | `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
 | `java.lang.String`                              | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
-| `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType)          |
+| `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
 
 :::
 
@@ -98,7 +101,7 @@ equals, getClass, hashCode, notify, notifyAll, toString, wait, wait, wait
 
 ### 从接口继承的方法
 ::: info com.ultikits.ultitools.interfaces.IPlugin
-minUltiToolsVersion, pluginName, registerSelf, reloadSelf, unregisterSelf
+registerSelf, reloadSelf, unregisterSelf
 :::
 
 ::: info com.ultikits.ultitools.interfaces.Localized
@@ -111,5 +114,5 @@ getAllConfigs, getConfig, saveConfig
 
 ## 构造器详细资料
 ::: info UltiToolsPlugin
-UltiToolsPlugin()
+`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass)` `@Deprecated`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
 :::

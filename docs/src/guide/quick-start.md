@@ -28,13 +28,14 @@ Whether you are creating an UltiTools module or using UltiTools-API, you need to
 <dependency>
   <groupId>com.ultikits</groupId>
   <artifactId>UltiTools-API</artifactId>
-  <version>6.2.4</version>
+  <version>6.2.5</version>
+  <scope>provided</scope>
 </dependency>
 ```
 
 ```groovy [Gradle]
 dependencies {
-  implementation 'com.ultikits:UltiTools-API:6.2.4'
+  compileOnly 'com.ultikits:UltiTools-API:6.2.5'
 }
 ```
 
@@ -68,6 +69,8 @@ api-version: 620
 # Module authors
 authors: 
   - yourname
+# Unique identifier used by UltiTools to check for updates
+identify-string: test-plugin
 ```
 
 ### Create the main class of the module
@@ -97,6 +100,12 @@ Create a new class that extends `UltiToolsPlugin`, this class will be the connec
 ### Register your connector class (Legacy)
 
 Since your plugin is not loaded by UltiTools, you need to manually register your connector class to the UltiTools plugin manager.
+
+::: warning Manual unregistration is unnecessary
+`PluginManager` provides no way to retrieve an already-registered instance, so passing a newly constructed one to `unregister()` throws `NullPointerException` because its context was never initialized.
+Delete this call: UltiTools already unregisters every connector automatically through `PluginManager.close()` when it disables.
+Planned to land in 6.3.0, tracked in [issue #30](https://github.com/UltiKits/UltiTools-Dev-Doc/issues/30).
+:::
 
 ```java
 import com.ultikits.ultitools.UltiTools;

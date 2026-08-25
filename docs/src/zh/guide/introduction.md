@@ -30,7 +30,7 @@ UltiTools是一款发布于2020年6月的MC服务器基础插件，拥有诸多�
 
 UltiTools API是UltiTools的核心，UltiTools API提供了一套完整的API，可以让您轻松开发出功能丰富的插件。
 
-UltiTools API打包了常用的库，包括Adventure、obliviate-invs、CGLIB、HikariCP等，并提供了类 Spring 的 IoC 容器（`SimpleContainer`），支持注解驱动的依赖注入。您可以在开发中直接使用这些库而无需担心插件的体量。
+UltiTools API 把 obliviate-invs 打进自己的 jar，Adventure、CGLIB 与 HikariCP 则由 Paper 根据 `plugin.yml` 里的 `libraries:` 声明在运行期自动下载，你的模块可以对这四个库都声明 `provided` 作用域，不必自己打包任何一个。UltiTools API 提供了类 Spring 的 IoC 容器（`SimpleContainer`），支持注解驱动的依赖注入。
 
 UltiTools API提供了一套完整的GUI API，您可以轻松地开发出GUI插件，而无需担心GUI的实现细节。
 

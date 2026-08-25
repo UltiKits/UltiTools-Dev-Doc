@@ -30,7 +30,7 @@ It is committed to making more server owners build servers easily, reducing the 
 
 UltiTools API is the core of UltiTools, providing a comprehensive set of APIs that enable easy development of feature-rich plugins.
 
-UltiTools API packages commonly used libraries including Adventure, obliviate-invs, CGLIB, HikariCP, etc. It provides a Spring-like IoC container (`SimpleContainer`) with annotation-driven dependency injection. You can directly use these libraries in your development without worrying about the size of the plugins.
+UltiTools API bundles obliviate-invs into its own jar and lets Paper auto-download Adventure, CGLIB, and HikariCP at runtime from the `libraries:` entries in its `plugin.yml`, so your module can declare all four with `provided` scope without bundling any of them itself. It provides a Spring-like IoC container (`SimpleContainer`) with annotation-driven dependency injection.
 
 UltiTools API offers a complete GUI API, allowing you to easily develop GUI plugins without worrying about the intricacies of GUI implementation.
 
