@@ -38,6 +38,12 @@ Starting from v6.2.0, `DataOperator`, `Query`, and `UltiToolsPlugin.getDataOpera
 | `isNew()` | Returns `true` if the entity has no ID |
 | `copyWithoutId()` | Creates a copy of the entity without the ID. The entity class must implement `Cloneable`. |
 
+::: warning Lifecycle hooks are invoked by your code, not by the operator
+`onCreate()`, `onUpdate()`, `onDelete()` and `onLoad()` are declared on `BaseDataEntity`, but no read or write path in the JSON, MySQL or SQLite operators calls them, so an entity that overrides them stores exactly the same data as one that does not.
+Call the hook yourself right before the operation, for example `entity.onCreate(); op.insert(entity);`: all four methods are public.
+Having the operators invoke the hooks is tracked in [issue #194](https://github.com/UltiKits/UltiTools-Reborn/issues/194).
+:::
+
 ### AuditableDataEntity <Badge type="tip" text="v6.2.0+" />
 
 For entities that require audit tracking of creation and modification, use `AuditableDataEntity`:
@@ -54,6 +60,12 @@ For entities that require audit tracking of creation and modification, use `Audi
 | `updatedBy` | `UUID` | User ID who last modified the entity (from thread-local context) |
 
 All four fields are pre-configured with `@Column` annotations and do not need to be declared in subclasses.
+
+::: warning The four audit columns stay NULL after an insert
+Because the operators do not call the lifecycle hooks, `onCreate()` and `onUpdate()` never run, so `created_at`, `updated_at`, `created_by` and `updated_by` are never written, `wasModified()` always returns `false`, and `getAge()` and `getTimeSinceUpdate()` always return `null`.
+Set the thread context with `AuditableDataEntity.setCurrentUser(uuid)`, call `entity.onCreate()` or `entity.onUpdate()` before the write, and clear the context in a `finally` block: without the context the two `by` fields stay null even when the hook runs.
+Having the operators invoke the hooks is tracked in [issue #194](https://github.com/UltiKits/UltiTools-Reborn/issues/194).
+:::
 
 #### User Context Management
 
@@ -174,6 +186,12 @@ Pagination:
 ```java
 List<SomeEntity> page = dataOperator.page(1, 10); // page 1, 10 per page
 ```
+
+::: warning page() returns an empty list on the JSON backend
+On the JSON backend `page(int, int)` forwards to `getAll(WhereCondition...)`, whose zero-length branch returns an empty list, while the same call on MySQL or SQLite builds a plain `LIMIT ? OFFSET ?` and returns the rows, so one module gives two different results depending on the configured backend.
+Take `getAll()` and slice the result with `subList` when you need a page that behaves the same on every backend: `page(1, 10, WhereCondition.empty())` is not a substitute, because the relational operators do not filter empty conditions and would emit `WHERE null = ?`.
+Aligning `page` and `exist` with `getAll` on empty conditions is tracked in [issue #193](https://github.com/UltiKits/UltiTools-Reborn/issues/193).
+:::
 
 ::: tip Query DSL
 Starting from v6.2.0, you can use the [fluent Query DSL](/guide/essentials/query-dsl) for more readable queries:
