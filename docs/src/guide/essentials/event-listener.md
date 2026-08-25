@@ -19,7 +19,7 @@ public class BackListener implements Listener {
 }
 ```
 
-The `@EventListener` annotation has an optional `manualRegister` parameter (default `false`). When set to `true`, the listener is not auto-registered during component scanning — you must register it manually via `getListenerManager().register(this, YourListener.class)`.
+The `@EventListener` annotation has an optional `manualRegister` parameter (default `false`). For listeners loaded through the standard module JAR path (as with `@UltiToolsModule`), setting `manualRegister` to `true` means component scanning skips automatic registration for that listener: you must register it manually via `getListenerManager().register(this, YourListener.class)`.
 
 ## Register Event Listener
 
@@ -35,9 +35,9 @@ Many times we just need to listen to events temporarily. In traditional plugin d
 
 UltiTools encapsulates Bukkit's event listener, so you can listen to events anywhere, which is very convenient and automatic.
 
-### Temporary Listener Builder <Badge type="tip" text="v6.2.0+" />
+### Temporary Listener Builder <Badge type="tip" text="v6.1.0+" />
 
-Starting with v6.2.0, use the modern `TempListener` builder API for cleaner, more flexible temporary listeners:
+Starting with v6.1.0, use the modern `TempListener` builder API for cleaner, more flexible temporary listeners:
 
 ```java
 // Simple usage - listen to all block interactions
@@ -47,7 +47,7 @@ TempListener.common(PlayerInteractEvent.class)
         return true; // return true to auto-unregister
     })
     .listen(event -> {
-        // equivalent to .build().register()
+        return true; // auto-unregister after handling
     });
 ```
 
@@ -101,7 +101,7 @@ The `TempEventHandler<E>` is a functional interface that receives the event and 
 
 ### Legacy Temporary Listener (SimpleTempListener)
 
-The legacy direct instantiation approach is still supported but deprecated in favor of the builder:
+The legacy direct instantiation approach using `SimpleTempListener` is still supported and is not deprecated, unlike `PlayerTempListener` (described below); the builder API remains the recommended approach for new code:
 
 ```java
 // Legacy approach - still works but not recommended

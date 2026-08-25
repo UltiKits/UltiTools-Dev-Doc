@@ -19,7 +19,7 @@ public class BackListener implements Listener {
 }
 ```
 
-`@EventListener` 注解有一个可选的 `manualRegister` 参数（默认为 `false`）。设为 `true` 时，监听器不会在组件扫描时自动注册——你需要通过 `getListenerManager().register(this, YourListener.class)` 手动注册。
+`@EventListener` 注解有一个可选的 `manualRegister` 参数（默认为 `false`）。对于通过标准模块 JAR 路径加载的监听器（例如使用 `@UltiToolsModule` 的写法），设为 `true` 时组件扫描会跳过该监听器的自动注册，需要通过 `getListenerManager().register(this, YourListener.class)` 手动注册。
 
 ## 监听器注册
 
@@ -36,9 +36,9 @@ public class BackListener implements Listener {
 
 UltiTools 对 Bukkit 的事件监听器进行了封装，你可以十分便捷地在任何地方监听事件，即创即用，用后即销。
 
-### 临时监听器构建器 <Badge type="tip" text="v6.2.0+" />
+### 临时监听器构建器 <Badge type="tip" text="v6.1.0+" />
 
-从 v6.2.0 开始，使用现代的 `TempListener` 构建器 API 来创建更清洁、更灵活的临时监听器：
+从 v6.1.0 开始，使用现代的 `TempListener` 构建器 API 来创建更清洁、更灵活的临时监听器：
 
 ```java
 // 简单使用 - 监听所有方块交互事件
@@ -48,7 +48,7 @@ TempListener.common(PlayerInteractEvent.class)
         return true; // 返回 true 自动注销监听器
     })
     .listen(event -> {
-        // 等同于 .build().register()
+        return true; // 返回 true 自动注销监听器
     });
 ```
 
@@ -102,7 +102,7 @@ TempListener.common(AsyncPlayerChatEvent.class)
 
 ### 传统临时监听器（SimpleTempListener）
 
-传统的直接实例化方式仍然支持但已弃用，推荐使用构建器：
+传统的直接实例化方式（`SimpleTempListener`）仍然可用，并未被弃用，这一点与下文的 `PlayerTempListener` 不同；新代码仍推荐使用构建器：
 
 ```java
 // 传统方式 - 仍然可用但不推荐
