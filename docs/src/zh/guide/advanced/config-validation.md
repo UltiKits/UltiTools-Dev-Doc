@@ -94,6 +94,12 @@ private String displayName = "Default Name";
 
 ## 行为说明
 
+::: warning 只有带 (String) 构造器的配置类才会执行校验
+`validateFields()` 的第一步是通过 `getDeclaredConstructor(String.class)` 构造一个默认实例，配置类没有可访问的 `(String)` 构造器时这一步失败，异常以 `FINE` 级别记录后方法直接返回，`@ConfigEntry` 字段一个都不会被检查，`@Range`、`@NotEmpty`、`@Size`、`@Pattern` 全部跳过，而插件照常启动。
+照上面的示例声明 `public MyConfig(String configFilePath)` 并在其中调用 `super(configFilePath)`，然后在配置文件里故意写一个越界值，重启后确认控制台有警告且文件被改回默认值。
+把缺少构造器报出来而不是跳过校验的修法跟踪于 [issue #314](https://github.com/UltiKits/UltiTools-Reborn/issues/314)。
+:::
+
 当校验失败时：
 1. 无效值会被替换为字段的**默认值**（即 Java 类中设置的初始值）
 2. 控制台会输出一条**警告日志**，指出哪个配置值无效
