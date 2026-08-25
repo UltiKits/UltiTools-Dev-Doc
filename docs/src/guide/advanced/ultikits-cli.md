@@ -81,7 +81,7 @@ The command prompts you for:
 | Package name | Derived from name | Java package (e.g., `com.ultikits.plugins.home`) |
 | Description | — | Short description of the module |
 | Author | `git config user.name` | Your name |
-| API version | `6.2.4` | UltiTools-API version |
+| API version | `6.2.2` | UltiTools-API version. This default lags the current release; use the latest version instead. |
 
 It generates a complete, compilable project:
 
@@ -179,7 +179,7 @@ You can specify a JAR path explicitly and override metadata with flags:
 
 ```bash
 ultikits publish target/MyPlugin-1.2.0.jar \
-  --version 1.2.0 \
+  --module-version 1.2.0 \
   --changelog "Added new features"
 ```
 
@@ -189,7 +189,7 @@ Available flags:
 |------|-------------|
 | `--id <identifyString>` | Override module identifier |
 | `--name <name>` | Override display name |
-| `--version <version>` | Override version string |
+| `--module-version <version>` | Override version string |
 | `--changelog <text>` | Version changelog |
 | `--short-description <text>` | Override short description |
 | `-y, --yes` | Skip all confirmation prompts |
@@ -200,7 +200,7 @@ For CI/CD, use `--yes` to skip prompts and `ULTIKITS_TOKEN` for auth:
 
 ```bash
 ULTIKITS_TOKEN=your_token ultikits publish --yes \
-  --version "1.2.0" \
+  --module-version "1.2.0" \
   --changelog "Bug fixes and improvements"
 ```
 
@@ -210,7 +210,7 @@ The CLI resolves metadata from multiple sources in this priority order:
 
 **CLI flags** > **ultikits.json** > **plugin.yml from JAR**
 
-For example, if you pass `--version 1.2.0`, it overrides the version in `plugin.yml`.
+For example, if you pass `--module-version 1.2.0`, it overrides the version in `plugin.yml`.
 
 ## Managing Modules
 
@@ -331,7 +331,7 @@ jobs:
           RELEASE_BODY: ${{ github.event.release.body }}
         run: |
           ultikits publish --yes \
-            --version "$MODULE_VERSION" \
+            --module-version "$MODULE_VERSION" \
             --changelog "$RELEASE_BODY"
 ```
 

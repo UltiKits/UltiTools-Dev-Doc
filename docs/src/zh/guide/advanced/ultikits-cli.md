@@ -81,7 +81,7 @@ ultikits create
 | Package name | 由名称自动推导 | Java 包名（如 `com.ultikits.plugins.home`） |
 | Description | — | 模块简短描述 |
 | Author | `git config user.name` | 作者名 |
-| API version | `6.2.4` | UltiTools-API 版本 |
+| API version | `6.2.2` | UltiTools-API 版本。该默认值落后于当前正式版，建议手动改为最新版。 |
 
 生成一个完整的、可编译的项目：
 
@@ -179,7 +179,7 @@ CLI 自动完成以下操作：
 
 ```bash
 ultikits publish target/MyPlugin-1.2.0.jar \
-  --version 1.2.0 \
+  --module-version 1.2.0 \
   --changelog "新增功能"
 ```
 
@@ -189,7 +189,7 @@ ultikits publish target/MyPlugin-1.2.0.jar \
 |------|------|
 | `--id <identifyString>` | 覆盖模块标识符 |
 | `--name <name>` | 覆盖显示名称 |
-| `--version <version>` | 覆盖版本号 |
+| `--module-version <version>` | 覆盖版本号 |
 | `--changelog <text>` | 版本更新日志 |
 | `--short-description <text>` | 覆盖简短描述 |
 | `-y, --yes` | 跳过所有确认提示 |
@@ -200,7 +200,7 @@ ultikits publish target/MyPlugin-1.2.0.jar \
 
 ```bash
 ULTIKITS_TOKEN=your_token ultikits publish --yes \
-  --version "1.2.0" \
+  --module-version "1.2.0" \
   --changelog "修复 Bug 和改进"
 ```
 
@@ -210,7 +210,7 @@ CLI 从多个来源解析元数据，优先级如下：
 
 **CLI 参数** > **ultikits.json** > **JAR 中的 plugin.yml**
 
-例如，如果你传入 `--version 1.2.0`，它会覆盖 `plugin.yml` 中的版本号。
+例如，如果你传入 `--module-version 1.2.0`，它会覆盖 `plugin.yml` 中的版本号。
 
 ## 模块管理
 
@@ -331,7 +331,7 @@ jobs:
           RELEASE_BODY: ${{ github.event.release.body }}
         run: |
           ultikits publish --yes \
-            --version "$MODULE_VERSION" \
+            --module-version "$MODULE_VERSION" \
             --changelog "$RELEASE_BODY"
 ```
 
