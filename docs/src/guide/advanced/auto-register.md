@@ -16,7 +16,7 @@ Put the switches you want directly on your class as `@EnableAutoRegister(eventLi
 Resolving the alias, or merging the host annotation's values during the meta-annotation lookup, is tracked in [issue #325](https://github.com/UltiKits/UltiTools-Reborn/issues/325).
 :::
 
-If you want to manually register commands or listeners, you can set `eventListener` to `false` or `cmdExecutor` to `false`.
+If you want to manually register commands or listeners, set `eventListener` or `cmdExecutor` to `false` on a direct `@EnableAutoRegister` annotation as described in the warning above, not on `@UltiToolsModule`.
 
 ```java
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;

@@ -16,7 +16,7 @@
 解析这个别名，或者在元注解查找命中时合并宿主注解的属性值，跟踪于 [issue #325](https://github.com/UltiKits/UltiTools-Reborn/issues/325)。
 :::
 
-如果你想要手动注册命令或监听器，可以将 `eventListener` 设置为 `false` 或 `cmdExecutor` 设置为 `false`。
+如果你想要手动注册命令或监听器，请按上方警告所述，把 `eventListener` 或 `cmdExecutor` 设为 `false` 并直接标注 `@EnableAutoRegister`，而不是标在 `@UltiToolsModule` 上。
 
 ```java
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
