@@ -98,9 +98,6 @@ TempListener.common(AsyncPlayerChatEvent.class)
         }
         return true; // 处理后自动注销
     });
-
-// 可选：如果玩家登出则手动注销
-// listener.unregister();
 ```
 
 ::: info
@@ -138,4 +135,4 @@ TempListener.common(PlayerInteractEvent.class)
     .listen(event -> { /* ... */ return true; });
 ```
 
-你可以使用 `unregister()` 方法手动注销任何监听器。
+手动注销需要使用上方警告中说明的四参数 `SimpleTempListener` 构造器；`build()` 与 `listen(...)` 单独使用都无法同时提供过滤器和可调用 `unregister()` 的句柄。

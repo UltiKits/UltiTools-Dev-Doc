@@ -101,7 +101,7 @@ ItemDisplay.builder(itemStack)
 把这些只存不渲染的 builder 方法补上实现或删除的工作跟踪于 [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200)。
 :::
 
-非常适合用于展示列表数据（如商店商品、背包内容）。它可以自动计算行列位置。
+非常适合用于展示列表数据（如商店商品、背包内容）。只有 `ItemDisplay` 类型的 Widget 会被自动计算行列位置并写入槽位。
 
 ```java
 GridView.<ShopItem>builder()
@@ -117,6 +117,8 @@ GridView.<ShopItem>builder()
     })
     .build();
 ```
+
+如果 mapper 返回其他 Widget 类型，需要自行计算槽位并调用对应 builder 的 slot 方法，否则会落在 builder 的默认槽位互相覆盖。
 
 ## 5. 状态管理与交互 (State Management)
 

@@ -97,9 +97,6 @@ TempListener.common(AsyncPlayerChatEvent.class)
         }
         return true; // auto-unregister
     });
-
-// Optional: Manually unregister if the player logs out
-// listener.unregister();
 ```
 
 ::: info
@@ -137,4 +134,4 @@ TempListener.common(PlayerInteractEvent.class)
     .listen(event -> { /* ... */ return true; });
 ```
 
-You can manually unregister any listener using the `unregister()` method.
+Manual unregistration requires the four-argument `SimpleTempListener` constructor described in the warning above; neither `build()` nor `listen(...)` on their own provide both a filter and a handle to call `unregister()` on.
