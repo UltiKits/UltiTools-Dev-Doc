@@ -201,6 +201,12 @@ public void criticalTransfer(String from, String to, double amount) {
 
 ### 自定义回滚规则
 
+::: warning rollbackFor 是替换默认回滚规则，不是叠加
+`shouldRollback` 先检查 `tx.rollbackFor()`，一旦非空就只对列出的类型回滚，因此 `@Transactional(rollbackFor = BusinessException.class)` 会让默认的 `RuntimeException`/`Error` 规则完全不再执行。
+自己把默认规则列全：每次追加自定义类型时写成 `rollbackFor = {BusinessException.class, RuntimeException.class, Error.class}`，否则没被列出的异常会被提交而不是回滚。
+`rollbackFor` 该改成叠加语义，还是该把 javadoc 改成如实描述当前的替换行为，跟踪于 [issue #328](https://github.com/UltiKits/UltiTools-Reborn/issues/328)。
+:::
+
 默认情况下，`@Transactional` 在 `RuntimeException` 或 `Error` 时回滚。使用 `rollbackFor` 指定额外的回滚异常：
 
 ```java
