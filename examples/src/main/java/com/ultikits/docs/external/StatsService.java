@@ -23,11 +23,10 @@ import java.util.UUID;
 @Service
 public class StatsService {
 
-    private final JavaPlugin plugin;
     private final DataOperator<StatsEntity> dataOp;
 
-    public StatsService(JavaPlugin plugin) {
-        this.plugin = plugin;
+    public StatsService() {
+        JavaPlugin plugin = JavaPlugin.getPlugin(MyExternalPlugin.class);
         this.dataOp = UltiToolsAPI.getDataOperator(plugin, StatsEntity.class);
     }
 
