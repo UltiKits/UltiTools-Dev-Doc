@@ -107,7 +107,7 @@ boolean something = someConfig.getSomething();
 
 ::: tip
 Although UltiTools lets you modify and save the configuration file from code, doing so is discouraged: it produces unexpected changes for users and can overwrite edits they have not saved yet.
-Configuration exists for the user to read and edit, decide whether to apply a change should be the user's call, in response to explicit user action.
+Configuration exists for the user to read and edit, so whether to apply a change is the user's call and your code should only write in response to an explicit user action.
 For data your own plugin needs to persist, use [Data Storage](/guide/essentials/data-storage) instead.
 :::
 
