@@ -135,4 +135,4 @@ TempListener.common(PlayerInteractEvent.class)
     .listen(event -> { /* ... */ return true; });
 ```
 
-手动注销需要使用上方警告中说明的四参数 `SimpleTempListener` 构造器；`build()` 与 `listen(...)` 单独使用都无法同时提供过滤器和可调用 `unregister()` 的句柄。
+手动注销一个带过滤器的监听器，需要使用上方警告中说明的四参数 `SimpleTempListener` 构造器；`build()` 确实会返回句柄，但会丢掉你的过滤器，而 `listen(...)` 保留过滤器却不返回任何可注销的东西。

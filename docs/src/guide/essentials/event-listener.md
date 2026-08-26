@@ -134,4 +134,4 @@ TempListener.common(PlayerInteractEvent.class)
     .listen(event -> { /* ... */ return true; });
 ```
 
-Manual unregistration requires the four-argument `SimpleTempListener` constructor described in the warning above; neither `build()` nor `listen(...)` on their own provide both a filter and a handle to call `unregister()` on.
+Unregistering a filtered listener by hand requires the four-argument `SimpleTempListener` constructor described in the warning above; `build()` does return a handle but drops your filter, and `listen(...)` keeps the filter but returns nothing to unregister.

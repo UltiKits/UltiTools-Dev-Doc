@@ -58,11 +58,13 @@ for f in "$@"; do
       sub(/^[[:space:]]*[-*+][[:space:]]+/, "", t)
       sub(/^[[:space:]]*[0-9]+\.[[:space:]]+/, "", t)
       gsub(/`[^`]*`/, "X", t)
+      # 粗体与破折号先计数并「摘掉」，再数句子：**First.** **Second.** 里句点后面是 *
+      # 而不是空白，留着它们会让四句被数成一句然后放行
+      bold += gsub(/\*\*/, "", t) / 2
+      dash += gsub(/——/, "", t) + gsub(/—/, "", t)
       n = gsub(/[。！？]/, "&", t)
       n += gsub(/[.!?]([[:space:]]|$)/, "&", t)
       sent += (n>0 ? n : 1)
-      bold += gsub(/\*\*/, "&", t) / 2
-      dash += gsub(/——/, "&", t) + gsub(/—/, "&", t)
     }
     END { exit (found ? 1 : 0) }
   '
