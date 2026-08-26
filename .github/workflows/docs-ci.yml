@@ -14,8 +14,8 @@ on:
   # No `workflow_dispatch` either — there is no pre-release manual-run use case
   # for a doc-only build/parity gate.
 
-# Both jobs only read the repository, build the site, and run a local script —
-# neither needs write access, so the default token is narrowed to read-only.
+# All three jobs only read the repository, build the site, and run local scripts —
+# none needs write access, so the default token is narrowed to read-only.
 permissions:
   contents: read
 
@@ -54,3 +54,16 @@ jobs:
 
       - name: Check bilingual page tree and sidebar coverage
         run: bash scripts/check-bilingual-parity.sh
+
+  container-length:
+    name: Custom-block prose length (AGENTS.md)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 只读本地脚本，不需要持久化凭据
+          persist-credentials: false
+
+      - name: "Check ::: container prose length against AGENTS.md"
+        run: bash scripts/check-container-length.sh $(find docs/src -name '*.md')
