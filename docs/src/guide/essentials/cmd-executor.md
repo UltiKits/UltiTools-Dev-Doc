@@ -552,7 +552,6 @@ public void backupWorld(@CmdSender Player player) {
     // Configuration above:
     // - Shows "处理中..." while executing
     // - Uses custom i18n key instead of default
-    // - Cancels if execution takes > 60 seconds
 }
 ```
 
