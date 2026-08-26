@@ -100,7 +100,7 @@ identify-string: test-plugin
 
 ::: warning 六参数手动注册在 v6.2.5 上必定失败
 下面曾经展示的 `register(pluginClass, name, version, authors, loadAfter, minUltiToolsVersion, mainClass)` 调用在 v6.2.5 上必定抛出异常：`validateConstructorArgs` 按类名前缀校验每个实参类型，`Collections.singletonList(...)` 与 `Collections.emptyList()` 产出的 `Collections$SingletonList`/`Collections$EmptyList` 都不匹配任何白名单前缀，触发的 `SecurityException` 被外层 `catch (Exception | Error)` 吞掉，只打日志并返回 `false`。
-改用模块 JAR 的标准加载方式：把这个类打进带有本页前文所述 `plugin.yml` 的 JAR，放进 `plugins/UltiTools/plugins`，UltiTools 会通过无参构造器加载它，完全不会走到 `validateConstructorArgs`，也不会碰到手工构造 `ArrayList` 之后仍会命中的 `int` 与 `Integer` 精确匹配失败。
+改用本页前文「创建一个UltiTools的模块」那一节的写法，而不是这个入口类：那一节的主类没有声明任何构造器，UltiTools 从 `plugins/UltiTools/plugins` 通过自动生成的无参构造器加载它，完全不会走到 `validateConstructorArgs`，也不会碰到手工构造 `ArrayList` 之后仍会命中的 `int` 与 `Integer` 精确匹配失败。
 `register(...)` 是否应该接受这些实参类型，与连接器的替代签名一起在 [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217) 中讨论，六参数构造器本身已列入 [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213) 的移除清单。
 :::
 

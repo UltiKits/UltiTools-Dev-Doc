@@ -15,7 +15,7 @@
 #   2. 跳过容器体内的 ``` 代码块 —— 原脚本在含代码的容器上误报
 #   3. 按句判定 —— 剥离列表前缀与行内代码跨度后，每个非空散文行至少算 1 句
 #
-# 用法：bash scripts/check-container-length.sh $(find docs/src -name '*.md')
+# 用法：find docs/src -name '*.md' -print0 | xargs -0 bash scripts/check-container-length.sh
 #       MODE=all bash scripts/check-container-length.sh <file>   # 列出全部块，含 STRUCT/ok
 set -uo pipefail
 mode="${MODE:-over}"

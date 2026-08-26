@@ -66,4 +66,6 @@ jobs:
           persist-credentials: false
 
       - name: "Check ::: container prose length against AGENTS.md"
-        run: bash scripts/check-container-length.sh $(find docs/src -name '*.md')
+        # -print0/-0 而不是 $(find ...)：后者按空白分词，文件名含空格时会被拆成多个参数，
+        # 检查器于是对不存在的路径报错，而不是检查那个文件（shellcheck SC2046）
+        run: find docs/src -name '*.md' -print0 | xargs -0 bash scripts/check-container-length.sh

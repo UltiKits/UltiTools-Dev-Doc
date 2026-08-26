@@ -105,7 +105,7 @@ Plugins that UltiTools does not load used to register their connector class with
 
 ::: warning register(...) always fails with these arguments on v6.2.5
 The registration call below no longer appears because it always fails on v6.2.5: `validateConstructorArgs` allow-lists constructor argument types by class name, `Collections.singletonList(...)` and `Collections.emptyList()` produce `Collections$SingletonList`/`Collections$EmptyList` which match no allow-listed prefix, and the resulting `SecurityException` is swallowed by an outer `catch (Exception | Error)` that only logs and returns `false`.
-Switch to the standard module-loading path instead: package this class into a JAR with the `plugin.yml` shown earlier in this guide and drop it in `plugins/UltiTools/plugins`, which constructs it through the no-argument constructor and never reaches `validateConstructorArgs` or the `int`/`Integer` exact-match failure that a hand-built `ArrayList` would still hit.
+Use the module shape from Create a new UltiTools module above instead, not this connector: that main class declares no constructor at all, so UltiTools loads it from `plugins/UltiTools/plugins` through the generated no-argument constructor and never reaches `validateConstructorArgs` or the `int`/`Integer` exact-match failure that a hand-built `ArrayList` would still hit.
 Whether `register(...)` should accept these argument types is being decided together with the connector's replacement signature in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217), and the six-parameter constructor itself is on the removal list in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213).
 :::
 
