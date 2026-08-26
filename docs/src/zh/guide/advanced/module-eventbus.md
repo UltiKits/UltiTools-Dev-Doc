@@ -190,8 +190,6 @@ public class EconomyService {
 <<< @/../examples/src/main/java/com/ultikits/docs/eventbus/complete/AuditLogService.java
 
 ::: tip 跨模块通信
-EventBus 非常适合模块需要对彼此的操作做出反应但又不想紧耦合的场景。例如：
-- 经济变化触发审计日志或通知
-- 玩家传送事件触发区域检查
-- 自定义游戏事件协调多个模块
+EventBus 非常适合模块需要对彼此的操作做出反应但又不想紧耦合的场景。
+常见例子包括经济变化触发审计日志或通知、玩家传送事件触发区域检查、以及自定义游戏事件协调多个模块。
 :::

@@ -73,7 +73,8 @@ object in the configuration file to the type of the configuration item. The defa
 inherit the `ConfigParser` class and specify it in the `parser` attribute.
 
 ::: tip Built-in Parser
-`StringHashMapParser` is a built-in, ready-to-use implementation at `com.ultikits.ultitools.interfaces.impl.pasers.StringHashMapParser`. Reference it directly with `@ConfigEntry(parser = StringHashMapParser.class)` instead of writing a new parser for this shape of data. The snippet below reproduces its logic for illustration only; import the framework class above, not this file.
+`StringHashMapParser` is a built-in, ready-to-use implementation at `com.ultikits.ultitools.interfaces.impl.pasers.StringHashMapParser`; reference it directly with `@ConfigEntry(parser = StringHashMapParser.class)` instead of writing a new one.
+The snippet below only illustrates its logic, import the framework class shown above, not this file.
 <<< @/../examples/src/main/java/com/ultikits/docs/config/StringHashMapParser.java
 :::
 
@@ -105,14 +106,9 @@ boolean something = someConfig.getSomething();
 ```
 
 ::: tip
-
-Although UltiTools allows you to make changes to the configuration file and save the changes, this does not mean that it
-is a good behavior for the program to change the configuration file.
-Programs changing configuration files will cause unexpected changes for users, and may cause users to lose unsaved
-configurations.
-Configuration is for reading, and users should configure it themselves and decide whether to apply the configuration.
-If you need to persistently store data, please refer to [Data Storage](/guide/essentials/data-storage).
-
+Although UltiTools lets you modify and save the configuration file from code, doing so is discouraged: it produces unexpected changes for users and can overwrite edits they have not saved yet.
+Configuration exists for the user to read and edit, decide whether to apply a change should be the user's call, in response to explicit user action.
+For data your own plugin needs to persist, use [Data Storage](/guide/essentials/data-storage) instead.
 :::
 
 ## Register configuration file

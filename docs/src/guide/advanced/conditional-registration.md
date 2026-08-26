@@ -24,7 +24,7 @@ If `enableWarp` is `false` or missing, the `WarpCommands` class is **not registe
 ::: warning The condition is skipped on the connector path
 `@ConditionalOnConfig` is read only in `ComponentScanner.shouldRegister`, which sits on the container scan path, while a plugin registered through `PluginManager.register(...)` reaches its command executors and listeners through a package scan that instantiates them reflectively, so the annotation is never consulted and the class is not skipped as this page describes.
 Ship the code as a standard UltiTools module with `@UltiToolsModule`, as every example on this page does; if you have to use a connector, read the config in `registerSelf()` and decide there whether to register.
-No framework issue tracks this yet, so it is recorded in [issue #30](https://github.com/UltiKits/UltiTools-Dev-Doc/issues/30) for now.
+Making the connector path honour the condition is tracked in [issue #334](https://github.com/UltiKits/UltiTools-Reborn/issues/334).
 :::
 
 ## Annotation Attributes

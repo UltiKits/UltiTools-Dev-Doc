@@ -113,7 +113,7 @@ Truncate the list to `rows * columns` entries before passing it to `.items(...)`
 Implementing or removing the builder methods that currently store without rendering is tracked in [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200).
 :::
 
-Ideal for rendering lists (shop items, inventories). GridView calculates row/column positions automatically.
+Ideal for rendering lists (shop items, inventories). Only `ItemDisplay` widgets are automatically positioned into row/column slots.
 
 ```java
 GridView.<ShopItem>builder()
@@ -129,6 +129,8 @@ GridView.<ShopItem>builder()
     })
     .build();
 ```
+
+If the mapper returns any other Widget type, compute the slot yourself and call the builder's slot method, otherwise every item lands on the builder's default slot and overlaps.
 
 ## 5. State management & interaction
 

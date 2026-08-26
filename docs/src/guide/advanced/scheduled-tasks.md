@@ -13,11 +13,7 @@ Add `@Scheduled` to any `void`, no-argument method inside a managed bean (such a
 <<< @/../examples/src/main/java/com/ultikits/docs/scheduled/AutoSaveService.java
 
 ::: tip Tick Conversion
-Minecraft runs at 20 ticks per second:
-- 1 second = 20 ticks
-- 1 minute = 1,200 ticks
-- 5 minutes = 6,000 ticks
-- 30 minutes = 36,000 ticks
+Minecraft runs at 20 ticks per second: 1 second is 20 ticks, 1 minute is 1,200 ticks, 5 minutes is 6,000 ticks, and 30 minutes is 36,000 ticks.
 :::
 
 ## Annotation Attributes

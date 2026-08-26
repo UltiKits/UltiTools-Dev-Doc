@@ -92,46 +92,17 @@ identify-string: test-plugin
 
 <<< @/../examples/src/main/java/com/ultikits/docs/quickstart/UltiToolsConnector.java
 
+这个类只有在你把模块打成 JAR、交由 UltiTools 走标准模块加载路径时才会起作用，见上文[创建一个 UltiTools 的模块](#创建一个ultitools的模块)。
+
 ### 将入口类注册到UltiTools插件管理器（旧版）
 
-由于你的插件并不是由UltiTools加载，所以你需要手动将你的入口类注册到UltiTools插件管理器中。
+不由 UltiTools 加载的插件，过去要手动把入口类注册到 UltiTools 插件管理器。
 
-::: warning 无需手动注销
-`PluginManager` 未提供取回已注册实例的方法，手动构造一个实例传给 `unregister()` 会因 context 未初始化而抛出 `NullPointerException`。
-删掉这段注销调用即可：UltiTools 在自己 `onDisable()` 时会通过 `PluginManager.close()` 自动注销全部连接器。
-本示例所属的旧版连接器通路已列入 [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213) 的移除清单，其待定问题在 [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217) 中回答。
+::: warning 六参数手动注册在 v6.2.5 上必定失败
+下面曾经展示的 `register(pluginClass, name, version, authors, loadAfter, minUltiToolsVersion, mainClass)` 调用在 v6.2.5 上必定抛出异常：`validateConstructorArgs` 按类名前缀校验每个实参类型，`Collections.singletonList(...)` 与 `Collections.emptyList()` 产出的 `Collections$SingletonList`/`Collections$EmptyList` 都不匹配任何白名单前缀，触发的 `SecurityException` 被外层 `catch (Exception | Error)` 吞掉，只打日志并返回 `false`。
+改用本页前文「创建一个UltiTools的模块」那一节的写法，而不是这个入口类：那一节的主类没有声明任何构造器，UltiTools 从 `plugins/UltiTools/plugins` 通过自动生成的无参构造器加载它，完全不会走到 `validateConstructorArgs`，也不会碰到手工构造 `ArrayList` 之后仍会命中的 `int` 与 `Integer` 精确匹配失败。
+`register(...)` 是否应该接受这些实参类型，与连接器的替代签名一起在 [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217) 中讨论，六参数构造器本身已列入 [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213) 的移除清单。
 :::
-
-```java
-import com.ultikits.ultitools.UltiTools;
-import org.bukkit.plugin.java.JavaPlugin;
-
-import java.util.Collections;
-
-// 插件主类
-public final class UltiKitsExample extends JavaPlugin {
-    @Override
-    public void onEnable() {
-        // 将此连接类注册到UltiTools的模块/插件管理器中
-        UltiTools.getInstance().getPluginManager().register(
-                UltiToolsConnector.class,
-                "Example",  // 插件名称
-                "1.0.0",  // 版本
-                Collections.singletonList("wisdomme"),  // 作者
-                Collections.emptyList(),  // 加载后依赖
-                620,  // UltiTools API 需求最低版本
-                "com.ultikits.docs.quickstart.UltiToolsConnector"  // 连接类的完整类名
-        );
-    }
-
-    @Override
-    public void onDisable() {
-        // 记得在插件卸载时将连接类从UltiTools的模块/插件管理器中注销
-        UltiTools.getInstance().getPluginManager().unregister(UltiToolsConnector.getInstance());
-    }
-}
-
-```
 
 ## 验证安装
 

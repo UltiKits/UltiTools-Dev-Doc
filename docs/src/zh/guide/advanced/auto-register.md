@@ -12,6 +12,12 @@
 
 如果你想要手动注册命令或监听器，可以将 `eventListener` 设置为 `false` 或 `cmdExecutor` 设置为 `false`。
 
+::: warning @UltiToolsModule 上的 eventListener、cmdExecutor 与 config 从不被读取
+`registerBukkit` 通过朴素的元注解查找取 `@EnableAutoRegister`，拿到的始终是标注在 `@UltiToolsModule` 类型本身上的裸注解，因此你在 `@UltiToolsModule` 上设置的 `eventListener`、`cmdExecutor`、`config` 只是从未被解析的 `@AliasFor` 声明，不会生效。
+改为把你要的开关直接标在你的类上，写成 `@EnableAutoRegister(eventListener = false, cmdExecutor = false, config = false)`：`PluginManager` 是按直接查找读取这个注解类型的，标在它自己身上的值才会生效。
+解析这个别名，或者在元注解查找命中时合并宿主注解的属性值，跟踪于 [issue #325](https://github.com/UltiKits/UltiTools-Reborn/issues/325)。
+:::
+
 ```java
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
 import com.ultikits.ultitools.annotations.UltiToolsModule;
@@ -61,6 +67,12 @@ public class PluginMain extends UltiToolsPlugin {
 
 在继承了 `UltiToolsPlugin` 的类的上方添加这一注解，UltiTools 在加载你的模块时会根据你的配置进行自动注册：
 
+::: warning cmdExecutor = true 会走到一个抛 ClassCastException 的已弃用重载
+在本页展示的连接器注册路径上，`registerBukkit` 把命令注册交给 `CommandManager.registerAll(UltiToolsPlugin, String)`，它把每个扫描到的类直接强转成已废弃的 `AbstractCommandExecutor`，现已标 `@Deprecated(since = "6.2.5", forRemoval = true)`，因此按推荐写法继承 `BaseCommandExecutor` 的命令类会抛出未捕获的 `ClassCastException`。
+命令类若要走这条连接器路径，请改继承 `AbstractCommandExecutor`，或改用本页前文所述的模块 JAR 标准加载方式，那条路径完全不会调用这个重载。
+修复还是移除这个重载，与连接器的替代签名一起在 [issue #327](https://github.com/UltiKits/UltiTools-Reborn/issues/327) 中决定。
+:::
+
 ```java
 @EnableAutoRegister(
     scanPackage = "",     //要扫描的包
@@ -89,7 +101,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
 本示例中的连接器构造器与 `@EnableAutoRegister` 一节所述是同一个六参数重载。
 
-在继承了 `UltiToolsPlugin` 的类的上方添加这一注解，UltiTools 在加载你的模块时会自动为指定的类注册 Bean。
+在继承了 `UltiToolsPlugin` 的类的上方添加这一注解；它只在上方所述的 `register(UltiToolsPlugin)` 连接器与适配器路径下生效，标准模块以 JAR 方式被 UltiTools 加载时不会读取它。标准模块请改用 `@Service` 或 `@Bean` 注册 Bean。
 
 ```java
 @ContextEntry(MyBean.class)

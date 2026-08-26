@@ -12,6 +12,12 @@ This annotation includes automatic scanning and registration of commands, listen
 
 If you want to manually register commands or listeners, you can set `eventListener` to `false` or `cmdExecutor` to `false`.
 
+::: warning eventListener, cmdExecutor and config on @UltiToolsModule are never read
+`registerBukkit` looks up `@EnableAutoRegister` through a plain meta-annotation search that returns the bare annotation on `@UltiToolsModule` itself, so the `eventListener`, `cmdExecutor` and `config` values you set on `@UltiToolsModule` are `@AliasFor` declarations that are never resolved and never take effect.
+Put the switches you want directly on your class as `@EnableAutoRegister(eventListener = false, cmdExecutor = false, config = false)` instead: `PluginManager` reads that annotation type by direct lookup, so a value declared on it does apply.
+Resolving the alias, or merging the host annotation's values during the meta-annotation lookup, is tracked in [issue #325](https://github.com/UltiKits/UltiTools-Reborn/issues/325).
+:::
+
 ```java
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
 import com.ultikits.ultitools.annotations.UltiToolsModule;
@@ -61,6 +67,12 @@ The replacement signature for connectors is still being decided in [issue #217](
 
 Add this annotation above the class that extends `UltiToolsPlugin`, UltiTools will automatically register according to your configuration when loading your module:
 
+::: warning cmdExecutor = true routes through a deprecated overload that throws ClassCastException
+On the connector registration path shown on this page, `registerBukkit` sends command registration to `CommandManager.registerAll(UltiToolsPlugin, String)`, which casts every scanned class straight to the retired `AbstractCommandExecutor` and is now `@Deprecated(since = "6.2.5", forRemoval = true)`, so a command class written against the recommended `BaseCommandExecutor` throws an uncaught `ClassCastException`.
+Extend `AbstractCommandExecutor` for commands registered through this connector path, or use the standard module JAR loading path shown earlier in this guide, which never calls this overload.
+Fixing or removing this overload is being decided together with the connector's replacement signature in [issue #327](https://github.com/UltiKits/UltiTools-Reborn/issues/327).
+:::
+
 ```java
 @EnableAutoRegister(
     scanPackage = "",     // package to scan
@@ -89,7 +101,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
 The connector constructor in this example is the same six-parameter overload described under `@EnableAutoRegister`.
 
-Add this annotation above the class that extends `UltiToolsPlugin`, UltiTools will automatically register Bean for the specified class when loading your module.
+Add this annotation above the class that extends `UltiToolsPlugin`; it only takes effect on the `register(UltiToolsPlugin)` connector and adapter path described above, not when UltiTools loads your module as a standard JAR. Standard modules should register beans with `@Service` or `@Bean` instead.
 
 ```java
 @ContextEntry(MyBean.class)

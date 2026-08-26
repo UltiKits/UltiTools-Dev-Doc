@@ -201,6 +201,12 @@ public void criticalTransfer(String from, String to, double amount) {
 
 ### Custom Rollback Rules
 
+::: warning rollbackFor replaces the default rollback rule, it does not add to it
+`shouldRollback` checks `tx.rollbackFor()` first and, once it is non-empty, only rolls back for the listed types, so `@Transactional(rollbackFor = BusinessException.class)` stops the default `RuntimeException`/`Error` rule from running at all.
+List the defaults yourself: write `rollbackFor = {BusinessException.class, RuntimeException.class, Error.class}` whenever you add a custom type, or the exceptions you did not list will be committed instead of rolled back.
+Whether `rollbackFor` should become additive, or the javadoc should instead describe the current replace behavior, is tracked in [issue #328](https://github.com/UltiKits/UltiTools-Reborn/issues/328).
+:::
+
 By default, `@Transactional` rolls back on any `RuntimeException` or `Error`. Use `rollbackFor` to trigger rollback for additional exceptions:
 
 ```java

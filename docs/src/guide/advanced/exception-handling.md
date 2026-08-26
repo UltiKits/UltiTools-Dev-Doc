@@ -87,10 +87,9 @@ Register the handler and reference it by name:
 <<< @/../examples/src/main/java/com/ultikits/docs/exception/MyService.java
 
 ::: tip Handler Interface
-Custom handlers implement the `ExceptionHandler` interface with:
-- `handleException(Throwable, Object, Method, Object[])` — main handler logic, returns a replacement value or can re-throw
-- `supports(Class)` — optional; returns true if this handler supports the exception type (default: true for all)
-- `getOrder()` — optional; lower values have higher priority (default: 0)
+Custom handlers implement the `ExceptionHandler` interface, whose `handleException(Throwable, Object, Method, Object[])` method holds the main logic and can return a replacement value or re-throw.
+`supports(Class)` is optional and reports whether the handler covers a given exception type, defaulting to true for all types.
+`getOrder()` is optional too and sets priority, where lower values run first and the default is 0.
 :::
 
 ## Method Requirements
@@ -126,11 +125,9 @@ Supported bean types:
 <<< @/../examples/src/main/java/com/ultikits/docs/exception/UserDatabaseService.java
 
 ::: tip Best Practices
-1. **Use for fault tolerance** — Catch exceptions in methods where failures are expected or non-critical
-2. **Specify exception types** — Use `@ExceptionCatch(IOException.class)` instead of catching all exceptions
-3. **Enable logging** — Keep `silent = false` unless you have a specific reason to suppress logs
-4. **Provide meaningful defaults** — Use `defaultValue = "empty"` for collections, `"0"` for counts, etc.
-5. **Combine with services** — `@ExceptionCatch` works best on `@Service` beans designed for fault tolerance
+Custom handlers work best for fault tolerance, catching exceptions in methods where failures are expected or non-critical.
+Specify exception types such as `@ExceptionCatch(IOException.class)` instead of catching everything, and keep `silent = false` unless you have a specific reason to suppress the log.
+Provide meaningful defaults, for example `defaultValue = "empty"` for collections and `"0"` for counts, and combine `@ExceptionCatch` with `@Service` beans designed for fault tolerance.
 :::
 
 ## See Also

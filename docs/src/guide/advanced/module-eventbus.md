@@ -190,8 +190,6 @@ public class EconomyService {
 <<< @/../examples/src/main/java/com/ultikits/docs/eventbus/complete/AuditLogService.java
 
 ::: tip Cross-Module Communication
-The EventBus is ideal for scenarios where modules need to react to each other's actions without tight coupling. Examples:
-- Economy changes triggering audit logs or notifications
-- Player teleport events triggering region checks
-- Custom game events coordinating between multiple modules
+The EventBus is ideal for scenarios where modules need to react to each other's actions without tight coupling.
+Typical examples include economy changes triggering audit logs, player teleport events triggering region checks, and custom game events coordinating multiple modules.
 :::
