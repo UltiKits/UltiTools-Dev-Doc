@@ -13,11 +13,7 @@ UltiTools 提供了声明式的方式来调度重复或延迟任务。无需手�
 <<< @/../examples/src/main/java/com/ultikits/docs/scheduled/AutoSaveService.java
 
 ::: tip Tick 换算
-Minecraft 以每秒 20 tick 的速率运行：
-- 1 秒 = 20 tick
-- 1 分钟 = 1,200 tick
-- 5 分钟 = 6,000 tick
-- 30 分钟 = 36,000 tick
+Minecraft 以每秒 20 tick 的速率运行：1 秒等于 20 tick，1 分钟等于 1,200 tick，5 分钟等于 6,000 tick，30 分钟等于 36,000 tick。
 :::
 
 ## 注解属性
