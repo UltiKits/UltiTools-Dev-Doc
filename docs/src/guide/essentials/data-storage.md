@@ -40,7 +40,7 @@ Starting from v6.2.0, `DataOperator`, `Query`, and `UltiToolsPlugin.getDataOpera
 
 ::: warning Lifecycle hooks are invoked by your code, not by the operator
 `onCreate()`, `onUpdate()`, `onDelete()` and `onLoad()` are declared on `BaseDataEntity`, but no read or write path in the JSON, MySQL or SQLite operators calls them, so an entity that overrides them stores exactly the same data as one that does not.
-Call the hook yourself right before the operation, for example `entity.onCreate(); op.insert(entity);`: all four methods are public.
+Call the hook yourself around the operation, `entity.onCreate(); op.insert(entity);` before a write and `entity.onLoad();` on what a read returns: all four methods are public.
 Having the operators invoke the hooks is tracked in [issue #194](https://github.com/UltiKits/UltiTools-Reborn/issues/194).
 :::
 

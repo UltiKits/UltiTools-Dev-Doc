@@ -38,7 +38,7 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 
 ::: warning 生命周期钩子由你的代码调用，而不是由操作器调用
 `onCreate()`、`onUpdate()`、`onDelete()` 与 `onLoad()` 声明在 `BaseDataEntity` 上，但 JSON、MySQL 与 SQLite 三个操作器的读写路径都不调用它们，因此重写这些方法的实体落库结果与不重写完全一致。
-在每次操作前自己调一次，例如 `entity.onCreate(); op.insert(entity);`：这四个方法都是 public。
+在操作前后自己调一次，写入前 `entity.onCreate(); op.insert(entity);`，读取则在返回的实体上调 `entity.onLoad();`：这四个方法都是 public。
 让操作器调用这些钩子的修法跟踪于 [issue #194](https://github.com/UltiKits/UltiTools-Reborn/issues/194)。
 :::
 
