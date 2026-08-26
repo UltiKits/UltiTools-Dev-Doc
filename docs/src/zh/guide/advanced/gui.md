@@ -280,14 +280,7 @@ ItemStack glass = XVersionUtils.getColoredPlaneGlass(Colors.CYAN);
 ## 弃用的 API
 
 ::: warning 弃用的类
-`PagingPage` 和 `OkCancelPage` 不再维护。请迁移到新类：
-
-| 旧类 | 新类 |
-|------|------|
-| `PagingPage` | `BasePaginationPage` |
-| `OkCancelPage` | `BaseConfirmationPage` |
-| 自定义基类 | `BaseInventoryPage` |
-
+`PagingPage` 和 `OkCancelPage` 不再维护：`PagingPage` 请迁移到 `BasePaginationPage`，`OkCancelPage` 请迁移到 `BaseConfirmationPage`，其他自定义基类请迁移到 `BaseInventoryPage`。
 新 API 提供更好的结构、测试支持和与 v6.2.0 框架其他部分的一致性。
 :::
 

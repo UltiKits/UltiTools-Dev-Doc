@@ -280,15 +280,8 @@ Override button creation methods to customize appearance:
 ## Deprecated API
 
 ::: warning Deprecated Classes
-`PagingPage` and `OkCancelPage` are no longer maintained. Migrate to the modern classes:
-
-| Old | New |
-|-----|-----|
-| `PagingPage` | `BasePaginationPage` |
-| `OkCancelPage` | `BaseConfirmationPage` |
-| Custom base classes | `BaseInventoryPage` |
-
-The new API provides better structure, testing support, and consistency with the rest of the v6.2.0 framework.
+`PagingPage` and `OkCancelPage` are no longer maintained; migrate `PagingPage` usage to `BasePaginationPage`, `OkCancelPage` usage to `BaseConfirmationPage`, and any other custom base class to `BaseInventoryPage`.
+The new API gives better structure, testing support, and consistency with the rest of the v6.2.0 framework.
 :::
 
 ## Tips & Best Practices

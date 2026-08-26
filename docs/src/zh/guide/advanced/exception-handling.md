@@ -87,10 +87,9 @@ UltiTools 通过 `@ExceptionCatch` 注解提供声明式异常处理。无需在
 <<< @/../examples/src/main/java/com/ultikits/docs/exception/MyService.java
 
 ::: tip 处理器接口
-自定义处理器实现 `ExceptionHandler` 接口，包含以下方法：
-- `handleException(Throwable, Object, Method, Object[])` — 主处理逻辑，返回替换值或可以重新抛出异常
-- `supports(Class)` — 可选；返回 true 表示该处理器支持此异常类型（默认：支持所有异常）
-- `getOrder()` — 可选；值越低优先级越高（默认：0）
+自定义处理器实现 `ExceptionHandler` 接口，其中 `handleException(Throwable, Object, Method, Object[])` 承载主处理逻辑，可以返回替换值，也可以重新抛出异常。
+`supports(Class)` 是可选方法，用于表示该处理器是否支持某个异常类型，默认对所有类型返回 true。
+`getOrder()` 同样可选，用于设置优先级，数值越低优先级越高，默认值为 0。
 :::
 
 ## 方法要求
@@ -126,11 +125,9 @@ public class NonManagedClass {
 <<< @/../examples/src/main/java/com/ultikits/docs/exception/UserDatabaseService.java
 
 ::: tip 最佳实践
-1. **用于容错** — 在预期会出现故障或非关键的方法上捕获异常
-2. **指定异常类型** — 使用 `@ExceptionCatch(IOException.class)` 而非捕获所有异常
-3. **启用日志** — 除非有充分理由，否则保持 `silent = false`
-4. **提供有意义的默认值** — 集合使用 `defaultValue = "empty"`，计数器使用 `"0"` 等
-5. **配合服务使用** — `@ExceptionCatch` 最适合用在为容错而设计的 `@Service` Bean 上
+自定义处理器适合用于容错，在预期会出现故障或非关键的方法上捕获异常。
+指定具体的异常类型，例如 `@ExceptionCatch(IOException.class)`，而不是捕获所有异常；除非有充分理由，否则保持 `silent = false`。
+提供有意义的默认值，例如集合用 `defaultValue = "empty"`、计数器用 `"0"`，并把 `@ExceptionCatch` 配合为容错设计的 `@Service` Bean 一起使用。
 :::
 
 ## 相关文章
