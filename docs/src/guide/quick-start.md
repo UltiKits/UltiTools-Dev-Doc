@@ -97,46 +97,17 @@ Create a new class that extends `UltiToolsPlugin`, this class will be the connec
 
 <<< @/../examples/src/main/java/com/ultikits/docs/quickstart/UltiToolsConnector.java
 
+This class only takes effect once you package your module into a JAR that UltiTools loads through the standard module path; see [Create a new UltiTools module](#create-a-new-ultitools-module) above.
+
 ### Register your connector class (Legacy)
 
 Since your plugin is not loaded by UltiTools, you need to manually register your connector class to the UltiTools plugin manager.
 
-::: warning Manual unregistration is unnecessary
-`PluginManager` provides no way to retrieve an already-registered instance, so passing a newly constructed one to `unregister()` throws `NullPointerException` because its context was never initialized.
-Delete this call: UltiTools already unregisters every connector automatically through `PluginManager.close()` when it disables.
-The legacy connector path this example belongs to is on the removal list in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213), whose open question is being answered in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217).
+::: warning register(...) always fails with these arguments on v6.2.5
+The registration call below no longer appears because it always fails on v6.2.5: `validateConstructorArgs` allow-lists constructor argument types by class name, `Collections.singletonList(...)` and `Collections.emptyList()` produce `Collections$SingletonList`/`Collections$EmptyList` which match no allow-listed prefix, and the resulting `SecurityException` is swallowed by an outer `catch (Exception | Error)` that only logs and returns `false`.
+Switch to the standard module-loading path instead: package this class into a JAR with the `plugin.yml` shown earlier in this guide and drop it in `plugins/UltiTools/plugins`, which constructs it through the no-argument constructor and never reaches `validateConstructorArgs` or the `int`/`Integer` exact-match failure that a hand-built `ArrayList` would still hit.
+Whether `register(...)` should accept these argument types is being decided together with the connector's replacement signature in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217), and the six-parameter constructor itself is on the removal list in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213).
 :::
-
-```java
-import com.ultikits.ultitools.UltiTools;
-import org.bukkit.plugin.java.JavaPlugin;
-
-import java.util.Collections;
-
-// Your plugin main class
-public final class UltiKitsExample extends JavaPlugin {
-    @Override
-    public void onEnable() {
-        // Register this connector class to the UltiTools plugin manager
-        UltiTools.getInstance().getPluginManager().register(
-                UltiToolsConnector.class,
-                "Example",  // Plugin name
-                "1.0.0",  // Version
-                Collections.singletonList("wisdomme"),  // Authors
-                Collections.emptyList(),  // Load after
-                620,  // UltiTools API minimum version
-                "com.ultikits.docs.quickstart.UltiToolsConnector"  // Full class name of the connector class
-        );
-    }
-
-    @Override
-    public void onDisable() {
-        // Remember to unregister the connector class from the UltiTools plugin manager when the plugin is unloaded
-        UltiTools.getInstance().getPluginManager().unregister(UltiToolsConnector.getInstance());
-    }
-}
-
-```
 
 ## Verify installation
 
