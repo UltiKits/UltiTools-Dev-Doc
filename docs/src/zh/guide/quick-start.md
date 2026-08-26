@@ -96,7 +96,7 @@ identify-string: test-plugin
 
 ### 将入口类注册到UltiTools插件管理器（旧版）
 
-由于你的插件并不是由UltiTools加载，所以你需要手动将你的入口类注册到UltiTools插件管理器中。
+不由 UltiTools 加载的插件，过去要手动把入口类注册到 UltiTools 插件管理器。
 
 ::: warning 六参数手动注册在 v6.2.5 上必定失败
 下面曾经展示的 `register(pluginClass, name, version, authors, loadAfter, minUltiToolsVersion, mainClass)` 调用在 v6.2.5 上必定抛出异常：`validateConstructorArgs` 按类名前缀校验每个实参类型，`Collections.singletonList(...)` 与 `Collections.emptyList()` 产出的 `Collections$SingletonList`/`Collections$EmptyList` 都不匹配任何白名单前缀，触发的 `SecurityException` 被外层 `catch (Exception | Error)` 吞掉，只打日志并返回 `false`。

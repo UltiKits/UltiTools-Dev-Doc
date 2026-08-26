@@ -101,7 +101,7 @@ This class only takes effect once you package your module into a JAR that UltiTo
 
 ### Register your connector class (Legacy)
 
-Since your plugin is not loaded by UltiTools, you need to manually register your connector class to the UltiTools plugin manager.
+Plugins that UltiTools does not load used to register their connector class with the UltiTools plugin manager by hand.
 
 ::: warning register(...) always fails with these arguments on v6.2.5
 The registration call below no longer appears because it always fails on v6.2.5: `validateConstructorArgs` allow-lists constructor argument types by class name, `Collections.singletonList(...)` and `Collections.emptyList()` produce `Collections$SingletonList`/`Collections$EmptyList` which match no allow-listed prefix, and the resulting `SecurityException` is swallowed by an outer `catch (Exception | Error)` that only logs and returns `false`.
