@@ -300,8 +300,10 @@ If you want to specify the sender for a method, just add it in front of the meth
 @CmdTarget(CmdTarget.CmdTargetType.BOTH)
 ```
 
-::: tip
-If the sender is specified in both the class and the method, both must be met.
+::: warning The method-level annotation replaces the class-level one
+A method-level `@CmdTarget` overrides the class-level one entirely, it does not require both to be satisfied.
+A class annotated `PLAYER` with a method annotated `BOTH` lets the console execute that method.
+Restoring the intersection semantics (narrowing, not overriding) is proposed in [issue #320](https://github.com/UltiKits/UltiTools-Reborn/issues/320).
 :::
 
 ### Asynchronous Execution
@@ -348,8 +350,8 @@ If you don't want a command to be executed in large quantities and consume serve
 
 Parameter type is integer, in second.
 
-If the command is executed before the cooldown ends, the message `Frequent operations, please try again later` will be
-sent.
+If the command is executed before the cooldown ends, the message `操作频繁，请 %d 秒后再试` will be sent, with the remaining seconds substituted for `%d`.
+This text is not yet translated in `en.json`, so servers running in English currently see the raw Chinese string.
 
 This restriction only takes effect on **players**.
 
@@ -532,6 +534,12 @@ public void backupWorld(@CmdSender Player player) {
 ```
 
 ### Async Command Options
+
+::: warning timeout on @AsyncCommand has no timer and no cancel
+`BaseCommandExecutor` only wraps the runnable in one more `BukkitRunnable` when `asyncCommand.timeout() > 0`, so no timer starts and nothing is ever canceled, and any positive value runs exactly like leaving `timeout` unset.
+Do not rely on this attribute to bound execution time: a blocking call inside the method keeps running to completion regardless of what `timeout` is set to.
+Whether to implement real cancellation, remove the attribute, or document it as inert is tracked in [issue #322](https://github.com/UltiKits/UltiTools-Reborn/issues/322).
+:::
 
 ```java
 @AsyncCommand(

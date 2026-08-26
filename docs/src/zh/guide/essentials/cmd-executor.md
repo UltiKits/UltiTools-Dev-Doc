@@ -269,8 +269,10 @@ public static SomeType toSomeType(String s) {
 @CmdTarget(CmdTarget.CmdTargetType.BOTH)
 ```
 
-::: tip
-如果在类和方法都指定了发送者，则需要同时满足。
+::: warning 方法级注解会替换类级注解
+方法级 `@CmdTarget` 会完全覆盖类级 `@CmdTarget`，而不是要求两者都满足。
+类上标 `PLAYER`、方法上标 `BOTH` 时，控制台可以执行该方法。
+恢复交集语义（收窄而非覆盖）的诉求见 [issue #320](https://github.com/UltiKits/UltiTools-Reborn/issues/320)。
 :::
 
 ### 异步执行
@@ -312,7 +314,7 @@ public void listPoint(@CmdSender Player player) {
 
 参数类型为整数，单位为秒。
 
-冷却结束之前执行该指令将会发送消息：`操作频繁，请稍后再试`
+冷却结束之前执行该指令将会发送消息：`操作频繁，请 %d 秒后再试`（`%d` 会替换为剩余秒数）。
 
 此限制仅对**玩家**生效。
 
@@ -493,6 +495,12 @@ public void backupWorld(@CmdSender Player player) {
 ```
 
 ### 异步命令选项
+
+::: warning @AsyncCommand 的 timeout 没有计时器也没有取消调用
+`BaseCommandExecutor` 只在 `asyncCommand.timeout() > 0` 时把任务再包一层 `BukkitRunnable`，不启动计时器也不调用取消，设置任意正数与完全不设置在运行时没有区别。
+不要依赖这个属性限制执行时长：方法内部的阻塞调用会一直执行到结束，与 `timeout` 的取值无关。
+是实现真正的取消、移除这个属性，还是把它标注为不生效，跟踪于 [issue #322](https://github.com/UltiKits/UltiTools-Reborn/issues/322)。
+:::
 
 ```java
 @AsyncCommand(
