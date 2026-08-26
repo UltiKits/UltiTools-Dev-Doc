@@ -27,8 +27,6 @@ import com.ultikits.ultitools.annotations.Autowired;
         config = true,
         // 扫描包名
         scanBasePackages = {"com.test.plugin"},
-        // 指定特定的类扫描
-        scanBasePackageClasses = {},
         // 多语言支持
         i18n = {"zh", "en"}
 )
@@ -52,6 +50,12 @@ public class PluginMain extends UltiToolsPlugin {
 ```
 
 ## @EnableAutoRegister 注解
+
+::: warning 六参数连接器构造器已标记为待移除
+下面示例中的构造器对应 `UltiToolsPlugin` 上带 `@Deprecated(since = "6.0.8", forRemoval = true)` 的重载，它把资源目录路径写死，凡是用到的地方 javac 都会产生一条移除警告，页面下方 `@ContextEntry` 示例里的同一个构造器也是如此。
+改用外部插件 API，在你自己的 `JavaPlugin` 里调用 `UltiToolsAPI.connect`，或者保留连接器、改调七参数构造器并自行传入 `resourceFolderPath`：这两种写法在 v6.2.5 上都可用。
+连接器的替代签名仍在 [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217) 中讨论，移除动作本身跟踪于 [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213)。
+:::
 
 `@UltiToolsModule` 内包含了 `@EnableAutoRegister` 注解，在不适合使用 `@UltiToolsModule` 的情况下，你可以使用 `@EnableAutoRegister` 注解，比如你想在你自己的插件中使用 UltiTools 的自动注册。
 
@@ -82,6 +86,8 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 ```
 
 ## @ContextEntry 注解
+
+本示例中的连接器构造器与 `@EnableAutoRegister` 一节所述是同一个六参数重载。
 
 在继承了 `UltiToolsPlugin` 的类的上方添加这一注解，UltiTools 在加载你的模块时会自动为指定的类注册 Bean。
 

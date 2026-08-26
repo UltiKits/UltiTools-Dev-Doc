@@ -89,7 +89,7 @@ Then you have completed an UltiTools module that does nothing.
 You can use the simpler External Plugin API: `UltiToolsAPI.connect(this)` in your plugin's `onEnable()`. See the [External Plugin API guide](./advanced/external-plugin-api.md) for details.
 :::
 
-The following section describes the legacy connector approach, which is still supported but no longer recommended for new projects.
+The following section describes the legacy connector approach, which is still supported but no longer recommended for new projects. Its six-parameter constructor is marked for removal, so prefer the External Plugin API called from your own `JavaPlugin`, or the seven-parameter overload that takes `resourceFolderPath`; the replacement signature is being decided in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217) and the removal is tracked in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213).
 
 ### Create a connector class (Legacy)
 
@@ -104,7 +104,7 @@ Since your plugin is not loaded by UltiTools, you need to manually register your
 ::: warning Manual unregistration is unnecessary
 `PluginManager` provides no way to retrieve an already-registered instance, so passing a newly constructed one to `unregister()` throws `NullPointerException` because its context was never initialized.
 Delete this call: UltiTools already unregisters every connector automatically through `PluginManager.close()` when it disables.
-Planned to land in 6.3.0, tracked in [issue #30](https://github.com/UltiKits/UltiTools-Dev-Doc/issues/30).
+The legacy connector path this example belongs to is on the removal list in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213), whose open question is being answered in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217).
 :::
 
 ```java

@@ -36,6 +36,12 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 | `isNew()` | 实体无 ID 时返回 `true` |
 | `copyWithoutId()` | 创建不含 ID 的实体副本，前提是实体类自行实现 `Cloneable` |
 
+::: warning 生命周期钩子由你的代码调用，而不是由操作器调用
+`onCreate()`、`onUpdate()`、`onDelete()` 与 `onLoad()` 声明在 `BaseDataEntity` 上，但 JSON、MySQL 与 SQLite 三个操作器的读写路径都不调用它们，因此重写这些方法的实体落库结果与不重写完全一致。
+在操作前后自己调一次，写入前 `entity.onCreate(); op.insert(entity);`，读取则在返回的实体上调 `entity.onLoad();`：这四个方法都是 public。
+让操作器调用这些钩子的修法跟踪于 [issue #194](https://github.com/UltiKits/UltiTools-Reborn/issues/194)。
+:::
+
 ### AuditableDataEntity <Badge type="tip" text="v6.2.0+" />
 
 对于需要跟踪创建和修改的实体，可以使用 `AuditableDataEntity`：
@@ -52,6 +58,12 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 | `updatedBy` | `UUID` | 上次修改实体的用户 ID（从线程本地上下文获取） |
 
 所有这四个字段都已预配置 `@Column` 注解，子类中无需声明。
+
+::: warning 四个审计列在插入后仍为 NULL
+由于操作器不调用生命周期钩子，`onCreate()` 与 `onUpdate()` 不会执行，`created_at`、`updated_at`、`created_by`、`updated_by` 四列因此不被写入，`wasModified()` 恒返回 `false`，`getAge()` 与 `getTimeSinceUpdate()` 恒返回 `null`。
+先用 `AuditableDataEntity.setCurrentUser(uuid)` 设置线程上下文，在写入前调用 `entity.onCreate()` 或 `entity.onUpdate()`，并在 `finally` 中清除上下文：不设置上下文时，即使钩子执行，两个 `by` 字段仍为 null。
+让操作器调用这些钩子的修法跟踪于 [issue #194](https://github.com/UltiKits/UltiTools-Reborn/issues/194)。
+:::
 
 #### 用户上下文管理
 
@@ -173,6 +185,12 @@ List<SomeEntity> all = dataOperator.getAll();
 List<SomeEntity> page = dataOperator.page(1, 10); // 第 1 页，每页 10 条
 ```
 
+::: warning page() 在 JSON 后端返回空列表
+在 JSON 后端上，`page(int, int)` 转交 `getAll(WhereCondition...)`，零长度参数走的分支返回空列表，而同一次调用在 MySQL 或 SQLite 上会拼出普通的 `LIMIT ? OFFSET ?` 并返回该页数据，同一份模块代码换后端结果不同。
+需要两端一致的分页时，改用 `getAll()` 取全量再用 `subList` 切片：`page(1, 10, WhereCondition.empty())` 不能替代，关系型操作器不过滤空条件，会拼出 `WHERE null = ?`。
+让 `page` 与 `exist` 在空条件上与 `getAll` 对齐的修法跟踪于 [issue #193](https://github.com/UltiKits/UltiTools-Reborn/issues/193)。
+:::
+
 ::: tip 查询 DSL
 从 v6.2.0 开始，你可以使用[流式查询 DSL](/zh/guide/essentials/query-dsl) 来编写更可读的查询：
 
@@ -236,6 +254,12 @@ WhereCondition.builder().column("somecol").value(someval).build();
 ### 事务 <Badge type="tip" text="v6.2.0+" />
 
 对于需要同时成功或同时失败的操作，请参阅[事务](/zh/guide/advanced/transactions)指南。
+
+::: warning 只有 JSON 后端会回滚这段代码
+MySQL 与 SQLite 的操作器在构造时不注入事务管理器，而 `transaction(...)` 在管理器为 null 时直接执行回调，连接始终处于 autocommit 状态，下面每一条 `insert` 各自独立提交。
+需要这段代码原子时，改用 JSON 后端，或自取 JDBC 连接、关闭 autocommit 并自行提交或回滚：事务指南对两种做法都有说明。
+把事务管理器接进关系型操作器的修法跟踪于 [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307)。
+:::
 
 ```java
 dataOperator.transaction(() -> {

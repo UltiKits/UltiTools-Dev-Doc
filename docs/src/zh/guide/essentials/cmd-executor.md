@@ -24,6 +24,12 @@ UltiTools-API 对原生的 `CommandExecutor` 接口进行了封装，提供了�
 
 ## 注册命令
 
+::: warning 六参数连接器构造器已标记为待移除
+下面的示例调用的是六参数 `UltiToolsPlugin` 构造器，它带有 `@Deprecated(since = "6.0.8", forRemoval = true)` 并把资源目录路径写死，因此每次编译都会产生一条移除警告。
+改用外部插件 API，在你自己的 `JavaPlugin` 里调用 `UltiToolsAPI.connect`，或者保留连接器、改调七参数构造器并自行传入 `resourceFolderPath`：这两种写法在 v6.2.5 上都可用。
+连接器的替代签名仍在 [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217) 中讨论，移除动作本身跟踪于 [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213)。
+:::
+
 和spigot开发一样，有了执行器，就需要去注册它。我们可以在 `registerSelf` 方法中使用 `getCommandManager().register()` 方法来注册命令。
 
 如果你的模块存在大量的命令执行器而不想手动注册，也可以使用 UltiTools 提供的自动注册功能，详情可以查看[这篇文章](/zh/guide/advanced/auto-register)。
@@ -78,6 +84,12 @@ public void addPoint(@CmdSender Player player, @CmdParam("name") String name) {
 至此，你只需要注册命令执行器即可完成所有工作。
 
 ### 参数Tab提示补全
+
+::: warning BaseCommandExecutor 的 Tab 补全来自命令映射表
+在继承 `BaseCommandExecutor` 的类上，`suggest(Player, Command, String[])` 只在玩家输入第一个参数时按 `@CmdMapping` 的 format 首段返回前缀匹配，从第二个参数位起返回空列表，`@CmdParam` 的 `suggest` 属性不会被读取。
+在自己的执行器里重写 `protected List<String> suggest(Player player, Command command, String[] args)`，按 `args.length` 返回补全列表：该方法是 protected，其 javadoc 明确鼓励重写。
+把注解驱动的补全器接进 `BaseCommandExecutor` 的工作跟踪于 [issue #210](https://github.com/UltiKits/UltiTools-Reborn/issues/210)。
+:::
 
 每次写完一个命令之后希望给自己的命令添加Tab提示补全，但是又不想写一大堆的代码？
 
@@ -134,6 +146,12 @@ protected List<String> suggest(Player player, Command command, String[] strings)
 :::
 
 #### @CmdSuggest 注解
+
+::: warning @CmdSuggest 在 BaseCommandExecutor 通路上没有读取方
+下面示例中的类继承的是 `BaseCommandExecutor`，而该类从不检查 `@CmdSuggest`；读取这个注解的两处分别是已弃用的 `AbstractCommandExecutor` 与未接线的 `MethodInvocationCompleter`，因此 `PointSuggest` 中的方法不会被查找，也不会被调用。
+在自己的执行器里重写 `suggest(Player, Command, String[])` 并在其中调用共享类的方法：复用方法仍然集中在一处，只是不再依赖该注解。
+把注解驱动的补全器接进 `BaseCommandExecutor` 的工作跟踪于 [issue #210](https://github.com/UltiKits/UltiTools-Reborn/issues/210)。
+:::
 
 如果你希望你的这个补全方法与其他命令类共享，那么你可以创建一个类，将想要复用的方法写在此类下。
 
@@ -435,6 +453,12 @@ public void download(@CmdSender Player player) {
 在你的命令执行器中注册验证器：
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ValidatorCommand.java
+
+::: warning 自定义验证链会替换掉全部四个默认验证器
+把 `ValidatorChain` 传给 `super(...)` 会跳过 `createDefaultValidatorChain()`，因此 `SenderTypeValidator`（类上的 `@CmdTarget`）、`PermissionValidator`（`requireOp` 与方法级 `@CmdMapping` 的权限，类级 `permission` 仍由 Bukkit 强制）、`UsageLockValidator`（`@UsageLimit`）与 `CooldownValidator`（`@CmdCD`）都不在链里，而执行锁与冷却的副作用仍然每次照常执行。
+改用上面那种写法：调用 `super()` 后用 `addValidator(...)` 注册自己的验证器，四个默认验证器保留，你的验证器按 `getOrder()` 排序。
+在自定义链下保留默认验证器的修法跟踪于 [issue #312](https://github.com/UltiKits/UltiTools-Reborn/issues/312)。
+:::
 
 或使用自定义验证链：
 

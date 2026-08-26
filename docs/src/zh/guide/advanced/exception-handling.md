@@ -6,6 +6,12 @@
 
 UltiTools 通过 `@ExceptionCatch` 注解提供声明式异常处理。无需在服务方法调用处用 try-catch 块包裹，只需为方法添加注解，框架根据你的配置自动处理异常。
 
+::: warning v6.2.5 中没有任何代码读取 @ExceptionCatch
+在 v6.2.5 里，`aop` 包与框架其余代码之间只剩两处 javadoc 引用：没有代理被创建，没有 advisor 被注册，`ExceptionInterceptor` 从不被实例化，因此带注解的方法抛出的异常与不带注解时完全一样，`silent`、`value`、`defaultValue`、`handler` 四个属性均不产生作用。
+接线发布之前，用普通的 try-catch 包住调用：本页描述的全部内容，包括下文按名字查找处理器的部分，都依赖这同一处缺失的连接。
+该接线已合入开发分支，未包含在 v6.2.5，跟踪于 [issue #190](https://github.com/UltiKits/UltiTools-Reborn/issues/190)。
+:::
+
 ## 基本用法
 
 在任意受容器管理的 Bean（如 `@Service`）的方法上添加 `@ExceptionCatch`：

@@ -25,6 +25,12 @@ The `@EventListener` annotation has an optional `manualRegister` parameter (defa
 
 Register the listener in `registerSelf` of the class that inherits `UltiToolsPlugin`.
 
+::: warning The six-parameter connector constructor is marked for removal
+The example below calls the six-parameter `UltiToolsPlugin` constructor, which carries `@Deprecated(since = "6.0.8", forRemoval = true)` and hardcodes the resource folder path, so javac reports a removal warning on every build.
+Move the integration to the External Plugin API and call `UltiToolsAPI.connect` from your own `JavaPlugin`, or keep the connector and call the seven-parameter constructor passing `resourceFolderPath` yourself: both are supported on v6.2.5.
+The replacement signature for connectors is still being decided in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217), and the removal itself is tracked in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213).
+:::
+
 <<< @/../examples/src/main/java/com/ultikits/docs/listener/UltiToolsConnector.java
 
 Sure, you can also use the automatic registration function provided by UltiTools. For details, please refer to [this article](/guide/advanced/auto-register).
@@ -55,6 +61,12 @@ TempListener.common(PlayerInteractEvent.class)
 - `priority(EventPriority priority)` — Set handler priority (default: `NORMAL`).
 - `build()` — Build and return the `TempListener` (manual `register()` required).
 - `listen(TempEventHandler<E> handler)` — Build and immediately register in one call.
+
+::: warning build() returns a listener without your filter
+`build()` calls the three-argument `SimpleTempListener` constructor, which assigns the event class, priority and handler but leaves `filter` at its field default of `(ignored) -> true`, so a listener built this way runs the handler for every event of that type; `listen(...)` does pass the filter through, but it returns `void`, which leaves no handle to call `unregister()` on.
+Construct `new SimpleTempListener<>(eventClass, priority, handler, filter)` directly and call `register()` on it: the legacy section below states that this form is still supported, and it is currently the only way to get a listener that both filters and can be unregistered.
+Passing the filter through `build()` is tracked in [issue #313](https://github.com/UltiKits/UltiTools-Reborn/issues/313).
+:::
 
 **Example: Wait for player to interact with a specific block type**
 

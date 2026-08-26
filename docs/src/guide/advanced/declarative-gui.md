@@ -1,7 +1,9 @@
 # Declarative GUI
 
-::: warning Experimental feature
-This framework is currently experimental and may contain unknown issues. Please report bugs via GitHub Issues.
+::: warning Experimental feature with known gaps in v6.2.5
+An open GUI keeps the widget tree that was built when it opened: `DeclarativeGui.setState` schedules a build but marks no element dirty, `State.setState` marks the element dirty but schedules no build, and several builder methods listed in section 4 store their value with no consumer on the render path.
+Keep the state in fields of your `DeclarativeGui` subclass, change them directly, and reopen the same instance on the next tick: `onClose` disposes the renderer and resets `initialized`, so the next `onOpen` runs `build(BuildContext)` again with the new values.
+The three rendering seams are tracked in [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200); please keep reporting anything else through GitHub Issues.
 :::
 
 ## 1. Introduction
@@ -56,6 +58,12 @@ new MyFirstGui(player).open();
 
 ### 4.1 Container
 
+::: warning The background icon is stored but never rendered
+`.background(...)` keeps the `IconWrapper` in a field that only `getBackground()` reads, and nothing on the render path calls that getter, so the slots the container covers stay empty.
+Add an `ItemDisplay` child with an explicit `slot` for every cell you want filled, reusing one `ItemStack` such as a grey glass pane: that is the background expanded into real children.
+Implementing or removing the builder methods that currently store without rendering is tracked in [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200).
+:::
+
 The basic container widget that holds other widgets and optionally provides a background.
 
 ```java
@@ -99,6 +107,12 @@ ItemDisplay.builder(itemStack)
 
 ### 4.4 GridView
 
+::: warning Slot positions are computed from startSlot and columns only
+`.rows(...)` writes `maxRows`, whose only reader is `getMaxRows()` and which nothing calls, while `Builder.calculateSlot(int)` derives every position from `startSlot` and `columns` alone, so a longer item list keeps flowing past the row count you set.
+Truncate the list to `rows * columns` entries before passing it to `.items(...)`: the row cap then holds because your own code applies it.
+Implementing or removing the builder methods that currently store without rendering is tracked in [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200).
+:::
+
 Ideal for rendering lists (shop items, inventories). GridView calculates row/column positions automatically.
 
 ```java
@@ -119,6 +133,8 @@ GridView.<ShopItem>builder()
 ## 5. State management & interaction
 
 When a UI needs to change in response to user actions (pagination, selection), use `StatefulWidget`.
+
+The rebuild sequence in this example is subject to the state limitation described at the top of this page.
 
 ### Example: simple counter
 
@@ -149,6 +165,12 @@ ItemDisplay.builder(item)
 
 ### 6.2 Navigation & routing
 
+::: warning Routing changes the history without changing the screen
+`push(String)` applies its change through `setState`, which marks the element dirty without scheduling a build, so the route is pushed onto the history while the open GUI keeps showing the previous page; `Navigator.of(context)` is also `@Nullable` and returns null when no `Navigator` sits above the current element, which makes the chained call throw `NullPointerException`.
+Hold the current route in a field of your `DeclarativeGui` subclass, switch on it inside `build(BuildContext)`, and reopen the GUI as described at the top of this page; if you keep `Navigator.of(context)`, check the result for null first.
+The navigation seam is tracked in [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200).
+:::
+
 A `Navigator` lets you switch “pages” inside the same GUI window by swapping widget trees.
 
 ```java
@@ -171,6 +193,8 @@ Navigator.of(context).push("settings");
 ---
 
 ## 7. Full example: shop page
+
+The pagination, single-select and buy-button behaviour in this example is subject to the state limitation described at the top of this page.
 
 - Layout: `Container` + `GridView`
 - Pagination: `currentPage` controls data slicing

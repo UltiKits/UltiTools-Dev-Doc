@@ -234,6 +234,12 @@ private YourPlugin plugin;       // 通过具体类型
 
 ## 服务优先级
 
+::: warning getBean(Class) 返回首个可赋值的 Bean，而不是优先级最高的
+`getBean(Class)` 遍历 bean 定义并返回首个可赋值的匹配项，随后把结果写进 `typeMappings` 供后续所有查询复用，而 `priority` 只被 `getServicePriority` 读取，后者服务于 `getOrderedBeansOfType` 与 `getHighestPriorityBean`。
+需要按优先级取实现的地方改调 `context.getHighestPriorityBean(PaymentProcessor.class)`；下面演示的 `@Autowired` 字段注入无法改变，`AutowireFactory` 直接委托 `getBean(field.getType())`，没有任何注解或开关可以影响它。
+让 `getBean` 在类型歧义时委托 `getHighestPriorityBean` 的修法跟踪于 [issue #202](https://github.com/UltiKits/UltiTools-Reborn/issues/202)。
+:::
+
 当同一接口存在多个实现时，使用 `@Service` 注解的 `priority` 属性来控制 `getBean(Class)` 返回哪一个。
 
 ```java

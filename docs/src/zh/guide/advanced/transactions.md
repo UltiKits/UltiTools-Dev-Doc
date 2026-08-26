@@ -8,6 +8,12 @@ UltiTools 通过 `DataOperator` 接口提供编程式事务支持。事务确保
 
 ## 基本用法
 
+::: warning 本节示例只在 JSON 后端上是原子的
+在 MySQL 与 SQLite 上，`transaction(...)` 执行代码块时没有挂事务管理器，每次写入执行即提交，中途失败时先前的写入会留在库里。
+不要在关系型后端上照抄下面的转账写法；请自行获取 JDBC 连接并在那里管理边界，或者把该实体留在 JSON 后端。
+机制见下方工作原理一节，修法跟踪于 [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307)。
+:::
+
 ### 无返回值事务
 
 使用 `transaction(Runnable)` 执行不需要返回值的操作：
@@ -97,6 +103,12 @@ dataOperator.updateAll(accounts); // 全部更新或全部不更新
 
 你不需要知道当前使用的是哪个后端——相同的事务 API 适用于所有存储类型。
 
+::: warning 当前只有 JSON 后端会回滚
+上面的表格描述的是设计意图：JSON 操作器会做一次深拷贝快照并在失败时恢复，而 MySQL 与 SQLite 的操作器构造时不注入事务管理器，`transaction(...)` 只是在 autocommit 连接上执行回调，其中每条语句执行即提交。
+需要一组写入原子时改用 JSON 后端，或自取 JDBC 连接、关闭 autocommit 并自行提交或回滚：两种做法都不依赖关系型操作器提供这项保证。
+接线事务管理器、让 `transaction()` 与 `insertAll`、`updateAll` 在关系型后端上真正原子的修法跟踪于 [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307)。
+:::
+
 ## 完整示例
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/EconomyService.java
@@ -106,6 +118,12 @@ dataOperator.updateAll(accounts); // 全部更新或全部不更新
 :::
 
 ## 声明式事务 <Badge type="tip" text="v6.2.0+" />
+
+::: warning v6.2.5 中没有任何代码读取 @Transactional
+v6.2.5 里创建代理的 `aop` 包在自身之外没有任何引用：没有 bean 后置处理器被注册，`TransactionInterceptor` 从不被实例化，因此带注解的方法与不带注解的方法执行路径完全相同，不提交、不回滚，也不打日志。
+把这些方法改回本页前面的编程式写法，或者直接移除该注解，并在升级之前完成：[issue #190](https://github.com/UltiKits/UltiTools-Reborn/issues/190) 的接线已合入开发分支，未包含在 v6.2.5，接线落地后仍然声明 `@Transactional` 的模块可能在加载期被拒绝。
+MySQL 与 SQLite 上的原子性还取决于 [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307) 里的事务管理器接线。
+:::
 
 `@Transactional` 注解提供了声明式事务管理，可以在服务方法上使用。相比编程式事务，这种方式代码更简洁，并且与 IoC 容器深度集成。
 
@@ -137,6 +155,12 @@ dataOperator.updateAll(accounts); // 全部更新或全部不更新
 | `noRollbackFor` | `Class[]` | `{}` | 不触发回滚的异常类型 |
 
 ### 传播行为
+
+::: warning 其中三个模式没有对应实现
+在 `TransactionInterceptor` 中，`REQUIRES_NEW`、`NOT_SUPPORTED` 与 `NESTED` 三个分支都只写了一行注释便落到普通路径，就拦截器自身而言，`REQUIRES_NEW` 会加入现有事务，`NOT_SUPPORTED` 继续在事务内执行，`NESTED` 等同于 `REQUIRED`；而在 v6.2.5 上拦截器根本不会运行。
+不要依赖这三行：`DataOperator` 只有 `transaction(Runnable)` 与 `transaction(Callable)`，没有挂起、嵌套或设置保存点的入口，请自行获取 JDBC 连接并在那里管理这些边界。
+[issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307) 的计划是只保留可实现的取值，因此这三行预期会被删除，而不是补上实现。
+:::
 
 `propagation` 属性控制方法在现有事务中的行为：
 

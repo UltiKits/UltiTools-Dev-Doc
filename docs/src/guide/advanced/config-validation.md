@@ -94,6 +94,12 @@ private String displayName = "Default Name";
 
 ## Behavior
 
+::: warning Validation runs only when the config class has a (String) constructor
+`validateFields()` starts by building a default instance through `getDeclaredConstructor(String.class)`, and when the config class has no accessible `(String)` constructor that call fails, the exception is logged at `FINE` and the method returns before any `@ConfigEntry` field is checked, so `@Range`, `@NotEmpty`, `@Size` and `@Pattern` are all skipped while the plugin starts normally.
+Declare `public MyConfig(String configFilePath)` calling `super(configFilePath)` as the example above does, then confirm it by writing an out-of-range value into the file and checking that the console warns and the file is corrected on restart.
+Reporting the missing constructor instead of skipping validation is tracked in [issue #314](https://github.com/UltiKits/UltiTools-Reborn/issues/314).
+:::
+
 When validation fails:
 1. The invalid value is replaced with the field's **default value** (the value set in the Java class)
 2. A **warning** is logged to the server console indicating which config value was invalid

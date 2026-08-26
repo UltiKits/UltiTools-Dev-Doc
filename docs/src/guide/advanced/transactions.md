@@ -8,6 +8,12 @@ UltiTools provides programmatic transaction support through the `DataOperator` i
 
 ## Basic Usage
 
+::: warning These examples are atomic only on the JSON backend
+On MySQL and SQLite `transaction(...)` runs its block with no transaction manager attached, so each write commits as it executes and a failure part way through leaves the earlier writes in place.
+Do not use the transfer pattern below on a relational backend; take a JDBC connection yourself and manage the boundary there, or keep the entity on the JSON backend.
+The mechanism is described under How It Works below, and the fix is tracked in [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307).
+:::
+
 ### Void Transaction
 
 Use `transaction(Runnable)` for operations that don't return a value:
@@ -97,6 +103,12 @@ Transactions work transparently across all storage backends:
 
 You don't need to know which backend is active — the same transaction API works for all storage types.
 
+::: warning Only the JSON backend rolls back today
+The table above describes the intended design: the JSON operator takes a deep-copy snapshot and restores it on failure, while the MySQL and SQLite operators are constructed without a transaction manager, so `transaction(...)` runs the callable on an autocommit connection and every statement inside it commits as it executes.
+Use the JSON backend where a group of writes has to be atomic, or take your own JDBC connection, turn off autocommit and commit or roll back yourself: both keep the guarantee out of the relational operators.
+Wiring the transaction manager so that `transaction()`, `insertAll` and `updateAll` become atomic on the relational backends is tracked in [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307).
+:::
+
 ## Complete Example
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/EconomyService.java
@@ -106,6 +118,12 @@ For simple single-entity operations, you don't need transactions. Transactions a
 :::
 
 ## Declarative Transactions <Badge type="tip" text="v6.2.0+" />
+
+::: warning Nothing in v6.2.5 reads @Transactional
+The `aop` package that would create the proxies is not referenced anywhere outside itself in v6.2.5: no bean post processor is registered and `TransactionInterceptor` is never instantiated, so an annotated method takes exactly the same path as an unannotated one, with no commit, no rollback and no log line.
+Move these methods to the programmatic form shown earlier on this page, or drop the annotation, and do it before you upgrade: the wiring in [issue #190](https://github.com/UltiKits/UltiTools-Reborn/issues/190) is merged into the development branch but is not part of v6.2.5, and once it lands a module that still declares `@Transactional` can be rejected at load time.
+Atomicity on the MySQL and SQLite backends additionally depends on the transaction manager wiring tracked in [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307).
+:::
 
 The `@Transactional` annotation provides declarative transaction management on service methods. This approach is cleaner than programmatic transactions and integrates seamlessly with the IoC container.
 
@@ -137,6 +155,12 @@ The `@Transactional` annotation accepts several configuration options:
 | `noRollbackFor` | `Class[]` | `{}` | Exception types that do NOT trigger rollback |
 
 ### Propagation Modes
+
+::: warning Three of these modes have no implementation behind them
+In `TransactionInterceptor` the `REQUIRES_NEW`, `NOT_SUPPORTED` and `NESTED` branches each carry a comment and then fall through to the ordinary path, so on the interceptor's own terms `REQUIRES_NEW` joins the existing transaction, `NOT_SUPPORTED` keeps running inside it and `NESTED` behaves like `REQUIRED`; in v6.2.5 the interceptor never runs at all.
+Do not rely on these three rows: `DataOperator` exposes only `transaction(Runnable)` and `transaction(Callable)` with no way to suspend, nest or set a savepoint, so take a JDBC connection yourself and manage those boundaries there.
+The plan in [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307) is to keep only the values that can be implemented, so expect these three rows to be removed rather than filled in.
+:::
 
 The `propagation` attribute controls how the method behaves when called within an existing transaction:
 

@@ -84,7 +84,7 @@ identify-string: test-plugin
 你可以使用更简单的外部插件 API：在你的插件 `onEnable()` 中调用 `UltiToolsAPI.connect(this)` 即可。详情请参阅[外部插件 API 指南](./advanced/external-plugin-api.md)。
 :::
 
-以下部分介绍的是旧版连接器方式，该方式仍然受支持，但不再推荐用于新项目。
+以下部分介绍的是旧版连接器方式，该方式仍然受支持，但不再推荐用于新项目。它的六参数构造器已标记为待移除，优先使用在你自己的 `JavaPlugin` 里调用的外部插件 API，或接收 `resourceFolderPath` 的七参数重载；替代签名仍在 [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217) 中讨论，移除动作跟踪于 [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213)。
 
 ### 创建入口类（旧版）
 
@@ -99,7 +99,7 @@ identify-string: test-plugin
 ::: warning 无需手动注销
 `PluginManager` 未提供取回已注册实例的方法，手动构造一个实例传给 `unregister()` 会因 context 未初始化而抛出 `NullPointerException`。
 删掉这段注销调用即可：UltiTools 在自己 `onDisable()` 时会通过 `PluginManager.close()` 自动注销全部连接器。
-计划在 6.3.0 修复，详见 [issue #30](https://github.com/UltiKits/UltiTools-Dev-Doc/issues/30)。
+本示例所属的旧版连接器通路已列入 [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213) 的移除清单，其待定问题在 [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217) 中回答。
 :::
 
 ```java
