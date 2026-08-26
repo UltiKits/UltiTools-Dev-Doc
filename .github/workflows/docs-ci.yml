@@ -65,7 +65,12 @@ jobs:
           # 只读本地脚本，不需要持久化凭据
           persist-credentials: false
 
+      # 这里的引号是必需的：YAML 的 plain scalar 不允许出现「冒号 + 空格」，
+      # 而步骤名里那三个冒号后面正是空格。去掉引号 GitHub 会把整个文件判为
+      # invalid workflow file，本文件三个 job 全部不运行，而 PR 上不会显示为红。
       - name: "Check ::: container prose length against AGENTS.md"
         # -print0/-0 而不是 $(find ...)：后者按空白分词，文件名含空格时会被拆成多个参数，
-        # 检查器于是对不存在的路径报错，而不是检查那个文件（shellcheck SC2046）
+        # 检查器于是对不存在的路径报错，而不是检查那个文件（shellcheck SC2046）。
+        # 不要加 xargs 的 -r：find 无结果时 xargs 仍调用一次命令，检查器的零参数守卫
+        # 因此会以非零码退出；加了 -r 就变成静默通过，正是这道门禁要消灭的失效方式。
         run: find docs/src -name '*.md' -print0 | xargs -0 bash scripts/check-container-length.sh

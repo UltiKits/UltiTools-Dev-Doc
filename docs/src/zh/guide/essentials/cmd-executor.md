@@ -513,7 +513,6 @@ public void backupWorld(@CmdSender Player player) {
     // 上述配置的作用：
     // - 执行时显示"处理中..."
     // - 使用自定义 i18n 键而不是默认值
-    // - 如果执行超过 60 秒则取消
 }
 ```
 

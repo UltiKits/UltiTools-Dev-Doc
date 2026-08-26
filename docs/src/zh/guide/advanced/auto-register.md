@@ -10,13 +10,13 @@
 
 此注解包含了自动扫描并注册此类包名下的命令，监听器和配置文件。
 
-如果你想要手动注册命令或监听器，可以将 `eventListener` 设置为 `false` 或 `cmdExecutor` 设置为 `false`。
-
 ::: warning @UltiToolsModule 上的 eventListener、cmdExecutor 与 config 从不被读取
 `registerBukkit` 通过朴素的元注解查找取 `@EnableAutoRegister`，拿到的始终是标注在 `@UltiToolsModule` 类型本身上的裸注解，因此你在 `@UltiToolsModule` 上设置的 `eventListener`、`cmdExecutor`、`config` 只是从未被解析的 `@AliasFor` 声明，不会生效。
 改为把你要的开关直接标在你的类上，写成 `@EnableAutoRegister(eventListener = false, cmdExecutor = false, config = false)`：`PluginManager` 是按直接查找读取这个注解类型的，标在它自己身上的值才会生效。
 解析这个别名，或者在元注解查找命中时合并宿主注解的属性值，跟踪于 [issue #325](https://github.com/UltiKits/UltiTools-Reborn/issues/325)。
 :::
+
+如果你想要手动注册命令或监听器，可以将 `eventListener` 设置为 `false` 或 `cmdExecutor` 设置为 `false`。
 
 ```java
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
