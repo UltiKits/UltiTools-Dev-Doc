@@ -1,11 +1,10 @@
 # Transactions
 
-::: info Since v6.2.0, atomic on every backend since v6.3.0
-Transaction support is available starting from UltiTools-API v6.2.0. Through v6.2.5, `transaction(...)`
-was atomic only on the JSON backend — MySQL and SQLite ran the callable with no transaction manager
-attached, so each write committed as it executed. Starting in v6.3.0, all three storage backends
-attach a real transaction manager, and the transfer pattern below is atomic everywhere.
+::: info Atomicity guarantee since v6.3.0
+Transaction support exists since UltiTools-API v6.2.0. All three storage backends became atomic in v6.3.0.
 :::
+
+Through v6.2.5, `transaction(...)` was atomic only on the JSON backend: MySQL and SQLite ran the callable with no transaction manager attached, so each write committed as it executed. Starting in v6.3.0, all three storage backends attach a real transaction manager, and the transfer pattern below is atomic everywhere.
 
 UltiTools provides programmatic transaction support through the `DataOperator` interface. Transactions ensure that a group of operations either all succeed or all roll back on failure.
 
@@ -106,14 +105,13 @@ JDBC statement paths that used to bypass it: a batch insert whose third row viol
 constraint leaves zero rows on any backend, not just JSON.
 :::
 
-::: warning JSON's rollback restores a whole operator's cache, not individual entities
-The JSON backend's rollback is snapshot-based: on first touch inside a transaction, an operator's entire
-in-memory cache is deep-copied, and on failure the whole cache is restored from that snapshot. This is
-whole-cache granularity, not a per-entity undo. It matters specifically for `Propagation.REQUIRES_NEW`/
-`NOT_SUPPORTED` (see below): an inner scope's independence from an outer one is only observable when the
-two scopes touch *different* `DataOperator` instances. If both write to the *same* operator, the outer
-scope's eventual rollback discards the inner scope's already-committed write too.
+::: warning Whole-cache rollback on the JSON backend
+JSON rollback restores an operator's entire in-memory cache from a snapshot, not individual entities. This affects `Propagation.REQUIRES_NEW` and `NOT_SUPPORTED` when both scopes write to the same operator.
 :::
+
+The JSON backend's rollback is snapshot-based: on first touch inside a transaction, an operator's entire in-memory cache is deep-copied, and on failure the whole cache is restored from that snapshot. This is whole-cache granularity, not a per-entity undo.
+
+It matters specifically for `Propagation.REQUIRES_NEW` and `NOT_SUPPORTED` (covered later on this page): an inner scope's independence from an outer one is only observable when the two scopes touch *different* `DataOperator` instances. If both write to the *same* operator, the outer scope's eventual rollback discards the inner scope's already-committed write too.
 
 ## Complete Example
 
@@ -125,10 +123,13 @@ For simple single-entity operations, you don't need transactions. Transactions a
 
 ## Declarative Transactions <Badge type="tip" text="wired since v6.3.0" />
 
-::: warning Through v6.2.5, nothing reads @Transactional
-The `aop` package that creates the proxies was not referenced anywhere outside itself through v6.2.5: no bean post processor was registered and `TransactionInterceptor` was never instantiated, so an annotated method took exactly the same path as an unannotated one — no commit, no rollback, no log line. On v6.2.5, use the programmatic form shown earlier on this page instead, or drop the annotation.
-Starting in v6.3.0, `@Transactional` is wired end to end on all three storage backends (SQLite/MySQL through a per-plugin `JdbcTransactionManager`; JSON through a snapshot-based `JsonTransactionManager`), and a bean that declares `@Transactional` — including one that merely inherits or extends a class that does — is rejected at load time if the framework cannot supply a transaction manager for it, rather than silently running untransacted.
+::: warning Wired for the first time in v6.3.0
+Through v6.2.5, `@Transactional` was never read: no interceptor ran, so annotated methods behaved exactly like unannotated ones. v6.3.0 wires it end to end and rejects unsupportable beans at load time.
 :::
+
+The `aop` package that creates the proxies was not referenced anywhere outside itself through v6.2.5: no bean post processor was registered and `TransactionInterceptor` was never instantiated, so an annotated method took exactly the same path as an unannotated one, with no commit, no rollback, and no log line. On v6.2.5, use the programmatic form shown earlier on this page instead, or drop the annotation.
+
+Starting in v6.3.0, `@Transactional` is wired end to end on all three storage backends: SQLite and MySQL through a per-plugin `JdbcTransactionManager`, JSON through a snapshot-based `JsonTransactionManager`. A bean that declares `@Transactional`, including one that merely inherits or extends a class that does, is rejected at load time if the framework cannot supply a transaction manager for it, rather than silently running untransacted.
 
 The `@Transactional` annotation provides declarative transaction management on service methods. This approach is cleaner than programmatic transactions and integrates seamlessly with the IoC container.
 
@@ -161,15 +162,13 @@ The `@Transactional` annotation accepts several configuration options:
 
 ### Propagation Modes
 
-::: warning `NESTED` is gone as of v6.3.0
-Through v6.2.5 the interceptor never ran at all, so this table described intended design, not observed
-behavior. As of v6.3.0, `REQUIRES_NEW` and `NOT_SUPPORTED` genuinely suspend the active transaction on
-every backend, and `NESTED` has been removed from the `Propagation` enum entirely — it is not merely
-unimplemented, the constant no longer exists, so referencing `Propagation.NESTED` fails to compile
-against v6.3.0. It was dropped on controllability, not impossibility: `NESTED` maps cleanly to
-`Connection.setSavepoint()`, but savepoint behavior depends on whichever `sqlite-jdbc` version the
-server's own Paper build happens to ship, which this project cannot pin or test across.
+::: warning `NESTED` removed, not merely unimplemented
+`Propagation.NESTED` no longer exists as of v6.3.0, and referencing it fails to compile. `REQUIRES_NEW` and `NOT_SUPPORTED` now genuinely suspend the active transaction on every backend.
 :::
+
+Through v6.2.5 the interceptor never ran at all, so this table described intended design, not observed behavior.
+
+`NESTED` was dropped on controllability, not impossibility. It maps cleanly to `Connection.setSavepoint()`, but savepoint behavior depends on whichever `sqlite-jdbc` version the server's own Paper build happens to ship, and that is not something this project can pin or test across.
 
 The `propagation` attribute controls how the method behaves when called within an existing transaction. As of v6.3.0 there are exactly six values, matching Jakarta Transactions 2.0's `TxType` set:
 
@@ -209,14 +208,11 @@ public void criticalTransfer(String from, String to, double amount) {
 
 ### Custom Rollback Rules
 
-::: tip rollbackFor is additive, as of v6.3.0
-By default, `@Transactional` rolls back on any `RuntimeException` or `Error`. `rollbackFor` **adds** to
-that default rather than replacing it — an exception matching neither `rollbackFor` nor
-`noRollbackFor` still falls through to the default rule, so `@Transactional(rollbackFor =
-BusinessException.class)` still rolls back on an unrelated exception like a `NullPointerException`.
-Through v6.2.5 a non-empty `rollbackFor` replaced the default rule entirely, so listing one custom type
-silently stopped rollback for every exception not on that list — that behavior is gone as of v6.3.0.
+::: tip `rollbackFor` adds to the default rule, not replaces it
+As of v6.3.0, `rollbackFor` adds to the default rollback-on-`RuntimeException`/`Error` rule rather than replacing it.
 :::
+
+An exception matching neither `rollbackFor` nor `noRollbackFor` still falls through to the default rule, so `@Transactional(rollbackFor = BusinessException.class)` still rolls back on an unrelated exception like a `NullPointerException`. Through v6.2.5, a non-empty `rollbackFor` replaced the default rule entirely, so listing one custom type silently stopped rollback for every exception not on that list; that behavior is gone as of v6.3.0.
 
 By default, `@Transactional` rolls back on any `RuntimeException` or `Error`. Use `rollbackFor` to trigger rollback for additional exceptions:
 
@@ -269,16 +265,13 @@ Mark read-only query methods with `readOnly = true` to allow the database to app
 
 ### Timeout Configuration
 
-::: tip Per-statement bound, not a wall-clock limit on the method — as of v6.3.0
-`timeout` is enforced as a JDBC `setQueryTimeout` on every statement issued inside the transaction,
-against a shared deadline that starts when the transaction begins. Each statement gets whatever time is
-left in that budget when it is prepared, floored at 1 second so an exhausted budget still fails fast.
-This is **not** a bound on the method body as a whole: non-database work inside the method (a slow
-computation, an outbound network call) is never interrupted, because plain JDBC has no mechanism to
-cancel work already in flight. On SQLite and MySQL this is enforced as described. On the JSON backend a
-positive `timeout` fails the transaction outright — `JsonTransactionManager` has no statement to bound,
-since its rollback is a cache-snapshot restore, not a JDBC operation.
+::: tip Per-statement bound, not a method-wide wall clock
+`timeout` applies `setQueryTimeout` to each JDBC statement inside the transaction, against a shared budget that shrinks as the transaction progresses. It never interrupts non-database work, and it fails outright on the JSON backend.
 :::
+
+`timeout` is enforced as a JDBC `setQueryTimeout` on every statement issued inside the transaction, against a shared deadline that starts when the transaction begins. Each statement gets whatever time is left in that budget when it is prepared, floored at 1 second so an exhausted budget still fails fast. This is not a bound on the method body as a whole: non-database work inside the method, such as a slow computation or an outbound network call, is never interrupted, because plain JDBC has no mechanism to cancel work already in flight.
+
+On SQLite and MySQL, timeout is enforced as described. On the JSON backend, a positive `timeout` fails the transaction outright, because `JsonTransactionManager` has no statement to bound: its rollback is a cache-snapshot restore, not a JDBC operation.
 
 Set a timeout (in seconds) for long-running transactions:
 

@@ -1,10 +1,12 @@
 # 事务
 
-::: info 自 v6.2.0 起提供，自 v6.3.0 起在所有后端上都是原子的
-事务支持自 UltiTools-API v6.2.0 起可用。到 v6.2.5 为止，`transaction(...)` 只在 JSON 后端上是原子的
-——MySQL 与 SQLite 执行代码块时没有挂事务管理器，每次写入执行即提交。从 v6.3.0 起，三个存储后端
-都挂上了真正的事务管理器，下面的转账写法在所有后端上都是原子的。
+::: info 自 v6.3.0 起在所有后端上都是原子的
+事务支持自 UltiTools-API v6.2.0 起可用。三个存储后端自 v6.3.0 起都是原子的。
 :::
+
+到 v6.2.5 为止，`transaction(...)` 只在 JSON 后端上是原子的：MySQL 与 SQLite 执行代码块时没有挂
+事务管理器，每次写入执行即提交。从 v6.3.0 起，三个存储后端都挂上了真正的事务管理器，下面的转账
+写法在所有后端上都是原子的。
 
 UltiTools 通过 `DataOperator` 接口提供编程式事务支持。事务确保一组操作要么全部成功，要么在失败时全部回滚。
 
@@ -104,13 +106,17 @@ dataOperator.updateAll(accounts); // 全部更新或全部不更新
 一次批量插入若第三行违反主键约束，在任何后端上都会保留零行，不只是 JSON。
 :::
 
-::: warning JSON 的回滚恢复的是整个操作器的缓存，不是逐个实体
-JSON 后端的回滚是基于快照的：事务内第一次触碰某个操作器时，会深拷贝它的整个内存缓存，失败时从
-这份快照整体恢复。这是整体缓存粒度，不是逐实体撤销。这一点尤其影响 `Propagation.REQUIRES_NEW`/
-`NOT_SUPPORTED`（见下文）：内层作用域相对外层的独立性，只有当两者触碰的是**不同的**
-`DataOperator` 实例时才能被观察到。如果两者写的是**同一个**操作器，外层作用域最终的回滚会把
-内层作用域已经提交的写入也一并丢弃。
+::: warning JSON 后端的整体缓存回滚
+JSON 的回滚会把整个操作器的内存缓存恢复到快照状态，不是逐个实体撤销。这一点影响
+`Propagation.REQUIRES_NEW` 与 `NOT_SUPPORTED` 在同一操作器上的表现。
 :::
+
+JSON 后端的回滚是基于快照的：事务内第一次触碰某个操作器时，会深拷贝它的整个内存缓存，失败时从
+这份快照整体恢复。这是整体缓存粒度，不是逐实体撤销。
+
+这一点尤其影响 `Propagation.REQUIRES_NEW` 与 `NOT_SUPPORTED`（本页后面会讲到）：内层作用域相对
+外层的独立性，只有当两者触碰的是不同的 `DataOperator` 实例时才能被观察到。如果两者写的是
+**同一个**操作器，外层作用域最终的回滚会把内层作用域已经提交的写入也一并丢弃。
 
 ## 完整示例
 
@@ -122,15 +128,19 @@ JSON 后端的回滚是基于快照的：事务内第一次触碰某个操作器
 
 ## 声明式事务 <Badge type="tip" text="自 v6.3.0 起已接线" />
 
-::: warning 到 v6.2.5 为止，没有任何代码读取 @Transactional
-到 v6.2.5 为止，创建代理的 `aop` 包在自身之外没有任何引用：没有 bean 后置处理器被注册，
-`TransactionInterceptor` 从不被实例化，因此带注解的方法与不带注解的方法执行路径完全相同——不提交、
-不回滚，也不打日志。在 v6.2.5 上，请改用本页前面的编程式写法，或者直接移除该注解。
-从 v6.3.0 起，`@Transactional` 已经在全部三个存储后端上端到端接线（SQLite/MySQL 通过每个插件一个的
-`JdbcTransactionManager`；JSON 通过基于快照的 `JsonTransactionManager`），并且如果框架无法为某个
-声明了 `@Transactional` 的 bean 提供事务管理器——包括仅仅继承或扩展了带该注解的类——这个 bean 会在
-加载期直接被拒绝，而不是静默地不受事务保护地运行。
+::: warning v6.3.0 首次接线
+到 v6.2.5 为止，`@Transactional` 从未被读取：没有拦截器运行，带注解方法与不带注解方法表现完全
+相同。v6.3.0 起端到端接线，并在加载期拒绝无法支持的 bean。
 :::
+
+到 v6.2.5 为止，创建代理的 `aop` 包在自身之外没有任何引用：没有 bean 后置处理器被注册，
+`TransactionInterceptor` 从不被实例化，因此带注解的方法与不带注解的方法执行路径完全相同，不提交、
+不回滚，也不打日志。在 v6.2.5 上，请改用本页前面的编程式写法，或者直接移除该注解。
+
+从 v6.3.0 起，`@Transactional` 已经在全部三个存储后端上端到端接线：SQLite 与 MySQL 通过每个插件
+一个的 `JdbcTransactionManager`，JSON 通过基于快照的 `JsonTransactionManager`。如果框架无法为某个
+声明了 `@Transactional` 的 bean 提供事务管理器，包括仅仅继承或扩展了带该注解的类，这个 bean 会在
+加载期直接被拒绝，而不是静默地不受事务保护地运行。
 
 `@Transactional` 注解提供了声明式事务管理，可以在服务方法上使用。相比编程式事务，这种方式代码更简洁，并且与 IoC 容器深度集成。
 
@@ -164,14 +174,16 @@ JSON 后端的回滚是基于快照的：事务内第一次触碰某个操作器
 
 ### 传播行为
 
-::: warning `NESTED` 自 v6.3.0 起已被移除
-到 v6.2.5 为止拦截器根本不会运行，所以这张表描述的是设计意图，不是实际观察到的行为。从 v6.3.0
-起，`REQUIRES_NEW` 与 `NOT_SUPPORTED` 在每个后端上都会真正挂起当前活动事务，而 `NESTED` 已经从
-`Propagation` 枚举里彻底移除——不只是没有实现，这个常量已经不存在了，所以针对 v6.3.0 引用
-`Propagation.NESTED` 会编译失败。它被砍掉是因为可控性，不是不可实现：`NESTED` 完全可以映射到
-`Connection.setSavepoint()`，但保存点的实际行为取决于服务器所装 Paper 构建自带的 `sqlite-jdbc`
-版本，这不是本项目能钉住或能跨版本测试的东西。
+::: warning `NESTED` 被移除，不是未实现
+`Propagation.NESTED` 自 v6.3.0 起已不存在，引用它会编译失败。`REQUIRES_NEW` 与 `NOT_SUPPORTED`
+现在会在每个后端上真正挂起当前活动事务。
 :::
+
+到 v6.2.5 为止拦截器根本不会运行，所以这张表描述的是设计意图，不是实际观察到的行为。
+
+`NESTED` 被砍掉是因为可控性，不是不可实现。它完全可以映射到 `Connection.setSavepoint()`，但保存点
+的实际行为取决于服务器所装 Paper 构建自带的 `sqlite-jdbc` 版本，这不是本项目能钉住或能跨版本
+测试的东西。
 
 `propagation` 属性控制方法在现有事务中的行为。截至 v6.3.0，一共有六个取值，恰好对应
 Jakarta Transactions 2.0 的 `TxType` 集合：
@@ -212,13 +224,14 @@ public void criticalTransfer(String from, String to, double amount) {
 
 ### 自定义回滚规则
 
-::: tip 自 v6.3.0 起，rollbackFor 是叠加语义
-默认情况下，`@Transactional` 在 `RuntimeException` 或 `Error` 时回滚。`rollbackFor` 是对这条默认
-规则的**叠加**，不是替换——一个既不匹配 `rollbackFor` 也不匹配 `noRollbackFor` 的异常，仍然会落到
-默认规则，所以 `@Transactional(rollbackFor = BusinessException.class)` 在一个无关的
-`NullPointerException` 上仍然会回滚。到 v6.2.5 为止，非空的 `rollbackFor` 会把默认规则整个替换
-掉，所以只列一个自定义类型就会静默停掉所有未列出异常的回滚——这个行为从 v6.3.0 起已经不存在。
+::: tip `rollbackFor` 是叠加，不是替换
+自 v6.3.0 起，`rollbackFor` 叠加在默认的 `RuntimeException`/`Error` 回滚规则之上，不是替换它。
 :::
+
+一个既不匹配 `rollbackFor` 也不匹配 `noRollbackFor` 的异常，仍然会落到默认规则，所以
+`@Transactional(rollbackFor = BusinessException.class)` 在一个无关的 `NullPointerException` 上
+仍然会回滚。到 v6.2.5 为止，非空的 `rollbackFor` 会把默认规则整个替换掉，所以只列一个自定义
+类型就会静默停掉所有未列出异常的回滚；这个行为从 v6.3.0 起已经不存在。
 
 默认情况下，`@Transactional` 在 `RuntimeException` 或 `Error` 时回滚。使用 `rollbackFor` 指定额外的回滚异常：
 
@@ -270,14 +283,18 @@ public void processOrder(Order order) throws ValidationException {
 
 ### 超时配置
 
-::: tip 自 v6.3.0 起：按语句设限，不是方法整体的墙钟限制
-`timeout` 是作为 JDBC `setQueryTimeout` 施加在事务内发出的每一条语句上的，针对的是一个从事务开始
-时算起的共享截止时间。每条语句在准备时拿到的是这个预算里**剩余**的时间，向下取整到不小于 1 秒，
-让一个已经耗尽的预算依然快速失败。这**不是**对方法体整体的限制：方法内的非数据库工作（一次慢
-计算、一次对外网络调用）不会被打断，因为纯 JDBC 没有取消已经在途工作的机制。在 SQLite 与 MySQL
-上按上述方式强制执行。在 JSON 后端上，正数的 `timeout` 会让事务直接失败——`JsonTransactionManager`
-没有语句可设限，它的回滚是缓存快照恢复，不是 JDBC 操作。
+::: tip 按语句设限，不是方法整体的墙钟限制
+`timeout` 把 `setQueryTimeout` 施加在事务内每一条语句上，针对一个共享的、不断缩小的预算。它不会
+打断方法内的非数据库工作，在 JSON 后端上会直接失败。
 :::
+
+`timeout` 是作为 JDBC `setQueryTimeout` 施加在事务内发出的每一条语句上的，针对的是一个从事务开始
+时算起的共享截止时间。每条语句在准备时拿到的是这个预算里剩余的时间，向下取整到不小于 1 秒，让
+一个已经耗尽的预算依然快速失败。这不是对方法体整体的限制：方法内的非数据库工作（一次慢计算、
+一次对外网络调用）不会被打断，因为纯 JDBC 没有取消已经在途工作的机制。
+
+在 SQLite 与 MySQL 上按上述方式强制执行。在 JSON 后端上，正数的 `timeout` 会让事务直接失败，因为
+`JsonTransactionManager` 没有语句可设限：它的回滚是缓存快照恢复，不是 JDBC 操作。
 
 为长时间运行的事务设置超时（秒）：
 
