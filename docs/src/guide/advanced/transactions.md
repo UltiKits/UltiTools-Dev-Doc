@@ -1,18 +1,14 @@
 # Transactions
 
-::: info Since v6.2.0
-Transaction support is available starting from UltiTools-API v6.2.0.
+::: info Atomicity guarantee since v6.3.0
+Transaction support exists since UltiTools-API v6.2.0. All three storage backends became atomic in v6.3.0.
 :::
+
+Through v6.2.5, `transaction(...)` was atomic only on the JSON backend: MySQL and SQLite ran the callable with no transaction manager attached, so each write committed as it executed. Starting in v6.3.0, all three storage backends attach a real transaction manager, and the transfer pattern below is atomic everywhere.
 
 UltiTools provides programmatic transaction support through the `DataOperator` interface. Transactions ensure that a group of operations either all succeed or all roll back on failure.
 
 ## Basic Usage
-
-::: warning These examples are atomic only on the JSON backend
-On MySQL and SQLite `transaction(...)` runs its block with no transaction manager attached, so each write commits as it executes and a failure part way through leaves the earlier writes in place.
-Do not use the transfer pattern below on a relational backend; take a JDBC connection yourself and manage the boundary there, or keep the entity on the JSON backend.
-The mechanism is described under How It Works below, and the fix is tracked in [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307).
-:::
 
 ### Void Transaction
 
@@ -103,11 +99,19 @@ Transactions work transparently across all storage backends:
 
 You don't need to know which backend is active — the same transaction API works for all storage types.
 
-::: warning Only the JSON backend rolls back today
-The table above describes the intended design: the JSON operator takes a deep-copy snapshot and restores it on failure, while the MySQL and SQLite operators are constructed without a transaction manager, so `transaction(...)` runs the callable on an autocommit connection and every statement inside it commits as it executes.
-Use the JSON backend where a group of writes has to be atomic, or take your own JDBC connection, turn off autocommit and commit or roll back yourself: both keep the guarantee out of the relational operators.
-Wiring the transaction manager so that `transaction()`, `insertAll` and `updateAll` become atomic on the relational backends is tracked in [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307).
+::: tip Batch methods are atomic too, on every backend
+`insertAll` and `updateAll` wrap their work in the same transaction mechanism, including the two direct
+JDBC statement paths that used to bypass it: a batch insert whose third row violates a primary key
+constraint leaves zero rows on any backend, not just JSON.
 :::
+
+::: warning Whole-cache rollback on the JSON backend
+JSON rollback restores an operator's entire in-memory cache from a snapshot, not individual entities. This affects `Propagation.REQUIRES_NEW` and `NOT_SUPPORTED` when both scopes write to the same operator.
+:::
+
+The JSON backend's rollback is snapshot-based: on first touch inside a transaction, an operator's entire in-memory cache is deep-copied, and on failure the whole cache is restored from that snapshot. This is whole-cache granularity, not a per-entity undo.
+
+It matters specifically for `Propagation.REQUIRES_NEW` and `NOT_SUPPORTED` (covered later on this page): an inner scope's independence from an outer one is only observable when the two scopes touch *different* `DataOperator` instances. If both write to the *same* operator, the outer scope's eventual rollback discards the inner scope's already-committed write too.
 
 ## Complete Example
 
@@ -117,19 +121,21 @@ Wiring the transaction manager so that `transaction()`, `insertAll` and `updateA
 For simple single-entity operations, you don't need transactions. Transactions are most useful when you need to ensure multiple operations succeed or fail together.
 :::
 
-## Declarative Transactions <Badge type="tip" text="v6.2.0+" />
+## Declarative Transactions <Badge type="tip" text="wired since v6.3.0" />
 
-::: warning Nothing in v6.2.5 reads @Transactional
-The `aop` package that would create the proxies is not referenced anywhere outside itself in v6.2.5: no bean post processor is registered and `TransactionInterceptor` is never instantiated, so an annotated method takes exactly the same path as an unannotated one, with no commit, no rollback and no log line.
-Move these methods to the programmatic form shown earlier on this page, or drop the annotation, and do it before you upgrade: the wiring in [issue #190](https://github.com/UltiKits/UltiTools-Reborn/issues/190) is merged into the development branch but is not part of v6.2.5, and once it lands a module that still declares `@Transactional` can be rejected at load time.
-Atomicity on the MySQL and SQLite backends additionally depends on the transaction manager wiring tracked in [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307).
+::: warning Wired for the first time in v6.3.0
+Through v6.2.5, `@Transactional` was never read: no interceptor ran, so annotated methods behaved exactly like unannotated ones. v6.3.0 wires it end to end and rejects unsupportable beans at load time.
 :::
+
+The `aop` package that creates the proxies was not referenced anywhere outside itself through v6.2.5: no bean post processor was registered and `TransactionInterceptor` was never instantiated, so an annotated method took exactly the same path as an unannotated one, with no commit, no rollback, and no log line. On v6.2.5, use the programmatic form shown earlier on this page instead, or drop the annotation.
+
+Starting in v6.3.0, `@Transactional` is wired end to end on all three storage backends: SQLite and MySQL through a per-plugin `JdbcTransactionManager`, JSON through a snapshot-based `JsonTransactionManager`. A bean that declares `@Transactional`, including one that merely inherits or extends a class that does, is rejected at load time if the framework cannot supply a transaction manager for it, rather than silently running untransacted.
 
 The `@Transactional` annotation provides declarative transaction management on service methods. This approach is cleaner than programmatic transactions and integrates seamlessly with the IoC container.
 
 ### Prerequisites
 
-The `@Transactional` annotation only works on methods within `@Service` beans, since transactions are implemented via CGLIB proxies:
+The `@Transactional` annotation only works on methods within `@Service` beans, since transactions are implemented via generated subclass proxies (ByteBuddy since v6.3.0; the earlier CGLIB engine had the same subclass-proxy shape):
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/PaymentService.java
 
@@ -156,13 +162,15 @@ The `@Transactional` annotation accepts several configuration options:
 
 ### Propagation Modes
 
-::: warning Three of these modes have no implementation behind them
-In `TransactionInterceptor` the `REQUIRES_NEW`, `NOT_SUPPORTED` and `NESTED` branches each carry a comment and then fall through to the ordinary path, so on the interceptor's own terms `REQUIRES_NEW` joins the existing transaction, `NOT_SUPPORTED` keeps running inside it and `NESTED` behaves like `REQUIRED`; in v6.2.5 the interceptor never runs at all.
-Do not rely on these three rows: `DataOperator` exposes only `transaction(Runnable)` and `transaction(Callable)` with no way to suspend, nest or set a savepoint, so take a JDBC connection yourself and manage those boundaries there.
-The plan in [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307) is to keep only the values that can be implemented, so expect these three rows to be removed rather than filled in.
+::: warning `NESTED` removed, not merely unimplemented
+`Propagation.NESTED` no longer exists as of v6.3.0, and referencing it fails to compile. `REQUIRES_NEW` and `NOT_SUPPORTED` now genuinely suspend the active transaction on every backend.
 :::
 
-The `propagation` attribute controls how the method behaves when called within an existing transaction:
+Through v6.2.5 the interceptor never ran at all, so this table described intended design, not observed behavior.
+
+`NESTED` was dropped on controllability, not impossibility. It maps cleanly to `Connection.setSavepoint()`, but savepoint behavior depends on whichever `sqlite-jdbc` version the server's own Paper build happens to ship, and that is not something this project can pin or test across.
+
+The `propagation` attribute controls how the method behaves when called within an existing transaction. As of v6.3.0 there are exactly six values, matching Jakarta Transactions 2.0's `TxType` set:
 
 | Mode | Behavior |
 |------|----------|
@@ -172,7 +180,6 @@ The `propagation` attribute controls how the method behaves when called within a
 | `NOT_SUPPORTED` | Always executes without a transaction, suspending any existing one |
 | `MANDATORY` | Requires an existing transaction; throws an exception if none exists |
 | `NEVER` | Must not execute within a transaction; throws an exception if one exists |
-| `NESTED` | Executes within a nested transaction (savepoint) if one exists; creates a new transaction otherwise |
 
 Example with `REQUIRES_NEW`:
 
@@ -201,11 +208,11 @@ public void criticalTransfer(String from, String to, double amount) {
 
 ### Custom Rollback Rules
 
-::: warning rollbackFor replaces the default rollback rule, it does not add to it
-`shouldRollback` checks `tx.rollbackFor()` first and, once it is non-empty, only rolls back for the listed types, so `@Transactional(rollbackFor = BusinessException.class)` stops the default `RuntimeException`/`Error` rule from running at all.
-List the defaults yourself: write `rollbackFor = {BusinessException.class, RuntimeException.class, Error.class}` whenever you add a custom type, or the exceptions you did not list will be committed instead of rolled back.
-Whether `rollbackFor` should become additive, or the javadoc should instead describe the current replace behavior, is tracked in [issue #328](https://github.com/UltiKits/UltiTools-Reborn/issues/328).
+::: tip `rollbackFor` adds to the default rule, not replaces it
+As of v6.3.0, `rollbackFor` adds to the default rollback-on-`RuntimeException`/`Error` rule rather than replacing it.
 :::
+
+An exception matching neither `rollbackFor` nor `noRollbackFor` still falls through to the default rule, so `@Transactional(rollbackFor = BusinessException.class)` still rolls back on an unrelated exception like a `NullPointerException`. Through v6.2.5, a non-empty `rollbackFor` replaced the default rule entirely, so listing one custom type silently stopped rollback for every exception not on that list; that behavior is gone as of v6.3.0.
 
 By default, `@Transactional` rolls back on any `RuntimeException` or `Error`. Use `rollbackFor` to trigger rollback for additional exceptions:
 
@@ -232,6 +239,24 @@ public void importData(String source) throws WarningException {
 }
 ```
 
+When an exception matches **both** `rollbackFor` and `noRollbackFor`, the rule whose listed class is
+the shallower inheritance-depth match to the thrown exception wins; on an exact-depth tie — including
+the same class listed in both arrays — the transaction rolls back:
+
+```java
+class OrderException extends RuntimeException { }
+class ValidationException extends OrderException { }
+
+@Transactional(rollbackFor = ValidationException.class, noRollbackFor = OrderException.class)
+public void processOrder(Order order) throws ValidationException {
+    if (!order.hasShippingAddress()) {
+        throw new ValidationException("missing shipping address"); // rolls back:
+        // ValidationException is a depth-0 match for rollbackFor, a depth-1 match for
+        // noRollbackFor (one step up to OrderException) — the shallower match wins.
+    }
+}
+```
+
 ### Read-Only Transactions
 
 Mark read-only query methods with `readOnly = true` to allow the database to apply optimizations:
@@ -240,12 +265,21 @@ Mark read-only query methods with `readOnly = true` to allow the database to app
 
 ### Timeout Configuration
 
+::: tip Per-statement bound, not a method-wide wall clock
+`timeout` applies `setQueryTimeout` to each JDBC statement inside the transaction, against a shared budget that shrinks as the transaction progresses. It never interrupts non-database work, and it fails outright on the JSON backend.
+:::
+
+`timeout` is enforced as a JDBC `setQueryTimeout` on every statement issued inside the transaction, against a shared deadline that starts when the transaction begins. Each statement gets whatever time is left in that budget when it is prepared, floored at 1 second so an exhausted budget still fails fast. This is not a bound on the method body as a whole: non-database work inside the method, such as a slow computation or an outbound network call, is never interrupted, because plain JDBC has no mechanism to cancel work already in flight.
+
+On SQLite and MySQL, timeout is enforced as described. On the JSON backend, a positive `timeout` fails the transaction outright, because `JsonTransactionManager` has no statement to bound: its rollback is a cache-snapshot restore, not a JDBC operation.
+
 Set a timeout (in seconds) for long-running transactions:
 
 ```java
 @Transactional(timeout = 30)
 public void bulkProcessing() {
-    // If execution exceeds 30 seconds, the transaction is rolled back
+    // Every statement issued while this transaction is open gets a query timeout equal to
+    // whatever remains of the 30-second budget when that statement is prepared.
     List<DataEntity> all = getDataOperator().getAll();
     for (DataEntity entity : all) {
         processEntity(entity);
@@ -253,21 +287,15 @@ public void bulkProcessing() {
 }
 ```
 
-A value of `-1` (default) means no timeout.
+A value of `-1` (default) means no timeout — the interceptor never calls `setTimeout` for it, on any backend.
 
 ### Important Limitations
 
-1. **Proxy-based AOP**: The annotation only works on public methods of `@Service` beans. The method must be called through the proxy, not directly via `this`.
+1. **Method eligibility**: `private`, `static`, and `final` methods cannot be transactional — each is dispatched in a way the proxy cannot intercept. A package-private method is also ineligible when it is declared in a different package than the bean class. `protected` and same-package package-private methods are eligible.
 
-2. **Self-invocation bypass**: Calling a `@Transactional` method from another method in the same class bypasses the proxy:
+2. **Self-invocation is intercepted, not bypassed**: unlike delegate-based proxy frameworks, this framework's generated proxy is a *subclass* of the bean itself, not a separate object wrapping it — so a call to `this.transactionalMethod()` from another method in the same class dispatches virtually onto the proxy's override and **is** intercepted, exactly like a call made from outside the class. There is no need to inject the service into itself or call through the container to get transaction behavior on a same-class call.
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/BadExample.java
-
-To fix, inject the service or call via the container:
-
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/GoodExample.java
-
-3. **Non-final classes**: The class cannot be `final` (CGLIB limitation). The same applies to methods — they must be overridable.
+3. **Non-final classes**: The class cannot be `final` (subclass-proxy limitation). The same applies to methods — they must be overridable.
 
 ## Programmatic vs Declarative
 

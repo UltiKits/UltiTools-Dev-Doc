@@ -1,13 +1,22 @@
 name: Docs
 
 on:
+  # `alpha` carries unreleased documentation and merges to `master` at release
+  # time (see the repository CLAUDE.md). Without it here, a docs PR targeting
+  # `alpha` runs none of this workflow's gates: PR #48 reported every check green
+  # while carrying 10 container-length violations against 0 on `master`, and they
+  # would first have surfaced in the release-time `alpha` -> `master` PR, all at
+  # once. Deferring doc verification to release time is what the alpha workflow
+  # exists to remove; leaving it out here just moves the staleness from the
+  # content to its verification.
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "alpha" ]
   # A push straight to master (e.g. two PRs merged back-to-back) can combine
   # cleanly on each branch yet break once integrated — this is the backstop
-  # that catches that cross-PR interaction on master itself.
+  # that catches that cross-PR interaction on master itself. `alpha` accumulates
+  # a whole release cycle of merges, so it needs the same backstop.
   push:
-    branches: [ "master" ]
+    branches: [ "master", "alpha" ]
   # No `schedule` here: unlike examples-ci.yml, this workflow doesn't depend on
   # Maven Central's release cadence — nothing external can silently drift out
   # from under it, so a timer would be pure overhead.
