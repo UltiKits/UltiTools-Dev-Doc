@@ -10,13 +10,9 @@ This annotation can only be used in the main class of the UltiTools module to si
 
 This annotation includes automatic scanning and registration of commands, listeners and configuration files under this class package name.
 
-::: warning eventListener, cmdExecutor and config on @UltiToolsModule are never read
-`registerBukkit` looks up `@EnableAutoRegister` through a plain meta-annotation search that returns the bare annotation on `@UltiToolsModule` itself, so the `eventListener`, `cmdExecutor` and `config` values you set on `@UltiToolsModule` are `@AliasFor` declarations that are never resolved and never take effect.
-Put the switches you want directly on your class as `@EnableAutoRegister(eventListener = false, cmdExecutor = false, config = false)` instead: `PluginManager` reads that annotation type by direct lookup, so a value declared on it does apply.
-Resolving the alias, or merging the host annotation's values during the meta-annotation lookup, is tracked in [issue #325](https://github.com/UltiKits/UltiTools-Reborn/issues/325).
+::: tip eventListener, cmdExecutor and config on @UltiToolsModule take effect (as of v6.3.0)
+`registerBukkit` now resolves `@EnableAutoRegister` through a merged-annotation lookup that honours `@AliasFor`, so setting `eventListener`, `cmdExecutor` or `config` to `false` directly on `@UltiToolsModule` disables that registration.
 :::
-
-If you want to manually register commands or listeners, set `eventListener` or `cmdExecutor` to `false` on a direct `@EnableAutoRegister` annotation as described in the warning above, not on `@UltiToolsModule`.
 
 ```java
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;

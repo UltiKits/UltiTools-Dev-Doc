@@ -165,7 +165,7 @@ public class MyPlugin extends UltiToolsPlugin {
 - 类必须用 `@Configuration` 注解
 - 方法必须用 `@Bean` 注解
 - 返回类型变成 Bean 类型
-- Bean 名称默认为方法名。
+- Bean 名称默认为方法名，除非设置了 `@Bean(name = ...)` 或 `@Bean(value = ...)`（v6.3.0 起）——声明的第一个元素成为注册名称，其余元素作为别名解析到同一实例。
 - 工厂方法以零参数方式被调用；不能接受 `@Autowired` 形参。
 
 ## 插件实例注入 <Badge type="tip" text="v6.2.0+" />

@@ -168,7 +168,7 @@ For complex bean initialization or creating beans from third-party classes, use 
 - Class must be annotated with `@Configuration`
 - Methods must be annotated with `@Bean`
 - Return type becomes the bean type
-- Bean name defaults to method name.
+- Bean name defaults to method name, unless `@Bean(name = ...)` or `@Bean(value = ...)` is set (v6.3.0+) — the first declared element becomes the registered name, and any remaining elements register as aliases resolving to the same instance.
 - Factory methods are invoked with no arguments; they cannot accept `@Autowired` parameters.
 
 ## Plugin Instance Injection <Badge type="tip" text="v6.2.0+" />
