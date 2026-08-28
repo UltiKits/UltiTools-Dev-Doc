@@ -21,10 +21,10 @@ enableWarp: true
 
 如果 `enableWarp` 为 `false` 或缺失，`WarpCommands` 类将**完全不被注册**——没有命令注册、没有内存占用、没有副作用。
 
-::: warning 连接器路径上不检查该条件
-`@ConditionalOnConfig` 只在 `ComponentScanner.shouldRegister` 中被读取，而该方法位于容器扫描路径上，通过 `PluginManager.register(...)` 注册的插件，其命令执行器与监听器是由包扫描反射实例化的，注解不会被读取，本页所述的「完全跳过」不会发生。
-按标准 UltiTools 模块发布，在主类上使用 `@UltiToolsModule`，本页所有示例都是这种写法；若必须使用连接器，在 `registerSelf()` 里自行读取配置并决定是否注册。
-让连接器路径也检查这个条件的诉求跟踪于 [issue #334](https://github.com/UltiKits/UltiTools-Reborn/issues/334)。
+::: warning 只有连接器入口点仍然跳过这个条件
+标准 `@UltiToolsModule` 路径把命令类当容器 bean 解析，条件为 `false` 的类从一开始就不会被构造成 bean，这条路径在 v6.3.0 之前就已经生效。
+v6.3.0 起，监听器包扫描路径也会检查这个条件，补上了唯一真实存在的缺口。
+只有连接器入口点（`PluginManager.register(UltiToolsPlugin)`）完全不做组件扫描，那里目前还没有任何地方检查这个条件——跟踪于 [issue #334](https://github.com/UltiKits/UltiTools-Reborn/issues/334)。
 :::
 
 ## 注解属性
