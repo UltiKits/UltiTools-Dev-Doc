@@ -4,7 +4,11 @@
 配置校验注解自 UltiTools-API v6.2.0 起可用。
 :::
 
-UltiTools 为配置字段提供了声明式的校验注解。当配置值校验失败时，会自动重置为字段的默认值，并在控制台输出警告日志。
+UltiTools 为配置字段提供了声明式的校验注解。
+
+::: info 拒绝语义（v6.3.0 起）
+校验失败的配置值会在加载时拒绝所属模块，不再重置。见下方[行为说明](#行为说明)。
+:::
 
 ## 可用注解
 
@@ -14,7 +18,7 @@ UltiTools 为配置字段提供了声明式的校验注解。当配置值校验�
 
 <<< @/../examples/src/main/java/com/ultikits/docs/validation/MyConfig.java
 
-如果服主设置了 `maxHomes: 999`，该值会被重置为 `5`（默认值），并在控制台显示警告。
+如果服主设置了 `maxHomes: 999`，该模块会在加载时被拒绝。控制台错误会指出模块、配置文件、字段 `maxHomes`、实际值 `999`，以及被违反的约束（`@Range(min = 1, max = 10)`）；文件本身不会被改动。
 
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
@@ -33,7 +37,7 @@ import com.ultikits.ultitools.annotations.config.NotEmpty;
 private String serverName = "My Server";
 ```
 
-如果值为空白或缺失，将重置为 `"My Server"`。
+值为空白或缺失时，所属模块会在加载时被拒绝，见下方[行为说明](#行为说明)。
 
 ### @Size
 
@@ -94,15 +98,16 @@ private String displayName = "Default Name";
 
 ## 行为说明
 
-::: warning 只有带 (String) 构造器的配置类才会执行校验
-`validateFields()` 的第一步是通过 `getDeclaredConstructor(String.class)` 构造一个默认实例，配置类没有可访问的 `(String)` 构造器时这一步失败，异常以 `FINE` 级别记录后方法直接返回，`@ConfigEntry` 字段一个都不会被检查，`@Range`、`@NotEmpty`、`@Size`、`@Pattern` 全部跳过，而插件照常启动。
-照上面的示例声明 `public MyConfig(String configFilePath)` 并在其中调用 `super(configFilePath)`，然后在配置文件里故意写一个越界值，重启后确认控制台有警告且文件被改回默认值。
-把缺少构造器报出来而不是跳过校验的修法跟踪于 [issue #314](https://github.com/UltiKits/UltiTools-Reborn/issues/314)。
+::: info 构造器解析（v6.3.0 起）
+`validateFields()` 通过与 `ConfigManager` 其它位置一致的两步回退取得默认实例：先尝试 `(String)` 构造器，再尝试调用 `super("config/path.yml")` 的无参构造器。两种写法校验都会生效，只有两种构造器都不存在的类才会注册失败（见 [#314](https://github.com/UltiKits/UltiTools-Reborn/issues/314)）。
 :::
 
-当校验失败时：
-1. 无效值会被替换为字段的**默认值**（即 Java 类中设置的初始值）
-2. 控制台会输出一条**警告日志**，指出哪个配置值无效
-3. 修正后的配置会自动保存
+只要具备两种构造器中的任意一种，配置类就能正常注册：`public MyConfig(String configFilePath)` 内部调用 `super(configFilePath)`，或是无参构造器直接调用 `super("config/path.yml")`。两种写法都受支持，声明其中一种即可。
 
-这确保你的插件始终使用有效的配置值运行，即使服主在配置中输入了错误值。
+当某个字段的实际值违反约束时：
+
+1. 模块会在加载时被拒绝，值不会被重置，文件也不会被改写。其余模块照常加载。
+2. 控制台错误会指出模块、配置文件、字段、实际值，以及被违反的约束，服主据此即可修复，无需猜测。
+3. 文件本身不会有任何变化，服主写下的值会原样保留，直到他们自己编辑它为止。
+
+这与「输错了自动帮你改对」不同：配置文件归服主所有，只有服主自己的修改才会改变它。修正数值后，重启服务器或重载该模块即可。
