@@ -74,6 +74,10 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
                 link: 'advanced/config-validation'
             },
             {
+                text: 'Module Load Ordering',
+                link: 'advanced/module-dependencies'
+            },
+            {
                 text: 'External Plugin API',
                 link: 'advanced/external-plugin-api'
             }

@@ -146,11 +146,11 @@ Available validation annotations: `@Range`, `@NotEmpty`, `@Size`, `@Pattern` (fr
 You don't need to worry about the loading and saving of configuration files, UltiTools will do everything for you
 automatically.
 
-::: warning
-
-If you save the config file, some comments in the file may disappear.
-
+::: info Comments, as of v6.3.0
+Bukkit preserves existing comments across a save, and UltiTools sets `options().parseComments(true)` explicitly rather than relying on the default. A key added for the first time also gets its `@ConfigEntry(comment)` written alongside it; a key the operator already has is left untouched.
 :::
+
+One cosmetic side effect: SnakeYAML re-emits a double-quoted string value as single-quoted on save. The value itself does not change, only its quoting style.
 
 ## Configuration file reload
 

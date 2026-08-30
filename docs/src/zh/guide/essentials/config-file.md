@@ -130,11 +130,11 @@ public List<AbstractConfigEntity> getAllConfigs() {
 
 你无需担心配置文件的加载与保存等问题，UltiTools会自动为你做好一切。
 
-::: warning
-
-如果你保存配置文件，那么有些配置文件的注释可能就会消失！
-
+::: info 注释（v6.3.0 起）
+Bukkit 在保存时会保留已有注释，UltiTools 显式设置了 `options().parseComments(true)`，不依赖默认值。首次新增的键也会连同其 `@ConfigEntry(comment)` 一并写入；服主已有的键则不会被改动。
 :::
+
+一个纯粹外观上的副作用：SnakeYAML 保存时会把双引号字符串值重新写成单引号，值本身不变，只是引号风格变化。
 
 ## 重载配置文件
 

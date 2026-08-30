@@ -74,6 +74,10 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
                 link: 'advanced/config-validation'
             },
             {
+                text: '模块加载顺序',
+                link: 'advanced/module-dependencies'
+            },
+            {
                 text: '外部插件 API',
                 link: 'advanced/external-plugin-api'
             }

@@ -4,7 +4,11 @@
 Config validation annotations are available starting from UltiTools-API v6.2.0.
 :::
 
-UltiTools provides declarative validation annotations for configuration fields. When a config value fails validation, it is automatically reset to the field's default value and a warning is logged.
+UltiTools provides declarative validation annotations for configuration fields.
+
+::: info Refusal semantics as of v6.3.0
+A config value that fails validation refuses the owning module at load, instead of being reset. See [Behavior](#behavior) below.
+:::
 
 ## Available Annotations
 
@@ -14,7 +18,7 @@ Validates that a numeric value falls within a specified range (inclusive).
 
 <<< @/../examples/src/main/java/com/ultikits/docs/validation/MyConfig.java
 
-If a server admin sets `maxHomes: 999`, it will be reset to `5` (the default) and a warning will appear in the console.
+If a server admin sets `maxHomes: 999`, the module is refused at load. The console error names the module, the config file, the field `maxHomes`, the actual value `999`, and the violated constraint (`@Range(min = 1, max = 10)`); the file itself is left untouched.
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -33,7 +37,7 @@ import com.ultikits.ultitools.annotations.config.NotEmpty;
 private String serverName = "My Server";
 ```
 
-If the value is blank or missing, it resets to `"My Server"`.
+A blank or missing value refuses the owning module at load; see [Behavior](#behavior) below.
 
 ### @Size
 
@@ -94,15 +98,16 @@ private String displayName = "Default Name";
 
 ## Behavior
 
-::: warning Validation runs only when the config class has a (String) constructor
-`validateFields()` starts by building a default instance through `getDeclaredConstructor(String.class)`, and when the config class has no accessible `(String)` constructor that call fails, the exception is logged at `FINE` and the method returns before any `@ConfigEntry` field is checked, so `@Range`, `@NotEmpty`, `@Size` and `@Pattern` are all skipped while the plugin starts normally.
-Declare `public MyConfig(String configFilePath)` calling `super(configFilePath)` as the example above does, then confirm it by writing an out-of-range value into the file and checking that the console warns and the file is corrected on restart.
-Reporting the missing constructor instead of skipping validation is tracked in [issue #314](https://github.com/UltiKits/UltiTools-Reborn/issues/314).
+::: info Constructor resolution, as of v6.3.0
+`validateFields()` obtains its default instance through the same two-step fallback `ConfigManager` uses elsewhere: a `(String)` constructor first, then a no-arg constructor calling `super("config/path.yml")`. Validation now fires on both shapes; only a class with neither constructor fails to register (see [#314](https://github.com/UltiKits/UltiTools-Reborn/issues/314)).
 :::
 
-When validation fails:
-1. The invalid value is replaced with the field's **default value** (the value set in the Java class)
-2. A **warning** is logged to the server console indicating which config value was invalid
-3. The corrected config is saved automatically
+A config class registers successfully as soon as either constructor shape resolves — `public MyConfig(String configFilePath)` calling `super(configFilePath)`, or a no-arg constructor calling `super("config/path.yml")` directly. Both are supported; declaring one is enough.
 
-This ensures your plugin always operates with valid configuration values, even if a server admin makes a typo.
+When a field's live value violates its constraint:
+
+1. The module is refused at load. The value is not reset, and the file is not rewritten. Other modules continue loading normally.
+2. The console error names the module, the config file, the field, the actual value, and the constraint that was violated, so the operator can fix the file without guessing.
+3. Nothing about the file itself changes. The value the operator wrote stays exactly as they wrote it until they edit it themselves.
+
+This is different from a typo silently working around itself: a config file belongs to the server operator, and only the operator's own edit changes it. Restart the server, or reload the module, after correcting the value.
