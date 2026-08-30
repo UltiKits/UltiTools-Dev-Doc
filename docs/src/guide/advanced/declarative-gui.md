@@ -1,9 +1,8 @@
 # Declarative GUI
 
-::: warning Experimental feature with known gaps in v6.2.5
-An open GUI keeps the widget tree that was built when it opened: `DeclarativeGui.setState` schedules a build but marks no element dirty, `State.setState` marks the element dirty but schedules no build, and several builder methods listed in section 4 store their value with no consumer on the render path.
-Keep the state in fields of your `DeclarativeGui` subclass, change them directly, and reopen the same instance on the next tick: `onClose` disposes the renderer and resets `initialized`, so the next `onOpen` runs `build(BuildContext)` again with the new values.
-The three rendering seams are tracked in [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200); please keep reporting anything else through GitHub Issues.
+::: warning Experimental feature — render seams closed in v6.3.0
+The repaint, click-dispatch and `GridView` positioning seams tracked in [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200) are closed as of v6.3.0: `build(BuildContext)` now runs on every state change, a click outside the GUI's own inventory cannot reach a handler, and any widget type positions correctly inside a `GridView`.
+`@ApiStatus.Experimental` stays on the package for at least one more release, pending feedback from real servers running these rewritten mechanisms.
 :::
 
 ## 1. Introduction
@@ -58,17 +57,15 @@ new MyFirstGui(player).open();
 
 ### 4.1 Container
 
-::: warning The background icon is stored but never rendered
-`.background(...)` keeps the `IconWrapper` in a field that only `getBackground()` reads, and nothing on the render path calls that getter, so the slots the container covers stay empty.
-Add an `ItemDisplay` child with an explicit `slot` for every cell you want filled, reusing one `ItemStack` such as a grey glass pane: that is the background expanded into real children.
-Implementing or removing the builder methods that currently store without rendering is tracked in [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200).
+::: tip Fill the background with explicit children <Badge type="tip" text="v6.3.0+" />
+As of v6.3.0, `Container.Builder` has no `background(...)` method — the field it wrote in v6.2.5 was never read by anything on the render path, so v6.3.0 deletes it rather than leave it silently inert.
+Add an `ItemDisplay` child with an explicit `slot` for every cell you want filled, reusing one `ItemStack` such as a grey glass pane.
 :::
 
-The basic container widget that holds other widgets and optionally provides a background.
+The basic container widget that holds other widgets.
 
 ```java
 Container.builder()
-    .background(IconWrapper.builder(new ItemStack(Material.GRAY_STAINED_GLASS_PANE)).name(" ").build()) // set background
     .child(widget1) // add a single child
     .children(listWidgets) // add multiple children
     .build();
@@ -107,19 +104,17 @@ ItemDisplay.builder(itemStack)
 
 ### 4.4 GridView
 
-::: warning Slot positions are computed from startSlot and columns only
-`.rows(...)` writes `maxRows`, whose only reader is `getMaxRows()` and which nothing calls, while `Builder.calculateSlot(int)` derives every position from `startSlot` and `columns` alone, so a longer item list keeps flowing past the row count you set.
-Truncate the list to `rows * columns` entries before passing it to `.items(...)`: the row cap then holds because your own code applies it.
-Implementing or removing the builder methods that currently store without rendering is tracked in [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200).
+::: tip Any widget type positions correctly <Badge type="tip" text="v6.3.0+" />
+As of v6.3.0, `GridView` writes each child's computed slot as parent data at render time, so any widget type — not only `ItemDisplay` — auto-positions into its row/column slot; `Widget`'s own API is unchanged, so no downstream custom widget needs a change.
+An explicit `.slot(...)` on a child inside a `GridView` is overridden and a `WARNING` names the child; a child with no explicit slot, or legitimately declared at slot `0`, produces no warning.
 :::
 
-Ideal for rendering lists (shop items, inventories). Only `ItemDisplay` widgets are automatically positioned into row/column slots.
+Ideal for rendering lists (shop items, inventories). Any widget type is automatically positioned into row/column slots.
 
 ```java
 GridView.<ShopItem>builder()
     .startSlot(10) // starting slot
     .columns(7)    // columns per row
-    .rows(4)       // max rows
     .items(itemList, item -> {
         // map data object to Widget
         return ItemDisplay.builder(item.getStack())
@@ -130,13 +125,14 @@ GridView.<ShopItem>builder()
     .build();
 ```
 
-If the mapper returns any other Widget type, compute the slot yourself and call the builder's slot method, otherwise every item lands on the builder's default slot and overlaps.
+::: tip GridView.Builder.rows(int) is removed <Badge type="tip" text="v6.3.0+" />
+As of v6.3.0, `.rows(int)`/`getMaxRows()` no longer exist — the field they wrote was never read by anything, so v6.3.0 deletes them rather than implement an overflow rule nothing asked for.
+Truncate the list to the row count you want, in your own code, before passing it to `.items(...)`.
+:::
 
 ## 5. State management & interaction
 
 When a UI needs to change in response to user actions (pagination, selection), use `StatefulWidget`.
-
-The rebuild sequence in this example is subject to the state limitation described at the top of this page.
 
 ### Example: simple counter
 
@@ -159,6 +155,11 @@ How it works:
 
 When rendering dynamic lists (e.g. `GridView`) assign a unique key to each item so the diff algorithm can detect moves instead of delete+create.
 
+::: tip Now actually preserves state across a reorder <Badge type="tip" text="v6.3.0+" />
+Before v6.3.0, `ContainerElement` and `GridViewElement` paired children by list position only, so a `SlotKey` had no effect and reordering a keyed list still discarded every item's `State`.
+As of v6.3.0, both classes reconcile children by `SlotKey` first, falling back to position only for children with no key.
+:::
+
 ```java
 ItemDisplay.builder(item)
     .key(SlotKey.of("item-" + item.getId())) // unique id
@@ -167,10 +168,14 @@ ItemDisplay.builder(item)
 
 ### 6.2 Navigation & routing
 
-::: warning Routing changes the history without changing the screen
-`push(String)` applies its change through `setState`, which marks the element dirty without scheduling a build, so the route is pushed onto the history while the open GUI keeps showing the previous page; `Navigator.of(context)` is also `@Nullable` and returns null when no `Navigator` sits above the current element, which makes the chained call throw `NullPointerException`.
-Hold the current route in a field of your `DeclarativeGui` subclass, switch on it inside `build(BuildContext)`, and reopen the GUI as described at the top of this page; if you keep `Navigator.of(context)`, check the result for null first.
-The navigation seam is tracked in [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200).
+::: tip Pushing a route now repaints immediately <Badge type="tip" text="v6.3.0+" />
+Before v6.3.0, `push(String)` applied its change through `setState`, which marked the element dirty without ever scheduling a build, so the route was pushed onto the history while the open GUI kept showing the previous page.
+As of v6.3.0, every `setState`-driven dirty mark reaches a scheduled repaint, so pushing a route updates the visible page immediately.
+:::
+
+::: warning Navigator.of(context) can return null
+`Navigator.of(context)` is `@Nullable` and returns `null` when no `Navigator` sits above the current element, so a chained call throws `NullPointerException`.
+Check the result for `null` before calling `.push(...)`/`.pop()`/`.pushReplacement(...)` on it.
 :::
 
 A `Navigator` lets you switch “pages” inside the same GUI window by swapping widget trees.
@@ -195,8 +200,6 @@ Navigator.of(context).push("settings");
 ---
 
 ## 7. Full example: shop page
-
-The pagination, single-select and buy-button behaviour in this example is subject to the state limitation described at the top of this page.
 
 - Layout: `Container` + `GridView`
 - Pagination: `currentPage` controls data slicing

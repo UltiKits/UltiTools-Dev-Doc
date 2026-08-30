@@ -1,9 +1,8 @@
 # 声明式 GUI
 
-::: warning 实验性功能，v6.2.5 存在已知缺口
-已打开的界面会保持打开时构建出的组件树：`DeclarativeGui.setState` 会调度一次构建但不标记任何 Element 为脏，`State.setState` 标脏但不调度构建，第 4 节列出的若干 builder 方法只把值存进字段，渲染路径上没有读取方。
-把状态放在 `DeclarativeGui` 子类自己的字段里直接修改，并在下一 tick 关闭后重新打开同一个实例：`onClose` 会释放渲染器并把 `initialized` 置回 false，下一次 `onOpen` 会重新执行 `build(BuildContext)`。
-三处渲染接缝跟踪于 [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200)，其它问题仍然欢迎通过 GitHub Issue 反馈。
+::: warning 实验性功能——渲染接缝已在 v6.3.0 修复
+[issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200) 跟踪的重绘、点击派发与 `GridView` 定位三处接缝，已在 v6.3.0 修复：`build(BuildContext)` 现在会在每次状态变化时重新执行，点击 GUI 自己物品栏之外的位置无法触发处理器，任意 widget 类型都能在 `GridView` 内正确定位。
+`@ApiStatus.Experimental` 标记至少还会保留一个版本，等待运行这些被重写机制的真实服务器给出反馈。
 :::
 
 ## 1. 简介 (Introduction)
@@ -49,17 +48,15 @@ new MyFirstGui(player).open();
 ## 4. 常用组件详解 (Widget Reference)
 
 ### 4.1 Container (容器)
-::: warning 背景图标被保存但不参与渲染
-`.background(...)` 把 `IconWrapper` 存进一个只有 `getBackground()` 读取的字段，而渲染路径上没有任何代码调用这个 getter，容器覆盖的槽位保持为空。
-为每个需要填充的槽位加一个指定 `slot` 的 `ItemDisplay` 子组件，复用同一个 `ItemStack`（例如灰色玻璃板）：这相当于把背景展开成显式子节点。
-把这些只存不渲染的 builder 方法补上实现或删除的工作跟踪于 [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200)。
+::: tip 用显式子组件填充背景 <Badge type="tip" text="v6.3.0+" />
+自 v6.3.0 起，`Container.Builder` 不再有 `background(...)` 方法——它在 v6.2.5 中写入的字段从未被渲染路径读取过，v6.3.0 因此直接删除它，而不是让它继续静默失效。
+为每个需要填充的槽位加一个指定 `slot` 的 `ItemDisplay` 子组件，复用同一个 `ItemStack`（例如灰色玻璃板）。
 :::
 
-最基础的容器组件，用于包裹其他组件，并可以设置背景。
+最基础的容器组件，用于包裹其他组件。
 
 ```java
 Container.builder()
-    .background(IconWrapper.builder(new ItemStack(Material.GRAY_STAINED_GLASS_PANE)).name(" ").build()) // 设置背景
     .child(widget1) // 添加单个子组件
     .children(listWidgets) // 添加多个子组件
     .build();
@@ -95,19 +92,17 @@ ItemDisplay.builder(itemStack)
 ```
 
 ### 4.4 GridView (网格布局)
-::: warning 槽位只由 startSlot 与 columns 计算
-`.rows(...)` 写入的是 `maxRows`，它唯一的读取方 `getMaxRows()` 无人调用，而 `Builder.calculateSlot(int)` 只用 `startSlot` 与 `columns` 推算每个位置，因此更长的列表会继续往下排，不在你设定的行数处截断。
-在传给 `.items(...)` 之前先把列表截断到 `rows * columns` 条：行数上限由你自己的代码执行。
-把这些只存不渲染的 builder 方法补上实现或删除的工作跟踪于 [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200)。
+::: tip 任意 widget 类型都能正确定位 <Badge type="tip" text="v6.3.0+" />
+自 v6.3.0 起，`GridView` 会在渲染时把每个子组件计算出的槽位作为父数据写入，因此任意 widget 类型——不只是 `ItemDisplay`——都能自动定位到自己的行列槽位；`Widget` 自身的 API 未变，下游自定义 widget 不需要任何改动。
+子组件在 `GridView` 内显式声明的 `.slot(...)` 会被覆盖，并发出一条点名该子组件的 `WARNING`；没有显式槽位、或合法声明在槽位 `0` 的子组件，不会产生警告。
 :::
 
-非常适合用于展示列表数据（如商店商品、背包内容）。只有 `ItemDisplay` 类型的 Widget 会被自动计算行列位置并写入槽位。
+非常适合用于展示列表数据（如商店商品、背包内容）。任意 widget 类型都会被自动计算行列位置并写入槽位。
 
 ```java
 GridView.<ShopItem>builder()
     .startSlot(10) // 起始位置
     .columns(7)    // 每行几列
-    .rows(4)       // 最多几行
     .items(itemList, item -> {
         // 将数据对象映射为 Widget
         return ItemDisplay.builder(item.getStack())
@@ -118,13 +113,14 @@ GridView.<ShopItem>builder()
     .build();
 ```
 
-如果 mapper 返回其他 Widget 类型，需要自行计算槽位并调用对应 builder 的 slot 方法，否则会落在 builder 的默认槽位互相覆盖。
+::: tip GridView.Builder.rows(int) 已删除 <Badge type="tip" text="v6.3.0+" />
+自 v6.3.0 起，`.rows(int)`/`getMaxRows()` 不再存在——它们写入的字段从未被任何代码读取过，v6.3.0 因此直接删除，而不是去实现一条没人要求的溢出规则。
+需要限制行数时，在传给 `.items(...)` 之前，用你自己的代码把列表截断到想要的行数。
+:::
 
 ## 5. 状态管理与交互 (State Management)
 
 当界面需要根据用户操作发生变化（如翻页、选中物品）时，需要使用 **StatefulWidget**。
-
-本示例中的重建流程，受本页开头那条状态限制的影响。
 
 ### 示例：简单的计数器
 
@@ -145,6 +141,11 @@ GridView.<ShopItem>builder()
 ### 6.1 SlotKey 的重要性
 在渲染动态列表（如 `GridView`）时，给每个 Item 设置一个唯一的 Key 是至关重要的。这有助于 Diff 算法正确识别“移动”操作，而不是“删除再创建”。
 
+::: tip 现在真正能在重排序后保留状态 <Badge type="tip" text="v6.3.0+" />
+v6.3.0 之前，`ContainerElement` 与 `GridViewElement` 只按列表位置配对子组件，`SlotKey` 因此不起作用，重排序一个带 key 的列表仍然会丢失每一项的 `State`。
+自 v6.3.0 起，两个类都会优先按 `SlotKey` 做协调，只有没有 key 的子组件才回退到按位置配对。
+:::
+
 ```java
 ItemDisplay.builder(item)
     .key(SlotKey.of("item-" + item.getId())) // 唯一标识
@@ -152,10 +153,14 @@ ItemDisplay.builder(item)
 ```
 
 ### 6.2 导航与路由 (Navigation)
-::: warning 路由改变的是 history，不是界面
-`push(String)` 通过 `setState` 生效，只标脏而不调度构建，因此路由被压进了 history，界面仍停在原页面；`Navigator.of(context)` 另外带有 `@Nullable`，当前 Element 上方没有 `Navigator` 时返回 null，链式调用会当场抛出 `NullPointerException`。
-把当前路由放在 `DeclarativeGui` 子类的字段里，在 `build(BuildContext)` 中按它切换子树，并按页首那条说明重开界面；若坚持使用 `Navigator.of(context)`，先判空再调用。
-导航接缝跟踪于 [issue #200](https://github.com/UltiKits/UltiTools-Reborn/issues/200)。
+::: tip 压入路由现在会立即重绘 <Badge type="tip" text="v6.3.0+" />
+v6.3.0 之前，`push(String)` 通过 `setState` 生效，只会标脏而从不调度构建，因此路由被压进了 history，已打开的界面却仍停在原页面。
+自 v6.3.0 起，每一次由 `setState` 触发的标脏都会到达一次已调度的重绘，压入路由会立即更新可见页面。
+:::
+
+::: warning Navigator.of(context) 可能返回 null
+`Navigator.of(context)` 带有 `@Nullable`，当前 Element 上方没有 `Navigator` 时会返回 `null`，链式调用因此会抛出 `NullPointerException`。
+调用 `.push(...)`/`.pop()`/`.pushReplacement(...)` 之前，先判断结果是否为 `null`。
 :::
 
 框架提供了 `Navigator` 组件用于在同一个 GUI 窗口内切换“页面”（实际上是切换 Widget 树）。
@@ -179,8 +184,6 @@ Navigator.of(context).push("settings");
 ---
 
 ## 7. 完整示例：商店页面
-
-本示例中的分页、单选与购买按钮行为，受本页开头那条状态限制的影响。
 
 1.  **布局**: 使用 `Container` + `GridView`。
 2.  **分页**: 使用 `currentPage` 状态控制数据切片。
