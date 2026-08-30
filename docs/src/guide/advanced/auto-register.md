@@ -63,12 +63,6 @@ The replacement signature for connectors is still being decided in [issue #217](
 
 Add this annotation above the class that extends `UltiToolsPlugin`, UltiTools will automatically register according to your configuration when loading your module:
 
-::: warning cmdExecutor = true routes through a deprecated overload that throws ClassCastException
-On the connector registration path shown on this page, `registerBukkit` sends command registration to `CommandManager.registerAll(UltiToolsPlugin, String)`, which casts every scanned class straight to the retired `AbstractCommandExecutor` and is now `@Deprecated(since = "6.2.5", forRemoval = true)`, so a command class written against the recommended `BaseCommandExecutor` throws an uncaught `ClassCastException`.
-Extend `AbstractCommandExecutor` for commands registered through this connector path, or use the standard module JAR loading path shown earlier in this guide, which never calls this overload.
-Fixing or removing this overload is being decided together with the connector's replacement signature in [issue #327](https://github.com/UltiKits/UltiTools-Reborn/issues/327).
-:::
-
 ```java
 @EnableAutoRegister(
     scanPackage = "",     // package to scan
