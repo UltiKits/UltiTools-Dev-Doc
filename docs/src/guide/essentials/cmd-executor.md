@@ -100,10 +100,8 @@ Till now, you only need to register the command executor to complete all the wor
 
 ### Tab completion
 
-::: warning Tab completion on BaseCommandExecutor comes from the command mappings
-On a class extending `BaseCommandExecutor`, `suggest(Player, Command, String[])` returns prefix matches taken from the `@CmdMapping` format list while the player types the first argument and an empty list from the second argument onward, and the `suggest` attribute of `@CmdParam` is never read.
-Override `protected List<String> suggest(Player player, Command command, String[] args)` in your own executor and return the completions per `args.length`: the method is protected and its javadoc invites the override.
-Wiring the annotation-driven completer into `BaseCommandExecutor` is tracked in [issue #210](https://github.com/UltiKits/UltiTools-Reborn/issues/210).
+::: tip Tab completion is wired into BaseCommandExecutor <Badge type="tip" text="v6.3.0+" />
+As of v6.3.0, `suggest(Player, Command, String[])` resolves the first-argument literal from the `@CmdMapping` format list *and* the `suggest` attribute of `@CmdParam` for parameter slots, through the shared `commands/tabcomplete/` dispatch — the sections below describe the full resolution order. You can still override `suggest(...)` yourself if you want different behaviour; the method remains `protected`.
 :::
 
 Need Tab suggestion for each command parameter, but don't want to write a lot of code?
@@ -137,6 +135,21 @@ the current parameters of the current command.
 
 Your method needs to return a value of type `List<String>`, and UltiTools will return this value as a completion list to
 the player.
+
+#### Built-in completers (`@key` notation) <Badge type="tip" text="v6.3.0+" />
+
+As of v6.3.0, a `suggest` value starting with `@` resolves through a registered completer instead of a method name — no method to write at all:
+
+```java
+@CmdMapping(format = "tp <target>")
+public void tp(@CmdSender Player player, @CmdParam(value = "target", suggest = "@players") String target) {
+  ...
+}
+```
+
+Four built-in keys are available: `@players` (online players), `@worlds` (loaded worlds), `@materials` (also `@blocks`/`@items`), and `@boolean` (also `@toggle`). A module can also register its own key at runtime via `TabCompletionManager.register(String, TabCompleter)`.
+
+`@` is not a legal Java identifier start, so this notation can never collide with a method-name value — every example on this page using a plain method name needs no change. An **unknown** `@key` refuses the declaring module to load, naming the class, the method and the key; it does not fall through to the plain-string prompt behaviour described next.
 
 ::: tip
 
@@ -172,10 +185,8 @@ protected List<String> suggest(Player player, Command command, String[] strings)
 
 #### @CmdSuggest
 
-::: warning @CmdSuggest has no reader in the BaseCommandExecutor path
-The class in the example below extends `BaseCommandExecutor`, and that class never inspects `@CmdSuggest`; the two places that read the annotation are the deprecated `AbstractCommandExecutor` and the unwired `MethodInvocationCompleter`, so the methods in `PointSuggest` are never looked up and never called.
-Override `suggest(Player, Command, String[])` in your executor and call the shared class from there: the reusable methods stay in one place, they just stop depending on the annotation.
-Wiring the annotation-driven completer into `BaseCommandExecutor` is tracked in [issue #210](https://github.com/UltiKits/UltiTools-Reborn/issues/210).
+::: tip @CmdSuggest is read on BaseCommandExecutor <Badge type="tip" text="v6.3.0+" />
+As of v6.3.0, the class in the example below is read through the shared `commands/tabcomplete/` dispatch, so the methods in `PointSuggest` are looked up and called exactly as shown.
 :::
 
 If you want a completion method to be shared with other command classes, you can create a class and write methods which
@@ -350,10 +361,13 @@ If you don't want a command to be executed in large quantities and consume serve
 
 Parameter type is integer, in second.
 
-If the command is executed before the cooldown ends, the message `操作频繁，请 %d 秒后再试` will be sent, with the remaining seconds substituted for `%d`.
-This text is not yet translated in `en.json`, so servers running in English currently see the raw Chinese string.
+If the command is executed before the cooldown ends, the message `操作频繁，请 %d 秒后再试` will be sent, with the remaining seconds substituted for `%d`. As of v6.3.0, `en.json` carries this parameterized key, so English-locale servers see the translated `Frequent operations, please try again in %d seconds` instead of the raw Chinese string.
 
 This restriction only takes effect on **players**.
+
+::: tip A `@CmdCD` your validator chain cannot enforce now refuses to load <Badge type="tip" text="v6.3.0+" />
+As of v6.3.0, a class or method carrying `@CmdCD` whose validator chain has no `CooldownValidator` — most commonly a custom `ValidatorChain` that omits it, see [Creating Custom Validators](#creating-custom-validators) below — is refused at plugin load, naming the offending class and method. This closes the gap where the annotation looked declared but enforced nothing.
+:::
 
 ### Execution lock
 
@@ -363,7 +377,7 @@ If you want a command to be executed only one by one, you can add `@UsageLimit` 
 @UsageLimit(ContainConsole = false, value = LimitType.SENDER)
 ```
 
-`ContainConsole` is whether the restriction is applied to the console, and `value` is the restriction type.
+`ContainConsole` is whether the restriction is applied to the console, and `value` is the restriction type. As of v6.3.0, `ContainConsole` defaults to `true` — a console sender is now subject to a limit unless a mapping opts out explicitly with `ContainConsole = false` as shown above.
 
 Available types are:
 
@@ -375,6 +389,10 @@ Under the `LimitType.SENDER` strategy, the player will receive a prompt: `Please
 
 Under the `LimitType.ALL` strategy, the player will receive a
 prompt: `Please wait for last Command Processing which sent by other players!`
+
+::: tip @UsageLimit now genuinely serialises <Badge type="tip" text="v6.3.0+" />
+As of v6.3.0, acquisition is the gate: the lock is taken inside validation itself, so a blocked sender's invocation is rejected before the method runs, and an `ALL`-scope lock is released only by the sender who acquired it — a different sender's completion can no longer free it. Like `@CmdCD` above, a `@UsageLimit(SENDER|ALL)` whose chain has no `UsageLockValidator` refuses to load, naming the offending class and method; `LimitType.NONE` is exempt.
+:::
 
 ## Command Context <Badge type="tip" text="v6.2.0+" />
 
@@ -496,9 +514,9 @@ Register the validator in your command executor:
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ValidatorCommand.java
 
 ::: warning A custom chain replaces all four default validators
-Passing a `ValidatorChain` to `super(...)` skips `createDefaultValidatorChain()`, so `SenderTypeValidator` (the class-level `@CmdTarget`), `PermissionValidator` (`requireOp` and the method-level `@CmdMapping` permissions, though the class-level `permission` is still enforced by Bukkit), `UsageLockValidator` (`@UsageLimit`) and `CooldownValidator` (`@CmdCD`) are all absent from the chain, while the lock and cooldown side effects still run on every execution.
+Passing a `ValidatorChain` to `super(...)` skips `createDefaultValidatorChain()`, so `SenderTypeValidator` (the class-level `@CmdTarget`), `PermissionValidator` (`requireOp` and the method-level `@CmdMapping` permissions, though the class-level `permission` is still enforced by Bukkit), `UsageLockValidator` (`@UsageLimit`) and `CooldownValidator` (`@CmdCD`) are all absent from the chain unless you add them yourself.
 Use the form shown just above instead: call `super()` and register your validator with `addValidator(...)`, which keeps the four defaults and orders yours by `getOrder()`.
-Restoring the default validators under a custom chain is tracked in [issue #312](https://github.com/UltiKits/UltiTools-Reborn/issues/312).
+As of v6.3.0, a class or method whose `@CmdCD`/`@UsageLimit` has no matching validator in the custom chain is refused at plugin load rather than silently recording state without enforcing anything — see the tips under [Command cooldown](#command-cooldown) and [Execution lock](#execution-lock) above.
 :::
 
 Or use a custom validator chain:
@@ -535,10 +553,8 @@ public void backupWorld(@CmdSender Player player) {
 
 ### Async Command Options
 
-::: warning timeout on @AsyncCommand has no timer and no cancel
-`BaseCommandExecutor` only wraps the runnable in one more `BukkitRunnable` when `asyncCommand.timeout() > 0`, so no timer starts and nothing is ever canceled, and any positive value runs exactly like leaving `timeout` unset.
-Do not rely on this attribute to bound execution time: a blocking call inside the method keeps running to completion regardless of what `timeout` is set to.
-Whether to implement real cancellation, remove the attribute, or document it as inert is tracked in [issue #322](https://github.com/UltiKits/UltiTools-Reborn/issues/322).
+::: tip timeout on @AsyncCommand is now honoured <Badge type="tip" text="v6.3.0+" />
+As of v6.3.0, `timeout()` is a deadline on how long the framework *waits*, not a cancellation of the method body: when the configured duration elapses with the body still running, the framework stops waiting and sends the sender one timeout message, but the body itself is never interrupted and keeps running to completion. `timeout = 0` disables the watcher entirely — the framework waits indefinitely and never reports a timeout.
 :::
 
 ```java

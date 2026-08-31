@@ -63,10 +63,9 @@ TempListener.common(PlayerInteractEvent.class)
 - `build()` — 构建并返回 `TempListener`（需要手动 `register()`）。
 - `listen(TempEventHandler<E> handler)` — 一步构建并立即注册。
 
-::: warning build() 返回的监听器不带你设置的过滤器
-`build()` 调用的是 `SimpleTempListener` 的三参构造器，它只赋值事件类、优先级与处理器，`filter` 保持字段初值 `(ignored) -> true`，因此这样构建出的监听器会对该类型的每一个事件执行处理器；`listen(...)` 确实传入了过滤器，但返回类型是 `void`，拿不到调用 `unregister()` 的句柄。
-直接构造 `new SimpleTempListener<>(eventClass, priority, handler, filter)` 并调用它的 `register()`：本页下方的旧版小节写明这种写法仍然可用，而且它是目前唯一能同时带过滤器又能手动注销的写法。
-让 `build()` 传递过滤器的修法跟踪于 [issue #313](https://github.com/UltiKits/UltiTools-Reborn/issues/313)。
+::: tip build() 现在会传递你设置的过滤器 <Badge type="tip" text="v6.3.0+" />
+自 v6.3.0 起，`.filter(x).build()` 是同时获得「可过滤」与「可注销」监听器的推荐写法：`build()` 调用的是与 `listen(...)` 相同的四参构造器，因此你设置的过滤器会真正生效，对返回的 `TempListener` 调用 `register()` 就能拿到调用 `unregister()` 所需的句柄——一次构造，两种能力，不需要第二个监听器。
+在 v6.3.0 之前，`build()` 调用的是没有 filter 参数的三参构造器，过滤器会被静默丢弃；`listen(...)` 虽然传递了过滤器，却返回 `void`，拿不到注销句柄。这两个缺口由同一处修复一并关闭。
 :::
 
 **示例：等待玩家与特定方块交互**
@@ -108,10 +107,14 @@ TempListener.common(AsyncPlayerChatEvent.class)
 
 ### 传统临时监听器（SimpleTempListener）
 
-传统的直接实例化方式（`SimpleTempListener`）仍然可用，并未被弃用，这一点与下文的 `PlayerTempListener` 不同；新代码仍推荐使用构建器：
+::: warning 四个构造器已标记为在 Phase 7 移除 <Badge type="tip" text="v6.3.0+" />
+自 v6.3.0 起，`SimpleTempListener` 的无参构造器以及两个、三个参数的重载——包括下面示例用到的无过滤器 `(Class, TempEventHandler)` 形态——都带上了 `@Deprecated(since = "6.3.0", forRemoval = true)`，计划在未来的 Phase 7 里程碑中移除。它们彼此容易混淆：两个三参数重载仅在最后一个参数是 `EventPriority` 还是过滤器 `Function` 上不同，编译期没有任何信号提醒选错了。推荐使用上方的构建器 API，或直接使用未被废弃的四参数全参构造器 `new SimpleTempListener<>(eventClass, priority, handler, filter)`。
+:::
+
+下面示例中传统的直接实例化写法仍然可用，但其构造器已进入移除计划；新代码请使用构建器：
 
 ```java
-// 传统方式 - 仍然可用但不推荐
+// 传统方式 - 仍然可用，但其构造器已在 Phase 7 计划移除
 TempListener listener = new SimpleTempListener(PlayerInteractEvent.class, event -> {
     // 做一些事...
     return true; // 返回 true 自动注销监听器
@@ -135,4 +138,4 @@ TempListener.common(PlayerInteractEvent.class)
     .listen(event -> { /* ... */ return true; });
 ```
 
-手动注销一个带过滤器的监听器，需要使用上方警告中说明的四参数 `SimpleTempListener` 构造器；`build()` 确实会返回句柄，但会丢掉你的过滤器，而 `listen(...)` 保留过滤器却不返回任何可注销的东西。
+自 v6.3.0 起，本节顶部展示的 `.filter(x).build()` 就是同时获得「可过滤」与「可手动注销」监听器的推荐写法——不再需要直接构造 `SimpleTempListener`。

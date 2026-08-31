@@ -63,12 +63,6 @@ public class PluginMain extends UltiToolsPlugin {
 
 在继承了 `UltiToolsPlugin` 的类的上方添加这一注解，UltiTools 在加载你的模块时会根据你的配置进行自动注册：
 
-::: warning cmdExecutor = true 会走到一个抛 ClassCastException 的已弃用重载
-在本页展示的连接器注册路径上，`registerBukkit` 把命令注册交给 `CommandManager.registerAll(UltiToolsPlugin, String)`，它把每个扫描到的类直接强转成已废弃的 `AbstractCommandExecutor`，现已标 `@Deprecated(since = "6.2.5", forRemoval = true)`，因此按推荐写法继承 `BaseCommandExecutor` 的命令类会抛出未捕获的 `ClassCastException`。
-命令类若要走这条连接器路径，请改继承 `AbstractCommandExecutor`，或改用本页前文所述的模块 JAR 标准加载方式，那条路径完全不会调用这个重载。
-修复还是移除这个重载，与连接器的替代签名一起在 [issue #327](https://github.com/UltiKits/UltiTools-Reborn/issues/327) 中决定。
-:::
-
 ```java
 @EnableAutoRegister(
     scanPackage = "",     //要扫描的包

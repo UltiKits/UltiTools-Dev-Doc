@@ -85,10 +85,8 @@ public void addPoint(@CmdSender Player player, @CmdParam("name") String name) {
 
 ### 参数Tab提示补全
 
-::: warning BaseCommandExecutor 的 Tab 补全来自命令映射表
-在继承 `BaseCommandExecutor` 的类上，`suggest(Player, Command, String[])` 只在玩家输入第一个参数时按 `@CmdMapping` 的 format 首段返回前缀匹配，从第二个参数位起返回空列表，`@CmdParam` 的 `suggest` 属性不会被读取。
-在自己的执行器里重写 `protected List<String> suggest(Player player, Command command, String[] args)`，按 `args.length` 返回补全列表：该方法是 protected，其 javadoc 明确鼓励重写。
-把注解驱动的补全器接进 `BaseCommandExecutor` 的工作跟踪于 [issue #210](https://github.com/UltiKits/UltiTools-Reborn/issues/210)。
+::: tip BaseCommandExecutor 的 Tab 补全已接线 <Badge type="tip" text="v6.3.0+" />
+自 v6.3.0 起，`suggest(Player, Command, String[])` 通过共享的 `commands/tabcomplete/` 分发实现，既解析 `@CmdMapping` format 首段的第一参数字面量，也解析参数位上 `@CmdParam` 的 `suggest` 属性——下面几节说明完整的解析顺序。你仍然可以重写 `suggest(...)` 来自定义行为，该方法保持 `protected`。
 :::
 
 每次写完一个命令之后希望给自己的命令添加Tab提示补全，但是又不想写一大堆的代码？
@@ -119,6 +117,21 @@ UltiTools会首先在当前类中搜索匹配的方法名，并尝试调用此�
 
 你的方法需要返回一个 `List<String>` 类型的值，UltiTools 将会将此值作为补全列表返回给玩家。
 
+#### 内置补全器（`@key` 记法） <Badge type="tip" text="v6.3.0+" />
+
+自 v6.3.0 起，以 `@` 开头的 `suggest` 值会通过一个已注册的补全器解析，而不是当作方法名——完全不需要写方法：
+
+```java
+@CmdMapping(format = "tp <target>")
+public void tp(@CmdSender Player player, @CmdParam(value = "target", suggest = "@players") String target) {
+  ...
+}
+```
+
+框架内置四个键：`@players`（在线玩家）、`@worlds`（已加载世界）、`@materials`（也支持 `@blocks`/`@items`）、`@boolean`（也支持 `@toggle`）。模块也可以通过 `TabCompletionManager.register(String, TabCompleter)` 在运行时注册自己的键。
+
+`@` 不是合法的 Java 标识符起始字符，因此这种记法永远不会与方法名值冲突——本页其他用普通方法名的示例都不需要改动。**未知**的 `@key` 会拒绝声明它的模块加载，并指明类、方法与键；它不会退回到下面介绍的纯字符串提示行为。
+
 ::: tip
 
 如果你仅仅只是想返回一个简单的提示字符串，那么你只需要在 `suggest` 字段中写上你想要的字符串即可。这里的字符串也支持i18n国际化。
@@ -147,10 +160,8 @@ protected List<String> suggest(Player player, Command command, String[] strings)
 
 #### @CmdSuggest 注解
 
-::: warning @CmdSuggest 在 BaseCommandExecutor 通路上没有读取方
-下面示例中的类继承的是 `BaseCommandExecutor`，而该类从不检查 `@CmdSuggest`；读取这个注解的两处分别是已弃用的 `AbstractCommandExecutor` 与未接线的 `MethodInvocationCompleter`，因此 `PointSuggest` 中的方法不会被查找，也不会被调用。
-在自己的执行器里重写 `suggest(Player, Command, String[])` 并在其中调用共享类的方法：复用方法仍然集中在一处，只是不再依赖该注解。
-把注解驱动的补全器接进 `BaseCommandExecutor` 的工作跟踪于 [issue #210](https://github.com/UltiKits/UltiTools-Reborn/issues/210)。
+::: tip @CmdSuggest 在 BaseCommandExecutor 上已可读取 <Badge type="tip" text="v6.3.0+" />
+自 v6.3.0 起，下面示例中的类会通过共享的 `commands/tabcomplete/` 分发被读取，因此 `PointSuggest` 中的方法会按预期被查找并调用。
 :::
 
 如果你希望你的这个补全方法与其他命令类共享，那么你可以创建一个类，将想要复用的方法写在此类下。
@@ -318,6 +329,10 @@ public void listPoint(@CmdSender Player player) {
 
 此限制仅对**玩家**生效。
 
+::: tip 校验链无法强制执行的 @CmdCD 现在会拒绝加载 <Badge type="tip" text="v6.3.0+" />
+自 v6.3.0 起，标注了 `@CmdCD`、而其校验链中缺少 `CooldownValidator` 的类或方法——最常见的情形是省略了它的自定义 `ValidatorChain`，见下方[创建自定义验证器](#创建自定义验证器)一节——会在插件加载时被拒绝，并指出问题类与方法。这关闭了此前「看似已声明，实则拦不住任何调用」的缺口。
+:::
+
 ### 执行锁
 
 如果你希望一个命令只能被一条一条地执行，那么可以在相应的方法前面添加 `@UsageLimit` 注解：
@@ -325,7 +340,7 @@ public void listPoint(@CmdSender Player player) {
 ```java
 @UsageLimit(ContainConsole = false, value = LimitType.SENDER)
 ```
-其中 `ContainConsole` 为是否将限制应用于控制台，`value` 为限制类型。
+其中 `ContainConsole` 为是否将限制应用于控制台，`value` 为限制类型。自 v6.3.0 起，`ContainConsole` 默认值为 `true`——除非像上面这样显式设为 `false`，否则控制台发送者现在也受此限制约束。
 
 可用的类型有：
 
@@ -334,6 +349,10 @@ public void listPoint(@CmdSender Player player) {
 - `LimitType.NONE` 不作限制
 
 在 `LimitType.SENDER` 策略下，玩家在上一条该指令执行完毕之前重复执行前将会收到提示：`请先等待上一条命令执行完毕！`
+
+::: tip @UsageLimit 现在真正实现了串行化 <Badge type="tip" text="v6.3.0+" />
+自 v6.3.0 起，获取即为门槛：锁在验证本身内部被获取，被拦截的发送者在方法执行前就会被拒绝；`ALL` 范围的锁只能由获取它的发送者释放，其他发送者的完成不再能释放它。与上面的 `@CmdCD` 一样，链中缺少 `UsageLockValidator` 的 `@UsageLimit(SENDER|ALL)` 会在加载时拒绝，并指出问题类与方法；`LimitType.NONE` 不受此约束。
+:::
 
 在 `LimitType.ALL` 策略下，玩家在服内上一条该指令执行完毕之前重复执行前将会收到提示：`请先等待其他玩家发送的命令执行完毕！`
 
@@ -457,9 +476,9 @@ public void download(@CmdSender Player player) {
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ValidatorCommand.java
 
 ::: warning 自定义验证链会替换掉全部四个默认验证器
-把 `ValidatorChain` 传给 `super(...)` 会跳过 `createDefaultValidatorChain()`，因此 `SenderTypeValidator`（类上的 `@CmdTarget`）、`PermissionValidator`（`requireOp` 与方法级 `@CmdMapping` 的权限，类级 `permission` 仍由 Bukkit 强制）、`UsageLockValidator`（`@UsageLimit`）与 `CooldownValidator`（`@CmdCD`）都不在链里，而执行锁与冷却的副作用仍然每次照常执行。
+把 `ValidatorChain` 传给 `super(...)` 会跳过 `createDefaultValidatorChain()`，因此 `SenderTypeValidator`（类上的 `@CmdTarget`）、`PermissionValidator`（`requireOp` 与方法级 `@CmdMapping` 的权限，类级 `permission` 仍由 Bukkit 强制）、`UsageLockValidator`（`@UsageLimit`）与 `CooldownValidator`（`@CmdCD`）都不在链里，除非你自己把它们加进去。
 改用上面那种写法：调用 `super()` 后用 `addValidator(...)` 注册自己的验证器，四个默认验证器保留，你的验证器按 `getOrder()` 排序。
-在自定义链下保留默认验证器的修法跟踪于 [issue #312](https://github.com/UltiKits/UltiTools-Reborn/issues/312)。
+自 v6.3.0 起，链中缺少匹配验证器的 `@CmdCD`/`@UsageLimit` 会在插件加载时被拒绝，而不再是静默记录状态却不强制执行——见上方[命令冷却](#命令冷却)与[执行锁](#执行锁)小节的提示。
 :::
 
 或使用自定义验证链：
@@ -496,10 +515,8 @@ public void backupWorld(@CmdSender Player player) {
 
 ### 异步命令选项
 
-::: warning @AsyncCommand 的 timeout 没有计时器也没有取消调用
-`BaseCommandExecutor` 只在 `asyncCommand.timeout() > 0` 时把任务再包一层 `BukkitRunnable`，不启动计时器也不调用取消，设置任意正数与完全不设置在运行时没有区别。
-不要依赖这个属性限制执行时长：方法内部的阻塞调用会一直执行到结束，与 `timeout` 的取值无关。
-是实现真正的取消、移除这个属性，还是把它标注为不生效，跟踪于 [issue #322](https://github.com/UltiKits/UltiTools-Reborn/issues/322)。
+::: tip @AsyncCommand 的 timeout 现在真正生效 <Badge type="tip" text="v6.3.0+" />
+自 v6.3.0 起，`timeout()` 是框架"等待多久"的截止时间，不是对方法体的取消：配置的时长耗尽而命令体仍在运行时，框架停止等待并向发送者发送一条超时消息，但命令体本身永远不会被中断，会自行运行至完成。`timeout = 0` 会完全禁用该监视器——框架会无限期等待，永远不会报告超时。
 :::
 
 ```java
