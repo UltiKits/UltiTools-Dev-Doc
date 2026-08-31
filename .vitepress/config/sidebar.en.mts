@@ -98,6 +98,10 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
             {
                 text: 'Module EventBus',
                 link: 'advanced/module-eventbus'
+            },
+            {
+                text: 'Panel Integration',
+                link: 'advanced/panel-integration'
             }
         ]
     },
