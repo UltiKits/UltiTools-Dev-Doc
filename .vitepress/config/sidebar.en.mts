@@ -144,6 +144,10 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
             {
                 text: 'Module Versioning',
                 link: 'advanced/module-versioning'
+            },
+            {
+                text: 'Deprecations',
+                link: 'advanced/deprecations'
             }
         ]
     },

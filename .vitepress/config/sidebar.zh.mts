@@ -144,6 +144,10 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
             {
                 text: '模块版本规范',
                 link: 'advanced/module-versioning'
+            },
+            {
+                text: '弃用清单',
+                link: 'advanced/deprecations'
             }
         ]
     },
