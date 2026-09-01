@@ -625,10 +625,6 @@ const sidebarGuideEN_v625: DefaultTheme.SidebarItem[] = [
 
 const sidebarApiEN: DefaultTheme.SidebarItem[] = [
     {
-        text: 'VersionWrapper',
-        link: 'version-wrapper'
-    },
-    {
         text: 'UltiToolsPlugin',
         link: 'ulti-tools-plugin'
     },

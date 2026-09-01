@@ -17,8 +17,8 @@ UltiTools-API offers a more concise way to handle commands by encapsulating the 
 Starting with v6.2.0, you should inherit the `BaseCommandExecutor` class and override the `handleHelp` method. The `@CmdTarget`
 and `@CmdExecutor` annotations here represent the target type and executor information of the command.
 
-::: warning Deprecated
-`AbstractCommandExecutor` is deprecated since v6.2.0. Use `BaseCommandExecutor` instead which provides the same annotation-driven features plus a pluggable validation chain, improved context management, and custom type parser support.
+::: warning Removed in v6.3.0
+`AbstractCommandExecutor` was deprecated since v6.2.0 and removed in v6.3.0 -- it no longer exists. Use `BaseCommandExecutor` instead, which provides the same annotation-driven features plus a pluggable validation chain, improved context management, and custom type parser support.
 :::
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ExampleCommand.java

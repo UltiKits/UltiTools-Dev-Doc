@@ -3,7 +3,7 @@
 <Badge type="tip" text="v6.2.0+" />
 
 ::: info Modern GUI System
-The GUI system has been rebuilt with `BaseInventoryPage`, `BasePaginationPage`, and `BaseConfirmationPage` base classes. These replace the deprecated `PagingPage` and `OkCancelPage` from earlier versions.
+The GUI system has been rebuilt with `BaseInventoryPage`, `BasePaginationPage`, and `BaseConfirmationPage` base classes. These replace `PagingPage` and `OkCancelPage`, both removed in v6.3.0.
 :::
 
 UltiTools provides a comprehensive GUI system built on top of the [obliviate-invs](https://github.com/hamza-cskn/obliviate-invs) library. This integration allows you to create rich, interactive inventory-based interfaces without worrying about low-level Bukkit inventory management.
@@ -276,13 +276,6 @@ Here's a full example combining pagination with custom actions:
 Override button creation methods to customize appearance:
 
 <<< @/../examples/src/main/java/com/ultikits/docs/gui/CustomPaginationGui.java
-
-## Deprecated API
-
-::: warning Deprecated Classes
-`PagingPage` and `OkCancelPage` are no longer maintained; migrate `PagingPage` usage to `BasePaginationPage`, `OkCancelPage` usage to `BaseConfirmationPage`, and any other custom base class to `BaseInventoryPage`.
-The new API gives better structure, testing support, and consistency with the rest of the v6.2.0 framework.
-:::
 
 ## Tips & Best Practices
 

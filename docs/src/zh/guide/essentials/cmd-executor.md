@@ -14,8 +14,8 @@ UltiTools-API 对原生的 `CommandExecutor` 接口进行了封装，提供了�
 
 从 v6.2.0 开始，你应该继承 `BaseCommandExecutor` 类，并重写 `handleHelp` 方法。这里的 `@CmdTarget` 和 `@CmdExecutor` 注解是代表了该命令的目标类型和执行器信息。
 
-::: warning 已弃用
-`AbstractCommandExecutor` 从 v6.2.0 开始已弃用。请使用 `BaseCommandExecutor`，它提供了相同的注解驱动功能，同时支持可插拔的验证链、改进的上下文管理和自定义类型解析器支持。
+::: warning v6.3.0 起已移除
+`AbstractCommandExecutor` 于 v6.2.0 被标记弃用，v6.3.0 起已被移除——它不再存在。请使用 `BaseCommandExecutor`，它提供了相同的注解驱动功能，同时支持可插拔的验证链、改进的上下文管理和自定义类型解析器支持。
 :::
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ExampleCommand.java

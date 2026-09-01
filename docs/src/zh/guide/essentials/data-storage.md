@@ -20,8 +20,8 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 
 `@Data`、`@Builder`、`@NoArgsConstructor`、`@AllArgsConstructor`、`@EqualsAndHashCode` 则为 Lombok 注解，用于自动生成 `getter`、`setter`、`builder`、`equals`、`hashCode` 方法。
 
-::: warning 从 AbstractDataEntity 迁移
-从 v6.2.0 开始，`DataOperator`、`Query` 和 `UltiToolsPlugin.getDataOperator()` 要求实体继承 `BaseDataEntity<String>` 而非 `AbstractDataEntity`。如果你的实体仍然继承 `AbstractDataEntity`，请改为 `BaseDataEntity<String>`。
+::: warning AbstractDataEntity 已在 v6.3.0 移除
+`AbstractDataEntity` 于 v6.2.0 被标记弃用，v6.3.0 起已被移除——它不再存在，仍然继承它的实体会编译失败。请改为继承 `BaseDataEntity<String>`；自 v6.2.0 起，`DataOperator`、`Query` 和 `UltiToolsPlugin.getDataOperator()` 就已经要求这样做。
 :::
 
 `BaseDataEntity<String>` 提供了插入/更新/删除/加载事件的生命周期钩子：

@@ -22,8 +22,8 @@ Create a class that extends `BaseDataEntity<String>`, and use the `@Table` and `
 
 `@Data`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor`, `@EqualsAndHashCode` are Lombok annotations, which are used to automatically generate `getter`, `setter`, `builder`, `equals`, `hashCode` methods.
 
-::: warning Migration from AbstractDataEntity
-Starting from v6.2.0, `DataOperator`, `Query`, and `UltiToolsPlugin.getDataOperator()` require entities to extend `BaseDataEntity<String>` instead of `AbstractDataEntity`. If your entity still extends `AbstractDataEntity`, change it to `BaseDataEntity<String>`.
+::: warning AbstractDataEntity removed in v6.3.0
+`AbstractDataEntity` was deprecated in v6.2.0 and removed in v6.3.0 — it no longer exists, and an entity still extending it fails to compile. Extend `BaseDataEntity<String>` instead; `DataOperator`, `Query`, and `UltiToolsPlugin.getDataOperator()` have required it since v6.2.0.
 :::
 
 `BaseDataEntity<String>` provides lifecycle hooks for insert/update/delete/load events:
