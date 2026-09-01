@@ -1,9 +1,11 @@
 // Reverse proxy for /api/{version}/{rest} -> javadoc.io/static/com.ultikits/UltiTools-API/{version}/{rest}.
 //
-// Scope of this file (Phase 1 tracer, Task 1): the plain pass-through path only.
-// No bare-/api 302, no version-wrapper/ulti-tools-plugin 301s, no dedicated
-// 404/502 degraded pages, no non-HTML branching beyond passing the upstream
-// status through. Those are 01-03-PLAN.md's expansion of this tracer slice.
+// Scope as of this commit (01-03 Task 1): path validation, the 2xx pass-
+// through path via the extracted upstream/cache modules, and non-HTML asset
+// failure handling. The zero-segment /api and /api/ redirect, the two
+// retired-path 301s, and the HTML-request 404/502 degraded pages are wired
+// up in this same plan's later tasks (index.js and _shared/pages.js do not
+// exist yet at this commit).
 //
 // _routes.json is deliberately NOT committed. The auto-generated one is derived
 // from the real functions/ tree and can never drift from it; a hand-written one
@@ -12,14 +14,13 @@
 // re-evaluate then.
 
 import { GENERATED_AT } from './_shared/version.generated.js';
+import { readThrough } from './_shared/cache.js';
 
 // Upstream host and protocol live ONLY here. context.params.path never
 // contributes to host/protocol — that boundary is the SSRF mitigation (T-01-01
 // in 01-01-PLAN.md's threat register).
 const UPSTREAM_ORIGIN = 'https://javadoc.io';
 const UPSTREAM_PATH_PREFIX = '/static/com.ultikits/UltiTools-API';
-
-const UPSTREAM_TIMEOUT_MS = 8000;
 
 function isValidSegment(segment) {
   if (segment === '' || segment === '.' || segment === '..') return false;
@@ -30,12 +31,35 @@ function isValidSegment(segment) {
   return true;
 }
 
+// A segment counts as a non-HTML asset request when its last path component
+// has a dot-extension that isn't "html" (e.g. stylesheet.css,
+// member-search-index.js). No extension at all, or an .html extension, is
+// treated as an HTML page request and gets the full degraded-page treatment
+// instead of an empty body.
+function isNonHtmlAsset(lastSegment) {
+  const dot = lastSegment.lastIndexOf('.');
+  if (dot <= 0) return false;
+  const ext = lastSegment.slice(dot + 1).toLowerCase();
+  return ext !== 'html';
+}
+
+// Every response this Function produces — 2xx, redirect, or error — carries
+// these two headers (D-05): no upstream canonical, always noindex. Applied
+// as the very last step before a Response leaves this file so no branch can
+// forget it.
+function withStandardHeaders(headers) {
+  headers.delete('link');
+  headers.set('X-Robots-Tag', 'noindex');
+  return headers;
+}
+
 export async function onRequestGet(context) {
   const segments = context.params.path;
 
   for (const segment of segments) {
     if (!isValidSegment(segment)) {
-      return new Response('Bad Request', { status: 400 });
+      const headers = withStandardHeaders(new Headers());
+      return new Response('Bad Request', { status: 400, headers });
     }
   }
 
@@ -44,60 +68,49 @@ export async function onRequestGet(context) {
     UPSTREAM_ORIGIN
   );
 
-  const cache = caches.default;
-  const cached = await cache.match(context.request);
-  if (cached) {
-    const headers = new Headers(cached.headers);
-    headers.set('x-cache', 'HIT');
-    headers.set('x-version-generated-at', GENERATED_AT);
-    return new Response(cached.body, { status: cached.status, headers });
-  }
+  const result = await readThrough(context, context.request, upstreamUrl);
 
-  let upstream;
-  try {
-    upstream = await fetch(upstreamUrl, {
-      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+  if (result.kind === 'ok') {
+    const headers = withStandardHeaders(new Headers(result.response.headers));
+    headers.set('x-version-generated-at', GENERATED_AT);
+    return new Response(result.response.body, {
+      status: result.response.status,
+      headers,
     });
-  } catch (err) {
-    // Network-level failure (DNS, connection refused, abort timeout). Full
-    // degraded-page treatment (D-06/D-07) is 01-03-PLAN.md's scope; this is a
-    // minimal safety net so the tracer doesn't surface an opaque runtime error.
-    const headers = new Headers();
-    headers.set('x-version-generated-at', GENERATED_AT);
-    return new Response('Upstream unreachable', { status: 502, headers });
   }
 
-  if (upstream.status < 200 || upstream.status >= 300) {
-    // Non-2xx handling (dedicated 404/502 pages, D-07's Cache-Control: no-store)
-    // is 01-03-PLAN.md's expansion. Here: pass the upstream status through
-    // as-is and never cache it.
-    const headers = new Headers();
-    headers.set('x-upstream-status', String(upstream.status));
+  // Every failure branch below is deliberately never cached (D-07): no
+  // cache.put call exists on this path at all, and Cache-Control: no-store
+  // is set explicitly rather than relied upon as a side effect.
+  const lastSegment = segments[segments.length - 1];
+  const upstreamStatusValue =
+    result.kind === 'unreachable' ? 'unreachable' : String(result.status);
+
+  if (isNonHtmlAsset(lastSegment)) {
+    // A non-HTML asset that can't be fetched gets an honest empty response
+    // with the real (or synthesized) status code, not a text/html body a
+    // browser would flag as a MIME mismatch for a stylesheet or script.
+    const status = result.kind === 'unreachable' ? 502 : result.status;
+    const headers = withStandardHeaders(new Headers());
+    headers.set('Cache-Control', 'no-store');
+    headers.set('x-upstream-status', upstreamStatusValue);
     headers.set('x-version-generated-at', GENERATED_AT);
-    return new Response(upstream.body, { status: upstream.status, headers });
+    return new Response(null, { status, headers });
   }
 
-  // 2xx: clone headers (fetch's Headers object is immutable), strip the
-  // upstream canonical link (D-05 — it always points off-site), mark noindex.
-  const headers = new Headers(upstream.headers);
-  headers.delete('link');
-  headers.set('X-Robots-Tag', 'noindex');
-
-  // Stream upstream.body straight through — do not await a full text() read.
-  // Upstream objects run up to ~409 KB (member-search-index.js); reading them
-  // into memory defeats the point of a streaming proxy.
-  const response = new Response(upstream.body, {
-    status: upstream.status,
-    headers,
-  });
-
-  context.waitUntil(cache.put(context.request, response.clone()));
-
-  const outgoingHeaders = new Headers(response.headers);
-  outgoingHeaders.set('x-cache', 'MISS');
-  outgoingHeaders.set('x-version-generated-at', GENERATED_AT);
-  return new Response(response.body, {
-    status: response.status,
-    headers: outgoingHeaders,
-  });
+  // HTML request failure branch: this plan's Task 3 replaces the body below
+  // with the real notIndexedPage()/upstreamDownPage() from
+  // functions/api/_shared/pages.js (D-06/D-07's two-page split). Until that
+  // task lands, this is a minimal, honest placeholder — not the final
+  // reader-facing text — that still carries the correct status code and
+  // no-store so the acceptance criteria this task owns (non-HTML branching,
+  // module extraction, noindex/no-link on every response) can be verified
+  // independent of the page-content task.
+  const status = result.kind === 'unreachable' ? 502 : result.status === 404 ? 404 : 502;
+  const headers = withStandardHeaders(new Headers());
+  headers.set('Content-Type', 'text/plain; charset=utf-8');
+  headers.set('Cache-Control', 'no-store');
+  headers.set('x-upstream-status', upstreamStatusValue);
+  headers.set('x-version-generated-at', GENERATED_AT);
+  return new Response('Upstream error', { status, headers });
 }
