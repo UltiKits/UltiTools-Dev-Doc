@@ -76,6 +76,10 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
             {
                 text: '外部插件 API',
                 link: 'advanced/external-plugin-api'
+            },
+            {
+                text: 'UltiToolsPlugin 基类',
+                link: 'advanced/ulti-tools-plugin'
             }
         ]
     },
