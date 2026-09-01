@@ -3,7 +3,7 @@
 <Badge type="tip" text="v6.2.0+" />
 
 ::: info 现代 GUI 系统
-GUI 系统已使用 `BaseInventoryPage`、`BasePaginationPage` 和 `BaseConfirmationPage` 重建。这些类取代了早期版本中不推荐使用的 `PagingPage` 和 `OkCancelPage`。
+GUI 系统已使用 `BaseInventoryPage`、`BasePaginationPage` 和 `BaseConfirmationPage` 重建。这些类取代了 `PagingPage` 和 `OkCancelPage`，两者都已在 v6.3.0 移除。
 :::
 
 UltiTools 提供了基于 [obliviate-invs](https://github.com/hamza-cskn/obliviate-invs) 库的全面 GUI 系统。这个集成使您无需担心低级 Bukkit 背包管理，就能创建丰富、交互式的背包界面。
@@ -276,13 +276,6 @@ ItemStack glass = XVersionUtils.getColoredPlaneGlass(Colors.CYAN);
 重写按钮创建方法来自定义外观：
 
 <<< @/../examples/src/main/java/com/ultikits/docs/gui/CustomPaginationGui.java
-
-## 弃用的 API
-
-::: warning 弃用的类
-`PagingPage` 和 `OkCancelPage` 不再维护：`PagingPage` 请迁移到 `BasePaginationPage`，`OkCancelPage` 请迁移到 `BaseConfirmationPage`，其他自定义基类请迁移到 `BaseInventoryPage`。
-新 API 提供更好的结构、测试支持和与 v6.2.0 框架其他部分的一致性。
-:::
 
 ## 提示与最佳实践
 

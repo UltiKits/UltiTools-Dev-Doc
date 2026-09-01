@@ -1,0 +1,108 @@
+# 配置校验
+
+::: info 自 v6.2.0 起
+配置校验注解自 UltiTools-API v6.2.0 起可用。
+:::
+
+UltiTools 为配置字段提供了声明式的校验注解。当配置值校验失败时，会自动重置为字段的默认值，并在控制台输出警告日志。
+
+## 可用注解
+
+### @Range
+
+校验数值是否在指定范围内（包含边界）。
+
+<<< @/../examples/src/main/java/com/ultikits/docs/validation/MyConfig.java
+
+如果服主设置了 `maxHomes: 999`，该值会被重置为 `5`（默认值），并在控制台显示警告。
+
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `min` | `double` | `-Double.MAX_VALUE` | 允许的最小值（包含） |
+| `max` | `double` | `Double.MAX_VALUE` | 允许的最大值（包含） |
+
+### @NotEmpty
+
+校验字符串值不为 null 或空（去除首尾空格后）。
+
+```java
+import com.ultikits.ultitools.annotations.config.NotEmpty;
+
+@NotEmpty
+@ConfigEntry(path = "serverName", comment = "服务器显示名称")
+private String serverName = "My Server";
+```
+
+如果值为空白或缺失，将重置为 `"My Server"`。
+
+### @Size
+
+校验集合或字符串的大小/长度在指定范围内。
+
+```java
+import com.ultikits.ultitools.annotations.config.Size;
+
+@Size(min = 1, max = 50)
+@ConfigEntry(path = "motd", comment = "每日消息 (1-50 字符)")
+private String motd = "Welcome!";
+
+@Size(min = 1, max = 10)
+@ConfigEntry(path = "allowedWorlds", comment = "允许的世界列表 (1-10 个)")
+private List<String> allowedWorlds = Arrays.asList("world", "world_nether");
+```
+
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `min` | `int` | `0` | 最小大小（包含） |
+| `max` | `int` | `Integer.MAX_VALUE` | 最大大小（包含） |
+
+### @Pattern
+
+校验字符串值是否匹配指定的正则表达式。
+
+```java
+import com.ultikits.ultitools.annotations.config.Pattern;
+
+@Pattern(regex = "^#[0-9A-Fa-f]{6}$")
+@ConfigEntry(path = "chatColor", comment = "聊天颜色，十六进制格式 (#RRGGBB)")
+private String chatColor = "#FFFFFF";
+
+@Pattern(regex = "^[a-zA-Z0-9_]{3,16}$")
+@ConfigEntry(path = "prefix", comment = "前缀（字母数字，3-16 字符）")
+private String prefix = "Server";
+```
+
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `regex` | `String` | （必填） | 要匹配的正则表达式 |
+
+## 组合使用
+
+可以在同一字段上使用多个校验注解：
+
+```java
+@NotEmpty
+@Size(min = 3, max = 32)
+@Pattern(regex = "^[a-zA-Z0-9_ ]+$")
+@ConfigEntry(path = "displayName", comment = "显示名称（3-32 个字母数字字符）")
+private String displayName = "Default Name";
+```
+
+## 完整示例
+
+<<< @/../examples/src/main/java/com/ultikits/docs/validation/PluginConfig.java
+
+## 行为说明
+
+::: warning 只有带 (String) 构造器的配置类才会执行校验
+`validateFields()` 的第一步是通过 `getDeclaredConstructor(String.class)` 构造一个默认实例，配置类没有可访问的 `(String)` 构造器时这一步失败，异常以 `FINE` 级别记录后方法直接返回，`@ConfigEntry` 字段一个都不会被检查，`@Range`、`@NotEmpty`、`@Size`、`@Pattern` 全部跳过，而插件照常启动。
+照上面的示例声明 `public MyConfig(String configFilePath)` 并在其中调用 `super(configFilePath)`，然后在配置文件里故意写一个越界值，重启后确认控制台有警告且文件被改回默认值。
+把缺少构造器报出来而不是跳过校验的修法跟踪于 [issue #314](https://github.com/UltiKits/UltiTools-Reborn/issues/314)。
+:::
+
+当校验失败时：
+1. 无效值会被替换为字段的**默认值**（即 Java 类中设置的初始值）
+2. 控制台会输出一条**警告日志**，指出哪个配置值无效
+3. 修正后的配置会自动保存
+
+这确保你的插件始终使用有效的配置值运行，即使服主在配置中输入了错误值。
