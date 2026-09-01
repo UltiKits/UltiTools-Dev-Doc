@@ -2,7 +2,7 @@
   "type": "module",
   "scripts": {
     "dev": "vitepress dev",
-    "build": "vitepress build",
+    "build": "node scripts/generate-api-version.mjs && vitepress build",
     "preview": "vitepress preview",
     "check:parity": "bash scripts/check-bilingual-parity.sh",
     "check:version-signal": "bash scripts/test-version-signal.sh"
