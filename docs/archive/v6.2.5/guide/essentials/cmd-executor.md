@@ -1,0 +1,681 @@
+# Command Executor
+
+In traditional Bukkit plugin development, we usually use the `CommandExecutor` interface of Bukkit to handle commands.
+
+However, in some cases, we need to determine whether the sender of the command is a player, whether it has certain
+permissions, and determine the parameters, etc.
+
+If a plugin has multiple commands, then these judgment logic will be repeated in the processing method of each command,
+such code is very redundant.
+
+In addition, we may also need to handle command errors, output help information, etc.
+
+UltiTools-API offers a more concise way to handle commands by encapsulating the native `CommandExecutor` interface.
+
+## Create a command executor
+
+Starting with v6.2.0, you should inherit the `BaseCommandExecutor` class and override the `handleHelp` method. The `@CmdTarget`
+and `@CmdExecutor` annotations here represent the target type and executor information of the command.
+
+::: warning Deprecated
+`AbstractCommandExecutor` is deprecated since v6.2.0. Use `BaseCommandExecutor` instead which provides the same annotation-driven features plus a pluggable validation chain, improved context management, and custom type parser support.
+:::
+
+<<< @/../examples/src/main/java/com/ultikits/docs/command/ExampleCommand.java
+
+You have completed an empty command executor that does nothing! The `@CmdTarget` and `@CmdExecutor` annotations here
+represent the sender type and executor information of the command. We will introduce these two annotations in detail in
+the next section.
+
+## Register command
+
+::: warning The six-parameter connector constructor is marked for removal
+The example below calls the six-parameter `UltiToolsPlugin` constructor, which carries `@Deprecated(since = "6.0.8", forRemoval = true)` and hardcodes the resource folder path, so javac reports a removal warning on every build.
+Move the integration to the External Plugin API and call `UltiToolsAPI.connect` from your own `JavaPlugin`, or keep the connector and call the seven-parameter constructor passing `resourceFolderPath` yourself: both are supported on v6.2.5.
+The replacement signature for connectors is still being decided in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217), and the removal itself is tracked in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213).
+:::
+
+The same as spigot development, with the executor, you need to register it. We can use
+the `getCommandManager().register()` method to register the command in the `registerSelf` method.
+
+If your module has a large number of command executors and you don't want to register them manually, you can also use
+the automatic registration provided by UltiTools, for details, please refer
+to [this article](/guide/advanced/auto-register).
+
+<<< @/../examples/src/main/java/com/ultikits/docs/command/UltiToolsConnector.java
+
+## Mapping-based command executor
+
+### Quick start
+
+Assuming that your plugin has a function to set the teleport point, you want the player to enter a command with the
+teleport point name, so as to set up a teleport point.
+
+Then this command should look like this: `/point add name`
+
+If you use the traditional method, you need to judge the legality of the parameter input, the sender and permissions,
+etc. If there are other functions, you also need to write a lot of `switch ... case` and `if ... else` statements, crazy
+nesting.
+
+However, with UltiTools, you only need to write the main logic, and the rest will be handled by UltiTools.
+
+First, you need to create an executor class that inherits `BaseCommandExecutor`.
+
+Then create a method named `addPoint` and add the parameters you want:
+
+```java
+public void addPoint(@CmdSender Player player, String name) {
+  ...
+}
+```
+
+Yes, each of your functions uses a separate function without extra judgment.
+
+If you want to get the `Player` object instead of the `CommandSender` object, then you get the `Player`, you don't need
+to judge and convert at all. You only need to add the `@CmdSender` annotation in front of the parameter you want to get
+the sender object.
+
+Then, you only need to add the `@CmdMapping` annotation so that UltiTools can match your method according to the input
+command:
+
+```java
+
+@CmdMapping(format = "add <name>")
+public void addPoint(@CmdSender Player player, String name) {
+  ...
+}
+```
+
+Finally, use `@CmdParam` to bind command parameters:
+
+```java
+
+@CmdMapping(format = "add <name>")
+public void addPoint(@CmdSender Player player, @CmdParam("name") String name) {
+  ...
+}
+``` 
+
+Till now, you only need to register the command executor to complete all the work.
+
+### Tab completion
+
+::: warning Tab completion on BaseCommandExecutor comes from the command mappings
+On a class extending `BaseCommandExecutor`, `suggest(Player, Command, String[])` returns prefix matches taken from the `@CmdMapping` format list while the player types the first argument and an empty list from the second argument onward, and the `suggest` attribute of `@CmdParam` is never read.
+Override `protected List<String> suggest(Player player, Command command, String[] args)` in your own executor and return the completions per `args.length`: the method is protected and its javadoc invites the override.
+Wiring the annotation-driven completer into `BaseCommandExecutor` is tracked in [issue #210](https://github.com/UltiKits/UltiTools-Reborn/issues/210).
+:::
+
+Need Tab suggestion for each command parameter, but don't want to write a lot of code?
+
+It is a disaster to generate a completion list by judging the length of each command and the previous parameters.
+
+Now you only need to write a method for each parameter to return a completion list! This method can be reused, and all
+the complicated parameter quantity judgments are left to UltiTools to complete.
+
+What you need to do is just add the `suggest` attribute in the `@CmdParam` annotation and specify a method name.
+
+```java
+
+@CmdMapping(format = "add <name>")
+public void addPoint(@CmdSender Player player, @CmdParam(value = "name", suggest = "listName") String name) {
+  ...
+}
+
+public List<String> listName(Player player, Command command, String[] args) {
+  ...
+}
+```
+
+UltiTools will first search for matching method names in the current class and try to call this method.
+
+Your method can contain up to three parameters, corresponding to the types `Player`, `Command` and `String[]`. You can
+choose any amount or order of parameters, but the type can only be these three types, one parameter for each type.
+
+`Player` represents the player who sent the command, `Command` represents the current command, and `String[]` represents
+the current parameters of the current command.
+
+Your method needs to return a value of type `List<String>`, and UltiTools will return this value as a completion list to
+the player.
+
+::: tip
+
+If you just want to return a simple prompt string, then you only need to write the string you want in the `suggest`
+field. The string here also supports internationalization.
+
+```java
+
+@CmdMapping(format = "add <name>")
+public void addPoint(@CmdSender Player player,
+                     @CmdParam(value = "name", suggest = "[name]") String name) {
+  ...
+}
+
+```
+
+:::
+
+::: tip
+
+If you are not satisfied with the completion list generated by UltiTools, you can override the `suggest` method to
+generate the completion list yourself.
+
+```java
+
+@Override
+protected List<String> suggest(Player player, Command command, String[] strings) {
+    ...
+}
+```
+
+:::
+
+#### @CmdSuggest
+
+::: warning @CmdSuggest has no reader in the BaseCommandExecutor path
+The class in the example below extends `BaseCommandExecutor`, and that class never inspects `@CmdSuggest`; the two places that read the annotation are the deprecated `AbstractCommandExecutor` and the unwired `MethodInvocationCompleter`, so the methods in `PointSuggest` are never looked up and never called.
+Override `suggest(Player, Command, String[])` in your executor and call the shared class from there: the reusable methods stay in one place, they just stop depending on the annotation.
+Wiring the annotation-driven completer into `BaseCommandExecutor` is tracked in [issue #210](https://github.com/UltiKits/UltiTools-Reborn/issues/210).
+:::
+
+If you want a completion method to be shared with other command classes, you can create a class and write methods which
+you want to reuse in other class.
+
+Add the `@CmdSuggest` annotation to the class which need to use suggestion method, and specify the suggestion class.
+
+```java
+
+@CmdSuggest({PointSuggest.class})
+public class PointCommand extends BaseCommandExecutor {
+
+    @CmdMapping(format = "add <name>")
+    public void addPoint(@CmdSender Player player, @CmdParam(value = "name", suggest = "listName") String name) {
+        ...
+    }
+}
+```
+
+```java
+public class PointSuggest {
+    public List<String> listName(Player player, Command command, String[] args) {
+        ...
+    }
+}
+```
+
+### Parameters
+
+#### Command without Parameters
+
+If a command does not require any parameters, simply leave the `format` value empty.
+
+```java
+@CmdMapping(format="")
+```
+
+This type of command can have at most one occurrence.
+
+#### Variable Parameters
+
+For the last parameter in a method, you can use an array type by adding `...` to the last parameter in the `format`. Here's an example:
+
+```java
+@CmdMapping(format = "add <name...>")
+public void addPoint(@CmdSender Player player, @CmdParam("name") String[] name) {
+  ...
+}
+```
+
+In this example, when a player enters `/somecmd add aa bb cc`, the `name` will be `['aa', 'bb', 'cc']`.
+
+#### Type Parsing
+
+Before passing parameters to a method, UltiTools converts the command's variable parameters based on the types required by the method.
+
+All parsers are stored in a map called `parsers`, and you can use `getParser()` to access it.
+
+For some types, `BaseCommandExecutor` provides default parsers via `TypeParserRegistry.getInstance()` (including base types and arrays):
+
+- String (Java built-in)
+- Float (Java built-in)
+- Double (Java built-in)
+- Integer (Java built-in)
+- Short (Java built-in)
+- Byte (Java built-in)
+- Long (Java built-in)
+- OfflinePlayer (Bukkit API)
+- Player (Bukkit API)
+- Material (Bukkit API)
+- UUID (Java built-in)
+- Boolean (Java built-in)
+
+If you want to use a custom parser, you need to create a method that can be used with the `Function` interface.
+
+Supported parser types are `<String, ?>`, meaning the method has exactly one parameter of type `String` and returns a value of any type.
+
+```java
+public static SomeType toSomeType(String s) {
+  //do something...
+  return result;
+}
+```
+
+### Permission
+
+#### Method permission
+
+If you need to specify permissions for a method, you need to add the `permission` attribute in the `@CmdMapping`
+annotation.
+
+```java
+@CmdMapping(..., permission = "point.set.add")
+```
+
+::: tip
+The permissions from `@CmdExecutor` and `@CmdMapping` are **additive** — both are checked independently. The player must have **both** the class-level `@CmdExecutor(permission=...)` and the method-level `@CmdMapping(permission=...)` to execute the command.
+:::
+
+#### OP Required
+
+If you want all methods to be executed by OP only, you need to set the `requireOp` attribute in `@CmdExecutor` to `true`
+
+```java
+@CmdExecutor(..., requireOp = true)
+```
+
+If you want a method to be executed by OP only, you need to set the `requireOp` attribute in `@CmdMapping` to `true`
+
+```java
+@CmdMapping(..., requireOp = true)
+```
+
+### Sender Limitation
+
+If you want to specify the sender for all methods, you need to add the `@CmdTarget` annotation in front of your
+class.
+
+If you want to specify the sender for a method, just add it in front of the method.
+
+```java
+@CmdTarget(CmdTarget.CmdTargetType.BOTH)
+```
+
+::: warning The method-level annotation replaces the class-level one
+A method-level `@CmdTarget` overrides the class-level one entirely, it does not require both to be satisfied.
+A class annotated `PLAYER` with a method annotated `BOTH` lets the console execute that method.
+Restoring the intersection semantics (narrowing, not overriding) is proposed in [issue #320](https://github.com/UltiKits/UltiTools-Reborn/issues/320).
+:::
+
+### Asynchronous Execution
+
+If a command needs to execute a task that takes a long time, you need to add `@RunAsync` in front of the corresponding
+
+```java
+
+@CmdMapping(format = "list")
+@RunAsync
+public void listPoint(@CmdSender Player player) {
+    //do query
+}
+```
+
+This will create a new asynchronous thread to execute the method, avoiding blocking in the Bukkit main thread.
+
+Since the Bukkit API does not allow asynchronous calls, if you need to call the Bukkit API, you need to create a
+synchronous task:
+
+```java
+
+@CmdMapping(format = "list")
+@RunAsync
+public void listPoint(@CmdSender Player player) {
+    //do query
+    new BukkitRunnable() {
+        @Override
+        public void run() {
+            //call bukkit api
+        }
+    }.runTask(PluginMain.getInstance());
+}
+```
+
+### Command cooldown
+
+If you don't want a command to be executed in large quantities and consume server resources, then you can add
+`@CmdCD` in front of the corresponding method:
+
+```java
+@CmdCD(60)
+```
+
+Parameter type is integer, in second.
+
+If the command is executed before the cooldown ends, the message `操作频繁，请 %d 秒后再试` will be sent, with the remaining seconds substituted for `%d`.
+This text is not yet translated in `en.json`, so servers running in English currently see the raw Chinese string.
+
+This restriction only takes effect on **players**.
+
+### Execution lock
+
+If you want a command to be executed only one by one, you can add `@UsageLimit` in front of the corresponding method:
+
+```java
+@UsageLimit(ContainConsole = false, value = LimitType.SENDER)
+```
+
+`ContainConsole` is whether the restriction is applied to the console, and `value` is the restriction type.
+
+Available types are:
+
+- `LimitType.SENDER` limits that each sender can only have one command of this type executed at a time
+- `LimitType.ALL` limits that only one command of this type can be executed in the whole server
+- `LimitType.NONE` no limit
+
+Under the `LimitType.SENDER` strategy, the player will receive a prompt: `Please wait for last Command Processing!`
+
+Under the `LimitType.ALL` strategy, the player will receive a
+prompt: `Please wait for last Command Processing which sent by other players!`
+
+## Command Context <Badge type="tip" text="v6.2.0+" />
+
+The `CommandContext` is an immutable object that encapsulates all information about a command invocation. It is passed to validators and is useful for accessing command metadata during execution.
+
+### Accessing Context Information
+
+```java
+// Check if sender is a player
+boolean isPlayer = context.isPlayer();
+
+// Get the player (returns null if sender is not a player)
+Player player = context.getPlayer();
+
+// Get the raw command sender
+CommandSender sender = context.getSender();
+
+// Get the command and its alias
+Command command = context.getCommand();
+String alias = context.getAlias();
+
+// Get raw arguments
+String[] args = context.getRawArgs();
+int argCount = context.getArgCount();
+String firstArg = context.getArg(0);
+
+// Get parsed parameters by name
+String[] nameValues = context.getParam("name");
+String singleValue = context.getParamValue("name");
+
+// Get the matched method and format
+Method method = context.getMatchedMethod();
+String format = context.getMatchedFormat();
+
+// Get command invocation timestamp
+long timestamp = context.getTimestamp();
+```
+
+## Command Validation Chain <Badge type="tip" text="v6.2.0+" />
+
+The validation chain implements the Chain of Responsibility pattern, allowing you to compose multiple validators that execute in order. Built-in validators handle common requirements like permissions, sender type, cooldowns, and execution locks.
+
+### Built-in Validators
+
+#### SenderTypeValidator
+
+Validates that the command sender matches the expected target type (player, console, or both):
+
+<<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerOnlyCommand.java
+
+#### PermissionValidator
+
+Validates that the sender has required permissions:
+
+```java
+@CmdExecutor(
+    alias = {"admin"},
+    permission = "myadmin.use",  // Base permission for all commands
+    requireOp = false
+)
+@CmdMapping(format = "reload", permission = "myadmin.reload")  // Method-specific permission
+public void reload(@CmdSender CommandSender sender) {
+    // Only users with "myadmin.reload" can execute this
+}
+```
+
+#### CooldownValidator
+
+Manages per-player command cooldowns using `@CmdCD`:
+
+```java
+@CmdMapping(format = "expensive")
+@CmdCD(30)  // 30 second cooldown
+public void expensiveOperation(@CmdSender Player player) {
+    // Performs expensive operation
+    // Player must wait 30 seconds before executing again
+}
+```
+
+Access cooldown state programmatically:
+
+```java
+public void checkCooldown(UUID playerId, String methodKey) {
+    long remaining = getCooldownValidator().getRemainingCooldown(playerId, methodKey);
+    if (remaining > 0) {
+        // Player is on cooldown
+    }
+}
+```
+
+The cooldown validator is obtained through `getCooldownValidator()`, an instance field on `BaseCommandExecutor`. Each command executor holds its own instance, so this call only reports cooldown state for the current executor.
+
+#### UsageLockValidator
+
+Prevents concurrent execution using `@UsageLimit`:
+
+```java
+@CmdMapping(format = "backup")
+@UsageLimit(value = UsageLimit.LimitType.ALL)  // Only one per server
+public void backup(@CmdSender CommandSender sender) {
+    // Only one player can run this at a time
+}
+
+@CmdMapping(format = "download")
+@UsageLimit(value = UsageLimit.LimitType.SENDER)  // One per player
+public void download(@CmdSender Player player) {
+    // Each player can only run one at a time
+}
+```
+
+### Creating Custom Validators
+
+Implement `CommandValidator` to create custom validation logic:
+
+<<< @/../examples/src/main/java/com/ultikits/docs/command/WorldRestrictionValidator.java
+
+Register the validator in your command executor:
+
+<<< @/../examples/src/main/java/com/ultikits/docs/command/ValidatorCommand.java
+
+::: warning A custom chain replaces all four default validators
+Passing a `ValidatorChain` to `super(...)` skips `createDefaultValidatorChain()`, so `SenderTypeValidator` (the class-level `@CmdTarget`), `PermissionValidator` (`requireOp` and the method-level `@CmdMapping` permissions, though the class-level `permission` is still enforced by Bukkit), `UsageLockValidator` (`@UsageLimit`) and `CooldownValidator` (`@CmdCD`) are all absent from the chain, while the lock and cooldown side effects still run on every execution.
+Use the form shown just above instead: call `super()` and register your validator with `addValidator(...)`, which keeps the four defaults and orders yours by `getOrder()`.
+Restoring the default validators under a custom chain is tracked in [issue #312](https://github.com/UltiKits/UltiTools-Reborn/issues/312).
+:::
+
+Or use a custom validator chain:
+
+<<< @/../examples/src/main/java/com/ultikits/docs/command/ChainCommand.java
+
+### Validator Execution Order
+
+Validators execute in order by their `getOrder()` value (lower values first):
+
+1. **100** - SenderTypeValidator (ensure right user type)
+2. **200** - PermissionValidator (check permissions)
+3. **250** - UsageLockValidator (prevent concurrent execution)
+4. **300** - CooldownValidator (check cooldown state)
+5. **400+** - Custom validators
+
+## Async Commands <Badge type="tip" text="v6.2.0+" />
+
+Use `@AsyncCommand` to execute commands asynchronously without blocking the server thread. It offers more configuration options than `@RunAsync`:
+
+```java
+@CmdMapping(format = "backup")
+@AsyncCommand
+public void backupWorld(@CmdSender Player player) {
+    // Runs asynchronously - safe for I/O operations
+    performBackupLogic();
+
+    // Sync back to main thread for Bukkit operations
+    Bukkit.getScheduler().runTask(UltiTools.getInstance(), () -> {
+        player.sendMessage("Backup completed!");
+    });
+}
+```
+
+### Async Command Options
+
+::: warning timeout on @AsyncCommand has no timer and no cancel
+`BaseCommandExecutor` only wraps the runnable in one more `BukkitRunnable` when `asyncCommand.timeout() > 0`, so no timer starts and nothing is ever canceled, and any positive value runs exactly like leaving `timeout` unset.
+Do not rely on this attribute to bound execution time: a blocking call inside the method keeps running to completion regardless of what `timeout` is set to.
+Whether to implement real cancellation, remove the attribute, or document it as inert is tracked in [issue #322](https://github.com/UltiKits/UltiTools-Reborn/issues/322).
+:::
+
+```java
+@AsyncCommand(
+    showProcessing = true,                      // Show "Processing..." message
+    processingMessageKey = "command.backup.processing",  // Custom i18n message
+    timeout = 60                                // 60 second timeout (0 = no timeout, defaults to 30 if omitted)
+)
+@CmdMapping(format = "backup")
+public void backupWorld(@CmdSender Player player) {
+    // Configuration above:
+    // - Shows "处理中..." while executing
+    // - Uses custom i18n key instead of default
+}
+```
+
+## Custom Type Parsers <Badge type="tip" text="v6.2.0+" />
+
+Type parsers convert command argument strings into the types your methods require. UltiTools provides built-in parsers for primitive types, Bukkit entities, and arrays.
+
+### Built-in Parsers
+
+- **Primitive types**: String, Integer, Double, Float, Long, Short, Byte, Boolean
+- **Bukkit entities**: Player, OfflinePlayer, Material, World
+- **Other types**: UUID, Location, GameMode, Enchantment
+- **Arrays**: All types above support array syntax
+
+### Creating Custom Parsers
+
+Implement `TypeParser<T>`:
+
+<<< @/../examples/src/main/java/com/ultikits/docs/command/ColorParser.java
+
+Register the parser:
+
+```java
+@Autowired
+private UltiToolsPlugin plugin;
+
+@PostConstruct
+public void init() {
+    TypeParserRegistry.getInstance().register(new ColorParser());
+}
+```
+
+Use in your command:
+
+```java
+@CmdMapping(format = "setcolor <color>")
+public void setColor(@CmdSender Player player, @CmdParam("color") Color color) {
+    // color is parsed automatically
+}
+```
+
+Advanced parser with array support:
+
+<<< @/../examples/src/main/java/com/ultikits/docs/command/RangeParser.java
+
+```java
+// Usage
+@CmdMapping(format = "random <range>")
+public void randomNumber(@CmdSender Player player,
+                         @CmdParam("range") IntRange range) {
+    int value = ThreadLocalRandom.current().nextInt(range.min, range.max + 1);
+    player.sendMessage("Random: " + value);
+}
+```
+
+## Vanilla Bukkit Command Executor Wrapper
+
+### Player Command
+
+If you want a command to be executed only in the game (executed by the player), you can inherit the
+`AbstractPlayerCommandExecutor` class and override the `onPlayerCommand` method.
+
+<<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerCommandExample.java
+
+Except for the `Player` type parameter, this method is the same as the `CommandExecutor#onCommand` method.
+
+If you try to execute this command in the console, you will receive an error
+message: `This command can only be performed in GAME!`
+
+If you want this command to use Tab completion, please see the next section.
+
+### Command Completion
+
+From Minecraft 1.13, the Bukkit API provides a new `TabCompleter` interface for command completion.
+
+UltiTools has encapsulated this interface to provide a more concise way of command completion.
+
+You need to inherit the `AbstractTabExecutor` class and override the `onPlayerTabComplete` method.
+
+```java
+
+@Override
+protected List<String> onPlayerTabComplete(Command command, String[] strings, Player player) {
+    // your code
+    return null;
+}
+```
+
+Except for the `Player` type parameter, this method is the same as the `TabCompleter#onTabComplete` method.
+
+The rest of the usage is the same as the `AbstractPlayerCommandExecutor` class.
+
+### Console Command
+
+If you want a command to be executed only in the console, you can inherit the `AbstractConsoleCommandExecutor` class and
+override the `onConsoleCommand` method.
+
+<<< @/../examples/src/main/java/com/ultikits/docs/command/ConsoleCommandExample.java
+
+This method is the same as the `CommandExecutor#onCommand` method.
+
+If you try to execute this command in the game, you will receive an error
+message: `This command can only be performed in CONSOLE!`
+
+### Help Message
+
+All three classes above inherit `sendHelpMessage` from `AbstractCommand`, where it is declared
+`protected abstract`. It is **not** provided for you — every subclass has to implement it, which is why
+both examples above override it:
+
+```java
+@Override
+protected void sendHelpMessage(CommandSender sender) {
+    // send help message
+}
+```
+
+When sending the `/somecommand help` command, this method will be called.
+
+### Error Message
+
+You may find that the `onCommand` method of the three classes above returns a `boolean` type value.
+
+It is the same as the native `CommandExecutor` interface, this value is used to indicate whether the command was
+executed successfully.
+
+When the command execution returns `false`, the command sender will be automatically prompted with an error message.

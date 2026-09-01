@@ -1,0 +1,164 @@
+# Configuration
+
+UltiTools provides an elegant singleton pattern encapsulation API that allows you to operate configuration files like
+objects.
+
+## Create a YAML configuration file
+
+Firstly, you need to create a `config` folder in the `resources` folder. Put your plugin configuration files in it
+according to your needs. These configuration files will be put into the collective configuration folder of UltiTools
+plugin and displayed to users.
+
+## Operate configuration files
+
+### Create a configuration file object
+
+According to the key-value pair structure of your configuration file, create a class that inherits
+the `AbstractConfigEntity` class.
+
+<<< @/../examples/src/main/java/com/ultikits/docs/config/SomeConfig.java
+
+#### @ConfigEntity
+
+The `@ConfigEntity` annotation is used to mark the location of a configuration file, which requires a string parameter
+to specify the path of the configuration file in the plugin configuration folder. Usually this path is the same as the
+path in the resource folder directory during your development.
+
+The parameter here can also point to a folder. If you specify a folder, only `.yml` files in the folder are loaded as
+the current configuration class; other file types are silently skipped.
+
+```java
+@Getter
+@Setter
+@ConfigEntity("test")  // This is a folder
+public class TestConfig extends AbstractConfigEntity {
+    @ConfigEntry(path = "testString")
+    private String testString = "test";
+    ...
+}
+```
+
+::: warning Note
+
+If you specify a folder, you need to make sure that all configuration files in the folder can be read by the same
+configuration class. Sub-folders are not included.
+
+:::
+
+You can use the `UltiToolsPlugin#getConfigs` method to get all loaded configurations.
+
+```java
+List<TestConfig> configs = BasicFunctions.getInstance().getConfigs(TestConfig.class);
+```
+
+Or you can directly specify the path of the configuration file in a folder to get the configuration.
+
+```java
+TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", TestConfig.class);
+```
+
+
+#### @ConfigEntry
+
+`@ConfigEntry` is used to mark a configuration item. 
+
+The `path` attribute is used to specify the path of the key of this
+configuration item in the configuration file. 
+
+The `comment` attribute is used to specify the comment of this configuration item.
+
+The `parser` attribute is used to specify the parser of this configuration item. The parser is used to convert the
+object in the configuration file to the type of the configuration item. The default parser is `DefaultConfigParser`
+, it can handle most of the case but not all. If you need to parse a more complex object, you can create a class that 
+inherit the `ConfigParser` class and specify it in the `parser` attribute.
+
+::: tip Built-in Parser
+`StringHashMapParser` is a built-in, ready-to-use implementation at `com.ultikits.ultitools.interfaces.impl.pasers.StringHashMapParser`; reference it directly with `@ConfigEntry(parser = StringHashMapParser.class)` instead of writing a new one.
+The snippet below only illustrates its logic, import the framework class shown above, not this file.
+<<< @/../examples/src/main/java/com/ultikits/docs/config/StringHashMapParser.java
+:::
+
+#### @Getter and @Setter
+
+`@Getter` and `@Setter` are Lombok annotations, which are used to automatically generate `getter` and `setter` methods.
+
+### Get configuration file object
+
+Your main class which extends `UltiToolsPlugin` has a `getConfig` method to get the configuration file object.
+
+You need to get the instance of the plugin main class, and then call the `getConfig` method.
+
+```java
+SomeConfig someConfig = SomePlugin.getInstance().getConfig(SomeConfig.class);
+```
+
+Now you can use the `getter` and `setter` methods to operate the configuration file.
+
+::: tip Set and Save
+
+After you set a value of a configuration you don't need to save it, UltiTools will automatically save it when disabling.
+However, if you want to save it immediately, you can call the `save` method.
+
+:::
+
+```java
+boolean something = someConfig.getSomething();
+```
+
+::: tip
+Although UltiTools lets you modify and save the configuration file from code, doing so is discouraged: it produces unexpected changes for users and can overwrite edits they have not saved yet.
+Configuration exists for the user to read and edit, so whether to apply a change is the user's call and your code should only write in response to an explicit user action.
+For data your own plugin needs to persist, use [Data Storage](/guide/essentials/data-storage) instead.
+:::
+
+## Register configuration file
+
+### Automatically register
+
+Since UltiTools provides automatic registration function, you don't need to register configuration files manually, just
+add the `@ConfigEntity` annotation to your configuration file class.
+
+Please refer to [this article](/guide/advanced/auto-register) for more information about automatic registration.
+
+### Manually register
+
+You can register the config file by override the `getAllConfigs` method in your plugin main class.
+This path only applies when the plugin class does not enable automatic config registration (`@EnableAutoRegister` or `@UltiToolsModule`, whose `config` attribute defaults to `true`): when it is enabled, `getAllConfigs` is never called even if you override it. `@ConfigEntity` on the config class is required either way; it does not by itself decide which path runs.
+
+```java
+
+@Override
+public List<AbstractConfigEntity> getAllConfigs() {
+    return Collections.singletonList(new SomeConfig("some/path/to/config"));
+}
+```
+
+## Config Validation <Badge type="tip" text="v6.2.0+" />
+
+Starting from v6.2.0, UltiTools provides validation annotations to protect against invalid configuration values. See the [Config Validation](/guide/advanced/config-validation) guide for full details.
+
+<<< @/../examples/src/main/java/com/ultikits/docs/config/MyConfig.java
+
+Available validation annotations: `@Range`, `@NotEmpty`, `@Size`, `@Pattern` (from `com.ultikits.ultitools.annotations.config`).
+
+## Saving configuration files
+
+You don't need to worry about the loading and saving of configuration files, UltiTools will do everything for you
+automatically.
+
+::: warning
+
+If you save the config file, some comments in the file may disappear.
+
+:::
+
+## Configuration file reload
+
+`UltiToolsPlugin` provides the `getConfigManager#reloadConfigs` method, you can call it to reload configuration files
+when needed.
+
+```java
+SomePlugin.getConfigManager().reloadConfigs(SomePlugin.getInstance());
+```
+
+

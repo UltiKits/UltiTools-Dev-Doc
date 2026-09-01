@@ -1,0 +1,135 @@
+---
+footer: false
+---
+
+# Quick Start
+
+In this article, you will learn how to create an UltiTools module and how to use UltiTools-API in your own plugin.
+
+[//]: # (## 使用 IDEA 插件快速创建)
+
+[//]: # ()
+
+[//]: # (UltiKits 开发了官方的 IDEA 插件，你可以使用他来快速创建项目。)
+
+## Create a new Paper project
+
+Everything starts with an empty project, so you need to create an empty Paper project.
+You can use IDEA's [Minecraft plugin](https://plugins.jetbrains.com/plugin/8327-minecraft-development)
+to quickly create an empty Paper project, or manually create an empty maven project.
+
+## Add UltiTools-API to your project
+
+Whether you are creating an UltiTools module or using UltiTools-API, you need to add UltiTools-API to your dependencies in your Java project.
+
+::: code-group
+
+```xml [Maven]
+<dependency>
+  <groupId>com.ultikits</groupId>
+  <artifactId>UltiTools-API</artifactId>
+  <version>6.2.5</version>
+  <scope>provided</scope>
+</dependency>
+```
+
+```groovy [Gradle]
+dependencies {
+  compileOnly 'com.ultikits:UltiTools-API:6.2.5'
+}
+```
+
+:::
+
+The newest version of UltiTools-API can be found in [Maven Central](https://search.maven.org/artifact/com.ultikits/UltiTools-API).
+
+Reload your project after adding the dependency.
+
+## Create a new UltiTools module
+
+The following content will teach you how to create an UltiTools module. 
+
+If you just want to use UltiTools-API in your own plugin, you can jump to [Use UltiTools-API](#use-ultitools-api).
+
+### Create a module metadata file
+
+Before you start writing code, you need to create a `plugin.yml` file in the `resources` folder.
+
+UltiTools will read this file before loading the module to confirm the main class of the module.
+
+```yaml
+# Module name
+name: TestPlugin
+# Module version
+version: '${project.version}'
+# Module main class
+main: com.test.plugin.MyPlugin
+# UltiTools API version, for example 6.2.0 is 620
+api-version: 620
+# Module authors
+authors: 
+  - yourname
+# Unique identifier used by UltiTools to check for updates
+identify-string: test-plugin
+```
+
+### Create the main class of the module
+
+Create a new class that extends `UltiToolsPlugin`, similar to traditional Paper plugins,
+UltiTools modules also need to override the startup and shutdown methods.
+But UltiToolsPlugin adds an optional `UltiToolsPlugin#reloadSelf()` method for execution when the module is reloaded.
+
+<<< @/../examples/src/main/java/com/ultikits/docs/quickstart/MyPlugin.java
+
+Then you have completed an UltiTools module that does nothing.
+
+## Use UltiTools-API
+
+::: tip Since v6.2.2
+You can use the simpler External Plugin API: `UltiToolsAPI.connect(this)` in your plugin's `onEnable()`. See the [External Plugin API guide](./advanced/external-plugin-api.md) for details.
+:::
+
+The following section describes the legacy connector approach, which is still supported but no longer recommended for new projects. Its six-parameter constructor is marked for removal, so prefer the External Plugin API called from your own `JavaPlugin`, or the seven-parameter overload that takes `resourceFolderPath`; the replacement signature is being decided in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217) and the removal is tracked in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213).
+
+### Create a connector class (Legacy)
+
+Create a new class that extends `UltiToolsPlugin`, this class will be the connector class of your plugin.
+
+<<< @/../examples/src/main/java/com/ultikits/docs/quickstart/UltiToolsConnector.java
+
+This class only takes effect once you package your module into a JAR that UltiTools loads through the standard module path; see [Create a new UltiTools module](#create-a-new-ultitools-module) above.
+
+### Register your connector class (Legacy)
+
+Plugins that UltiTools does not load used to register their connector class with the UltiTools plugin manager by hand.
+
+::: warning register(...) always fails with these arguments on v6.2.5
+The `register(pluginClass, name, version, authors, loadAfter, minUltiToolsVersion, mainClass)` call this section used to show is gone because it always fails on v6.2.5: `validateConstructorArgs` allow-lists constructor argument types by class name, `Collections.singletonList(...)` and `Collections.emptyList()` produce `Collections$SingletonList`/`Collections$EmptyList` which match no allow-listed prefix, and the resulting `SecurityException` is swallowed by an outer `catch (Exception | Error)` that only logs and returns `false`.
+Use the module shape from Create a new UltiTools module above instead, not this connector: that main class declares no constructor at all, so UltiTools loads it from `plugins/UltiTools/plugins` through the generated no-argument constructor and never reaches `validateConstructorArgs` or the `int`/`Integer` exact-match failure that a hand-built `ArrayList` would still hit.
+Whether `register(...)` should accept these argument types is being decided together with the connector's replacement signature in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217), and the six-parameter constructor itself is on the removal list in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213).
+:::
+
+## Verify installation
+
+If it is a module, put the module in the `plugins/UltiTools/plugins` folder and restart the server.
+
+If it is a plugin connected to UltiTools, put the plugin in the `plugins` folder and restart the server.
+
+Use this command in the game by OP or in the command line to verify that you have successfully connected to UltiTools.
+
+```shell
+ul list
+```
+
+If everything goes well, you should see the name and version of your plugin in the output.
+
+```text
+ul list
+[12:42:16] [Server thread/INFO]: BasicFunctions 1.0.0
+[12:42:16] [Server thread/INFO]: UltiTools-Login 1.0.0
+[12:42:16] [Server thread/INFO]: UltiTools-MysqlConnector 1.0.0
+[12:42:16] [Server thread/INFO]: UltiTools-SidebarPlugin 1.0.0
+[12:42:16] [Server thread/INFO]: Example 1.0.0           <--- This is our plugin
+```
+
+In the following articles, you will learn how to use commands, events, configuration files, data storage, development annotations, etc.
