@@ -98,6 +98,10 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
             {
                 text: '模块事件总线',
                 link: 'advanced/module-eventbus'
+            },
+            {
+                text: '面板集成',
+                link: 'advanced/panel-integration'
             }
         ]
     },
