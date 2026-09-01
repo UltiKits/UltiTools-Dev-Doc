@@ -1,13 +1,23 @@
-// Handles the zero-segment /api and /api/ requests exactly (Cloudflare Pages
-// routing docs confirm index.js matches the directory path itself, and both
-// "/foo" and "/foo/" resolve to the same function — see
-// https://developers.cloudflare.com/pages/functions/routing/). [[path]].js's
-// catch-all only ever sees requests with at least one path segment; whether
-// a catch-all alone would also match zero segments is a documented silence
-// in the official routing docs (01-RESEARCH.md Pitfall 2 / Pattern 1), and
-// this split avoids depending on the answer. It was also settled empirically
-// during 01-01: without this file, bare /api reached [[path]].js and threw —
-// 500, Cloudflare error code 1101.
+// Handles the zero-segment /api and /api/ requests. Cloudflare Pages routing
+// docs confirm index.js matches the directory path itself, and both "/foo"
+// and "/foo/" resolve to the same function — see
+// https://developers.cloudflare.com/pages/functions/routing/ — and frame an
+// exact route as more specific than a catch-all.
+//
+// CORRECTION (found live on this branch's preview, after this file alone
+// did not fix the pre-existing bare-/api 500): that framing does not hold
+// for this project's actual route dispatch. `wrangler pages functions build`
+// emits the generated route list in filename-sort order — `[[path]].js`
+// sorts before `index.js` ("[" < "i") — and the dispatcher that walks that
+// list (pages-template-worker.ts's executeRequest) breaks on the FIRST
+// pattern that matches, not the most specific one. `[[path]].js`'s own
+// `/api/:path*` pattern matches zero segments too (`*` means "zero or
+// more"), so it wins before this file is ever reached, for every request
+// under /api including the bare one. This file is therefore correct in
+// isolation and kept as the documented, intended owner of this route — but
+// `[[path]].js` now carries an identical defensive fallback that is what
+// actually executes; see that file's onRequestGet for the live code path
+// and full citation.
 //
 // 302, not 301: the redirect target embeds the current release's version
 // number, which changes on every release. A 301 is cached permanently by

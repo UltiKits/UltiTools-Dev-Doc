@@ -56,6 +56,29 @@ function withStandardHeaders(headers) {
 export async function onRequestGet(context) {
   const segments = context.params.path;
 
+  // Defensive fallback for the zero-segment case (bare /api or /api/).
+  // index.js is supposed to own this — Cloudflare's own routing docs frame
+  // an exact route as more specific than a catch-all — but that framing
+  // does not hold here. Verified two ways: `wrangler pages functions build`
+  // emits routes in filename-sort order (`[[path]].js` before `index.js`,
+  // since "[" < "i"), and the dispatcher that consumes that array
+  // (pages-template-worker.ts's executeRequest) breaks on the FIRST route
+  // whose pattern matches, not the most specific one — so this file's own
+  // `/api/:path*` pattern (which matches zero segments too, since `*` means
+  // "zero or more") wins before index.js's exact `/api` is ever reached.
+  // Confirmed live on this branch's preview: with only index.js's redirect
+  // logic in place, bare /api still 500'd with the exact "error code: 1101"
+  // this task exists to fix, because context.params.path arrives here as
+  // undefined and the loop below threw "segments is not iterable". index.js
+  // is left in place — it is harmless, correct in isolation, and documents
+  // the intended per-file ownership — but this guard is what actually runs.
+  if (!segments || segments.length === 0) {
+    const location = new URL(`/api/${CURRENT_VERSION}/index.html`, context.request.url);
+    const headers = withStandardHeaders(new Headers({ Location: location.toString() }));
+    headers.set('x-version-generated-at', GENERATED_AT);
+    return new Response(null, { status: 302, headers });
+  }
+
   for (const segment of segments) {
     if (!isValidSegment(segment)) {
       const headers = withStandardHeaders(new Headers());
