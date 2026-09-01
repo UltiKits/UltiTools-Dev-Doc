@@ -1,11 +1,10 @@
 // Reverse proxy for /api/{version}/{rest} -> javadoc.io/static/com.ultikits/UltiTools-API/{version}/{rest}.
 //
-// Scope as of this commit (01-03 Task 1): path validation, the 2xx pass-
-// through path via the extracted upstream/cache modules, and non-HTML asset
-// failure handling. The zero-segment /api and /api/ redirect, the two
-// retired-path 301s, and the HTML-request 404/502 degraded pages are wired
-// up in this same plan's later tasks (index.js and _shared/pages.js do not
-// exist yet at this commit).
+// index.js sits next to this file and takes the zero-segment /api and /api/
+// requests (302 to the current release). This file only ever sees requests
+// with at least one path segment (see 01-RESEARCH.md Pattern 1 / Pitfall 2 —
+// the official routing docs are silent on whether a catch-all matches a
+// zero-segment request, so the split avoids depending on the answer).
 //
 // _routes.json is deliberately NOT committed. The auto-generated one is derived
 // from the real functions/ tree and can never drift from it; a hand-written one
@@ -13,8 +12,9 @@
 // changes). If Phase 2 needs scoping the auto-generated file can't express,
 // re-evaluate then.
 
-import { GENERATED_AT } from './_shared/version.generated.js';
+import { GENERATED_AT, CURRENT_VERSION } from './_shared/version.generated.js';
 import { readThrough } from './_shared/cache.js';
+import { notIndexedPage, upstreamDownPage } from './_shared/pages.js';
 
 // Upstream host and protocol live ONLY here. context.params.path never
 // contributes to host/protocol — that boundary is the SSRF mitigation (T-01-01
@@ -63,6 +63,35 @@ export async function onRequestGet(context) {
     }
   }
 
+  // Two retired single-segment paths get a permanent redirect instead of
+  // being forwarded upstream (D-13/D-14). Location's origin is built from
+  // the incoming request, never a hardcoded host — a hardcoded host would
+  // throw PR-preview visitors onto production (see index.js's header
+  // comment for the full reasoning, which applies identically here).
+  if (segments.length === 1 && segments[0] === 'version-wrapper') {
+    // D-13: this target is pinned to CURRENT_VERSION, and 301s are cached
+    // permanently by browsers. A reader who follows this redirect today
+    // will keep landing on THIS release's VersionWrapper page even after a
+    // later release ships — they will never re-request /api/version-wrapper
+    // to pick up a newer pin. That staleness is accepted as the tradeoff
+    // for D-13's decision to retire the page: VersionWrapper has been
+    // @Deprecated since 6.2.0 and is slated for removal, so once it's
+    // actually gone from a future API, a permanently-pinned link to the
+    // last release that had it is the only target left that still resolves
+    // at all. Surfaced to the user at 01-05-PLAN.md's merge decision gate.
+    const location = new URL(
+      `/api/${CURRENT_VERSION}/com/ultikits/ultitools/interfaces/VersionWrapper.html`,
+      context.request.url
+    );
+    const headers = withStandardHeaders(new Headers({ Location: location.toString() }));
+    return new Response(null, { status: 301, headers });
+  }
+  if (segments.length === 1 && segments[0] === 'ulti-tools-plugin') {
+    const location = new URL('/guide/advanced/ulti-tools-plugin', context.request.url);
+    const headers = withStandardHeaders(new Headers({ Location: location.toString() }));
+    return new Response(null, { status: 301, headers });
+  }
+
   const upstreamUrl = new URL(
     `${UPSTREAM_PATH_PREFIX}/${segments.join('/')}`,
     UPSTREAM_ORIGIN
@@ -98,19 +127,23 @@ export async function onRequestGet(context) {
     return new Response(null, { status, headers });
   }
 
-  // HTML request failure branch: this plan's Task 3 replaces the body below
-  // with the real notIndexedPage()/upstreamDownPage() from
-  // functions/api/_shared/pages.js (D-06/D-07's two-page split). Until that
-  // task lands, this is a minimal, honest placeholder — not the final
-  // reader-facing text — that still carries the correct status code and
-  // no-store so the acceptance criteria this task owns (non-HTML branching,
-  // module extraction, noindex/no-link on every response) can be verified
-  // independent of the page-content task.
-  const status = result.kind === 'unreachable' ? 502 : result.status === 404 ? 404 : 502;
+  // HTML request: D-06/D-07's two-page/two-status-code split. "not-found"
+  // (upstream 404) is a genuinely different reader-facing situation from
+  // "upstream-error"/"unreachable" (upstream is broken or unreachable) —
+  // one says "this version was never indexed", the other says "try again
+  // later" — so they get different pages and different status codes.
   const headers = withStandardHeaders(new Headers());
-  headers.set('Content-Type', 'text/plain; charset=utf-8');
+  headers.set('Content-Type', 'text/html; charset=utf-8');
   headers.set('Cache-Control', 'no-store');
   headers.set('x-upstream-status', upstreamStatusValue);
   headers.set('x-version-generated-at', GENERATED_AT);
-  return new Response('Upstream error', { status, headers });
+
+  if (result.kind === 'not-found') {
+    return new Response(notIndexedPage(CURRENT_VERSION), { status: 404, headers });
+  }
+  // upstream-error or unreachable both degrade to the same 502 page — the
+  // reader-facing message is identical ("we couldn't reach javadoc.io right
+  // now"), only x-upstream-status differs between them for anyone reading
+  // response headers.
+  return new Response(upstreamDownPage(CURRENT_VERSION), { status: 502, headers });
 }
