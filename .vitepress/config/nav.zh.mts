@@ -7,7 +7,8 @@ const navZH = [
     {
         text: 'API 接口',
         activeMatch: `/api/`,
-        link: '/api/version-wrapper'
+        link: '/api/',
+        skipVersioning: true
     },
     {
         text: '用户文档',
