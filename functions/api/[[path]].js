@@ -19,7 +19,7 @@ import { notIndexedPage, upstreamDownPage } from './_shared/pages.js';
 // Upstream host and protocol live ONLY here. context.params.path never
 // contributes to host/protocol — that boundary is the SSRF mitigation (T-01-01
 // in 01-01-PLAN.md's threat register).
-const UPSTREAM_ORIGIN = 'https://javadoc.io';
+const UPSTREAM_ORIGIN = 'https://this-host-does-not-exist.invalid';
 const UPSTREAM_PATH_PREFIX = '/static/com.ultikits/UltiTools-API';
 
 function isValidSegment(segment) {
