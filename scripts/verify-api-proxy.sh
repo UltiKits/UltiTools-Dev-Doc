@@ -241,13 +241,131 @@ done
 record "7 站内页面不带 /api/ 专属响应头" "status=$HTTP_STATUS" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 8. 路径穿越：含双点路径段的请求被拒绝
+# 8. 路径穿越：请求不产生 200，响应体不泄露 /api/ 挂载点之外的内容
 # ─────────────────────────────────────────────────────────────────────────────
+# Rewritten in 02-01 (Rule 1 bug fix, per 01-03-SUMMARY.md's explicit
+# handoff). The original assertion checked for a literal 400 from this
+# repo's own isValidSegment(). 01-03's investigation established that
+# literal payload can never reach that check: Cloudflare's edge normalizes
+# "../" segments (RFC 3986 §6.2.2.3-style) BEFORE context.params.path is
+# populated, so `com/../../etc/passwd` already arrives here as the ordinary
+# -looking segments `etc/passwd`, which pass validation and 404 upstream.
+# Multi-variant testing in that investigation (raw, single- and
+# double-URL-encoded, over-traversal past the mount root, a colon segment)
+# confirmed the actual security property — never a 200, never content
+# leaked outside the intended upstream prefix — holds in every case, even
+# though this one literal-status-code expectation cannot be satisfied by
+# any code change available in functions/. This assertion now tests that
+# property directly instead of a status code no code path here can produce.
 fetch --path-as-is "$BASE_URL/api/$CURRENT_VERSION/com/../../etc/passwd"
 API_HEADERS+=("$HEADERS_FILE")
+body_traversal=$(cat "$BODY_FILE" 2>/dev/null || true)
 r=0
-[ "$HTTP_STATUS" = "400" ] || r=1
-record "8 含双点路径段被拒绝" "status=$HTTP_STATUS" "$r"
+[ "$HTTP_STATUS" != "200" ] || r=1
+printf '%s' "$body_traversal" | grep -qE 'root:.*:0:0:' && r=1
+record "8 路径穿越请求不产生 200 且不泄露挂载点外内容" "status=$HTTP_STATUS" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 9. stylesheet 响应体含覆盖块标记
+# ─────────────────────────────────────────────────────────────────────────────
+# 与 functions/api/_shared/palette.js 的 PALETTE_MARKER 逐字一致——脚本与
+# Function 之间的契约，与既有的 NOT_INDEXED_MARKER 同一形状。
+PALETTE_MARKER='/* ultitools-dev-doc site palette override */'
+url_stylesheet="$BASE_URL/api/$CURRENT_VERSION/stylesheet.css"
+fetch "$url_stylesheet"
+API_HEADERS+=("$HEADERS_FILE")
+body_stylesheet_a=$(cat "$BODY_FILE" 2>/dev/null || true)
+r=0
+printf '%s' "$body_stylesheet_a" | grep -qF "$PALETTE_MARKER" || r=1
+record "9 stylesheet 响应体含覆盖块标记" "标记=${PALETTE_MARKER}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 10. stylesheet 响应体含深色媒体查询
+# ─────────────────────────────────────────────────────────────────────────────
+r=0
+printf '%s' "$body_stylesheet_a" | grep -q 'prefers-color-scheme: dark' || r=1
+record "10 stylesheet 响应体含深色媒体查询" "" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 11. stylesheet Cache-Control 的 max-age 是 3600
+# ─────────────────────────────────────────────────────────────────────────────
+cc_stylesheet_a=$(header_value "$HEADERS_FILE" "cache-control")
+r=0
+printf '%s' "$cc_stylesheet_a" | grep -qE 'max-age=3600(;|,|$)' || r=1
+record "11 stylesheet Cache-Control max-age=3600" "cache-control=${cc_stylesheet_a:-<无>}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 12. 连续两次请求 stylesheet，ETag 相等且形状是「弱验证器 + 连字符 + 8 位十六进制」
+# ─────────────────────────────────────────────────────────────────────────────
+etag_stylesheet_a=$(header_value "$HEADERS_FILE" "etag")
+fetch "$url_stylesheet"
+API_HEADERS+=("$HEADERS_FILE")
+etag_stylesheet_b=$(header_value "$HEADERS_FILE" "etag")
+r=0
+[ -n "$etag_stylesheet_a" ] || r=1
+[ "$etag_stylesheet_a" = "$etag_stylesheet_b" ] || r=1
+printf '%s' "$etag_stylesheet_a" | grep -qE '^W/"[^"]*-[0-9a-f]{8}"$' || r=1
+record "12 stylesheet 两次请求 ETag 相等且形状匹配" "etag=${etag_stylesheet_a:-<无>}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 13. 带上一步 ETag 作为 If-None-Match 复发，得到 304 且响应体 0 字节
+# ─────────────────────────────────────────────────────────────────────────────
+seq_n=$((seq_n + 1))
+HEADERS_FILE="$TMPDIR/h.$seq_n"
+BODY_FILE="$TMPDIR/b.$seq_n"
+HTTP_STATUS=$(curl -s -o "$BODY_FILE" -D "$HEADERS_FILE" -w '%{http_code}' --max-time 30 \
+  -H "If-None-Match: $etag_stylesheet_a" "$url_stylesheet")
+API_HEADERS+=("$HEADERS_FILE")
+# curl's -o only creates the output file once it writes at least one byte —
+# a genuine 0-byte 304 body means $BODY_FILE never gets created at all, not
+# an error. Treat "file absent" the same as "file present and empty".
+if [ -f "$BODY_FILE" ]; then
+  body_size_304=$(wc -c < "$BODY_FILE" 2>/dev/null | tr -d ' ')
+else
+  body_size_304=0
+fi
+r=0
+[ "$HTTP_STATUS" = "304" ] || r=1
+[ "${body_size_304:-1}" = "0" ] || r=1
+record "13 带 If-None-Match 复发得到 304 且响应体 0 字节" "status=$HTTP_STATUS body_size=${body_size_304:-<无>}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 14. 类页 HTML 含两条回程链接，且注入的 li 出现在 navbar-top-firstrow 之后
+# ─────────────────────────────────────────────────────────────────────────────
+fetch "$url_class"
+API_HEADERS+=("$HEADERS_FILE")
+r=0
+grep -q "/guide/introduction" "$BODY_FILE" || r=1
+grep -q "/zh/guide/introduction" "$BODY_FILE" || r=1
+line_nav=$(grep -n "navbar-top-firstrow" "$BODY_FILE" | head -1 | cut -d: -f1)
+line_link=$(grep -n "/zh/guide/introduction" "$BODY_FILE" | head -1 | cut -d: -f1)
+if [ -z "$line_nav" ] || [ -z "$line_link" ] || [ "$line_link" -lt "$line_nav" ]; then
+  r=1
+fi
+record "14 类页含两条回程链接且位于 navbar-top-firstrow 之后" "nav行=${line_nav:-<无>} link行=${line_link:-<无>}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 15. 本次收集的每一条 /api/ 响应都带与期望值逐字相等的 Content-Security-Policy
+# ─────────────────────────────────────────────────────────────────────────────
+EXPECTED_CSP="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'self'"
+r=0
+detail=""
+for hf in "${API_HEADERS[@]}"; do
+  csp=$(header_value "$hf" "content-security-policy")
+  if [ "$csp" != "$EXPECTED_CSP" ]; then
+    r=1
+    detail="$detail [$hf csp=${csp:-<无>}]"
+  fi
+done
+record "15 全部 /api/ 响应 CSP 逐字相等" "检查了 ${#API_HEADERS[@]} 个响应${detail:+  异常:$detail}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 16. 类页响应 Cache-Control 的 max-age 是 3600
+# ─────────────────────────────────────────────────────────────────────────────
+cc_class=$(header_value "$HEADERS_FILE" "cache-control")
+r=0
+printf '%s' "$cc_class" | grep -qE 'max-age=3600(;|,|$)' || r=1
+record "16 类页 Cache-Control max-age=3600" "cache-control=${cc_class:-<无>}" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 6. 每一条 /api/ 响应（含 302、301、404）都带 noindex，且都不带 link 头
