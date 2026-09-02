@@ -382,6 +382,71 @@ printf '%s' "$cc_class" | grep -qE 'max-age=3600(;|,|$)' || r=1
 record "16 类页 Cache-Control max-age=3600" "cache-control=${cc_class:-<无>}" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 17. 版本根（不带尾斜杠）302 到该版本 index.html（G-02-7）
+# ─────────────────────────────────────────────────────────────────────────────
+fetch "$BASE_URL/api/$CURRENT_VERSION"
+API_HEADERS+=("$HEADERS_FILE")
+loc_verroot_a=$(header_value "$HEADERS_FILE" "location")
+r=0
+[ "$HTTP_STATUS" = "302" ] || r=1
+printf '%s' "$loc_verroot_a" | grep -qE "/api/$CURRENT_VERSION/index\.html\$" || r=1
+record "17 版本根（无尾斜杠）302 到该版本 index.html" "status=$HTTP_STATUS location=${loc_verroot_a:-<无>}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 18. 版本根（带尾斜杠）同样 302 到同一目标——证明两种形态走同一条分支
+# ─────────────────────────────────────────────────────────────────────────────
+fetch "$BASE_URL/api/$CURRENT_VERSION/"
+API_HEADERS+=("$HEADERS_FILE")
+loc_verroot_b=$(header_value "$HEADERS_FILE" "location")
+r=0
+[ "$HTTP_STATUS" = "302" ] || r=1
+[ "$loc_verroot_b" = "$loc_verroot_a" ] || r=1
+record "18 版本根（带尾斜杠）302 到同一目标" "status=$HTTP_STATUS location=${loc_verroot_b:-<无>}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 19. 上游必然 3xx 的路径：被拦下而不是原样透出（G-02-7）
+# ─────────────────────────────────────────────────────────────────────────────
+# /api/foo 既不匹配版本正则也不是两条退役路径之一，落入代理分支；实测上游对
+# 该路径返回 303 指向 /doc/...。这一条同时是「Workers 的 fetch 在 manual 模式
+# 下确实拿得到真实 3xx 状态码」的实测——x-upstream-status 若不是 303，说明
+# Cloudflare Workers 的 redirect:'manual' 假设不成立，必须停下重新设计。
+fetch "$BASE_URL/api/foo"
+API_HEADERS+=("$HEADERS_FILE")
+body_foo=$(cat "$BODY_FILE" 2>/dev/null || true)
+xus_foo=$(header_value "$HEADERS_FILE" "x-upstream-status")
+xur_foo=$(header_value "$HEADERS_FILE" "x-upstream-redirect")
+r=0
+[ "$HTTP_STATUS" = "404" ] || r=1
+printf '%s' "$body_foo" | grep -qi "$NOT_INDEXED_MARKER" || r=1
+[ "$xus_foo" = "303" ] || r=1
+[ "$xur_foo" = "blocked" ] || r=1
+record "19 上游 3xx 被拦下（/api/foo）" "status=$HTTP_STATUS x-upstream-status=${xus_foo:-<无>} x-upstream-redirect=${xur_foo:-<无>}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 20. 存在但未索引的版本：版本根 302 后，目标地址给出准确的「尚未索引」而不是
+#     「上游挂了」
+# ─────────────────────────────────────────────────────────────────────────────
+fetch "$BASE_URL/api/$NEVER_INDEXED_VERSION"
+API_HEADERS+=("$HEADERS_FILE")
+loc_unindexed_root=$(header_value "$HEADERS_FILE" "location")
+r=0
+[ "$HTTP_STATUS" = "302" ] || r=1
+printf '%s' "$loc_unindexed_root" | grep -qE "/api/$NEVER_INDEXED_VERSION/index\.html\$" || r=1
+record "20a 未索引版本根 302 到该版本 index.html" "status=$HTTP_STATUS location=${loc_unindexed_root:-<无>}" "$r"
+
+if [ -n "$loc_unindexed_root" ]; then
+  fetch "$loc_unindexed_root"
+  API_HEADERS+=("$HEADERS_FILE")
+  body_unindexed=$(cat "$BODY_FILE" 2>/dev/null || true)
+  r=0
+  [ "$HTTP_STATUS" = "404" ] || r=1
+  printf '%s' "$body_unindexed" | grep -qi "$NOT_INDEXED_MARKER" || r=1
+  record "20b 未索引版本根目标落到尚未索引页" "status=$HTTP_STATUS" "$r"
+else
+  record "20b 未索引版本根目标落到尚未索引页" "上一步未取得 Location，跳过" 1
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 6. 每一条 /api/ 响应（含 302、301、404）都带 noindex，且都不带 link 头
 # ─────────────────────────────────────────────────────────────────────────────
 r=0
