@@ -34,6 +34,34 @@ function isValidSegment(segment) {
   return true;
 }
 
+// G-02-7 version-root redirect: a single segment matching this pattern is
+// treated as a bare version number (`/api/6.2.5`) and gets redirected
+// straight to that version's index.html, instead of falling through to the
+// proxy branch where it would 303 out of UPSTREAM_PATH_PREFIX (see
+// upstream.js's header comment for the upstream behavior this closes).
+//
+// Anchored WHITELIST, not a reuse of isValidSegment's blacklist: this
+// segment is about to be interpolated into a Location this Function sends
+// to the browser (`new URL(...)` below), the second such place in this file
+// (the first is the zero-segment guard above, which uses a build-time
+// constant instead of request-derived input — T-02-08-02). isValidSegment's
+// blacklist only rejects characters known to reshape the upstream path; it
+// was never designed to prove a value is safe to place in a Location.
+// Restricting this segment to digits and dots by construction makes path
+// traversal or a cross-origin jump structurally impossible here, without
+// having to re-argue whether the blacklist covers every case.
+//
+// A REGEX, not a membership test against CURRENT_VERSION/ARCHIVED_VERSIONS:
+// verified against the live upstream during planning — a version that
+// exists but is not yet indexed (e.g. 9.9.9) redirects to
+// `/api/9.9.9/index.html`, which then 404s upstream, giving the reader the
+// accurate "this version has not been indexed" page. A membership test
+// would instead send that same request into the proxy branch, where
+// upstream's own 303 gets caught by redirect-blocked and degrades to the
+// identical page by a longer path — and a membership list needs editing
+// every time a new version shape appears, where the regex needs none.
+const VERSION_SEGMENT_RE = /^\d+(?:\.\d+)*$/;
+
 // A segment counts as a non-HTML asset request when its last path component
 // has a dot-extension that isn't "html" (e.g. stylesheet.css,
 // member-search-index.js). No extension at all, or an .html extension, is
@@ -186,6 +214,23 @@ export async function onRequestGet(context) {
     return new Response(null, { status: 301, headers });
   }
 
+  // G-02-7 version root: `/api/{version}` (no further path) redirects to
+  // that version's index.html instead of falling through to the proxy
+  // branch below, where the bare version segment would 303 out of
+  // UPSTREAM_PATH_PREFIX (see VERSION_SEGMENT_RE's own comment, and
+  // upstream.js's header comment for the upstream behavior this closes).
+  // 302, not 301, for the same reason as the zero-segment guard above: a
+  // 301 is cached by browsers permanently, and the target filename
+  // (index.html) is not something this repository can promise forever.
+  // Location is built from the incoming request (never a hardcoded host),
+  // same as every other redirect in this file, so PR-preview visitors stay
+  // on the preview domain.
+  if (segments.length === 1 && VERSION_SEGMENT_RE.test(segments[0])) {
+    const location = new URL(`/api/${segments[0]}/index.html`, context.request.url);
+    const headers = withStandardHeaders(new Headers({ Location: location.toString() }));
+    return new Response(null, { status: 302, headers });
+  }
+
   const upstreamUrl = new URL(
     `${UPSTREAM_PATH_PREFIX}/${segments.join('/')}`,
     UPSTREAM_ORIGIN
@@ -306,19 +351,34 @@ export async function onRequestGet(context) {
 
   // Every failure branch below is deliberately never cached (D-07): no
   // cache.put call exists on this path at all, and Cache-Control: no-store
-  // is set explicitly rather than relied upon as a side effect.
+  // is set explicitly rather than relied upon as a side effect. This holds
+  // for redirect-blocked too — it flows through the same result.kind !==
+  // 'ok' branch in readThrough (cache.js), so no change was needed there.
   const upstreamStatusValue =
     result.kind === 'unreachable' ? 'unreachable' : String(result.status);
+  const isRedirectBlocked = result.kind === 'redirect-blocked';
 
   if (isNonHtmlAsset(lastSegment)) {
     // A non-HTML asset that can't be fetched gets an honest empty response
     // with the real (or synthesized) status code, not a text/html body a
     // browser would flag as a MIME mismatch for a stylesheet or script.
-    const status = result.kind === 'unreachable' ? 502 : result.status;
+    // redirect-blocked gets its own synthesized 404 here, same as
+    // 'unreachable' synthesizes 502: result.status for that kind is the
+    // upstream's raw 3xx, and sending a 3xx status code with an empty body
+    // and no Location header would look like a broken redirect to the
+    // browser, not a clean failure (T-02-08-01).
+    const status = result.kind === 'unreachable' ? 502 : isRedirectBlocked ? 404 : result.status;
     const headers = withStandardHeaders(new Headers());
     headers.set('Cache-Control', 'no-store');
     headers.set('x-upstream-status', upstreamStatusValue);
     headers.set('x-version-generated-at', GENERATED_AT);
+    if (isRedirectBlocked) {
+      // G-02-7 / T-02-08-03: the fact that a redirect was blocked is
+      // observable; the redirect's target is not. Never place
+      // result.location (or anything derived from it) into a response
+      // header.
+      headers.set('x-upstream-redirect', 'blocked');
+    }
     return new Response(null, { status, headers });
   }
 
@@ -327,13 +387,20 @@ export async function onRequestGet(context) {
   // "upstream-error"/"unreachable" (upstream is broken or unreachable) —
   // one says "this version was never indexed", the other says "try again
   // later" — so they get different pages and different status codes.
+  // redirect-blocked joins "not-found" here (G-02-7): from a reader's
+  // perspective, "upstream 303'd us to its own site chrome instead of
+  // content" and "upstream said 404" are the same fact — there is nothing
+  // this Function can serve at this address.
   const headers = withStandardHeaders(new Headers());
   headers.set('Content-Type', 'text/html; charset=utf-8');
   headers.set('Cache-Control', 'no-store');
   headers.set('x-upstream-status', upstreamStatusValue);
   headers.set('x-version-generated-at', GENERATED_AT);
+  if (isRedirectBlocked) {
+    headers.set('x-upstream-redirect', 'blocked');
+  }
 
-  if (result.kind === 'not-found') {
+  if (result.kind === 'not-found' || isRedirectBlocked) {
     return new Response(notIndexedPage(CURRENT_VERSION), { status: 404, headers });
   }
   // upstream-error or unreachable both degrade to the same 502 page — the
