@@ -517,15 +517,61 @@ record "25 类页连续两次请求 ETag 与字节数相等" \
   "etag=${etag_class_a:-<无>} size=${size_class_a:-<无>}/${size_class_b:-<无>}" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 26. 修复本身：dejavu.css 子路径返回空正文的 200，Content-Type 为 CSS，且带
+#     自答标记头（G-02-10）
+# ─────────────────────────────────────────────────────────────────────────────
+url_dejavu="$BASE_URL/api/$CURRENT_VERSION/resources/fonts/dejavu.css"
+fetch "$url_dejavu"
+API_HEADERS+=("$HEADERS_FILE")
+ctype_dejavu=$(header_value "$HEADERS_FILE" "content-type")
+xuf_dejavu=$(header_value "$HEADERS_FILE" "x-upstream-fetch")
+size_dejavu=$(wc -c < "$BODY_FILE" 2>/dev/null | tr -d ' ')
+r=0
+[ "$HTTP_STATUS" = "200" ] || r=1
+printf '%s' "$ctype_dejavu" | grep -qi 'css' || r=1
+[ "${size_dejavu:-1}" = "0" ] || r=1
+[ "$xuf_dejavu" = "skipped" ] || r=1
+record "26 dejavu.css 子路径返回空 200 CSS 且带自答标记头" \
+  "status=$HTTP_STATUS content-type=${ctype_dejavu:-<无>} size=${size_dejavu:-<无>} x-upstream-fetch=${xuf_dejavu:-<无>}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 27. 窄范围的反向对照：同目录下真实存在的 glass.png（UAT test 4 确认渲染的
+#     搜索放大镜图标）仍按代理正常返回，不带自答标记头（G-02-10）
+# ─────────────────────────────────────────────────────────────────────────────
+fetch "$BASE_URL/api/$CURRENT_VERSION/resources/glass.png"
+API_HEADERS+=("$HEADERS_FILE")
+ctype_glass=$(header_value "$HEADERS_FILE" "content-type")
+r=0
+[ "$HTTP_STATUS" = "200" ] || r=1
+printf '%s' "$ctype_glass" | grep -qi 'image' || r=1
+has_header "$HEADERS_FILE" "x-upstream-fetch" && r=1
+record "27 glass.png 仍代理返回且不带自答标记头（范围反向对照）" \
+  "status=$HTTP_STATUS content-type=${ctype_glass:-<无>}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 28. 该分支不发起任何上游请求：一个从未被索引的版本在同一子路径上同样得到
+#     空 200（G-02-10）
+# ─────────────────────────────────────────────────────────────────────────────
+fetch "$BASE_URL/api/$NEVER_INDEXED_VERSION/resources/fonts/dejavu.css"
+API_HEADERS+=("$HEADERS_FILE")
+size_dejavu_unindexed=$(wc -c < "$BODY_FILE" 2>/dev/null | tr -d ' ')
+r=0
+[ "$HTTP_STATUS" = "200" ] || r=1
+[ "${size_dejavu_unindexed:-1}" = "0" ] || r=1
+record "28 未索引版本同子路径同样得到空 200（分支不打上游）" \
+  "status=$HTTP_STATUS size=${size_dejavu_unindexed:-<无>}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 6 & 15. 每一条 /api/ 响应（含 302、301、404）都带 noindex 且不带 link 头
 #        （6 号），且都带与 EXPECTED_CSP 逐字相等的 Content-Security-Policy
-#        （15 号）。两项共享同一次对 API_HEADERS 的遍历——此时全部 25 个 fetch
-#        点位都已发生（1-14、17-25 各自 push 一次，18/20b 有条件跳过，共
-#        最多 24 条，另外 3 次抓取复用同一 fetch 但每次都重新 push，故实际
-#        条数以运行时 ${#API_HEADERS[@]} 为准），修复 02-REVIEW.md WR-01：15
-#        号项此前独立成环时位于 17-25 号项之前，从未检查过后十条响应。两个
-#        断言各自独立计数、独立 record，不合并成一条结果，以保留各自的失败
-#        定位能力。
+#        （15 号）。两项共享同一次对 API_HEADERS 的遍历——此时全部 fetch 点位
+#        都已发生（1-14、17-28 各自 push 一次，18/20b 有条件跳过，共最多 27
+#        条，另外 3 次抓取复用同一 fetch 但每次都重新 push，故实际条数以运行
+#        时 ${#API_HEADERS[@]} 为准），修复 02-REVIEW.md WR-01：15 号项此前独
+#        立成环时位于 17-25 号项之前，从未检查过后十条响应。26-28 号项（G-02-
+#        10）同样必须插在这个循环之前——插在其后就重演了 WR-01 修的同一顺序问
+#        题：新响应不受 6/15 号项覆盖。两个断言各自独立计数、独立 record，不
+#        合并成一条结果，以保留各自的失败定位能力。
 # ─────────────────────────────────────────────────────────────────────────────
 r=0
 detail=""
