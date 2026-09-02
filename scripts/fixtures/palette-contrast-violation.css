@@ -1,0 +1,75 @@
+/* Fixture for scripts/check-contrast.py — deliberately non-compliant.
+
+Identical to scripts/fixtures/palette-contrast-clean.css except for exactly
+ONE value: light-mode --link-color is changed from rgb(4, 98, 204)
+(5.79:1 on white — compliant) to #9ecbff (about 1.6:1 on white — far below
+the 4.5:1 the `body` tier requires for links). Only one value differs, on
+purpose: this fixture is meant to prove scripts/check-contrast.py actually
+read the line it changed and computed that one pair, not merely that it
+reacts to "garbage in" generically. scripts/check-contrast.py must exit 1
+against this file and its output must name --link-color as the failing
+pair.
+
+See scripts/fixtures/palette-contrast-clean.css's header for why a second,
+fully-compliant fixture exists alongside this one.
+*/
+:root {
+  --body-text-color: #3c3c43;
+  --block-text-color: #67676c;
+  --body-background-color: #ffffff;
+  --section-background-color: #f8f8f8;
+  --detail-background-color: #ffffff;
+  --navbar-background-color: rgb(4, 98, 204);
+  --navbar-text-color: #ffffff;
+  --even-row-color: #ffffff;
+  --odd-row-color: #eff0f3;
+  --link-color: #9ecbff;
+  --link-color-active: rgb(3, 73, 153);
+  --search-input-background-color: #ffffff;
+  --search-input-text-color: #3c3c43;
+  --search-input-placeholder-color: #67676c;
+  --snippet-text-color: #67676c;
+  --snippet-background-color: #f8f8f8;
+  --subnav-background-color: #eff0f3;
+  --selected-background-color: #ffffff;
+  --selected-text-color: rgb(4, 98, 204);
+  --selected-link-color: rgb(4, 98, 204);
+  --snippet-highlight-color: #fcf4dc;
+  --search-tag-highlight-color: #fcf4dc;
+  --copy-button-background-color-active: #eff0f3;
+  --invalid-tag-background-color: #fde4e8;
+  --invalid-tag-text-color: #b8272c;
+  --title-color: #3c3c43;
+  --source-linenumber-color: #67676c;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --body-text-color: #dfdfd6;
+    --block-text-color: #98989f;
+    --body-background-color: #000000;
+    --section-background-color: #131313;
+    --detail-background-color: #000000;
+    --navbar-background-color: rgb(4, 98, 204);
+    --navbar-text-color: #ffffff;
+    --even-row-color: #000000;
+    --odd-row-color: #101315;
+    --link-color: rgb(5, 122, 255);
+    --link-color-active: rgb(85, 168, 255);
+    --search-input-background-color: #000000;
+    --search-input-text-color: #dfdfd6;
+    --search-input-placeholder-color: #98989f;
+    --snippet-text-color: #98989f;
+    --snippet-background-color: #131313;
+    --subnav-background-color: #101315;
+    --selected-background-color: #ffffff;
+    --selected-text-color: rgb(4, 98, 204);
+    --selected-link-color: rgb(4, 98, 204);
+    --snippet-highlight-color: #251d01;
+    --search-tag-highlight-color: #251d01;
+    --copy-button-background-color-active: #101315;
+    --invalid-tag-background-color: #270a0f;
+    --invalid-tag-text-color: #f66f81;
+    --title-color: #dfdfd6;
+    --source-linenumber-color: #98989f;
+  }
+}
