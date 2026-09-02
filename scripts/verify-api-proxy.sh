@@ -347,7 +347,21 @@ record "14 类页含两条回程链接且位于 navbar-top-firstrow 之后" "nav
 # ─────────────────────────────────────────────────────────────────────────────
 # 15. 本次收集的每一条 /api/ 响应都带与期望值逐字相等的 Content-Security-Policy
 # ─────────────────────────────────────────────────────────────────────────────
-EXPECTED_CSP="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'self'"
+EXPECTED_CSP="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'"
+
+# 15a. EXPECTED_CSP 是本脚本手抄的一份硬编码副本，item 15 的全部价值都建立在
+# 这份副本与 headers.js 实际字面量一致的前提上；这条自检直接断言两者相等，把
+# 「脚本期望值与 Function 实际值已漂移」和下面 15 号「部署上的 CSP 不对」区分
+# 成两种处理方式完全不同的失效，不再只靠人记得两处一起改。
+r=0
+if grep -qF "$EXPECTED_CSP" "$ROOT/functions/api/_shared/headers.js"; then
+  detail="脚本期望值与仓库里的 headers.js 逐字一致"
+else
+  r=1
+  detail="脚本的 EXPECTED_CSP 与 headers.js 的实际字面量已漂移（不是部署上的 CSP 不对——是这两处源码本身不再一致，先去比对 $ROOT/functions/api/_shared/headers.js）"
+fi
+record "15a EXPECTED_CSP 与 headers.js 源码逐字相等" "$detail" "$r"
+
 r=0
 detail=""
 for hf in "${API_HEADERS[@]}"; do

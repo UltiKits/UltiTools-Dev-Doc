@@ -31,9 +31,28 @@ export function withStandardHeaders(headers) {
   // block (sets `pathtoroot` and calls `loadScripts`) that the page's own
   // search and navigation depend on; nonce-ing it has the same caching
   // problem as above.
+  //
+  // img-src 'self' data: (G-02-3): upstream stylesheet.css has 5
+  // data:image/svg+xml background-image declarations (source lines 550,
+  // 560, 567, 895, 908) — line 550 is main a[href*="://"]::after, the
+  // external-link ↗ decoration; 560/567 and 895/908 are
+  // .table-header[onclick]::after and its .sort-asc/.sort-desc siblings,
+  // the sortable-column arrows. Neither was covered by the reasoning
+  // above: both are CSS background images, not <img> elements, and
+  // background images are governed by img-src, not style-src — style-src
+  // only governs the stylesheet/inline-<style> itself being allowed to
+  // apply, not the resources a loaded stylesheet then references. 'self'
+  // data: is deliberately narrower than any remote-source addition would
+  // be: data: is a non-network-fetching scheme (the browser never issues
+  // a request for it), so allowing it does not widen the egress surface
+  // D-26 closes — connect-src 'self', object-src 'none', base-uri 'self',
+  // and default-src 'self' are all unchanged. No remote source is needed
+  // here: the upstream page has zero cross-site resource loads (02-CONTEXT.md's
+  // code_context measured all 143 https:// occurrences on the page as
+  // <a href> links to docs.oracle.com, none as src/<link>).
   headers.set(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'self'"
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'"
   );
   return headers;
 }
