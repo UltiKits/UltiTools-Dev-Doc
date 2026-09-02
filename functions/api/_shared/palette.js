@@ -121,8 +121,23 @@
 //    this block does not map.
 export const PALETTE_MARKER = '/* ultitools-dev-doc site palette override */';
 
-export const OVERRIDE_BLOCK = `${PALETTE_MARKER}
-:root {
+// Both tables are extracted into their own constants (rather than left
+// inline inside OVERRIDE_BLOCK) so the class-selector rule added in Task 2
+// can reuse DARK_DECLARATIONS verbatim instead of a second hand-written
+// copy that could drift from the media-query copy. The four marker
+// comments below let scripts/check-contrast.py locate each table's
+// boundaries directly, instead of splitting this source text on the
+// media query string (which tied the gate to one specific dark-mode
+// trigger — see that script's own docstring for why that coupling had to
+// go). Markers are JS line comments, not part of either template literal,
+// so they add zero bytes to OVERRIDE_BLOCK's evaluated output. Each
+// template literal's opening backtick is followed immediately by a
+// newline (not by the first declaration on the same source line) so that
+// scripts/check-contrast.py's line-anchored declaration regex can match
+// the first declaration the same way it matches every other one.
+
+// palette-table:light:begin
+const LIGHT_DECLARATIONS = `
   --body-text-color: #3c3c43; /* --vp-c-text-1, vars.css:177 (light) */
   --block-text-color: #67676c; /* --vp-c-text-2, vars.css:178 (light) */
   --body-background-color: #ffffff; /* --vp-c-bg, main.css:82 (light) */
@@ -157,10 +172,11 @@ export const OVERRIDE_BLOCK = `${PALETTE_MARKER}
   --code-font-family: ui-monospace, 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace; /* --vp-font-family-mono, vars.css:266 */
   --source-linenumber-color: #67676c; /* --vp-c-text-2, vars.css:178 (light) — upstream references this at stylesheet.css:641 but never declares it; its own fallback is a literal green that clashes with both palettes */
   /* --body-font-size and --code-font-size (both 14px upstream) are
-     deliberately NOT overridden — see header "Not covered" note. */
-}
-@media (prefers-color-scheme: dark) {
-  :root {
+     deliberately NOT overridden — see header "Not covered" note. */`;
+// palette-table:light:end
+
+// palette-table:dark:begin
+const DARK_DECLARATIONS = `
     --body-text-color: #dfdfd6; /* --vp-c-text-1, vars.css:183 (dark) */
     --block-text-color: #98989f; /* --vp-c-text-2, vars.css:184 (dark) */
     --body-background-color: #000000; /* --vp-c-bg, main.css:117 (dark) */
@@ -195,7 +211,14 @@ export const OVERRIDE_BLOCK = `${PALETTE_MARKER}
     --code-font-family: ui-monospace, 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace; /* --vp-font-family-mono, vars.css:266, unchanged across modes */
     --source-linenumber-color: #98989f; /* --vp-c-text-2, vars.css:184 (dark) — see light-mode comment above */
     /* --body-font-size and --code-font-size (both 14px upstream) are
-       deliberately NOT overridden — see header "Not covered" note. */
+       deliberately NOT overridden — see header "Not covered" note. */`;
+// palette-table:dark:end
+
+export const OVERRIDE_BLOCK = `${PALETTE_MARKER}
+:root {${LIGHT_DECLARATIONS}
+}
+@media (prefers-color-scheme: dark) {
+  :root {${DARK_DECLARATIONS}
   }
 }
 `;

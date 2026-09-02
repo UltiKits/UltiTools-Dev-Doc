@@ -15,13 +15,25 @@ script's own self-checks failed — see "Self-checks" below.
 
 The input is source text — the literal constants written into
 functions/api/_shared/palette.js's OVERRIDE_BLOCK — not a rendered page or a
-screenshot. That source text is split into a light table and a dark table at
-the `prefers-color-scheme: dark` media query, and each table's
-`--custom-property: value;` declarations are parsed with a regex. This works
-identically whether the file handed to it is the real .js file (where the
-declarations sit inside a JS template literal) or one of the two plain .css
-fixtures below, because the regex only cares about the declaration lines
-themselves, not what surrounds them.
+screenshot. That source text is split into a light table and a dark table by
+locating four marker comments (`palette-table:light:begin/end`,
+`palette-table:dark:begin/end`) and taking the text between each begin/end
+pair, and each table's `--custom-property: value;` declarations are parsed
+with a regex. This works identically whether the file handed to it is the
+real .js file (where the declarations sit inside a JS template literal and
+the markers are `//` line comments) or one of the two plain .css fixtures
+below (where the markers are `/* ... */` comments), because both the marker
+search and the declaration regex only care about the literal substrings and
+declaration lines themselves, not what comment syntax surrounds them.
+
+This gate used to split on the literal `prefers-color-scheme: dark` media
+query string instead of markers — coupling the gate to one specific
+trigger for the dark table (G-02-8 needed to add a second trigger, a
+class selector, which would have been silently miscounted by that split).
+The assertion that used to live here ("does a dark-mode trigger exist at
+all") moved to scripts/verify-api-proxy.sh, which checks it against the
+real bytes this repository serves rather than against source text — see
+that script's own items for the media-query and class-selector assertions.
 
 ## Why Python, not bash/awk / 为什么用 Python 而不是 bash/awk
 
@@ -65,7 +77,7 @@ it would prove the gate isn't reading its input at all.
 
 ## Self-checks / 自检
 
-Three conditions each end the run with exit 2 and an explanation, rather
+Four conditions each end the run with exit 2 and an explanation, rather
 than a silent pass, because each is a way this gate could be quietly
 emptied out without ever printing a FAIL line:
 
@@ -83,13 +95,33 @@ emptied out without ever printing a FAIL line:
    violations by construction, which is the same "looks fine, checked
    nothing" failure mode as #1 and #2, just at the level of this script's
    own source instead of its input.
+4. Any of the four `palette-table:{light,dark}:{begin,end}` marker comments
+   does not appear in the file EXACTLY once. Fewer than one means this
+   script can no longer find the table boundary at all (the light/dark
+   split above depends on all four being present); more than one is the
+   new failure mode the marker-based split introduces in place of the old
+   media-query split — a marker string copy-pasted into an explanatory
+   comment, or a table accidentally duplicated, would otherwise make the
+   `text.find()` calls below silently pick the wrong occurrence instead of
+   raising anything. This check runs BEFORE the light/dark split (it is a
+   precondition for that split to even be well-defined), even though it is
+   listed fourth here to match the order the three pre-existing checks
+   were written in.
 """
 import re
 import sys
 
 USAGE = "usage / 用法: check-contrast.py <file> [file...]"
 
-DARK_MARKER = "prefers-color-scheme: dark"
+# Table-boundary markers (see "What this reads" above for why these replaced
+# a media-query-string split). Order matters only for TABLE_MARKERS, which
+# lists them in file order for self-check 4's error messages; extraction
+# itself locates each begin/end pair independently.
+LIGHT_BEGIN_MARKER = "palette-table:light:begin"
+LIGHT_END_MARKER = "palette-table:light:end"
+DARK_BEGIN_MARKER = "palette-table:dark:begin"
+DARK_END_MARKER = "palette-table:dark:end"
+TABLE_MARKERS = (LIGHT_BEGIN_MARKER, LIGHT_END_MARKER, DARK_BEGIN_MARKER, DARK_END_MARKER)
 
 # Matches a line (after optional leading whitespace) that declares a custom
 # property: `--name: value;`. Comment lines in palette.js use `//`, so they
@@ -205,15 +237,27 @@ def check_file(path):
         print(f"check-contrast.py: cannot read {path}: {exc}", file=sys.stderr)
         return 2, []
 
-    if DARK_MARKER not in text:
+    # Self-check 4 (see module docstring): every marker must appear exactly
+    # once. Runs before the split below, since the split depends on it.
+    bad_counts = []
+    for marker in TABLE_MARKERS:
+        count = text.count(marker)
+        if count != 1:
+            bad_counts.append(f"{marker!r} appears {count} time(s)")
+    if bad_counts:
         print(
-            f"check-contrast.py: {path}: no '{DARK_MARKER}' media query found — "
-            "cannot split this file into a light table and a dark table",
+            f"check-contrast.py: {path}: self-check failed — table markers must "
+            "each appear exactly once: " + "; ".join(bad_counts),
             file=sys.stderr,
         )
         return 2, []
 
-    light_text, dark_text = text.split(DARK_MARKER, 1)
+    light_start = text.find(LIGHT_BEGIN_MARKER) + len(LIGHT_BEGIN_MARKER)
+    light_end = text.find(LIGHT_END_MARKER)
+    dark_start = text.find(DARK_BEGIN_MARKER) + len(DARK_BEGIN_MARKER)
+    dark_end = text.find(DARK_END_MARKER)
+    light_text = text[light_start:light_end]
+    dark_text = text[dark_start:dark_end]
     light_decls = parse_declarations(light_text)
     dark_decls = parse_declarations(dark_text)
 
