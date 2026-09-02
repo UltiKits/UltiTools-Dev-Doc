@@ -209,7 +209,15 @@ check_api_constant() {
 check_nav() {
   local file="$1" lang="$2"
   local links
-  links="$(grep -oE "^ *link: '[^']*'" "$file" | sed -E "s/^ *link: '([^']*)'/\1/")"
+  # WR-04 (02-REVIEW.md): reuses LINK_RE (dual-quote-aware, defined above
+  # for extract_base_link_pairs) instead of a separate single-quote-only
+  # ad hoc pattern. nav.en.mts/nav.zh.mts happen to use single quotes
+  # throughout today, so the old pattern passed, but it was a latent,
+  # silent under-extraction — a future double-quoted nav entry would not
+  # match, and because other entries in the same file still use single
+  # quotes, $links would stay non-empty, so the "0 extracted" self-check
+  # below would never catch the gap.
+  links="$(grep -oE "$LINK_RE" "$file" | sed -E "s/$LINK_RE/\1/")"
   if [ -z "$links" ]; then
     echo "FAIL: nav in $(rel_path "$file") extracted 0 link: entries — treating as script self-failure, not zero violations"
     self_check_failed=1
