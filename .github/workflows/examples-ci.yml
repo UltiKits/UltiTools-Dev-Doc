@@ -155,6 +155,170 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./scripts/check-version-consistency.sh
 
+      # D-31: reuses this job's own weekly schedule instead of introducing a
+      # second trigger mechanism. Event gate matches the two release-sync
+      # issue steps exactly (D-14's reasoning applies unchanged: a fork PR's
+      # token is read-only, and a feature-branch push shouldn't trigger a
+      # real request against a third party either). `success()` is written
+      # explicitly because a custom `if:` on this step means Actions no
+      # longer implicitly appends it (RESEARCH Anti-Pattern 3, same note as
+      # the release-sync steps below) — indexing a release only makes sense
+      # once the version invariant itself held.
+      #
+      # The target version is passed via `env:`, not interpolated into
+      # `run:` — the value originates from Maven Central metadata one step
+      # up and this avoids ever building a shell command by string
+      # substitution from data this workflow doesn't control the format of.
+      #
+      # Exit codes are dispatched explicitly in `run:`, not with the
+      # step-level "ignore my own failure" switch: that switch would swallow
+      # exit 1 (D-34, upstream forms changed — a permanent problem, must
+      # fail this step) and exit 2 (D-32, poll timeout — a transient one,
+      # must not) into the same "ignored" bucket, which is exactly the
+      # distinction these two
+      # decisions exist to preserve. `set +e`/`set -e` around the single
+      # invocation is needed because GitHub's default shell for `run:`
+      # already runs with `-e`, which would abort this step before the
+      # exit-code dispatch below ever ran otherwise.
+      - name: Trigger javadoc.io indexing for the current release
+        id: index
+        if: |
+          success() &&
+          (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+           (github.event_name == 'push' && github.ref == 'refs/heads/master'))
+        env:
+          TARGET_VERSION: ${{ steps.check.outputs.central_ver }}
+        run: |
+          set +e
+          bash scripts/javadoc-io-index.sh --version "$TARGET_VERSION"
+          index_exit=$?
+          set -e
+
+          case "$index_exit" in
+            0)
+              echo "javadoc.io 索引：就绪或无事可做（exit 0）。"
+              ;;
+            2)
+              echo "javadoc.io 索引：本次轮询超时或取版本列表页失败（exit 2），视为第三方队列慢，不判本步骤失败。"
+              ;;
+            1)
+              echo "::error::javadoc.io 索引脚本判定上游版本列表页结构变了（exit 1），脚本需要重写。"
+              exit 1
+              ;;
+            *)
+              echo "::error::javadoc.io 索引脚本返回了未预期的退出码 ${index_exit}。"
+              exit 1
+              ;;
+          esac
+
+      # D-32/D-34: one status light, two mutually exclusive causes, worded
+      # differently so neither ever asserts something false — mirrors the
+      # release-sync issue's own D-12 handling of `mismatch`/`ahead` needing
+      # a qualifying sentence. A NEW label (`javadoc-index`), not
+      # `release-sync`'s: that issue's body carries the sentence "未关闭即
+      # 代表文档站落后于最新正式版" (GATE-07's entire value), and an index
+      # timeout is not a version-lag condition — reusing the label would
+      # make that sentence false the moment this fires.
+      #
+      # `always()`: the previous step legitimately FAILS (exit 1) on the
+      # `broken` outcome, and this step must still run in that case to open
+      # the diagnostic issue — without `always()`, a custom `if:` on this
+      # step would default to running only on success and this step would
+      # never fire for exactly the case it exists to report.
+      - name: Open or update javadoc-index issue
+        if: |
+          always() &&
+          (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+           (github.event_name == 'push' && github.ref == 'refs/heads/master')) &&
+          (steps.index.outputs.index_result == 'timeout' || steps.index.outputs.index_result == 'broken')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TARGET_VERSION: ${{ steps.check.outputs.central_ver }}
+          INDEX_RESULT: ${{ steps.index.outputs.index_result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create javadoc-index \
+            --color fbca04 \
+            --description "javadoc.io 索引触发的暂态/结构问题，与 release-sync 分开的状态灯" >/dev/null 2>&1 || true
+
+          case "$INDEX_RESULT" in
+            timeout)
+              directional_note="javadoc.io 的索引作业本次轮询超时——这是第三方队列慢，不代表版本号落后或脚本坏了。下一个周期的 schedule 会自动重试，不需要人介入。"
+              ;;
+            broken)
+              directional_note="javadoc.io 的版本列表页结构与本仓库索引脚本的预期不符——脚本需要重写，不会自动恢复，需要人介入。"
+              ;;
+          esac
+
+          cat > "$RUNNER_TEMP/javadoc-index-body.md" <<BODY
+          ${directional_note}
+
+          | | |
+          |---|---|
+          | 目标版本 | \`${TARGET_VERSION}\` |
+          | 结果 | \`${INDEX_RESULT}\` |
+
+          <!-- javadoc-index-state: version=${TARGET_VERSION} result=${INDEX_RESULT} -->
+
+          失败 run：${RUN_URL}
+          BODY
+
+          if ! existing_json=$(gh issue list --state open --label javadoc-index \
+              --limit 100 --json number,body); then
+            echo "::error::查询已有 javadoc-index 状态灯失败（网络或鉴权问题）。不吞掉这个失败，是为了不让它被误判为「没有已开状态灯」而新开一条重复 issue。"
+            exit 1
+          fi
+
+          existing_count=$(printf '%s' "$existing_json" | jq -r 'length')
+          if [ "$existing_count" -gt 1 ]; then
+            echo "::warning::发现 ${existing_count} 条同时处于 open 状态的 javadoc-index 状态灯，预期最多 1 条。本步骤只更新其中编号最小（最早开出）的一条；其余的会在恢复时由下面的关闭步骤统一关闭。"
+          fi
+
+          existing=$(printf '%s' "$existing_json" | jq -r 'sort_by(.number) | .[0].number // empty')
+          existing_body=$(printf '%s' "$existing_json" | jq -r 'sort_by(.number) | .[0].body // empty')
+
+          prev_version=$(printf '%s' "$existing_body" | grep -oE 'version=[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d= -f2) || prev_version=""
+          prev_result=$(printf '%s' "$existing_body" | grep -oE 'result=[a-z]+' | head -1 | cut -d= -f2) || prev_result=""
+
+          if [ -z "$existing" ]; then
+            gh issue create \
+              --title "docs: javadoc.io 索引触发遇到问题" \
+              --label javadoc-index \
+              -F "$RUNNER_TEMP/javadoc-index-body.md"
+          elif [ "$prev_version" = "$TARGET_VERSION" ] && [ "$prev_result" = "$INDEX_RESULT" ]; then
+            echo "状态灯已在（issue #$existing），目标版本与结果均未变，跳过写操作。"
+          else
+            gh issue edit "$existing" -F "$RUNNER_TEMP/javadoc-index-body.md"
+          fi
+
+      # Mirrors release-sync's own "Close if recovered" step: no step-level
+      # "ignore my own failure" switch here either — a close failure must
+      # turn this otherwise-green job red rather than silently leave a status light on
+      # that looks indistinguishable from a genuine `broken`/`timeout`.
+      - name: Close javadoc-index issue if recovered
+        if: |
+          success() &&
+          (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+           (github.event_name == 'push' && github.ref == 'refs/heads/master')) &&
+          (steps.index.outputs.index_result == 'ready' || steps.index.outputs.index_result == 'skipped')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TARGET_VERSION: ${{ steps.check.outputs.central_ver }}
+        run: |
+          if ! existing_numbers=$(gh issue list --state open --label javadoc-index \
+              --limit 100 --json number --jq '.[].number'); then
+            echo "::error::查询已有 javadoc-index 状态灯失败（网络或鉴权问题）。不吞掉这个失败，是为了不让本来绿的 job 悄悄保持绿色，而状态灯其实还没被关掉。"
+            exit 1
+          fi
+
+          if [ -n "$existing_numbers" ]; then
+            while IFS= read -r existing; do
+              gh issue close "$existing" -c "目标版本 ${TARGET_VERSION} 已就绪或无事可做，本状态灯已恢复。"
+            done <<< "$existing_numbers"
+          fi
+
       - name: Open or update release-sync issue
         # Why `pull_request` is excluded: this is a public repo, fork PRs are
         # a normal path, and a fork PR's GITHUB_TOKEN is always read-only, so
