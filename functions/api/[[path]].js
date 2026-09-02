@@ -78,19 +78,42 @@ function withStandardHeaders(headers) {
 }
 
 // Module-level memoization: the fingerprint depends only on this module's
-// own template output (OVERRIDE_BLOCK plus a fixed-argument rendering of
-// backlinkLiHtml), never on any request, so every request in the same
-// isolate reuses the same Promise instead of re-hashing identical bytes.
-// Fixed arguments ('0.0.0', []) are used specifically so the fingerprint is
-// determined entirely by source code text: changing any color value in
-// OVERRIDE_BLOCK, or changing the <li>'s structure or copy, changes the
+// own template output (OVERRIDE_BLOCK, a fixed-argument rendering of
+// backlinkLiHtml) and the build-time ARCHIVED_VERSIONS array, never on any
+// per-request value, so every request in the same isolate reuses the same
+// Promise instead of re-hashing identical bytes.
+//
+// The dummy version argument ('0.0.0') stays fixed on purpose: it keeps the
+// fingerprint from varying per request the way the real per-page argument
+// (segments[0]) would. segments[0] itself needs no folding in here — it is
+// already part of the request URL, which the fingerprint is combined with
+// to form the cache key (stampedCacheKey below), so a different segment[0]
+// already produces a different cache key on its own.
+//
+// ARCHIVED_VERSIONS is folded in for real (not as a dummy), because it is
+// the one input that changes the actual per-request output of
+// backlinkLiHtml(segments[0], ARCHIVED_VERSIONS) without any source-code
+// edit at all: every time a version is archived, this build-time array
+// gains an entry, and every already-cached page under that version's
+// prefix should switch from an empty-prefix backlink to a version-prefixed
+// one. Without ARCHIVED_VERSIONS in the fingerprint, that switch would
+// never invalidate the edge-cached HTML entry (CR-01, 02-REVIEW.md) — the
+// cache key is the URL plus this stamp, and archiving a version changes
+// neither on its own. GENERATED_AT is deliberately NOT folded in here: it
+// changes on every build, which would bust the entire HTML edge cache on
+// every deploy, not just on the archival/template changes this fingerprint
+// exists to catch.
+//
+// Net effect: changing any color value in OVERRIDE_BLOCK, changing the
+// <li>'s structure or copy, or archiving a new version all change the
 // fingerprint automatically — no one has to remember to bump a version
 // number by hand.
 let themeStampPromise;
 
 function themeStamp() {
   if (!themeStampPromise) {
-    const fingerprintSource = OVERRIDE_BLOCK + backlinkLiHtml('0.0.0', []);
+    const fingerprintSource =
+      OVERRIDE_BLOCK + backlinkLiHtml('0.0.0', []) + ARCHIVED_VERSIONS.join(',');
     themeStampPromise = crypto.subtle
       .digest('SHA-256', new TextEncoder().encode(fingerprintSource))
       .then((digest) => {
