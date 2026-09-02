@@ -235,20 +235,39 @@ validate_and_extract() {
 # the token, the cookie, or the request body — Actions logs are public, and
 # these are session material still inside its validity window even though
 # they are not long-lived credentials.
+#
+# Each curl's exit status is checked explicitly with its own `if`, rather
+# than being left to `set -e` to abort the script directly (WR-02,
+# 02-REVIEW.md). This function is called from inside an `if ! do_post ...`
+# at both call sites specifically so a POST failure can still reach
+# emit_result before the caller returns — but bash disables `set -e` for
+# the ENTIRE body of a command (including every command a called function
+# runs) while that command is being evaluated as an `if`/`while` test, not
+# just for do_post's own top-level exit status. Left as two bare
+# `curl --fail` statements, a failing sync call would silently NOT abort
+# this function when called this way, and the upload call would still run
+# and could return 0 on its own, making the function's overall exit status
+# falsely report success even though sync never completed. Explicit `if`
+# checks make do_post's own return code correct regardless of how — or
+# whether — its caller wraps the call.
 do_post() {
   local version="$1" token="$2"
-  curl -sS --fail --connect-timeout 10 --max-time 60 \
+  if ! curl -sS --fail --connect-timeout 10 --max-time 60 \
     --cookie "$COOKIE_JAR" --cookie-jar "$COOKIE_JAR" \
     --user-agent "$USER_AGENT" \
     --data-urlencode "csrfToken=${token}" \
-    "${UPSTREAM_ORIGIN}${SYNC_PATH}" >/dev/null
+    "${UPSTREAM_ORIGIN}${SYNC_PATH}" >/dev/null; then
+    return 1
+  fi
 
-  curl -sS --fail --connect-timeout 10 --max-time 60 \
+  if ! curl -sS --fail --connect-timeout 10 --max-time 60 \
     --cookie "$COOKIE_JAR" --cookie-jar "$COOKIE_JAR" \
     --user-agent "$USER_AGENT" \
     --data-urlencode "csrfToken=${token}" \
     --data-urlencode "versionId=${version}" \
-    "${UPSTREAM_ORIGIN}${UPLOAD_PATH}" >/dev/null
+    "${UPSTREAM_ORIGIN}${UPLOAD_PATH}" >/dev/null; then
+    return 1
+  fi
 }
 
 # Bounded polling of the readiness target. Returns 0 (ready) or 1 (timeout)
@@ -298,7 +317,21 @@ run_single() {
     return 0
   fi
 
-  do_post "$VERSION" "$CSRF_TOKEN"
+  # WR-02 (02-REVIEW.md): a POST failure (upstream 4xx/5xx on either sync
+  # or upload — plausible for a third-party service under load) must still
+  # reach emit_result before this function returns, the same invariant
+  # emit_result's own comment states for every other exit path. Distinct
+  # result value from "timeout": no polling ever ran here, so reusing
+  # "timeout" would tell the diagnostic issue's reader "轮询超时" about a
+  # round that never started polling — an assertion the failure never
+  # made true (same "worded differently so neither ever asserts something
+  # false" posture .github/workflows/examples-ci.yml's own D-32/D-34
+  # comment describes for timeout vs. broken).
+  if ! do_post "$VERSION" "$CSRF_TOKEN"; then
+    echo "javadoc-io-index: POST 请求（sync 或 upload）失败——上游 HTTP 错误，判定为第三方服务暂态问题，不代表脚本坏了。" >&2
+    emit_result "post-failed" "$VERSION"
+    return 2
+  fi
 
   if poll_ready "$VERSION"; then
     emit_result "ready" "$VERSION"
@@ -351,7 +384,20 @@ run_backfill() {
       continue
     fi
 
-    do_post "$v" "$CSRF_TOKEN"
+    # WR-02 (02-REVIEW.md): a POST failure here is folded into the same
+    # any_timeout aggregate a poll timeout uses below, rather than given
+    # its own emit_result value the way run_single's does — --backfill is
+    # never invoked from CI (grep .github/workflows confirms this), so its
+    # only reader is whoever ran the script by hand and is reading this
+    # loop's own echoed lines, not INDEX_RESULT. The per-line message below
+    # still names the real cause (POST failure, not a poll timeout) so that
+    # reader isn't told something false; only the final aggregate label is
+    # shared.
+    if ! do_post "$v" "$CSRF_TOKEN"; then
+      echo "javadoc-io-index: [backfill] 版本 ${v} 的 POST 请求（sync 或 upload）失败，视为第三方服务暂态问题；不中断其余版本，下一个周期会自动重试。"
+      any_timeout=1
+      continue
+    fi
     if poll_ready "$v"; then
       echo "javadoc-io-index: [backfill] 版本 ${v} 就绪。"
     else

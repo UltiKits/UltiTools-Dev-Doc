@@ -199,7 +199,7 @@ jobs:
               echo "javadoc.io 索引：就绪或无事可做（exit 0）。"
               ;;
             2)
-              echo "javadoc.io 索引：本次轮询超时或取版本列表页失败（exit 2），视为第三方队列慢，不判本步骤失败。"
+              echo "javadoc.io 索引：本次轮询超时、取版本列表页失败，或 POST（sync/upload）失败（exit 2，见 WR-02, 02-REVIEW.md），视为第三方队列慢或暂态 HTTP 错误，不判本步骤失败。"
               ;;
             1)
               echo "::error::javadoc.io 索引脚本判定上游版本列表页结构变了（exit 1），脚本需要重写。"
@@ -211,7 +211,7 @@ jobs:
               ;;
           esac
 
-      # D-32/D-34: one status light, two mutually exclusive causes, worded
+      # D-32/D-34: one status light, mutually exclusive causes, worded
       # differently so neither ever asserts something false — mirrors the
       # release-sync issue's own D-12 handling of `mismatch`/`ahead` needing
       # a qualifying sentence. A NEW label (`javadoc-index`), not
@@ -219,6 +219,12 @@ jobs:
       # 代表文档站落后于最新正式版" (GATE-07's entire value), and an index
       # timeout is not a version-lag condition — reusing the label would
       # make that sentence false the moment this fires.
+      #
+      # `post-failed` (WR-02, 02-REVIEW.md) is a third, distinct cause: a
+      # POST (sync or upload) returned an upstream HTTP error before
+      # polling ever started. It is NOT folded into `timeout` — the
+      # `timeout` directional_note below says "本次轮询超时", which would
+      # be a false statement about a run where no polling happened at all.
       #
       # `always()`: the previous step legitimately FAILS (exit 1) on the
       # `broken` outcome, and this step must still run in that case to open
@@ -230,7 +236,8 @@ jobs:
           always() &&
           (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
            (github.event_name == 'push' && github.ref == 'refs/heads/master')) &&
-          (steps.index.outputs.index_result == 'timeout' || steps.index.outputs.index_result == 'broken')
+          (steps.index.outputs.index_result == 'timeout' || steps.index.outputs.index_result == 'broken' ||
+           steps.index.outputs.index_result == 'post-failed')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -248,6 +255,9 @@ jobs:
               ;;
             broken)
               directional_note="javadoc.io 的版本列表页结构与本仓库索引脚本的预期不符——脚本需要重写，不会自动恢复，需要人介入。"
+              ;;
+            post-failed)
+              directional_note="javadoc.io 的索引触发请求（sync 或 upload）收到了上游 HTTP 错误，轮询从未开始——判定为第三方服务暂态问题，不代表版本号落后或脚本坏了。下一个周期的 schedule 会自动重试，不需要人介入。"
               ;;
           esac
 
