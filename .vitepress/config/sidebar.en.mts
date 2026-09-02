@@ -149,18 +149,43 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
     // (e.g. /v6.2.4/api/) for versioned constants, but the Function proxy's
     // scope is only /api/ — an archived prefix is outside it. Adding this to a
     // versioned constant would send archived readers to two already-retired
-    // hand-written pages with unrelated content. nav achieves the same
-    // "don't version this" effect via skipVersioning, but
-    // DefaultTheme.SidebarItem carries no such field, so latest-only placement
-    // is the only isolation mechanism available here. No `base` field: every
+    // hand-written pages with unrelated content. No `base` field: every
     // existing group's base is '/guide/', and this link must resolve to
     // /api/, not /guide/api — an absolute link bypasses `base` entirely.
+    //
+    // Correction to the original D-30 note (found during 02-07 planning):
+    // it previously said the skip-versioning field couldn't be used here
+    // because `DefaultTheme.SidebarItem`'s type definition carries no such
+    // field. That's true for VitePress's own type, but the field that
+    // actually matters is read by a different piece of code:
+    // @viteplus/versions' populateSidebar guards on it before injecting
+    // `base` (node_modules/@viteplus/versions/dist/index.js). Config files
+    // here go through esbuild with no `tsc` step in package.json's scripts,
+    // so the extra field below compiles fine despite not being in the type.
+    // nav has used the same field for the same purpose since before this
+    // file existed. Concretely: for the zh locale this group would
+    // otherwise get `base: '/zh/'` injected, turning the absolute link
+    // `/api/` into `/zh/api/` — a path the Function proxy (scoped to
+    // /api/*) does not serve, and which 404s on preview. The en (root)
+    // locale's `base` argument is an empty string in populateSidebar, so
+    // root was never actually affected — this group carries the field on
+    // both files anyway to make the "don't version, don't prefix" intent
+    // explicit rather than incidental.
+    //
+    // The item-level field set to '_self' below — see nav.en.mts for the
+    // full argument. Sidebar items render through VPSidebarItem.vue, which
+    // passes `item.target` straight through to the same VPLink component
+    // nav uses, so this is the same fix for the same failure: 02-UAT.md's
+    // G-02-6 only diagnosed the nav half of this; this sidebar entry was
+    // silently affected too.
     {
         text: 'API Reference',
+        skipVersioning: true,
         items: [
             {
                 text: 'API Reference',
-                link: '/api/'
+                link: '/api/',
+                target: '_self'
             }
         ]
     },

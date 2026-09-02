@@ -147,17 +147,34 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
     // （_v624/_v620/_v610）。@viteplus/versions 会把 sidebar link 重写成带版本
     // 前缀的形式（如 /v6.2.4/api/），而 Function 代理的作用域只有 /api/，归档
     // 路径不在其下；加进版本化常量会把归档读者送到两个已退役的手写页，语义与
-    // 这里完全不同。nav 侧用 skipVersioning 达到同样效果，但
-    // DefaultTheme.SidebarItem 的类型定义里没有这个字段，因此只加进 latest
-    // 常量是这里唯一能用的隔离手段。不写 base 字段：既有分组的 base 全是
-    // '/guide/'，而这条要落到 /api/ 而不是 /guide/api——绝对路径的 link 会
-    // 完全绕过 base 拼接。
+    // 这里完全不同。不写 base 字段：既有分组的 base 全是 '/guide/'，而这条要
+    // 落到 /api/ 而不是 /guide/api——绝对路径的 link 会完全绕过 base 拼接。
+    //
+    // 对原 D-30 注释的修正（02-07 规划期间发现）：此前那句「类型定义里没有
+    // 这个跳过版本化的字段所以只能靠 latest-only 放置」判断有误。VitePress
+    // 自己的类型定义里确实没有，但真正读这个字段的是另一段代码：
+    // @viteplus/versions 的 populateSidebar 在注入 base 之前会先看这个字段
+    // （node_modules/@viteplus/versions/dist/index.js）。本仓库的配置文件经
+    // esbuild 转译，package.json 的 scripts 里没有任何 tsc 步骤，所以下面这
+    // 个不在类型里的字段照样能编译通过。nav 侧早就在用同一个字段达到同样效
+    // 果。具体后果：中文 locale 下这个分组本会被注入 base: '/zh/'，把绝对路
+    // 径 /api/ 拼成 /zh/api/——这条路径不在 Function 代理（作用域 /api/*）之
+    // 下，preview 上实测 404。英文（root）locale 在 populateSidebar 里传入的
+    // base 参数是空字符串，本来就不受影响；两份文件都加这个字段，是为了让
+    // 「不做版本化、不加前缀」这个意图显式，而不是靠巧合成立。
+    //
+    // 下面这条 item 上、取值为 '_self' 的字段——完整论证见 nav.zh.mts。
+    // sidebar 的渲染路径是 VPSidebarItem.vue，它把 item.target 原样透传给
+    // 与 nav 相同的 VPLink 组件，因此这里修的是同一个失效：02-UAT.md 的
+    // G-02-6 只诊断了 nav 那一半，这条 sidebar 入口同样被悄悄波及。
     {
         text: 'API 参考',
+        skipVersioning: true,
         items: [
             {
                 text: 'API 参考',
-                link: '/api/'
+                link: '/api/',
+                target: '_self'
             }
         ]
     },
