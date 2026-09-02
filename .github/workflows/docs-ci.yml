@@ -14,7 +14,7 @@ on:
   # No `workflow_dispatch` either — there is no pre-release manual-run use case
   # for a doc-only build/parity gate.
 
-# All four jobs only read the repository, build the site, and run local scripts —
+# All five jobs only read the repository, build the site, and run local scripts —
 # none needs write access, so the default token is narrowed to read-only.
 permissions:
   contents: read
@@ -97,3 +97,24 @@ jobs:
 
       - name: Check javadoc palette override block against WCAG contrast thresholds
         run: python3 scripts/check-contrast.py functions/api/_shared/palette.js
+
+  sidebar-links:
+    # 检查方向与 bilingual-parity 相反：那道查「docs/src 下每个页面是否在
+    # sidebar 里有入口」（页面 -> sidebar）；这道查「sidebar 与 nav 里的每条
+    # link 是否指向一个真实存在的页面」（sidebar/nav -> 页面）。两道合起来才
+    # 覆盖 .planning/todos/pending/sidebar-nav-link-gate-blind-spot.md 记的
+    # 那个盲区——此前 sidebar/nav 的 link 值完全不在任何门禁的检查范围内。
+    # 豁免清单（Cloudflare Pages Function 接管的运行时路由，如 /api/）写在
+    # scripts/check-sidebar-links.sh 的 RUNTIME_ROUTE_EXEMPT 里，是精确 link
+    # 值的清单，不是路径前缀通配。
+    name: Sidebar and nav link targets resolve
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 只读本地脚本与本地配置文件，不需要持久化凭据
+          persist-credentials: false
+
+      - name: Check sidebar and nav link targets resolve to real pages
+        run: bash scripts/check-sidebar-links.sh
