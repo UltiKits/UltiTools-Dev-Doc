@@ -269,13 +269,43 @@ export async function onRequestGet(context) {
         // the <li> markup escaped into visible text instead of parsed as
         // HTML.
         const backlink = backlinkLiHtml(segments[0], ARCHIVED_VERSIONS);
+        // CR-02 (02-REVIEW.md): same reasoning as the stylesheet branch's
+        // weakEtag() call above — the served bytes are not byte-for-byte
+        // identical to any single upstream representation, so upstream's
+        // own ETag must not be passed through untouched. Set it on a
+        // pre-transform copy of the headers (not the eventual stored/
+        // outgoing headers built later in onRequestGet) so HTMLRewriter's
+        // transform() carries it straight into both the client response
+        // and the copy readThrough writes into caches.default — this is
+        // the same composite validator, computed the same way, just
+        // applied to the branch whose bytes actually change per D-29's
+        // version-aware backlink and per CR-01's fingerprint fix.
+        //
+        // Content-Length is deliberately left untouched here, unlike the
+        // stylesheet branch's explicit `headers.delete('Content-Length')`:
+        // the body handed to HTMLRewriter.transform() below is a streamed
+        // ReadableStream, not a fixed-length source, and Cloudflare's own
+        // Response docs state "The Content-Length header is automatically
+        // set by the runtime based on the Response data source, and any
+        // manual value set in Headers will be ignored... Using any other
+        // type of ReadableStream results in chunked encoding"
+        // (developers.cloudflare.com/workers/runtime-apis/response). A
+        // stale Content-Length value surviving in this Headers object has
+        // no effect on what is actually sent.
+        const headers = new Headers(upstreamResponse.headers);
+        headers.set('ETag', weakEtag(upstreamResponse.headers.get('etag'), stamp));
         return new HTMLRewriter()
           .on('ul#navbar-top-firstrow', {
             element(el) {
               el.prepend(backlink, { html: true });
             },
           })
-          .transform(upstreamResponse);
+          .transform(
+            new Response(upstreamResponse.body, {
+              status: upstreamResponse.status,
+              headers,
+            })
+          );
       },
     };
   }
