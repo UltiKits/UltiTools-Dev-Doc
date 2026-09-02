@@ -70,6 +70,12 @@ function isValidSegment(segment) {
 // every time a new version shape appears, where the regex needs none.
 const VERSION_SEGMENT_RE = /^\d+(?:\.\d+)*$/;
 
+// G-02-10: the exact three path segments upstream's own stylesheet.css
+// @import points at, relative to a version root (`/api/{version}/`). See the
+// branch below (just above upstreamUrl's construction) for why this one
+// subpath gets answered inside this Function instead of being proxied.
+const SELF_ANSWERED_DEJAVU_SUBPATH = 'resources/fonts/dejavu.css';
+
 // A segment counts as a non-HTML asset request when its last path component
 // has a dot-extension that isn't "html" (e.g. stylesheet.css,
 // member-search-index.js). No extension at all, or an .html extension, is
@@ -247,6 +253,100 @@ export async function onRequestGet(context) {
     const location = new URL(`/api/${segments[0]}/index.html`, context.request.url);
     const headers = withStandardHeaders(new Headers({ Location: location.toString() }));
     return new Response(null, { status: 302, headers });
+  }
+
+  // G-02-10: upstream's own stylesheet.css (served by the isStylesheet
+  // branch below) imports a font subpath that does not exist upstream.
+  // Answered here, before upstreamUrl is even constructed, so this branch
+  // never issues a fetch and never touches HTMLRewriter.
+  //
+  // 1. What upstream is doing, and the measurement behind it: stylesheet.css
+  //    line 5 reads `@import url('resources/fonts/dejavu.css')` in every
+  //    indexed version checked during planning (6.1.0, 6.2.0, 6.2.5 — that
+  //    line is byte-identical across all three). The published
+  //    UltiTools-API jar ships no DejaVu font files, and javadoc.io's own
+  //    origin 404s on the same subpath. This is not a defect this
+  //    repository introduced — it is upstream behavior, faithfully
+  //    proxied.
+  //
+  // 2. Why answer a zero-visual-impact 404 at all: palette.js:170-172
+  //    already overrides all three font-family custom properties this
+  //    stylesheet would otherwise resolve DejaVu into, so DejaVu is never
+  //    referenced by anything this site renders, loaded or not — the
+  //    rendered page is byte-for-byte the same either way. This branch does
+  //    NOT make the font load; it only silences a console error. Do not
+  //    describe this as "the font now loads" — it does not, and was never
+  //    going to. The only observable difference is whether that red 404
+  //    sits in devtools.
+  //
+  // 3. Why an exact four-segment match, not an extension match or a
+  //    resources/ prefix match, with the measurements that ruled each out:
+  //    under the same version, script-dir/jquery-ui.min.css returns 200 and
+  //    stylesheet.css returns 200 — an extension match on .css would empty
+  //    both, including the very file this Phase appends OVERRIDE_BLOCK to.
+  //    resources/glass.png returns 200 (499 bytes) and resources/x.png
+  //    returns 200 — a resources/ prefix match would erase the magnifier
+  //    icon UAT test 4 confirmed rendering. Both measured live against
+  //    upstream during planning for G-02-10.
+  //
+  // 4. The reason underneath those specific casualties: any match wider
+  //    than this one exact subpath swallows other genuine upstream 404s
+  //    along with it, making a real upstream outage invisible behind this
+  //    Function's own synthesized 200. Staying able to see upstream fail is
+  //    the one thing this proxy cannot give up — the maintainer's ruling on
+  //    G-02-10 wrote this in as a scope boundary, not a tradeoff left to
+  //    implementation convenience.
+  //
+  // 5. Why the version segment is guarded by VERSION_SEGMENT_RE: version is
+  //    the only part of this subpath that legitimately varies. Reusing the
+  //    existing anchored whitelist (rather than adding a second regex)
+  //    keeps /api/anything/resources/fonts/dejavu.css from getting this
+  //    synthesized 200. Reused here purely as a guard, not interpolated
+  //    into a Location the way G-02-7 uses it above — this use can only
+  //    narrow what qualifies, never widen it.
+  //
+  // 6. Why this branch sits before upstreamUrl is constructed: the position
+  //    itself is the proof that this path never produces an upstream
+  //    request — no comment has to assert it separately. The deployed gate
+  //    confirms this against a never-indexed version (9.9.9): if any
+  //    upstream request had actually fired for that version, it would 404,
+  //    not 200.
+  //
+  // 7. Why Content-Type is part of the fix, not decoration: in standard
+  //    mode, a browser refuses to apply an @import target whose response
+  //    isn't served as CSS, and still logs a console error regardless of
+  //    status code. A 200 with the wrong MIME type would just trade one
+  //    console error for a different one.
+  //
+  // 8. Cache lifetime and what did NOT change: max-age=3600 on both sides
+  //    matches the stylesheet branch's own TTL (D-20) — the rule that a
+  //    response carrying this repository's own bytes does not inherit
+  //    upstream's one-year max-age. The short TTL also bounds how long a
+  //    reader could be left holding this empty stylesheet if this branch is
+  //    ever reverted. This response is deliberately NOT folded into
+  //    themeStamp's fingerprint: it never goes through readThrough, never
+  //    enters the edge read/write cache, and carries no theme-derived
+  //    bytes — there is nothing here that could go stale relative to a
+  //    theme change. Writing this down (rather than leaving it silent) lets
+  //    the next reader tell "considered and excluded" apart from
+  //    "forgotten", the same treatment palette.js gives font sizes it
+  //    deliberately leaves uncovered.
+  if (
+    segments.length === 4 &&
+    VERSION_SEGMENT_RE.test(segments[0]) &&
+    segments.slice(1).join('/') === SELF_ANSWERED_DEJAVU_SUBPATH
+  ) {
+    const headers = withStandardHeaders(new Headers());
+    headers.set('Content-Type', 'text/css; charset=utf-8');
+    headers.set('Cache-Control', 'public, max-age=3600');
+    headers.set('Cloudflare-CDN-Cache-Control', 'public, max-age=3600');
+    headers.set('x-version-generated-at', GENERATED_AT);
+    // T-02-10-03 (threat register): a boolean fact only, same shape as the
+    // existing x-upstream-redirect: blocked header — no upstream URL, no
+    // internal path, no input beyond the version segment already visible in
+    // the request URL itself.
+    headers.set('x-upstream-fetch', 'skipped');
+    return new Response(null, { status: 200, headers });
   }
 
   const upstreamUrl = new URL(
