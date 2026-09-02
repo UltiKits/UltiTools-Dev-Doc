@@ -14,7 +14,7 @@ on:
   # No `workflow_dispatch` either — there is no pre-release manual-run use case
   # for a doc-only build/parity gate.
 
-# All three jobs only read the repository, build the site, and run local scripts —
+# All four jobs only read the repository, build the site, and run local scripts —
 # none needs write access, so the default token is narrowed to read-only.
 permissions:
   contents: read
@@ -74,3 +74,26 @@ jobs:
         # 不要加 xargs 的 -r：find 无结果时 xargs 仍调用一次命令，检查器的零参数守卫
         # 因此会以非零码退出；加了 -r 就变成静默通过，正是这道门禁要消灭的失效方式。
         run: find docs/src -name '*.md' -print0 | xargs -0 bash scripts/check-container-length.sh
+
+  palette-contrast:
+    # 检查对象：functions/api/_shared/palette.js 的 OVERRIDE_BLOCK —— 追加进
+    # javadoc stylesheet.css 尾部、覆盖 33 个自定义属性的浅深两色表（D-19 至
+    # D-24）。输入是这个 .js 文件本身而不是一份 .css：覆盖块是 Function 里的
+    # 一段模板字符串常量，源码就是唯一的真值来源，它拼接后的渲染产物不进仓
+    # 库、也不在构建产物里，没有第二份可读的东西。
+    # scripts/fixtures/ 下两份样例的作用：一道新门禁报「零违规」和它其实没
+    # 读到输入，在 CI 日志上看起来一模一样；两份样例分别证明它对一份必然
+    # 达标的输入以 0 退出、对一份只改了一个色值的输入以 1 退出并点名那一
+    # 对，唯有喂给它这样的输入才能把两种情况区分开（scripts/check-
+    # contrast.py 的头注释有完整推理）。
+    name: Javadoc palette contrast (WCAG)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 只读本地脚本与本地常量文件，不需要持久化凭据
+          persist-credentials: false
+
+      - name: Check javadoc palette override block against WCAG contrast thresholds
+        run: python3 scripts/check-contrast.py functions/api/_shared/palette.js
