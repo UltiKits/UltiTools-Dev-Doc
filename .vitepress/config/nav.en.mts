@@ -7,7 +7,8 @@ const navEN = [
     {
         text: 'API Reference',
         activeMatch: `/api/`,
-        link: '/api/version-wrapper'
+        link: '/api/',
+        skipVersioning: true
     },
     {
         text: 'User Doc',

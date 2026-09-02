@@ -13,7 +13,12 @@ export default withPwa(
     defineVersionedConfig({
         srcDir: 'docs',
         lastUpdated: true,
-        ignoreDeadLinks: false,
+        // /api/ is proxied at request time by the Cloudflare Pages Function
+        // (functions/api/[[path]].js) and is never a VitePress-rendered page —
+        // no docs/src/api/index.md exists or should exist (01-04-PLAN.md D-13/D-14).
+        // The dead-link checker resolves a trailing-slash link to "<path>/index",
+        // so this ignores exactly that one resolved path and nothing deeper under /api/.
+        ignoreDeadLinks: [/^\/api\/index$/],
         head: [['link', { rel: 'icon', href: '/favicon.ico' }]],
         sitemap: { hostname: 'https://dev.ultikits.com' },
         locales: { ...localeZH, ...localeEN },

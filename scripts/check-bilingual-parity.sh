@@ -105,9 +105,16 @@ check_extraction() {
   fi
 }
 
-# 前缀由脚本自己补，不是从 sidebar 源文件推断——sidebarApiEN/sidebarApiZH 内部
+# 前缀由脚本自己补，不是从 sidebar 源文件推断——sidebarGuideEN/sidebarGuideZH 内部
 # 完全没有 base: 字段，这层映射来自 .vitepress/config/locale.en.mts 的多 sidebar
-# 映射表：sidebarGuide* 隐含挂在 /guide/ 下，sidebarApi* 隐含挂在 /api/ 下。
+# 映射表：sidebarGuide* 隐含挂在 /guide/ 下。
+#
+# sidebarApiEN/sidebarApiZH 的抽取层已随 01-04-PLAN.md（D-18）移除——这是一次零
+# 覆盖移除，不是放宽门禁。依据有两条：docs/src/api/ 与 docs/src/zh/api/ 两个目
+# 录在同一 plan 里被删空，那层抽取此前覆盖的就是 0 个 docs/src/ 页面；而它抽出
+# 的 sidebar link 指向的两个页面全部落在 docs/archive/ 下，本脚本 :11 已经声明
+# 扫描范围不含归档树。sidebarApiEN/sidebarApiZH 两个常量本身与它们的 export 都
+# 继续保留（六条归档 sidebar key 仍在消费），只是不再参与本脚本的覆盖检查。
 build_paths() {
   local raw="$1" prefix="$2"
   if [ -n "$raw" ]; then
@@ -116,26 +123,22 @@ build_paths() {
 }
 
 guide_links_en=$(extract_sidebar_links "sidebarGuideEN" "$ROOT/.vitepress/config/sidebar.en.mts")
-api_links_en=$(extract_sidebar_links "sidebarApiEN" "$ROOT/.vitepress/config/sidebar.en.mts")
 guide_links_zh=$(extract_sidebar_links "sidebarGuideZH" "$ROOT/.vitepress/config/sidebar.zh.mts")
-api_links_zh=$(extract_sidebar_links "sidebarApiZH" "$ROOT/.vitepress/config/sidebar.zh.mts")
 
 echo "第二层：docs/src/ 下每个页面在对应语种 latest sidebar 里的入口覆盖"
 check_extraction "sidebarGuideEN" "$ROOT/.vitepress/config/sidebar.en.mts" "$guide_links_en"
-check_extraction "sidebarApiEN" "$ROOT/.vitepress/config/sidebar.en.mts" "$api_links_en"
 check_extraction "sidebarGuideZH" "$ROOT/.vitepress/config/sidebar.zh.mts" "$guide_links_zh"
-check_extraction "sidebarApiZH" "$ROOT/.vitepress/config/sidebar.zh.mts" "$api_links_zh"
 
-covered_en=$( { build_paths "$guide_links_en" "guide/"; build_paths "$api_links_en" "api/"; \
+covered_en=$( { build_paths "$guide_links_en" "guide/"; \
                 printf '%s\n' "$SIDEBAR_EXEMPT"; } | sort )
-covered_zh=$( { build_paths "$guide_links_zh" "guide/"; build_paths "$api_links_zh" "api/"; \
+covered_zh=$( { build_paths "$guide_links_zh" "guide/"; \
                 printf '%s\n' "$SIDEBAR_EXEMPT"; } | sort )
 
 uncovered_en=$(comm -23 <(printf '%s\n' "$en_pages") <(printf '%s\n' "$covered_en"))
 uncovered_zh=$(comm -23 <(printf '%s\n' "$zh_pages") <(printf '%s\n' "$covered_zh"))
 
-report_missing "docs/src/ 下未进入 sidebarGuideEN/sidebarApiEN（豁免清单之外）的页面" "$uncovered_en"
-report_missing "docs/src/zh/ 下未进入 sidebarGuideZH/sidebarApiZH（豁免清单之外）的页面" "$uncovered_zh"
+report_missing "docs/src/ 下未进入 sidebarGuideEN（豁免清单之外）的页面" "$uncovered_en"
+report_missing "docs/src/zh/ 下未进入 sidebarGuideZH（豁免清单之外）的页面" "$uncovered_zh"
 
 # 只有 parity_status 决定退出码——上面两节的所有 OK/FAIL 判定都汇入这一个变量。
 exit "$parity_status"

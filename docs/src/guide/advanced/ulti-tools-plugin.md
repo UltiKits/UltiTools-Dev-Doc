@@ -1,9 +1,9 @@
 ::: warning 🚧 This page is under construction
-The content of this page may not be the latest. You can go to [Javadoc](https://doc.dev.ultikits.com/javadoc) to see the latest content.
+The full class reference for `UltiToolsPlugin` is on the [Javadoc](/api/) page.
 :::
 
-::: tip 🐌 This page update slowly
-The content of this page may be outdated. You can go to [Javadoc](https://doc.dev.ultikits.com/javadoc) to see the latest content.
+::: tip 🐌 This page updates less often than the Javadoc
+See the [Javadoc](/api/) for the current API surface.
 :::
 
 # 类 `UltiToolsPlugin`
