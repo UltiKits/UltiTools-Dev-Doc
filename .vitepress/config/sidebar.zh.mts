@@ -143,6 +143,24 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
             }
         ]
     },
+    // D-30：这一条只加进 latest 常量（sidebarGuideEN/ZH），不进任何版本化常量
+    // （_v624/_v620/_v610）。@viteplus/versions 会把 sidebar link 重写成带版本
+    // 前缀的形式（如 /v6.2.4/api/），而 Function 代理的作用域只有 /api/，归档
+    // 路径不在其下；加进版本化常量会把归档读者送到两个已退役的手写页，语义与
+    // 这里完全不同。nav 侧用 skipVersioning 达到同样效果，但
+    // DefaultTheme.SidebarItem 的类型定义里没有这个字段，因此只加进 latest
+    // 常量是这里唯一能用的隔离手段。不写 base 字段：既有分组的 base 全是
+    // '/guide/'，而这条要落到 /api/ 而不是 /guide/api——绝对路径的 link 会
+    // 完全绕过 base 拼接。
+    {
+        text: 'API 参考',
+        items: [
+            {
+                text: 'API 参考',
+                link: '/api/'
+            }
+        ]
+    },
 ]
 
 const sidebarGuideZH_v610: DefaultTheme.SidebarItem[] = [
@@ -282,11 +300,14 @@ const sidebarGuideZH_v620: DefaultTheme.SidebarItem[] = [
             {
                 text: '配置校验',
                 link: 'advanced/config-validation'
-            },
-            {
-                text: '外部插件 API',
-                link: 'advanced/external-plugin-api'
             }
+            // D-35 存量违规修复：「外部插件 API」这个 guide 页面在
+            // v6.2.1 与 v6.2.0 两个归档版本里都不存在（该页最早出现在
+            // v6.2.2）。sidebarGuideZH_v620 同时被 locale.zh.mts 映射给
+            // 'v6.2.1/guide/' 与 'v6.2.0/guide/' 两个 key，两处这条 link 都指
+            // 空——这正是新 sidebar-links 门禁（D-35）要抓的第一批存量违规。
+            // 整条删除，不改指他处：sidebarGuideZH_v624（服务 v6.2.2/v6.2.3/
+            // v6.2.4，三个版本都有这个页面）下方保持原样不动。
         ]
     },
     {

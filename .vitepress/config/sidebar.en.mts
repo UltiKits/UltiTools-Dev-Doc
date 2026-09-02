@@ -143,6 +143,27 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
             }
         ]
     },
+    // D-30: this entry is added ONLY to the latest constant (sidebarGuideEN /
+    // sidebarGuideZH), never to any versioned constant (_v624 / _v620 / _v610).
+    // @viteplus/versions rewrites sidebar links to a version-prefixed form
+    // (e.g. /v6.2.4/api/) for versioned constants, but the Function proxy's
+    // scope is only /api/ — an archived prefix is outside it. Adding this to a
+    // versioned constant would send archived readers to two already-retired
+    // hand-written pages with unrelated content. nav achieves the same
+    // "don't version this" effect via skipVersioning, but
+    // DefaultTheme.SidebarItem carries no such field, so latest-only placement
+    // is the only isolation mechanism available here. No `base` field: every
+    // existing group's base is '/guide/', and this link must resolve to
+    // /api/, not /guide/api — an absolute link bypasses `base` entirely.
+    {
+        text: 'API Reference',
+        items: [
+            {
+                text: 'API Reference',
+                link: '/api/'
+            }
+        ]
+    },
 ]
 
 const sidebarGuideEN_v610: DefaultTheme.SidebarItem[] = [
@@ -282,11 +303,16 @@ const sidebarGuideEN_v620: DefaultTheme.SidebarItem[] = [
             {
                 text: 'Config Validation',
                 link: 'advanced/config-validation'
-            },
-            {
-                text: 'External Plugin API',
-                link: 'advanced/external-plugin-api'
             }
+            // D-35 stock-violation fix: the "External Plugin API" guide page
+            // does not exist in either v6.2.1 or v6.2.0 (the page was first
+            // introduced in v6.2.2). sidebarGuideEN_v620 is mapped by
+            // locale.en.mts to BOTH 'v6.2.1/guide/' and 'v6.2.0/guide/', so
+            // this link resolved to nothing in either archived version — the
+            // first stock violation the new sidebar-links gate (D-35) exists
+            // to catch. Removed entirely rather than repointed, since
+            // sidebarGuideEN_v624 (serving v6.2.2/v6.2.3/v6.2.4, all three of
+            // which have the page) keeps the same entry unchanged below.
         ]
     },
     {
