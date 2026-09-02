@@ -141,9 +141,20 @@ check_guide_constant() {
       [ -z "$link" ] && continue
       case "$link" in
         /*)
-          # Absolute link (a Function route added by D-30). Does not go
-          # through file resolution and is not counted in the total — see
-          # header comment; this is the "新增 2 条走豁免不计入" carve-out.
+          # Absolute link (a Function route added by D-30). Routed through
+          # the same is_exempt() check_nav uses (WR-03, 02-REVIEW.md):
+          # previously ANY absolute link skipped file resolution here
+          # unconditionally, based on shape alone — exactly the open-ended
+          # exemption the header comment above argues against. Only an
+          # exact-match entry in RUNTIME_ROUTE_EXEMPT is still skipped
+          # (uncounted, matching the "新增 2 条走豁免不计入" carve-out); an
+          # absolute link that is NOT in that list is counted and fails
+          # loudly instead of being silently waved through.
+          if is_exempt "$link"; then
+            continue
+          fi
+          total=$((total + 1))
+          fail_line "$const_name -> ${version:-latest} -> unexempted absolute link $link"
           continue
           ;;
       esac
