@@ -15,9 +15,17 @@
 import { GENERATED_AT, CURRENT_VERSION, ARCHIVED_VERSIONS } from './_shared/version.generated.js';
 import { readThrough } from './_shared/cache.js';
 import { notIndexedPage, upstreamDownPage } from './_shared/pages.js';
-import { PALETTE_MARKER, OVERRIDE_BLOCK } from './_shared/palette.js';
+// PALETTE_MARKER dropped from this import (02-09 cleanup, editing this line
+// anyway for appearance.js below): OVERRIDE_BLOCK is the only export of
+// palette.js this file actually reads; PALETTE_MARKER has no reference
+// below it.
+import { OVERRIDE_BLOCK } from './_shared/palette.js';
 import { backlinkLiHtml } from './_shared/backlink.js';
 import { withStandardHeaders } from './_shared/headers.js';
+// G-02-8: the appearance-detection script appended to every HTML response's
+// <head> below. See that module's own header comment for the full
+// reasoning (VitePress parity, sync-inline requirement, class semantics).
+import { APPEARANCE_SCRIPT } from './_shared/appearance.js';
 
 // Upstream host and protocol live ONLY here. context.params.path never
 // contributes to host/protocol — that boundary is the SSRF mitigation (T-01-01
@@ -107,15 +115,25 @@ function isNonHtmlAsset(lastSegment) {
 // exists to catch.
 //
 // Net effect: changing any color value in OVERRIDE_BLOCK, changing the
-// <li>'s structure or copy, or archiving a new version all change the
-// fingerprint automatically — no one has to remember to bump a version
-// number by hand.
+// <li>'s structure or copy, changing the injected appearance script's
+// bytes, or archiving a new version all change the fingerprint
+// automatically — no one has to remember to bump a version number by
+// hand.
+//
+// G-02-8: APPEARANCE_SCRIPT is folded in for the same reason ARCHIVED_
+// VERSIONS is — it is served bytes this Function controls that can change
+// without any other input here changing, so leaving it out would mean an
+// edit to appearance.js never invalidates HTML already sitting in the
+// edge cache (same failure CR-01 fixed for ARCHIVED_VERSIONS, 02-REVIEW.md).
 let themeStampPromise;
 
 function themeStamp() {
   if (!themeStampPromise) {
     const fingerprintSource =
-      OVERRIDE_BLOCK + backlinkLiHtml('0.0.0', []) + ARCHIVED_VERSIONS.join(',');
+      OVERRIDE_BLOCK +
+      backlinkLiHtml('0.0.0', []) +
+      ARCHIVED_VERSIONS.join(',') +
+      APPEARANCE_SCRIPT;
     themeStampPromise = crypto.subtle
       .digest('SHA-256', new TextEncoder().encode(fingerprintSource))
       .then((digest) => {
@@ -282,11 +300,42 @@ export async function onRequestGet(context) {
     readThroughOptions = {
       cacheKey: stampedCacheKey(context.request, stamp),
       transformOk: async (upstreamResponse) => {
-        // D-27: the ONLY structural change this Function makes to upstream
-        // HTML is prepending exactly one <li> to this one selector. The
-        // second argument to prepend is required — omitting it would have
-        // the <li> markup escaped into visible text instead of parsed as
-        // HTML.
+        // D-27 (REVISED for G-02-8 — see 02-UAT.md's Scope Decision, D-38):
+        // this Function now makes exactly TWO structural changes to
+        // upstream HTML, not one. The original invariant ("the only
+        // structural change is prepending one <li>") was explicitly
+        // relaxed by the maintainer when scoping G-02-8: APIREF-02's
+        // implementation constraint (custom-property overrides only) was
+        // never meant to forbid appearance sync, and syncing the site's
+        // own toggle onto this page structurally requires injecting a
+        // script — there is no custom-property-only way to read
+        // localStorage. The two changes are:
+        //   1. Prepending one <li> to ul#navbar-top-firstrow (unchanged
+        //      from the original D-27 — the guide/API backlink).
+        //   2. Appending one inline <script> to <head> (new in G-02-8 —
+        //      the appearance-detection script, functions/api/_shared/
+        //      appearance.js).
+        // This relaxation is scoped to appearance sync only. It does NOT
+        // extend to the deep-mode magnifier icon test 4 exempted under
+        // the same APIREF-02 constraint — that stays out of scope unless
+        // separately decided.
+        //
+        // Cache argument, re-verified against the actual implementation
+        // (not assumed) before writing this paragraph: APPEARANCE_SCRIPT
+        // is a build-time constant (see appearance.js's own header
+        // comment — zero request-time input), so the bytes appended here
+        // are identical for every reader of a given deploy; which theme
+        // those bytes RESOLVE to is decided entirely client-side, inside
+        // the injected script, after the response has already left this
+        // Function. stampedCacheKey (below) is still exactly "URL +
+        // themeStamp", and themeStamp's fingerprintSource now folds in
+        // APPEARANCE_SCRIPT (see that function's own comment) so an edit
+        // to this script busts already-cached HTML the same way an edit
+        // to OVERRIDE_BLOCK or a new archived version already did — but
+        // neither the cache key's SHAPE nor its per-reader behavior
+        // changes: no new dimension is added, and no Vary header is
+        // introduced, because nothing about the response varies by
+        // reader in the first place.
         const backlink = backlinkLiHtml(segments[0], ARCHIVED_VERSIONS);
         // CR-02 (02-REVIEW.md): same reasoning as the stylesheet branch's
         // weakEtag() call above — the served bytes are not byte-for-byte
@@ -319,6 +368,19 @@ export async function onRequestGet(context) {
               el.prepend(backlink, { html: true });
             },
           })
+          .on('head', {
+            // append, not prepend: prepending would insert ahead of
+            // upstream's own <meta charset> tag, moving it out of the
+            // "first 1024 bytes" position browsers require for charset
+            // sniffing to reliably kick in. Appending lands at the end of
+            // <head> instead, leaving charset's position untouched while
+            // still executing before body parsing begins — first paint
+            // never happens ahead of this script, so there is no flash of
+            // the wrong theme.
+            element(el) {
+              el.append(APPEARANCE_SCRIPT, { html: true });
+            },
+          })
           .transform(
             new Response(upstreamResponse.body, {
               status: upstreamResponse.status,
@@ -338,9 +400,9 @@ export async function onRequestGet(context) {
       // D-20/D-27: the edge copy keeps following upstream's own long TTL
       // (the stored response's headers are untouched by this branch) — only
       // what's sent to THIS browser is shortened, because this response now
-      // carries this repository's own bytes (the injected backlink <li>)
-      // and upstream's one-year max-age was never a promise about those
-      // bytes.
+      // carries this repository's own bytes (the injected backlink <li> and,
+      // as of G-02-8, the injected appearance-detection <script>) and
+      // upstream's one-year max-age was never a promise about those bytes.
       headers.set('Cache-Control', 'public, max-age=3600');
     }
     return new Response(result.response.body, {

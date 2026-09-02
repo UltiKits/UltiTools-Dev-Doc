@@ -214,11 +214,47 @@ const DARK_DECLARATIONS = `
        deliberately NOT overridden — see header "Not covered" note. */`;
 // palette-table:dark:end
 
+// Class this repository's own injected script (./appearance.js) adds to
+// <html> when the reader's EFFECTIVE appearance (site toggle, defaulting to
+// system preference in 'auto') resolves to light, so the media-query rule
+// below can be told to stand down even on a system that prefers dark.
+// Exported (not just a local literal) so appearance.js — the only other
+// file that needs this exact string — imports it instead of carrying a
+// second hand-typed copy that could drift from this one.
+export const APPEARANCE_LIGHT_CLASS = 'ultitools-appearance-light';
+
+// G-02-8: DARK_DECLARATIONS is applied by TWO rules below, not one —
+// :root.dark is a class selector, so it can only be turned on by our own
+// injected script; the pre-existing prefers-color-scheme media query is
+// the sole trigger when that script never runs at all (disabled JS, a
+// localStorage read that throws, or any other exception the script's own
+// try/catch swallows). Both rules have equal specificity (:root plus one
+// class-level selector each — :not()'s specificity is that of its
+// argument), so which one applies to a given reader is decided by
+// declaration order, not by which is "more specific": the class rule is
+// written AFTER the media query on purpose, so an explicit .dark class
+// wins on a system that also happens to prefer dark (same declaration,
+// so no visible difference there) and, more importantly, so a reader who
+// has NOT explicitly chosen dark never sees the class rule's declarations
+// leak in ahead of the media query's own gating.
+//
+// Six reachable combinations and which rule each one hits:
+//   script ran, site=dark                       -> :root.dark            (dark)
+//   script ran, site=light                       -> neither rule matches  (light, via plain :root)
+//   script ran, site=auto, system prefers dark    -> :root.dark            (dark)
+//   script ran, site=auto, system prefers light   -> neither rule matches  (light)
+//   script did not run, system prefers dark       -> the media query       (dark)
+//   script did not run, system prefers light      -> neither rule matches  (light)
+// The last two rows are the pre-G-02-8 behavior, unchanged: no script, no
+// classes, prefers-color-scheme alone decides — this IS the degraded path
+// the "script never runs" truth in this plan requires.
 export const OVERRIDE_BLOCK = `${PALETTE_MARKER}
 :root {${LIGHT_DECLARATIONS}
 }
 @media (prefers-color-scheme: dark) {
-  :root {${DARK_DECLARATIONS}
+  :root:not(.${APPEARANCE_LIGHT_CLASS}) {${DARK_DECLARATIONS}
   }
+}
+:root.dark {${DARK_DECLARATIONS}
 }
 `;
