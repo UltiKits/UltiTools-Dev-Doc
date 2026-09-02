@@ -12,9 +12,11 @@
 // changes). If Phase 2 needs scoping the auto-generated file can't express,
 // re-evaluate then.
 
-import { GENERATED_AT, CURRENT_VERSION } from './_shared/version.generated.js';
+import { GENERATED_AT, CURRENT_VERSION, ARCHIVED_VERSIONS } from './_shared/version.generated.js';
 import { readThrough } from './_shared/cache.js';
 import { notIndexedPage, upstreamDownPage } from './_shared/pages.js';
+import { PALETTE_MARKER, OVERRIDE_BLOCK } from './_shared/palette.js';
+import { backlinkLiHtml } from './_shared/backlink.js';
 
 // Upstream host and protocol live ONLY here. context.params.path never
 // contributes to host/protocol — that boundary is the SSRF mitigation (T-01-01
@@ -44,13 +46,85 @@ function isNonHtmlAsset(lastSegment) {
 }
 
 // Every response this Function produces — 2xx, redirect, or error — carries
-// these two headers (D-05): no upstream canonical, always noindex. Applied
-// as the very last step before a Response leaves this file so no branch can
-// forget it.
+// these headers (D-05, D-26). Applied as the very last step before a
+// Response leaves this file so no branch can forget it.
 function withStandardHeaders(headers) {
   headers.delete('link');
   headers.set('X-Robots-Tag', 'noindex');
+  // D-26: a Content-Security-Policy without a nonce (a nonce must be unique
+  // per response, which would defeat edge caching entirely — see
+  // 02-CONTEXT.md's Deferred Ideas). style-src carries 'unsafe-inline' in
+  // addition to the five directives D-26 originally enumerated
+  // (default-src, script-src, connect-src, object-src, base-uri):
+  // functions/api/_shared/pages.js's two degraded pages each embed a
+  // <style> block via styleBlock(), and style-src's default inheritance
+  // from default-src 'self' would block inline <style> tags, degrading
+  // those fallback pages to unstyled plain text — exactly what Phase 1's
+  // acceptance criteria 3 requires they not be. Adding 'unsafe-inline' to
+  // style-src does not widen the egress this CSP exists to close: outbound
+  // network connections are still limited to same-origin by connect-src
+  // 'self', object-src 'none' still blocks plugins, base-uri 'self' still
+  // blocks relative-URL-base hijacking, and any url(...) reference inside
+  // CSS remains bound by default-src 'self'. script-src also carries
+  // 'unsafe-inline' — javadoc's own page has exactly one inline <script>
+  // block (sets `pathtoroot` and calls `loadScripts`) that the page's own
+  // search and navigation depend on; nonce-ing it has the same caching
+  // problem as above.
+  headers.set(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'self'"
+  );
   return headers;
+}
+
+// Module-level memoization: the fingerprint depends only on this module's
+// own template output (OVERRIDE_BLOCK plus a fixed-argument rendering of
+// backlinkLiHtml), never on any request, so every request in the same
+// isolate reuses the same Promise instead of re-hashing identical bytes.
+// Fixed arguments ('0.0.0', []) are used specifically so the fingerprint is
+// determined entirely by source code text: changing any color value in
+// OVERRIDE_BLOCK, or changing the <li>'s structure or copy, changes the
+// fingerprint automatically — no one has to remember to bump a version
+// number by hand.
+let themeStampPromise;
+
+function themeStamp() {
+  if (!themeStampPromise) {
+    const fingerprintSource = OVERRIDE_BLOCK + backlinkLiHtml('0.0.0', []);
+    themeStampPromise = crypto.subtle
+      .digest('SHA-256', new TextEncoder().encode(fingerprintSource))
+      .then((digest) => {
+        const bytes = new Uint8Array(digest).slice(0, 4);
+        return Array.from(bytes)
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('');
+      });
+  }
+  return themeStampPromise;
+}
+
+// The theme fingerprint is folded into the HTML edge-cache key (not into the
+// key for stylesheet.css, which uses a short TTL instead — see the
+// stylesheet branch below). This is the only channel by which a theming
+// change reaches a reader whose copy is already sitting in the edge cache:
+// the edge cache key is the URL, so without the fingerprint in it, a reader
+// requesting an already-cached class page keeps getting yesterday's <li> and
+// yesterday's palette (via the stylesheet's own long-lived edge copy, before
+// its own TTL) until upstream's long max-age naturally expires.
+function stampedCacheKey(request, stamp) {
+  const url = new URL(request.url);
+  url.searchParams.set('__theme', stamp);
+  return new Request(url.toString(), request);
+}
+
+// Builds a weak validator ETag by combining the upstream's own ETag (or the
+// literal "noetag" when upstream didn't send one) with the theme fingerprint,
+// joined by a single hyphen. Weak (W/) because the bytes being served are not
+// byte-for-byte identical to any single upstream representation — they're
+// upstream bytes plus an appended override block.
+function weakEtag(upstreamEtag, stamp) {
+  const base = upstreamEtag ? upstreamEtag.replace(/^W\//, '').replace(/"/g, '') : 'noetag';
+  return `W/"${base}-${stamp}"`;
 }
 
 export async function onRequestGet(context) {
@@ -120,11 +194,83 @@ export async function onRequestGet(context) {
     UPSTREAM_ORIGIN
   );
 
-  const result = await readThrough(context, context.request, upstreamUrl);
+  const lastSegment = segments[segments.length - 1];
+  // Exact filename match, not extension match: an extension match (".css")
+  // would also catch any other upstream stylesheet javadoc might ship in a
+  // future version, none of which this override block is written for.
+  const isStylesheet = lastSegment === 'stylesheet.css';
+  const isHtmlRequest = !isNonHtmlAsset(lastSegment);
+
+  let readThroughOptions;
+
+  if (isStylesheet) {
+    readThroughOptions = {
+      // This is the only place in this Function that reads an upstream body
+      // entirely into memory. That is allowed here specifically because
+      // stylesheet.css is measured at 30,650 bytes (RESEARCH.md §1.1) — a
+      // world apart from the 409 KB-class objects like
+      // member-search-index.js this proxy also serves. The exact-filename
+      // check above (not an extension match) is what keeps this branch from
+      // ever being reached by one of those larger files.
+      transformOk: async (upstreamResponse) => {
+        const upstreamBody = await upstreamResponse.text();
+        const stampedBody = `${upstreamBody}\n${OVERRIDE_BLOCK}`;
+        const stamp = await themeStamp();
+        const headers = new Headers(upstreamResponse.headers);
+        // D-20: stylesheet.css switches to a short, symmetric TTL on both
+        // sides — Cloudflare-CDN-Cache-Control controls the edge copy,
+        // Cache-Control controls the browser copy — instead of following
+        // upstream's max-age=31536000. The edge doesn't get the fingerprint
+        // folded into its cache key (unlike the HTML branch below); a short
+        // TTL bounds staleness to at most one hour instead.
+        headers.set('Cache-Control', 'public, max-age=3600');
+        headers.set('Cloudflare-CDN-Cache-Control', 'public, max-age=3600');
+        headers.set('ETag', weakEtag(upstreamResponse.headers.get('etag'), stamp));
+        // Content-Length, if upstream sent one, describes the pre-append
+        // byte count and is now wrong.
+        headers.delete('Content-Length');
+        return new Response(stampedBody, {
+          status: upstreamResponse.status,
+          headers,
+        });
+      },
+    };
+  } else if (isHtmlRequest) {
+    const stamp = await themeStamp();
+    readThroughOptions = {
+      cacheKey: stampedCacheKey(context.request, stamp),
+      transformOk: async (upstreamResponse) => {
+        // D-27: the ONLY structural change this Function makes to upstream
+        // HTML is prepending exactly one <li> to this one selector. The
+        // second argument to prepend is required — omitting it would have
+        // the <li> markup escaped into visible text instead of parsed as
+        // HTML.
+        const backlink = backlinkLiHtml(segments[0], ARCHIVED_VERSIONS);
+        return new HTMLRewriter()
+          .on('ul#navbar-top-firstrow', {
+            element(el) {
+              el.prepend(backlink, { html: true });
+            },
+          })
+          .transform(upstreamResponse);
+      },
+    };
+  }
+
+  const result = await readThrough(context, context.request, upstreamUrl, readThroughOptions);
 
   if (result.kind === 'ok') {
     const headers = withStandardHeaders(new Headers(result.response.headers));
     headers.set('x-version-generated-at', GENERATED_AT);
+    if (isHtmlRequest) {
+      // D-20/D-27: the edge copy keeps following upstream's own long TTL
+      // (the stored response's headers are untouched by this branch) — only
+      // what's sent to THIS browser is shortened, because this response now
+      // carries this repository's own bytes (the injected backlink <li>)
+      // and upstream's one-year max-age was never a promise about those
+      // bytes.
+      headers.set('Cache-Control', 'public, max-age=3600');
+    }
     return new Response(result.response.body, {
       status: result.response.status,
       headers,
@@ -134,7 +280,6 @@ export async function onRequestGet(context) {
   // Every failure branch below is deliberately never cached (D-07): no
   // cache.put call exists on this path at all, and Cache-Control: no-store
   // is set explicitly rather than relied upon as a side effect.
-  const lastSegment = segments[segments.length - 1];
   const upstreamStatusValue =
     result.kind === 'unreachable' ? 'unreachable' : String(result.status);
 
