@@ -1,3 +1,12 @@
 # Redirect /en/* to root (English is the root locale, no /en/ prefix)
 /en/* /:splat 301
 /en / 301
+
+# Chinese-locale mirrors of the two retired paths (CR-02). The
+# version-wrapper target deliberately chains through the English retired
+# path instead of hardcoding a version: /api/version-wrapper resolves
+# CURRENT_VERSION at request time (see functions/api/[[path]].js), while a
+# static rule here cannot. The extra hop is the accepted cost of not
+# pinning Chinese readers to a stale release forever.
+/zh/api/version-wrapper /api/version-wrapper 301
+/zh/api/ulti-tools-plugin /zh/guide/advanced/ulti-tools-plugin 301
