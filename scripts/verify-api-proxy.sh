@@ -345,7 +345,9 @@ fi
 record "14 类页含两条回程链接且位于 navbar-top-firstrow 之后" "nav行=${line_nav:-<无>} link行=${line_link:-<无>}" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 15. 本次收集的每一条 /api/ 响应都带与期望值逐字相等的 Content-Security-Policy
+# 15. 全部 /api/ 响应都带与期望值逐字相等的 Content-Security-Policy——这里只
+#     定义 EXPECTED_CSP 并跑 15a 自检；实际消费 API_HEADERS 的校验循环在文件
+#     末尾与 6 号项合并执行（见下方说明）。
 # ─────────────────────────────────────────────────────────────────────────────
 EXPECTED_CSP="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'"
 
@@ -362,16 +364,13 @@ else
 fi
 record "15a EXPECTED_CSP 与 headers.js 源码逐字相等" "$detail" "$r"
 
-r=0
-detail=""
-for hf in "${API_HEADERS[@]}"; do
-  csp=$(header_value "$hf" "content-security-policy")
-  if [ "$csp" != "$EXPECTED_CSP" ]; then
-    r=1
-    detail="$detail [$hf csp=${csp:-<无>}]"
-  fi
-done
-record "15 全部 /api/ 响应 CSP 逐字相等" "检查了 ${#API_HEADERS[@]} 个响应${detail:+  异常:$detail}" "$r"
+# item 15 本身的校验循环（消费完整的 API_HEADERS 数组）被合并进了文件末尾
+# 与 6 号项共享的那一次遍历，而不是留在这里——此处 API_HEADERS 只装了 1-14
+# 号项的 14 条响应，17-25 号项（版本根重定向、被拦下的 3xx、未索引版本、三次
+# stylesheet 抓取、两次类页抓取）此时都还没发生。若循环留在这里，就会像
+# 02-REVIEW.md WR-01 指出的那样，永远不会检查后十条响应的 CSP，而 21 号项的
+# 注释却在声称"接受 6 号与 15 号项对全部 /api/ 响应的统一检查覆盖"——只有把
+# 循环挪到全部 fetch 完成之后，这句注释才是真的。
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 16. 类页响应 Cache-Control 的 max-age 是 3600
@@ -518,10 +517,20 @@ record "25 类页连续两次请求 ETag 与字节数相等" \
   "etag=${etag_class_a:-<无>} size=${size_class_a:-<无>}/${size_class_b:-<无>}" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 6. 每一条 /api/ 响应（含 302、301、404）都带 noindex，且都不带 link 头
+# 6 & 15. 每一条 /api/ 响应（含 302、301、404）都带 noindex 且不带 link 头
+#        （6 号），且都带与 EXPECTED_CSP 逐字相等的 Content-Security-Policy
+#        （15 号）。两项共享同一次对 API_HEADERS 的遍历——此时全部 25 个 fetch
+#        点位都已发生（1-14、17-25 各自 push 一次，18/20b 有条件跳过，共
+#        最多 24 条，另外 3 次抓取复用同一 fetch 但每次都重新 push，故实际
+#        条数以运行时 ${#API_HEADERS[@]} 为准），修复 02-REVIEW.md WR-01：15
+#        号项此前独立成环时位于 17-25 号项之前，从未检查过后十条响应。两个
+#        断言各自独立计数、独立 record，不合并成一条结果，以保留各自的失败
+#        定位能力。
 # ─────────────────────────────────────────────────────────────────────────────
 r=0
 detail=""
+r15=0
+detail15=""
 for hf in "${API_HEADERS[@]}"; do
   xr=$(header_value "$hf" "x-robots-tag")
   if ! printf '%s' "$xr" | grep -qi 'noindex'; then
@@ -532,8 +541,14 @@ for hf in "${API_HEADERS[@]}"; do
     r=1
     detail="$detail [$hf 含 link 头]"
   fi
+  csp=$(header_value "$hf" "content-security-policy")
+  if [ "$csp" != "$EXPECTED_CSP" ]; then
+    r15=1
+    detail15="$detail15 [$hf csp=${csp:-<无>}]"
+  fi
 done
 record "6 /api/ 全部响应带 noindex 且无 link 头" "检查了 ${#API_HEADERS[@]} 个响应${detail:+  异常:$detail}" "$r"
+record "15 全部 /api/ 响应 CSP 逐字相等" "检查了 ${#API_HEADERS[@]} 个响应${detail15:+  异常:$detail15}" "$r15"
 
 echo
 if [ "$status" -eq 0 ]; then
