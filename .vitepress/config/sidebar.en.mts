@@ -1,6 +1,15 @@
 import {DefaultTheme} from "vitepress/theme";
 
-const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
+// `@viteplus/versions`' populateSidebar reads a `skipVersioning` field that
+// `DefaultTheme.SidebarItem` does not declare. `tsc --noEmit` reports TS2353
+// ("Object literal may only specify known properties") on any object literal
+// carrying it inside an explicitly-typed `SidebarItem[]` array — see the
+// comment on the "API Reference" entry below for the full story. This
+// intersection type gives the field a home instead of leaving the mismatch
+// undisclosed.
+type SidebarItemExt = DefaultTheme.SidebarItem & { skipVersioning?: boolean }
+
+const sidebarGuideEN: SidebarItemExt[] = [
     {
         base: '/guide/',
         text: 'Get Started',
@@ -159,11 +168,25 @@ const sidebarGuideEN: DefaultTheme.SidebarItem[] = [
     // field. That's true for VitePress's own type, but the field that
     // actually matters is read by a different piece of code:
     // @viteplus/versions' populateSidebar guards on it before injecting
-    // `base` (node_modules/@viteplus/versions/dist/index.js). Config files
-    // here go through esbuild with no `tsc` step in package.json's scripts,
-    // so the extra field below compiles fine despite not being in the type.
-    // nav has used the same field for the same purpose since before this
-    // file existed. Concretely: for the zh locale this group would
+    // `base` (node_modules/@viteplus/versions/dist/index.js). This repo has
+    // no tsconfig.json and no `tsc`/`vue-tsc` step in package.json's scripts
+    // or in .github/workflows/, so esbuild strips types without checking
+    // them and this field has zero build-time effect today. But `tsc
+    // --noEmit` DOES error on it (TS2353, "Object literal may only specify
+    // known properties") the moment it is run against this file, because
+    // `sidebarGuideEN` carries an explicit array type and this object
+    // literal is assigned straight into it — verified directly:
+    // `npx tsc --noEmit --skipLibCheck --module esnext --moduleResolution
+    // bundler --target es2022 .vitepress/config/sidebar.en.mts`.
+    // `nav.en.mts` uses the same field with zero errors only because
+    // `navEN` carries no type annotation at all; that is not an equivalent
+    // precedent, it is a different situation that happens not to trigger
+    // the check. The `SidebarItemExt` alias declared above the array (this
+    // file's top) is what actually resolves the mismatch: it documents that
+    // `@viteplus/versions` genuinely reads this field while keeping `tsc
+    // --noEmit` clean, so a contributor who later adds a type-check step to
+    // CI finds the answer written down instead of re-deriving it.
+    // Concretely: for the zh locale this group would
     // otherwise get `base: '/zh/'` injected, turning the absolute link
     // `/api/` into `/zh/api/` — a path the Function proxy (scoped to
     // /api/*) does not serve, and which 404s on preview. The en (root)

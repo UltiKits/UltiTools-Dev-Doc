@@ -1,6 +1,13 @@
 import {DefaultTheme} from "vitepress/theme";
 
-const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
+// @viteplus/versions 的 populateSidebar 读取的 skipVersioning 字段并不在
+// DefaultTheme.SidebarItem 的类型定义里。只要该字段出现在带显式 SidebarItem[]
+// 类型标注的数组元素里，tsc --noEmit 就会报 TS2353（"Object literal may only
+// specify known properties"）——完整说明见下方 "API 参考" 条目的注释。这个交
+// 集类型给这个字段一个类型上的归属，而不是留一条未披露的隐性诊断。
+type SidebarItemExt = DefaultTheme.SidebarItem & { skipVersioning?: boolean }
+
+const sidebarGuideZH: SidebarItemExt[] = [
     {
         base: "/guide/",
         text: '开始',
@@ -154,10 +161,21 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
     // 这个跳过版本化的字段所以只能靠 latest-only 放置」判断有误。VitePress
     // 自己的类型定义里确实没有，但真正读这个字段的是另一段代码：
     // @viteplus/versions 的 populateSidebar 在注入 base 之前会先看这个字段
-    // （node_modules/@viteplus/versions/dist/index.js）。本仓库的配置文件经
-    // esbuild 转译，package.json 的 scripts 里没有任何 tsc 步骤，所以下面这
-    // 个不在类型里的字段照样能编译通过。nav 侧早就在用同一个字段达到同样效
-    // 果。具体后果：中文 locale 下这个分组本会被注入 base: '/zh/'，把绝对路
+    // （node_modules/@viteplus/versions/dist/index.js）。本仓库没有
+    // tsconfig.json，package.json 的 scripts 与 .github/workflows/ 里也没有
+    // 任何 tsc/vue-tsc 步骤，所以 esbuild 转译时不做类型检查，这个字段今天
+    // 没有任何构建期影响。但只要真的跑 tsc --noEmit，它就会报错（TS2353，
+    // "Object literal may only specify known properties"）——因为
+    // sidebarGuideZH 带着显式数组类型标注，这个对象字面量是直接赋进去的。
+    // 实测命令：`npx tsc --noEmit --skipLibCheck --module esnext
+    // --moduleResolution bundler --target es2022
+    // .vitepress/config/sidebar.zh.mts`。nav.zh.mts 用同一个字段却零报错，
+    // 只是因为 navZH 完全没有类型标注——这不是等价的先例，只是恰好没触发这
+    // 条检查的另一种情况。本文件顶部声明的 SidebarItemExt 交集类型才是真正
+    // 解决问题的地方：它把"@viteplus/versions 确实会读这个字段"这件事写进
+    // 类型里，同时让 tsc --noEmit 保持干净，日后有人给 CI 加类型检查步骤
+    // 时，答案已经写在这里，不必重新推导一遍。具体后果：中文 locale 下这个
+    // 分组本会被注入 base: '/zh/'，把绝对路
     // 径 /api/ 拼成 /zh/api/——这条路径不在 Function 代理（作用域 /api/*）之
     // 下，preview 上实测 404。英文（root）locale 在 populateSidebar 里传入的
     // base 参数是空字符串，本来就不受影响；两份文件都加这个字段，是为了让
