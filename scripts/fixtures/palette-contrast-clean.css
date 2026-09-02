@@ -10,18 +10,24 @@ scripts/check-contrast.py must exit 0 against this file with zero FAIL
 lines, because it is meant to prove the real palette, minus its 6
 non-referenced variables, reads clean.
 
-Note for anyone editing this comment: do not spell out the literal media
-query condition here (the six words "prefers dash color dash scheme colon
-dark", concatenated) — scripts/check-contrast.py locates the boundary
-between the light and dark blocks by searching for that exact substring,
-and it takes the FIRST occurrence in the file. Writing it out a second time
-up here, ahead of the real media query below, would make the script split
-this file in the wrong place. This paragraph deliberately does not contain
-that exact string as an unbroken run of characters.
+Note for anyone editing this comment: do not spell out the four table-
+boundary marker strings ("palette dash table colon light colon begin",
+and its light-end / dark-begin / dark-end siblings, each concatenated as
+one unbroken run of characters) anywhere in this comment block.
+scripts/check-contrast.py now locates the light and dark tables by finding
+each marker and requires each one to appear EXACTLY ONCE in the file (self-
+check 4) — this fixture's four real markers are below, flanking the actual
+declaration blocks, and writing one of those same strings a second time up
+here would trip that self-check and make the gate exit 2 instead of 0. This
+is the same class of trap the file used to warn about when the split was
+still keyed on the literal media-query string, just caught loudly now
+instead of silently: self-check 4 exists precisely so a duplicated marker
+is reported by name rather than mis-splitting the input without a word.
 
 See scripts/fixtures/palette-contrast-violation.css for why a second,
 deliberately-broken fixture exists alongside this one.
 */
+/* palette-table:light:begin */
 :root {
   --body-text-color: #3c3c43;
   --block-text-color: #67676c;
@@ -51,7 +57,9 @@ deliberately-broken fixture exists alongside this one.
   --title-color: #3c3c43;
   --source-linenumber-color: #67676c;
 }
+/* palette-table:light:end */
 @media (prefers-color-scheme: dark) {
+  /* palette-table:dark:begin */
   :root {
     --body-text-color: #dfdfd6;
     --block-text-color: #98989f;
@@ -81,4 +89,5 @@ deliberately-broken fixture exists alongside this one.
     --title-color: #dfdfd6;
     --source-linenumber-color: #98989f;
   }
+  /* palette-table:dark:end */
 }

@@ -447,6 +447,77 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 21. stylesheet 响应体含以深色类为条件的 :root 规则（G-02-8）
+# ─────────────────────────────────────────────────────────────────────────────
+# 与 scripts/check-contrast.py 的自检各管一段：那边只读源码常量，这里读的是
+# 真实发出的字节，接管 check-contrast.py 从「暗色媒体查询字符串」这条断言里
+# 移走的部分（见 02-09 对该脚本 docstring 的改写）。独立各取一次响应（而不是
+# 复用 9 号项已存的 body_stylesheet_a），让每一条都把自己的响应头登记进
+# API_HEADERS，接受 6 号与 15 号项对全部 /api/ 响应的统一检查覆盖。
+fetch "$url_stylesheet"
+API_HEADERS+=("$HEADERS_FILE")
+body_stylesheet_21=$(cat "$BODY_FILE" 2>/dev/null || true)
+r=0
+printf '%s' "$body_stylesheet_21" | grep -qE ':root\.dark[[:space:]]*\{' || r=1
+record "21 stylesheet 含深色类选择器规则" "" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 22. stylesheet 响应体的暗色媒体查询选择器排除浅色类（G-02-8）
+# ─────────────────────────────────────────────────────────────────────────────
+fetch "$url_stylesheet"
+API_HEADERS+=("$HEADERS_FILE")
+body_stylesheet_22=$(cat "$BODY_FILE" 2>/dev/null || true)
+r=0
+printf '%s' "$body_stylesheet_22" | grep -qF ':root:not(.ultitools-appearance-light)' || r=1
+record "22 暗色媒体查询选择器排除浅色类" "" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 23. stylesheet 响应体中深色表的一条声明恰好出现两次（媒体查询一次、类选择器
+#     一次；G-02-8：两个触发器共用同一份表这件事没有退化成只剩一个）
+# ─────────────────────────────────────────────────────────────────────────────
+# grep -o 逐个匹配计数，不用 grep -c——后者数的是命中行数，同一行出现两次只算 1。
+fetch "$url_stylesheet"
+API_HEADERS+=("$HEADERS_FILE")
+body_stylesheet_23=$(cat "$BODY_FILE" 2>/dev/null || true)
+n_dark_decl=$(printf '%s' "$body_stylesheet_23" | grep -o -- '--body-text-color: #dfdfd6' | wc -l | tr -d ' ')
+r=0
+[ "$n_dark_decl" = "2" ] || r=1
+record "23 深色表声明在产物中出现两次" "count=${n_dark_decl:-0}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 24. 类页 HTML 中注入脚本标识恰好出现一次，且位于 </head> 之前（G-02-8）
+# ─────────────────────────────────────────────────────────────────────────────
+fetch "$url_class"
+API_HEADERS+=("$HEADERS_FILE")
+n_appearance=$(grep -o "vitepress-theme-appearance" "$BODY_FILE" | wc -l | tr -d ' ')
+line_appearance=$(grep -n "vitepress-theme-appearance" "$BODY_FILE" | head -1 | cut -d: -f1)
+line_headend=$(grep -n "</head>" "$BODY_FILE" | head -1 | cut -d: -f1)
+r=0
+[ "$n_appearance" = "1" ] || r=1
+if [ -z "$line_appearance" ] || [ -z "$line_headend" ] || [ "$line_appearance" -gt "$line_headend" ]; then
+  r=1
+fi
+record "24 类页含且仅含一处注入脚本标识且位于 </head> 之前" \
+  "count=${n_appearance:-0} appear行=${line_appearance:-<无>} head结束行=${line_headend:-<无>}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 25. 连续两次请求同一类页，ETag 相等且正文字节数相等（G-02-8：注入脚本的字节
+#     对所有访客相同，判定发生在客户端，不引入按访客分裂响应的可观测证据）
+# ─────────────────────────────────────────────────────────────────────────────
+etag_class_a=$(header_value "$HEADERS_FILE" "etag")
+size_class_a=$(wc -c < "$BODY_FILE" 2>/dev/null | tr -d ' ')
+fetch "$url_class"
+API_HEADERS+=("$HEADERS_FILE")
+etag_class_b=$(header_value "$HEADERS_FILE" "etag")
+size_class_b=$(wc -c < "$BODY_FILE" 2>/dev/null | tr -d ' ')
+r=0
+[ -n "$etag_class_a" ] || r=1
+[ "$etag_class_a" = "$etag_class_b" ] || r=1
+[ "$size_class_a" = "$size_class_b" ] || r=1
+record "25 类页连续两次请求 ETag 与字节数相等" \
+  "etag=${etag_class_a:-<无>} size=${size_class_a:-<无>}/${size_class_b:-<无>}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 6. 每一条 /api/ 响应（含 302、301、404）都带 noindex，且都不带 link 头
 # ─────────────────────────────────────────────────────────────────────────────
 r=0

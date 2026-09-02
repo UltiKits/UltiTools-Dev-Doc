@@ -11,8 +11,11 @@ against this file and its output must name --link-color as the failing
 pair.
 
 See scripts/fixtures/palette-contrast-clean.css's header for why a second,
-fully-compliant fixture exists alongside this one.
+fully-compliant fixture exists alongside this one, and for why this file's
+four table-boundary markers below must not be spelled out a second time
+anywhere in this comment block (self-check 4 in scripts/check-contrast.py).
 */
+/* palette-table:light:begin */
 :root {
   --body-text-color: #3c3c43;
   --block-text-color: #67676c;
@@ -42,7 +45,9 @@ fully-compliant fixture exists alongside this one.
   --title-color: #3c3c43;
   --source-linenumber-color: #67676c;
 }
+/* palette-table:light:end */
 @media (prefers-color-scheme: dark) {
+  /* palette-table:dark:begin */
   :root {
     --body-text-color: #dfdfd6;
     --block-text-color: #98989f;
@@ -72,4 +77,5 @@ fully-compliant fixture exists alongside this one.
     --title-color: #dfdfd6;
     --source-linenumber-color: #98989f;
   }
+  /* palette-table:dark:end */
 }
