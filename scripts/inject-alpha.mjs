@@ -40,6 +40,7 @@ import {
   readFileSync,
   writeFileSync,
   existsSync,
+  lstatSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -130,6 +131,47 @@ const members = [
   `${topDir}/.vitepress/config/sidebar.zh.mts`,
 ];
 
+// ── 3a. Validate member names and bound extracted size BEFORE extraction ──
+// A remote tarball is a trust boundary (T-03-01/T-03-02 in
+// 03-01-PLAN.md's threat register): reject path-escape attempts and cap
+// decompressed size before tar ever writes a byte to disk, rather than
+// relying on GNU tar's own undocumented-here, version-dependent handling
+// of '..' path segments (03-REVIEW.md CR-02).
+const MAX_UNCOMPRESSED_BYTES = 200 * 1024 * 1024; // real tree is ~1.7MB uncompressed; generous headroom, still bounds a gzip-bomb-style archive
+let tarListing;
+try {
+  tarListing = execFileSync('tar', ['-tvzf', tarballPath], { encoding: 'utf-8' });
+} catch (err) {
+  fail(`tar -tvzf listing of ${tarballPath} failed: ${err.message}`);
+}
+const isUnderAMember = (entryPath) =>
+  members.some((m) => entryPath === m || entryPath.startsWith(`${m}/`));
+const escapeAttempts = [];
+let totalUncompressedBytes = 0;
+for (const line of tarListing.split('\n')) {
+  if (!line.trim()) continue;
+  // GNU tar -tv format: "<mode> <owner/group> <size> <date> <time> <name>",
+  // with a symlink member appending " -> <target>" after <name> — verified
+  // against a real GNU tar -tvzf run on a synthetic symlink tarball
+  // (03-01-SUMMARY.md Gap Closure). Splitting on " -> " before use handles
+  // both shapes with one code path.
+  const fields = line.trim().split(/\s+/);
+  if (fields.length < 6) continue;
+  const size = Number(fields[2]);
+  const entryPath = fields.slice(5).join(' ').split(' -> ')[0];
+  if (!isUnderAMember(entryPath)) continue;
+  if (!Number.isNaN(size)) totalUncompressedBytes += size;
+  if (entryPath.startsWith('/') || entryPath.split('/').includes('..')) {
+    escapeAttempts.push(entryPath);
+  }
+}
+if (escapeAttempts.length > 0) {
+  fail(`refusing to extract: path-escape attempt in tar member name(s): ${escapeAttempts.join(', ')}`);
+}
+if (totalUncompressedBytes > MAX_UNCOMPRESSED_BYTES) {
+  fail(`refusing to extract: decompressed size of extracted members (${totalUncompressedBytes} bytes) exceeds the ${MAX_UNCOMPRESSED_BYTES}-byte cap`);
+}
+
 try {
   execFileSync('tar', [
     '-xzf', tarballPath,
@@ -139,6 +181,42 @@ try {
   ]);
 } catch (err) {
   fail(`tar extraction of ${members.join(', ')} failed: ${err.message}`);
+}
+
+// ── 3b. Reject any non-regular-file, non-directory extracted entries ──────
+// The concrete threat is a symlink member (empirically confirmed: GNU tar
+// extracts a symlink verbatim with exit 0, and fs.cpSync/readFileSync/
+// writeFileSync all follow it rather than erroring — 03-REVIEW.md CR-02),
+// but this also fail-closes on hardlinks, devices, fifos, and sockets: no
+// filesystem entry other than a regular file or a directory has a
+// legitimate reason to exist in a documentation tree, and every other type
+// is a way for extracted content to alias something outside the tree that
+// this script's later readFileSync/writeFileSync/cpSync passes (steps
+// 4-7) would then read from or write through without knowing it.
+//
+// fs.Dirent's isSymbolicLink()/isFile()/isDirectory() reflect the raw
+// directory-entry type from the OS readdir call (d_type) and do NOT
+// dereference the entry — this correctly identifies a symlink as a
+// symlink instead of silently reporting whatever it points to.
+function assertOnlyRegularFilesAndDirs(dir) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isSymbolicLink()) {
+      fail(`refusing to inject: symlink member found in alpha's tree: ${full}`);
+    } else if (entry.isDirectory()) {
+      assertOnlyRegularFilesAndDirs(full);
+    } else if (!entry.isFile()) {
+      fail(`refusing to inject: non-regular-file member found in alpha's tree (not a file, directory, or symlink — device/fifo/socket?): ${full}`);
+    }
+  }
+}
+assertOnlyRegularFilesAndDirs(path.join(extractDir, 'docs', 'src'));
+assertOnlyRegularFilesAndDirs(path.join(extractDir, 'examples', 'src'));
+for (const rel of ['.vitepress/config/sidebar.en.mts', '.vitepress/config/sidebar.zh.mts']) {
+  const full = path.join(extractDir, rel);
+  if (!lstatSync(full).isFile()) {
+    fail(`refusing to inject: sidebar source member is not a regular file: ${full}`);
+  }
 }
 
 // ── 4. Land the three destinations, replacing whatever was there before ────
