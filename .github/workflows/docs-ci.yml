@@ -42,6 +42,14 @@ jobs:
       - name: Build site with dead-link checking
         run: npm run build
 
+      # 折进这个既有 job 而不是新开一个（04-RESEARCH.md § Gate 影响与 D-65）：
+      # 独立 job 要重新 npm ci + 完整 build 才能加一把 grep，这个 job 在这一步
+      # 之前已经把产物写进了 .vitepress/dist，多付一次构建换一个断言不划算。
+      # 这一步跑的是干净检出（--clean）那一侧：六个已提交的归档版本，且不含
+      # gitignore 的 v6.3.0-SNAPSHOT。不要把它"整理"成第七个 job。
+      - name: Assert rendered version-state notice bar, switcher links and active-version markers (clean side)
+        run: bash scripts/check-rendered-links.sh --clean
+
   bilingual-parity:
     name: Bilingual page tree and sidebar coverage
     runs-on: ubuntu-latest
@@ -312,3 +320,6 @@ jobs:
             exit 1
           fi
           echo "build-with-alpha: SNAPSHOT artifact present, zero residual snippet references"
+
+      - name: Assert rendered version-state notice bar, switcher links, unreleased badge and injection boundary (injected side)
+        run: bash scripts/check-rendered-links.sh --with-alpha
