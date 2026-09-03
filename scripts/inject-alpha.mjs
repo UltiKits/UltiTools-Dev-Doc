@@ -221,7 +221,152 @@ if (missing.length > 0) {
   fail(`rewritten snippet reference(s) do not exist on disk:\n${missing.join('\n')}`);
 }
 
-// ── 6. Summary ───────────────────────────────────────────────────────────
+// ── 6. Frontmatter metadata: alphaCommit / alphaInjectedAt / noindex head ──
+// D-43 requires the injected commit and injection time to stay inside the
+// SNAPSHOT tree itself — the visible timestamp on the entry pages (step 7)
+// is the only reader-visible signal if the nightly cron silently stops
+// working. D-48 requires every SNAPSHOT page to carry robots noindex;
+// RESEARCH already verified with a real build that frontmatter `head`
+// renders into the dist HTML for docs/archive/ pages, so this writes that
+// field rather than standing up an unverified docs/public/_headers rule.
+//
+// alphaInjectedAt/injectedAt (step 8) must be byte-identical across every
+// file from a single run, so it is computed exactly once here, not per-file
+// or re-read from the JSON later.
+const INJECTED_AT = new Date().toISOString();
+
+// Splits `---\n<frontmatter>\n---\n<rest>` without a full YAML parser: this
+// repo's frontmatter blocks are simple flat/nested-mapping YAML (see
+// RESEARCH's noindex example), and every write below only ever appends new
+// top-level keys or a new item under an existing `head:` sequence — it never
+// needs to understand or re-serialize a value it didn't write itself.
+function parseFrontmatter(content) {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!match) return null;
+  return { raw: match[0], body: match[1], rest: content.slice(match[0].length) };
+}
+
+function withInjectedFrontmatter(content, commitSha, injectedAt) {
+  const parsed = parseFrontmatter(content);
+  const fmLines = parsed ? parsed.body.split(/\r?\n/) : [];
+  const rest = parsed ? parsed.rest : content;
+
+  // If this page already declares its own `head:` sequence, append the
+  // noindex item to it instead of adding a second `head:` key (which would
+  // make the later key win and silently drop whatever the page's own head
+  // entries were meant to do) — a top-level YAML key is any line with zero
+  // leading whitespace, so the sequence's end is the next such line.
+  const noindexItem = ['  - - meta', '    - name: robots', '      content: noindex'];
+  const headLineIndex = fmLines.findIndex((line) => /^head:\s*$/.test(line));
+  if (headLineIndex === -1) {
+    fmLines.push('head:', ...noindexItem);
+  } else {
+    let insertAt = fmLines.length;
+    for (let i = headLineIndex + 1; i < fmLines.length; i++) {
+      if (/^\S/.test(fmLines[i])) {
+        insertAt = i;
+        break;
+      }
+    }
+    fmLines.splice(insertAt, 0, ...noindexItem);
+  }
+
+  fmLines.push(`alphaCommit: ${commitSha}`, `alphaInjectedAt: "${injectedAt}"`);
+  return `---\n${fmLines.join('\n')}\n---\n${rest}`;
+}
+
+let frontmatterProcessedCount = 0;
+for (const file of mdFiles) {
+  const content = readFileSync(file, 'utf-8');
+  writeFileSync(file, withInjectedFrontmatter(content, commitSha, INJECTED_AT));
+  frontmatterProcessedCount += 1;
+}
+
+// ── 7. Unreleased-documentation banner on the four entry pages ─────────────
+// Exactly four: the two literal locale homepages D-43 names, plus the two
+// guide/introduction.md pages — the sidebar's actual first entry and the
+// javadoc backlink's target, which is a more reliable freshness-detection
+// surface than index.md alone (layout: home renders the container block
+// below the hero/feature grid, not at the top of the viewport).
+const ENTRY_PAGES = [
+  { rel: 'index.md', lang: 'en' },
+  { rel: path.join('zh', 'index.md'), lang: 'zh' },
+  { rel: path.join('guide', 'introduction.md'), lang: 'en' },
+  { rel: path.join('zh', 'guide', 'introduction.md'), lang: 'zh' },
+];
+
+const shortSha = commitSha.slice(0, 7);
+
+// Title + 2 sentences of body, 3 lines total — inside AGENTS.md's 3-line
+// container-block ceiling (check-container-length.sh does not scan injected
+// output, but the convention still applies, per 03-CONTEXT.md D-43). The
+// literal strings "Unreleased documentation" / "未发布内容" are the exact
+// keywords later preview/verify steps grep for.
+function warningBanner(lang) {
+  const lines = lang === 'zh'
+    ? [
+        '::: warning 未发布内容',
+        '本页内容来自 alpha 分支，随时可能变更，不属于任何已发布版本。',
+        `本次注入来源 commit \`${shortSha}\`，注入时间 ${INJECTED_AT}。`,
+        ':::',
+      ]
+    : [
+        '::: warning Unreleased documentation',
+        'This page describes the alpha branch and may change at any time; it is not part of any released version.',
+        `Injected from commit \`${shortSha}\` at ${INJECTED_AT}.`,
+        ':::',
+      ];
+  return lines.join('\n');
+}
+
+const missingEntryPages = [];
+let bannerInsertedCount = 0;
+for (const { rel, lang } of ENTRY_PAGES) {
+  const filePath = path.join(ARCHIVE_DEST, rel);
+  if (!existsSync(filePath)) {
+    missingEntryPages.push(rel);
+    continue;
+  }
+  const content = readFileSync(filePath, 'utf-8');
+  const parsed = parseFrontmatter(content);
+  const banner = warningBanner(lang);
+  const newContent = parsed
+    ? `${parsed.raw}${banner}\n\n${parsed.rest}`
+    : `${banner}\n\n${content}`;
+  writeFileSync(filePath, newContent);
+  bannerInsertedCount += 1;
+}
+// Fail closed rather than silently insert fewer than four: these four paths
+// exist on alpha today, so a miss means alpha's directory layout changed
+// underneath this script (03-02-PLAN.md Task 1) — not something to paper
+// over with a partial banner set.
+if (missingEntryPages.length > 0) {
+  fail(`entry page(s) not found for unreleased-documentation banner: ${missingEntryPages.join(', ')}`);
+}
+if (bannerInsertedCount !== 4) {
+  fail(`expected exactly 4 unreleased-documentation banners, inserted ${bannerInsertedCount}`);
+}
+
+// ── 8. docs/public/snapshot-status.json ─────────────────────────────────────
+// docs/public/ is copied verbatim to the deployed site root (docs/public/
+// _redirects is the existing live proof of that path), so this becomes
+// https://dev.ultikits.com/snapshot-status.json — the nightly workflow's
+// (03-CONTEXT.md D-51) debounce read. Four flat string fields, no nesting:
+// a plain `curl | node -e "JSON.parse(...).commit"` read shouldn't need a
+// jq path expression to get at the one field it cares about.
+mkdirSync('docs/public', { recursive: true });
+const snapshotStatus = {
+  commit: commitSha,
+  ref: ALPHA_REF,
+  injectedAt: INJECTED_AT,
+  generator: 'scripts/inject-alpha.mjs',
+};
+writeFileSync(
+  path.join('docs', 'public', 'snapshot-status.json'),
+  `${JSON.stringify(snapshotStatus, null, 2)}\n`
+);
+
+// ── 9. Summary ───────────────────────────────────────────────────────────
 const javaFileCount = (function countJava(dir) {
   let count = 0;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -235,5 +380,7 @@ const javaFileCount = (function countJava(dir) {
 console.log(
   `inject-alpha: injected ${mdFiles.length} md files, ${javaFileCount} java files, ` +
   `rewrote ${replacedCount} snippet reference(s) across ${touchedFiles} file(s), ` +
-  `commit ${commitSha.slice(0, 7)}`
+  `frontmatter metadata on ${frontmatterProcessedCount} file(s), ` +
+  `${bannerInsertedCount} unreleased-documentation banner(s), ` +
+  `commit ${commitSha.slice(0, 7)}, snapshot-status.json written`
 );
