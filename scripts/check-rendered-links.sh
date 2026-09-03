@@ -78,9 +78,17 @@ SNAPSHOT_DIR_NAME='v6.3.0-SNAPSHOT'
 
 # Derived, not hardcoded, matching this file's own convention of deriving
 # expected values from source rather than writing them twice.
-CURRENT_VERSION="$(grep -oE "current: *'[^']*'" .vitepress/config.mts | sed -E "s/.*'(.*)'.*/\1/")"
-if [ -z "$CURRENT_VERSION" ]; then
-  echo "check-rendered-links: 无法从 .vitepress/config.mts 解析 versionsConfig.current" >&2
+# 三点都不是多余的。set -euo pipefail 下，简单赋值取命令替换的退出码，所以
+# grep 不命中会直接在赋值那一行以裸 exit 1 中止，下面那条友好诊断和刻意的
+# exit 2 是够不到的。行首锚定是因为注释里的 current: '…' 同样会被匹配，
+# 而 grep -oE 会吐出两行，让 CURRENT_VERSION 变成多行字符串，之后每一次比较
+# 都静默不成立。行数断言是这两点的兜底。参照 scripts/generate-version-pages.mjs
+# 的同名解析（那份也锚定，也断言唯一命中）。
+if ! CURRENT_VERSION="$(grep -oE "^[[:space:]]*current:[[:space:]]*'[^']*'" .vitepress/config.mts \
+      | sed -E "s/.*'(.*)'.*/\1/")" \
+   || [ -z "$CURRENT_VERSION" ] \
+   || [ "$(printf '%s\n' "$CURRENT_VERSION" | wc -l)" -ne 1 ]; then
+  echo "check-rendered-links: 无法从 .vitepress/config.mts 唯一解析 versionsConfig.current" >&2
   exit 2
 fi
 
