@@ -152,14 +152,26 @@ function themeStamp() {
   return themeStampPromise;
 }
 
-// The theme fingerprint is folded into the HTML edge-cache key (not into the
-// key for stylesheet.css, which uses a short TTL instead — see the
-// stylesheet branch below). This is the only channel by which a theming
-// change reaches a reader whose copy is already sitting in the edge cache:
-// the edge cache key is the URL, so without the fingerprint in it, a reader
-// requesting an already-cached class page keeps getting yesterday's <li> and
-// yesterday's palette (via the stylesheet's own long-lived edge copy, before
-// its own TTL) until upstream's long max-age naturally expires.
+// The theme fingerprint is folded into this Function's own cache key
+// (caches.default) for BOTH branches now — the stylesheet branch and the
+// HTML branch use the same stampedCacheKey call. This is the only channel
+// by which a theming change reaches a reader whose copy is already sitting
+// in caches.default: the key is the URL, so without the fingerprint in it,
+// a reader requesting an already-cached entry keeps getting yesterday's
+// <li> or yesterday's palette until upstream's long max-age naturally
+// expires.
+//
+// This key only reaches caches.default — the layer this Function actually
+// controls. There is a second, separate cache sitting in front of this
+// Function entirely (a Cloudflare zone cache keyed by request URL, which
+// caches text/css but not text/html — confirmed 2026-09-03: a fresh
+// cache-busted stylesheet.css URL requested twice returns
+// cf-cache-status: MISS then HIT with x-cache still reporting the first
+// request's MISS, i.e. the second request never reaches this Function at
+// all, while the same test against an HTML page reports
+// cf-cache-status: DYNAMIC both times). This key has no effect on that
+// zone layer; the only handle this Function has on it is the
+// Cloudflare-CDN-Cache-Control TTL set in the stylesheet branch below.
 function stampedCacheKey(request, stamp) {
   const url = new URL(request.url);
   url.searchParams.set('__theme', stamp);
@@ -364,6 +376,7 @@ export async function onRequestGet(context) {
   let readThroughOptions;
 
   if (isStylesheet) {
+    const stamp = await themeStamp();
     readThroughOptions = {
       // This is the only place in this Function that reads an upstream body
       // entirely into memory. That is allowed here specifically because
@@ -372,17 +385,25 @@ export async function onRequestGet(context) {
       // member-search-index.js this proxy also serves. The exact-filename
       // check above (not an extension match) is what keeps this branch from
       // ever being reached by one of those larger files.
+      cacheKey: stampedCacheKey(context.request, stamp),
       transformOk: async (upstreamResponse) => {
         const upstreamBody = await upstreamResponse.text();
         const stampedBody = `${upstreamBody}\n${OVERRIDE_BLOCK}`;
-        const stamp = await themeStamp();
         const headers = new Headers(upstreamResponse.headers);
-        // D-20: stylesheet.css switches to a short, symmetric TTL on both
-        // sides — Cloudflare-CDN-Cache-Control controls the edge copy,
-        // Cache-Control controls the browser copy — instead of following
-        // upstream's max-age=31536000. The edge doesn't get the fingerprint
-        // folded into its cache key (unlike the HTML branch below); a short
-        // TTL bounds staleness to at most one hour instead.
+        // D-20 (REVISED for G-02-16 — see 02-UAT.md's correction on this
+        // gap): stylesheet.css still uses a short, symmetric TTL on both
+        // sides — Cloudflare-CDN-Cache-Control controls the zone-cache copy
+        // sitting in front of this Function, Cache-Control controls the
+        // browser copy — instead of following upstream's max-age=31536000.
+        // This branch's caches.default entry now uses the same
+        // theme-fingerprinted cacheKey as the HTML branch (see
+        // stampedCacheKey's own header comment for why there are two
+        // separate cache layers and what each TTL/key actually controls).
+        // Both the key and this TTL only bound the staleness of entries
+        // WRITTEN AFTER this change ships — neither retroactively shortens
+        // an entry already sitting in either cache layer; those retire only
+        // via the one-time manual purge recorded in this plan's
+        // user_setup.
         headers.set('Cache-Control', 'public, max-age=3600');
         headers.set('Cloudflare-CDN-Cache-Control', 'public, max-age=3600');
         headers.set('ETag', weakEtag(upstreamResponse.headers.get('etag'), stamp));

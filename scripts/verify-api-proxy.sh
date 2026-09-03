@@ -562,6 +562,31 @@ record "28 未索引版本同子路径同样得到空 200（分支不打上游�
   "status=$HTTP_STATUS size=${size_dejavu_unindexed:-<无>}" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 29. stylesheet 与类页两条 ETag 的指纹后缀相等（G-02-16）。本项不发起任何新
+#     请求，只复用第 12 项赋的 etag_stylesheet_a 与第 25 项赋的 etag_class_a，
+#     因此不 push 任何东西进 API_HEADERS——第 6/15 项的覆盖面与条数一个字节都
+#     没变（02-REVIEW.md WR-01 修过的插入顺序问题不重演）。
+#
+#     失效域说明：本项在 preview 上不可能红——preview 是全新部署，两条分支
+#     的 ETag 必然带同一个当次构建的指纹。它的失效域是合并后的生产：某个
+#     POP 重放一条 Phase 1 遗留条目时，stylesheet 那条 ETag 没有指纹后缀
+#     （2026-09-03 生产实测：etag: W/"85336939d8eabd0d98291b2eaac0a904"，无
+#     -432b6412 一类后缀），而类页从不进 Function 之前那层缓存、每次都由
+#     Function 生成、带着当前指纹，两者因此对不上。verify-api-proxy.sh 只在
+#     全新 preview 上跑，这一整类「新旧部署迁移」缺陷对它是结构性盲区
+#     （02-UAT.md 的 G-02-16 已把这句写成结论）；本项是把该盲区收窄一格的
+#     第一件工具——它至少让「读者拿到的是哪一份」变成可观测的。
+# ─────────────────────────────────────────────────────────────────────────────
+fp_stylesheet=$(printf '%s' "$etag_stylesheet_a" | grep -oE -- '-[0-9a-f]{8}"$' | tr -d '"-')
+fp_class=$(printf '%s' "$etag_class_a" | grep -oE -- '-[0-9a-f]{8}"$' | tr -d '"-')
+r=0
+[ -n "$fp_stylesheet" ] || r=1
+[ -n "$fp_class" ] || r=1
+[ "$fp_stylesheet" = "$fp_class" ] || r=1
+record "29 stylesheet 与类页 ETag 的指纹后缀相等（G-02-16，preview 上必绿，失效域是合并后的生产）" \
+  "etag_stylesheet=${etag_stylesheet_a:-<无>} etag_class=${etag_class_a:-<无>}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 6 & 15. 每一条 /api/ 响应（含 302、301、404）都带 noindex 且不带 link 头
 #        （6 号），且都带与 EXPECTED_CSP 逐字相等的 Content-Security-Policy
 #        （15 号）。两项共享同一次对 API_HEADERS 的遍历——此时全部 fetch 点位
