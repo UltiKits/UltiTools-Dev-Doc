@@ -291,8 +291,24 @@ jobs:
           existing=$(printf '%s' "$existing_json" | jq -r 'sort_by(.number) | .[0].number // empty')
           existing_body=$(printf '%s' "$existing_json" | jq -r 'sort_by(.number) | .[0].body // empty')
 
-          prev_version=$(printf '%s' "$existing_body" | grep -oE 'version=[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d= -f2) || prev_version=""
-          prev_result=$(printf '%s' "$existing_body" | grep -oE 'result=[a-z]+' | head -1 | cut -d= -f2) || prev_result=""
+          # G-02-19: these two extractions are deliberately NOT written the
+          # same way. `result` is this workflow's own closed enum (six
+          # all-lowercase, hyphenated literals — see the `case "$INDEX_
+          # RESULT"` block above and index_result's own set upstream), so
+          # enumerating its character class ([a-z-]) is an accurate match;
+          # the previous [a-z] omitted the hyphen and truncated
+          # `post-failed`/`fetch-failed` to `post`/`fetch`, which meant the
+          # equality check below never held and every schedule run with an
+          # unchanged result still edited the issue. `version`, by
+          # contrast, is decided by Maven Central, not by this repository —
+          # today's versions all happen to be three dot-separated numeric
+          # segments, but that is an observation, not a constraint this
+          # workflow should encode. It is written into the marker line
+          # above by this same step as "read to the next space", so
+          # extracting it the same way (up to the next space) is the form
+          # that stays correct regardless of what that alphabet looks like.
+          prev_version=$(printf '%s' "$existing_body" | grep -oE 'version=[^ ]+' | head -1 | cut -d= -f2) || prev_version=""
+          prev_result=$(printf '%s' "$existing_body" | grep -oE 'result=[a-z-]+' | head -1 | cut -d= -f2) || prev_result=""
 
           if [ -z "$existing" ]; then
             gh issue create \

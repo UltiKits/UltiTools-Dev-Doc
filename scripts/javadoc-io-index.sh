@@ -150,6 +150,21 @@ emit_result() {
 # "tolerant" — a "strict"-mode call never sets it, it fails closed instead,
 # see validate_and_extract's own comment. A "broken" verdict never returns
 # through this variable — it exits the whole script immediately, see below.
+#
+# A fourth value, "refetch-failed" (G-02-17), is set only by
+# ensure_form_ready itself, never by validate_and_extract — it means the
+# bootstrap retry's own re-fetch of the versions page (after a sync POST)
+# came back empty. fetch_page has already called emit_result("fetch-failed",
+# ...) by the time this value is set; "refetch-failed" exists purely to
+# tell the caller (run_single/run_backfill) "the status light is already
+# written, do not write it again" — writing "post-failed" or "broken" on
+# top would make GITHUB_OUTPUT's last-value-wins semantics report the wrong
+# one of two things that both actually happened. This is carried through an
+# out-parameter rather than a return-code distinction because `if ! f`
+# already collapses `f`'s real exit status into a boolean at the call site
+# (see ensure_form_ready's own header comment) — this file already uses
+# FORM_STATUS as an out-parameter for exactly this reason, so reusing it is
+# less ambiguous than introducing a second, parallel return-code contract.
 FORM_STATUS=""
 CSRF_TOKEN=""
 
@@ -158,24 +173,45 @@ CSRF_TOKEN=""
 # every existing call site (no argument) is unchanged. The bootstrap retry's
 # second pass (G-02-11) is the only caller that ever passes an explicit
 # argument, so it can read --page-file-after-sync instead of --page-file
-# without this function needing to know why. This hop is allowed to fail
-# legitimately — network down, upstream unreachable — and is guarded with
-# `|| true` followed immediately by the emptiness check below, the same
-# convention check-version-consistency.sh uses: a failure here is "couldn't
-# reach a conclusion", not "the script is broken".
+# without this function needing to know why. Both hops are allowed to fail
+# legitimately — network down/upstream unreachable for the GET branch, a
+# missing or empty fixture file for the file-override branch (the override
+# argument's only reason to exist is standing in for that GET, so "couldn't
+# read that page" is the same conclusion on either branch) — and both are
+# guarded with `|| true` feeding into a single emptiness check below, the
+# same convention check-version-consistency.sh uses: a failure here is
+# "couldn't reach a conclusion", not "the script is broken".
+#
+# G-02-17: this function communicates failure with `return`, not `exit`.
+# All three call sites below invoke it via command substitution
+# (`page="$(fetch_page ...)"`), and `exit` inside a command substitution
+# only kills that subshell — the enclosing script only stops because the
+# subshell's non-zero exit status trips errexit at the call site. That is
+# true at :455 and :531, where the call sits in a plain statement, but NOT
+# at :354 (ensure_form_ready's bootstrap re-fetch), which runs inside a
+# function invoked as `if ! ensure_form_ready ...` — bash disables errexit
+# for the entire duration of a function called as an `if` condition, so a
+# command substitution failing inside that function is silently absorbed:
+# the assignment succeeds with an empty string and control falls through to
+# whatever comes next, exactly as if the fetch had returned an empty page
+# rather than failed. Switching to `return` does not fix that by itself —
+# it only makes the function's own contract match what it can actually
+# enforce from inside a subshell (nothing); every call site must check the
+# result explicitly instead of relying on errexit context it cannot see
+# from here, which is what the three call sites now do.
 fetch_page() {
   local path_override="${1:-$PAGE_FILE}"
-  if [ -n "$path_override" ]; then
-    cat "$path_override"
-    return 0
-  fi
   local page
-  page=$(curl -sS --fail --connect-timeout 10 --max-time 30 \
-         --cookie-jar "$COOKIE_JAR" \
-         --user-agent "$USER_AGENT" \
-         "$VERSIONS_PAGE_URL") || true
+  if [ -n "$path_override" ]; then
+    page=$(cat "$path_override" 2>/dev/null) || true
+  else
+    page=$(curl -sS --fail --connect-timeout 10 --max-time 30 \
+           --cookie-jar "$COOKIE_JAR" \
+           --user-agent "$USER_AGENT" \
+           "$VERSIONS_PAGE_URL") || true
+  fi
   if [ -z "$page" ]; then
-    echo "javadoc-io-index: 取不到 javadoc.io 版本列表页（网络问题），不是脚本本身判定错误。" >&2
+    echo "javadoc-io-index: 取不到 javadoc.io 版本列表页（网络问题，或 --page-file/--page-file-after-sync 指向的样例文件缺失/为空），不是脚本本身判定错误。" >&2
     # 独立取值，不复用 post-failed（G-02-14）：这里坏的是取版本列表页的 GET,
     # post-failed 的正文断言的是 sync/upload 的 POST 收到上游 HTTP 错误——两者
     # 不是同一件事，复用会让状态灯说假话（T-02-15 禁止两种失效共用一条路径）。
@@ -185,7 +221,7 @@ fetch_page() {
     # 其余五处 exit 2（用法错误，:79/:115/:581/:599；超时，:588 已发 timeout）
     # 不需要在这里一并处理：用法错误在运行尚未开始时发生，本就不该有状态灯。
     emit_result "fetch-failed" "$VERSION"
-    exit 2
+    return 2
   fi
   printf '%s' "$page"
 }
@@ -322,12 +358,30 @@ validate_and_extract() {
 #
 # Returns 0 whenever the second pass ran, or wasn't needed at all — a hard
 # structural break at any point calls `exit 1` directly from inside
-# validate_and_extract and never returns here. Returns 1 only when the
-# bootstrap sync POST itself failed upstream; callers fold that into the
-# same "post-failed" handling do_post's own failure already produces (see
-# run_single/run_backfill below) — both are "an upstream POST returned an
-# HTTP error before this version's readiness was ever polled", and a
-# separate result value would say nothing that one doesn't already say.
+# validate_and_extract and never returns here. Returns 1 for two distinct
+# reasons, and they are NOT the same failure (G-02-17):
+#   - the bootstrap sync POST itself failed upstream — FORM_STATUS is left
+#     as "bootstrap-needed", and callers (run_single/run_backfill) fold
+#     this into the same "post-failed" handling do_post's own failure
+#     already produces, since both are "an upstream POST returned an HTTP
+#     error before this version's readiness was ever polled".
+#   - the re-fetch of the versions page after that POST came back empty —
+#     FORM_STATUS is set to "refetch-failed" here, and callers must NOT
+#     call emit_result again: fetch_page has already written
+#     index_result=fetch-failed by the time this function returns, and a
+#     second write of "post-failed"/"broken" on top would make
+#     GITHUB_OUTPUT's last-value-wins semantics report a permanent
+#     structural break for what was actually a transient GET failure — the
+#     exact failure this gap closes. Callers distinguish the two by reading
+#     FORM_STATUS after `if ! ensure_form_ready ...` returns false.
+#
+# The re-fetch is checked explicitly with `if !` rather than relying on the
+# calling context's errexit, because this function is itself always invoked
+# as `if ! ensure_form_ready ...` — and bash disables errexit for an entire
+# function body while it is being evaluated as an `if` condition. A command
+# substitution failing inside such a function is silently absorbed (empty
+# assignment, no propagated failure) unless the call site checks it itself;
+# see fetch_page's own header comment for the minimal repro.
 ensure_form_ready() {
   local version="$1" first_page="$2"
 
@@ -351,7 +405,12 @@ ensure_form_ready() {
   fi
 
   local second_page
-  second_page="$(fetch_page "$PAGE_FILE_AFTER_SYNC")"
+  if ! second_page="$(fetch_page "$PAGE_FILE_AFTER_SYNC")"; then
+    # fetch_page has already emit_result("fetch-failed", ...) — do not
+    # write index_result a second time here or in any caller (G-02-17).
+    FORM_STATUS="refetch-failed"
+    return 1
+  fi
   validate_and_extract "$second_page" strict
   return 0
 }
@@ -452,16 +511,30 @@ poll_ready() {
 run_single() {
   VERSION="$1"
   local page
-  page="$(fetch_page)"
+  # G-02-17: explicit check, not reliance on errexit — this call sits in a
+  # plain statement (errexit would already catch it here), but written
+  # explicitly so the outcome does not depend on how run_single happens to
+  # be invoked. fetch_page has already emit_result("fetch-failed", ...)
+  # before returning non-zero; nothing further to write here.
+  if ! page="$(fetch_page)"; then
+    exit 2
+  fi
 
   # G-02-11: ensure_form_ready runs the tolerant-then-maybe-sync-then-strict
   # bootstrap retry; a hard structural break still exits the whole script
   # directly from inside validate_and_extract, same as before this Task.
-  # Only the bootstrap sync POST failing reaches here as a non-zero return
-  # — folded into the same "post-failed" result do_post's own failure
-  # produces a few lines below, not a new result value (see
-  # ensure_form_ready's own comment for why).
+  # A non-zero return here has two distinct causes (G-02-17, see
+  # ensure_form_ready's own comment): the bootstrap sync POST failing
+  # upstream (FORM_STATUS stays "bootstrap-needed", folded into the same
+  # "post-failed" result do_post's own failure produces a few lines below),
+  # or the bootstrap re-fetch coming back empty (FORM_STATUS is
+  # "refetch-failed", and the status light is already written by
+  # fetch_page — this branch must NOT emit_result again).
   if ! ensure_form_ready "$VERSION" "$page"; then
+    if [ "$FORM_STATUS" = "refetch-failed" ]; then
+      echo "javadoc-io-index: 引导刷新之后重取版本列表页失败，GET 没成功，判定为暂态；状态灯已由 fetch_page 写为 fetch-failed，此处不改写。" >&2
+      return 2
+    fi
     echo "javadoc-io-index: POST 请求（sync 或 upload）失败——上游 HTTP 错误，判定为第三方服务暂态问题，不代表脚本坏了。" >&2
     emit_result "post-failed" "$VERSION"
     return 2
@@ -528,13 +601,25 @@ run_backfill() {
     echo "javadoc-io-index: [backfill] 处理版本 ${v}"
     VERSION="$v"
     local page
-    page="$(fetch_page)"
+    # G-02-17: explicit check, same reasoning as run_single's call site —
+    # written explicitly rather than relying on errexit context.
+    if ! page="$(fetch_page)"; then
+      exit 2
+    fi
     # A structural break halts the entire backfill immediately, not just
     # this iteration — validate_and_extract() (reached via ensure_form_ready,
     # G-02-11) already exits 1 internally for that case, which is the
-    # correct behavior here too.
+    # correct behavior here too. A non-zero return here has two distinct
+    # causes (G-02-17, see ensure_form_ready's own comment) and must not be
+    # reported with the same sentence — the bootstrap sync POST failing is
+    # a failed upload/sync request; the bootstrap re-fetch failing is a
+    # failed GET, and the status light for it is already written.
     if ! ensure_form_ready "$v" "$page"; then
-      echo "javadoc-io-index: [backfill] 版本 ${v} 的引导刷新（sync）请求失败，视为第三方服务暂态问题；不中断其余版本，下一个周期会自动重试。"
+      if [ "$FORM_STATUS" = "refetch-failed" ]; then
+        echo "javadoc-io-index: [backfill] 版本 ${v} 的引导刷新之后重取版本列表页失败，GET 没成功，视为暂态；状态灯已由 fetch_page 写为 fetch-failed；不中断其余版本，下一个周期会自动重试。"
+      else
+        echo "javadoc-io-index: [backfill] 版本 ${v} 的引导刷新（sync）请求失败，视为第三方服务暂态问题；不中断其余版本，下一个周期会自动重试。"
+      fi
       any_timeout=1
       continue
     fi
