@@ -130,10 +130,6 @@ const sidebarGuideZH: DefaultTheme.SidebarItem[] = [
             {
                 text: 'UltiKits CLI',
                 link: 'advanced/ultikits-cli'
-            },
-            {
-                text: '测试工具',
-                link: 'advanced/test-utilities'
             }
         ]
     },
