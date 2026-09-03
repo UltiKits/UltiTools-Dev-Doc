@@ -35,6 +35,14 @@ const navZH = [
     // 桌面端由 SecondNavBar.vue、移动端由 VitePress 自带的 VPNavScreenMenu
     // 消费同一条 nav 项——注册名为什么是 'VersionSwitcher' 而不是
     // 'UtVersionSwitcher'，见 theme/index.mts。
+    //
+    // 每页服务端渲染的是两份，不是一份：VitePress 自己的 VPNavBarMenu.vue:21-25
+    // 与 SecondNavBar.vue:82 都会遍历 theme.nav 并渲染 component 分支。第二份
+    // 看不见，只是因为 Layout.vue 把
+    // `.VPNavBar .content-body > .VPNavBarMenu.menu` 整个隐藏了——那是一条先于
+    // 切换器存在、与它无关的规则，去掉它导航栏上就会多出一个下拉。
+    // scripts/check-rendered-links.sh 已把出现次数断言成恰好 2，第三个消费方
+    // 出现、或那条隐藏规则被动过，才不会是静默的。
     {
         component: 'VersionSwitcher'
     }

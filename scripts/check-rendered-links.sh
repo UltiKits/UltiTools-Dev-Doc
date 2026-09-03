@@ -336,6 +336,22 @@ assert_active_version() {
   else
     fail "  $label observed=${values:-（无标记）} expected=$expected"
   fi
+
+  # 上面那条经过 sort -u，看的是「取值」不是「出现次数」，N 份相同的副本会塌成
+  # 一个值照样通过。而切换器每页确实被服务端渲染两份：VitePress 自己的
+  # VPNavBarMenu.vue:21-25 与本仓库的 SecondNavBar.vue:82 都会遍历 theme.nav 并
+  # 渲染 component 分支，第二份只是被 Layout.vue 的
+  # `.VPNavBar .content-body > .VPNavBarMenu.menu { display: none !important }`
+  # 藏住了——一条先于本 Phase 存在、与切换器无关的规则。把出现次数一并断言，
+  # 第三个消费方出现、或那条隐藏规则被动过，才会有信号。
+  # 实测：393 个含标记的页面，每一页恰好 2 次。
+  local occurrences
+  occurrences="$({ grep -oE "${ACTIVE_MARKER}=\"[^\"]*\"" "$file" || true; } | wc -l)"
+  if [ "$occurrences" -eq 2 ]; then
+    pass "  $label 出现次数 observed=$occurrences expected=2（导航栏一份 + tab 栏一份）"
+  else
+    fail "  $label 出现次数 observed=$occurrences expected=2 —— 消费 theme.nav 的地方变了，或 Layout.vue 里那条隐藏规则被动过"
+  fi
 }
 
 assert_active_version "$DIST/v6.2.1/guide/introduction.html" "v6.2.1" "archived-en (v6.2.1/guide/introduction.html)"
