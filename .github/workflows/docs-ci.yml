@@ -82,10 +82,10 @@ jobs:
     # 一段模板字符串常量，源码就是唯一的真值来源，它拼接后的渲染产物不进仓
     # 库、也不在构建产物里，没有第二份可读的东西。
     #
-    # scripts/fixtures/ 下四份样例的作用：一道新门禁报「零违规」和它其实没
-    # 读到输入，在 CI 日志上看起来一模一样；四份样例分别证明它对一份必然
+    # scripts/fixtures/ 下五份样例的作用：一道新门禁报「零违规」和它其实没
+    # 读到输入，在 CI 日志上看起来一模一样；五份样例分别证明它对一份必然
     # 达标的输入以 0 退出、对一份只改了一个色值的输入以 1 退出并点名那一
-    # 对、对两份自身出错的输入各以 2 退出，唯有喂给它这样的输入才能把这些
+    # 对、对三份自身出错的输入各以 2 退出，唯有喂给它这样的输入才能把这些
     # 情况区分开（scripts/check-contrast.py 的头注释有完整推理）。G-02-13
     # 修复之前，这段注释描述的对照并不存在——job 只跑了检查真实调色板那一
     # 行，既有 fixture 在 CI 里从未被调用过，读者会以为对照在位。
@@ -108,12 +108,20 @@ jobs:
     # 法由 clean 样例的 PASS 条数下界接住——被改名的变量条数不变、PAIRS
     # 解析结果不变，PASS 仍是 52 条。
     #
-    # clean 样例判的是「PASS 条数不少于 52」而不是「恰好等于 52」：这是四
+    # out-of-range 样例（G-02-22）覆盖的是新增的自检 5：某个 rgb() 通道超
+    # 出 0-255。这个失效形状同样无法由别处接住——clean 样例的 PASS 条数
+    # 下界看不见它，因为越界取值仍然照常算出一条 PASS（只是数字不对，不
+    # 是少了一条）；自检 1 也看不见它，因为若越界的是 PAIRS 不引用的变量
+    # （真实门禁里点名的正是 --border-color，六个不被引用的变量之一），
+    # 自检 1 根本不会走到那个名字。只有专门构造一份越界样例、并对真实调
+    # 色板的非 PAIRS 变量做同样的越界改写，才能证明这条自检确实在起作用。
+    #
+    # clean 样例判的是「PASS 条数不少于 52」而不是「恰好等于 52」：这是五
     # 条自检共同失效形状的兜底之一——被静默跳过的色对不会打印 FAIL，只会
     # 让 PASS 变少；取下界不取等值，是为了让将来有意新增色对时不必同时改
     # 这里的数字。
     #
-    # 五条断言的顺序不是随意的：四份样例跑在真实调色板之前，是为了让「门禁
+    # 六条断言的顺序不是随意的：五份样例跑在真实调色板之前，是为了让「门禁
     # 本身失灵」与「调色板真的不达标」在 CI 日志上从第一屏就分得开。
     #
     # 每条断言都显式捕获退出码再比较，不依赖 shell 的 `-e` 直接中止——
@@ -194,6 +202,20 @@ jobs:
           fi
           if ! printf '%s\n' "$mismatch_out" | grep -q -- "--fixture-only-dark"; then
             echo "::error::name-mismatch 样例的报错未点名 --fixture-only-dark"
+            exit 1
+          fi
+
+          set +e
+          oor_out=$(python3 scripts/check-contrast.py scripts/fixtures/palette-contrast-out-of-range.css 2>&1)
+          oor_exit=$?
+          set -e
+          echo "$oor_out"
+          if [ "$oor_exit" != "2" ]; then
+            echo "::error::out-of-range 样例（palette-contrast-out-of-range.css）退出码 $oor_exit，期望恰好 2——自检 5 新增于 G-02-22，见本 job 顶部注释"
+            exit 1
+          fi
+          if ! printf '%s\n' "$oor_out" | grep -q -- "--link-color"; then
+            echo "::error::out-of-range 样例的报错未点名 --link-color"
             exit 1
           fi
 

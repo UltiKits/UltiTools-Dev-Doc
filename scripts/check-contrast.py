@@ -62,22 +62,79 @@ and two variables that are supposed to look different become pixel-
 identical. `distinct` therefore just asserts inequality; `body` and
 `nontext` are the tiers that carry an actual WCAG ratio floor.
 
-## Why two fixture files exist / 两份样例存在的理由
+## Why five fixture files exist / 五份样例存在的理由
 
 A brand-new gate that reports "0 violations" looks EXACTLY the same in a CI
 log whether it genuinely read every declaration and found them all
 compliant, or whether it silently parsed nothing and therefore had nothing
 to fail on. Those two outcomes are indistinguishable from the passing output
-alone. The only way to tell them apart is to also feed the gate an input
-that MUST fail, and confirm it actually does — which is why
-scripts/fixtures/palette-contrast-violation.css exists alongside the
-clean fixture: it changes exactly one value (light-mode --link-color) to
-something that is visibly, deliberately non-compliant, so a green result on
-it would prove the gate isn't reading its input at all.
+alone. The only way to tell them apart is to also feed the gate inputs that
+MUST fail each of its checks, one at a time, and confirm each actually does.
+Each fixture below proves a distinct thing this gate could otherwise be
+quietly emptied out of:
+
+- palette-contrast-clean.css — a real, WCAG-compliant palette. Must exit 0
+  with no FAIL lines; also the base every other fixture below is a minimal
+  edit of.
+- palette-contrast-violation.css — clean.css with exactly ONE value changed
+  (light-mode --link-color) to something visibly, deliberately
+  non-compliant. Proves the gate reads the line it changed and computes
+  that one pair, not that it reacts to "garbage in" generically.
+- palette-contrast-duplicate-marker.css — a repeated table-boundary marker
+  comment. Proves self-check 4 catches ambiguous table boundaries instead
+  of letting `text.find()` silently pick the wrong occurrence.
+- palette-contrast-name-mismatch.css (G-02-18) — clean.css with one
+  PAIRS-unreferenced declaration added to each table, same count, different
+  name sets. Proves self-check 2 compares the two tables' declared NAMES,
+  not merely how many declarations each has.
+- palette-contrast-out-of-range.css (G-02-22) — clean.css with exactly one
+  value changed (light-mode --link-color) to an out-of-range rgb() channel.
+  Proves self-check 5 catches a channel value CSS could only render by
+  clamping it into a different number than the one written in the file.
+
+## Why reject an out-of-range rgb() channel, not clamp it / 为什么拒绝越界
+## 通道而不是钳制它到 0-255（G-02-22）
+
+CSS clamps an out-of-range rgb() channel to 0-255 at render time, so
+clamping here would be closer to what a browser actually shows. Rejecting
+it instead — ending the run at exit 2 — was chosen for three measured
+reasons:
+
+1. Clamping lets exactly the class of typo this gate exists to catch back
+   in, just at different numbers. Measured: `rgb(999, 0, 0)` against white
+   computes to 4.9269:1 taken literally (passes the 4.5:1 `body` threshold)
+   but 3.9985:1 once clamped to `rgb(255, 0, 0)` (fails it). A gate that
+   clamps would report this palette compliant; a gate that rejects reports
+   it as exactly what it is — a channel value nobody could have meant.
+2. Clamping means the gate silently rewrites its own input: the number in
+   its report is no longer the number written in the file, and the entire
+   value of this gate comes from "it reports what it actually read".
+3. An out-of-range channel isn't a color to begin with — the formula
+   itself says so. Measured: `rgb(-5, 0, 0)` against white computes to
+   21.1364, above 21.0, the theoretical maximum contrast ratio the WCAG
+   formula can produce (pure black against pure white). A value that pushes
+   the formula past its own ceiling has left the domain the formula was
+   defined over.
+
+Exit code 2, not 1, for the same reason self-check 1 through 4 already use
+2: this script's exit codes split on "did this run produce a trustworthy
+answer", not on "is the input good CSS". 1 means two well-formed colors
+were compared and one pair did not meet its threshold. 2 means this run
+cannot produce a trustworthy answer at all — self-check 1 already lives on
+that side for judging the PALETTE's content (a name PAIRS references that
+doesn't resolve to a color), not just this script's own content. An
+out-of-range channel belongs there too: it is malformed input, not a
+compliant-or-not color.
+
+rgba() is out of scope for this check, same as it is for the rest of this
+gate (see RGB_RE's own comment): it never resolves to an (r, g, b) triple
+via parse_color, so it never produces a ratio, and there is no
+measured-vs-rendered divergence to guard against — an out-of-range rgba()
+channel is invisible to this gate exactly as an in-range one already is.
 
 ## Self-checks / 自检
 
-Four conditions each end the run with exit 2 and an explanation, rather
+Five conditions each end the run with exit 2 and an explanation, rather
 than a silent pass, because each is a way this gate could be quietly
 emptied out without ever printing a FAIL line:
 
@@ -120,6 +177,27 @@ emptied out without ever printing a FAIL line:
    precondition for that split to even be well-defined), even though it is
    listed fourth here to match the order the three pre-existing checks
    were written in.
+5. A `rgb(...)` value in ANY declaration in either table — not just the
+   ones PAIRS references — has a channel outside 0-255 (G-02-22). Walks
+   the full declaration set (see self-check 2's "not just PAIRS" walk
+   above for why the same wider walk matters here: self-check 1's
+   PAIRS-only walk already proved to be a blind spot for the same six
+   unreferenced variables an out-of-range value could just as easily hide
+   in). Runs before self-check 1 in execution order (immediately after
+   self-check 2, before self-check 3) precisely so an out-of-range value
+   is reported as what it actually is — "this channel is out of range" —
+   rather than falling through to self-check 1's "not found as a
+   parseable color", which is the message a 4-digit or negative channel
+   gets today (RGB_RE's digit-count-limited, sign-less pattern rejects
+   those outright and parse_color returns None), true but not the actual
+   reason, and without this check that None would be indistinguishable
+   from a genuine typo. (A 3-digit but numerically over-255 channel is a
+   third, worse shape: RGB_RE's digit count alone does not bound the
+   VALUE, so that one parses "successfully" today with no failure
+   anywhere — see RGB_CHANNEL_OOR_RE's own comment below.) See "Why
+   reject... not clamp" above for why this ends the run at exit 2 rather
+   than
+   clamping the value and continuing.
 """
 import re
 import sys
@@ -150,6 +228,30 @@ HEX3_RE = re.compile(r"^#([0-9a-fA-F]{3})$")
 # alpha-bearing site token (e.g. --vp-c-gray-soft) is written here as its
 # already-opaque composite instead.
 RGB_RE = re.compile(r"^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$")
+
+# Self-check 5 (G-02-22): deliberately permissive counterpart to RGB_RE
+# above — any digit count, an optional leading "-", and no start/end
+# anchors — because it has to catch every out-of-range shape, and those
+# shapes behave differently against RGB_RE today:
+#   - a channel within RGB_RE's own \d{1,3} digit-count ceiling but
+#     numerically over 255 (e.g. "999" — three digits) ALREADY matches
+#     RGB_RE and is accepted by parse_color literally, with no failure at
+#     all: this is G-02-22's actual bug, a silently wrong contrast ratio
+#     rather than a self-check catching anything.
+#   - a channel with 4+ digits, or a negative channel, does NOT match
+#     RGB_RE (its \d{1,3} has no digit-count headroom and no "-"), so
+#     parse_color already returns None for these — but the resulting
+#     failure message ("not found as a parseable color", from self-check
+#     1) is misleading: the value IS an rgb() triple, just out of range.
+# Matching wherever an rgb(...) substring sits inside a raw declaration
+# value (not only when the whole value is exactly rgb(...)) is what makes
+# this catch all three shapes uniformly. Never matches inside rgba(...):
+# the literal substring "rgb(" is not present in "rgba(" (an "a" sits
+# between "rgb" and "("), so an alpha-carrying value is structurally
+# invisible to this pattern — see the module docstring's "Why reject...
+# not clamp" section for why rgba() staying out of scope here is
+# intentional, not an oversight.
+RGB_CHANNEL_OOR_RE = re.compile(r"rgb\(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)")
 
 # tier: 'body' (>= 4.5:1, WCAG 2.1 SC 1.4.3), 'nontext' (>= 3:1, SC 1.4.11),
 # 'distinct' (no ratio — just asserts the two values are not identical; see
@@ -201,7 +303,15 @@ def parse_declarations(text):
 
 def parse_color(value):
     """Return an (r, g, b) int tuple if value is a 6-digit hex, 3-digit
-    hex, or rgb(r, g, b) triple; otherwise None."""
+    hex, or rgb(r, g, b) triple; otherwise None.
+
+    No range check here on the rgb() branch (G-02-22): by the time
+    check_file() calls this, self-check 5 has already walked every
+    declaration in both tables and rejected any rgb() channel outside
+    0-255 at exit 2. This function can therefore take RGB_RE's captured
+    digits at face value — the invariant is enforced once, upstream, not
+    re-checked (and not re-clamped) here.
+    """
     value = value.strip()
     m = HEX6_RE.match(value)
     if m:
@@ -291,6 +401,47 @@ def check_file(path):
             f"{len(dark_decls)}, but the two blocks do not re-declare the same "
             "SET of names (a count match does not imply a name match): "
             + "; ".join(detail_parts),
+            file=sys.stderr,
+        )
+        return 2, []
+
+    # Self-check 5 (G-02-22): every rgb() channel, in EVERY declaration in
+    # either table — not just the 27 names PAIRS references — must be in
+    # 0-255. Walks light_decls/dark_decls directly (raw value strings, the
+    # same full-declaration walk self-check 2 above just used), not the
+    # PAIRS-only walk self-check 1 below uses: self-check 1 already proved
+    # that narrower walk is a blind spot for the same six unreferenced
+    # variables (--block-font-family, --body-font-family, --border-color,
+    # --code-font-family, --copy-icon-brightness, --table-border-color;
+    # G-02-18's own finding), and an out-of-range value hiding in one of
+    # those six would otherwise reach production the same way a renamed
+    # one already did once. Placed here, before self-check 1, so that an
+    # out-of-range value is reported as what it actually is (see
+    # RGB_CHANNEL_OOR_RE's own comment for why the digit-count-in-range,
+    # numerically-over-255 shape parses "successfully" today and produces
+    # a silently wrong ratio instead of failing anywhere at all — that
+    # shape is exactly why this check cannot simply be folded into
+    # self-check 1's parseability check).
+    out_of_range = []
+    for table_name, decls in (("light", light_decls), ("dark", dark_decls)):
+        for name in sorted(decls):
+            raw = decls[name]
+            for m in RGB_CHANNEL_OOR_RE.finditer(raw):
+                channels = [int(g) for g in m.groups()]
+                bad_channels = [c for c in channels if c < 0 or c > 255]
+                if bad_channels:
+                    out_of_range.append(
+                        f"{table_name} {name}: {raw!r}（越界通道: "
+                        + ", ".join(str(c) for c in bad_channels) + "）"
+                    )
+    if out_of_range:
+        print(
+            f"check-contrast.py: {path}: self-check failed — rgb() channel(s) "
+            "outside 0-255 in a declaration (not a color CSS can render without "
+            "clamping it into a different value than the one written here; see "
+            "this script's own module docstring, 'Why reject... not clamp', for "
+            "why this is exit 2 rather than a clamp-and-continue): "
+            + "; ".join(out_of_range),
             file=sys.stderr,
         )
         return 2, []

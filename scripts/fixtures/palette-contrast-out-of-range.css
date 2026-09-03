@@ -1,0 +1,98 @@
+/* Fixture for scripts/check-contrast.py — self-check 5 (G-02-22), an
+out-of-range rgb() channel.
+
+Identical to scripts/fixtures/palette-contrast-clean.css except for exactly
+ONE value: light-mode --link-color is changed from rgb(4, 98, 204) to
+rgb(999, 0, 0). Only one value differs, on purpose — this fixture inherits
+the same constraint palette-contrast-violation.css's header already argues
+for: proving the gate reads the line that was actually changed, not that
+it reacts to any malformed input generically.
+
+Before this gap's fix, scripts/check-contrast.py exits 0 against this file
+and prints 52 PASS lines (measured) — RGB_RE's \d{1,3} digit-count ceiling
+does not bound the VALUE, so "999" parses as a literal channel exactly as
+"055" would, and the report line for that pair prints the color as a
+malformed seven-character hex string (%02x is a minimum field width, not a
+truncation, so 999 becomes "3e7" — three hex digits, not two). That
+malformed print, sitting unnoticed in a passing report, is the fixture's
+own proof that nobody had looked closely at this gate's output before
+G-02-22: a gate genuinely reading its input does not print a seven-digit
+hex color and call it PASS.
+
+After the fix, scripts/check-contrast.py must exit exactly 2 against this
+file and name both --link-color and 999 in its self-check-5 error output.
+
+Name set is unchanged from clean.css (self-check 2 does not respond to
+this edit) and all four table-boundary markers still appear exactly once
+each (self-check 4 does not respond either) — the only thing this fixture
+is meant to exercise is self-check 5's range judgment. See
+palette-contrast-clean.css's header for the same warning this fixture
+inherits: do not spell out the four table-boundary marker strings a
+second time anywhere in this comment block, or self-check 4 trips first
+and this fixture would exit 2 for the wrong reason — same exit code,
+different cause, harder to notice than a red/green flip.
+*/
+/* palette-table:light:begin */
+:root {
+  --body-text-color: #3c3c43;
+  --block-text-color: #67676c;
+  --body-background-color: #ffffff;
+  --section-background-color: #f8f8f8;
+  --detail-background-color: #ffffff;
+  --navbar-background-color: rgb(4, 98, 204);
+  --navbar-text-color: #ffffff;
+  --even-row-color: #ffffff;
+  --odd-row-color: #eff0f3;
+  --link-color: rgb(999, 0, 0);
+  --link-color-active: rgb(3, 73, 153);
+  --search-input-background-color: #ffffff;
+  --search-input-text-color: #3c3c43;
+  --search-input-placeholder-color: #67676c;
+  --snippet-text-color: #67676c;
+  --snippet-background-color: #f8f8f8;
+  --subnav-background-color: #eff0f3;
+  --selected-background-color: #ffffff;
+  --selected-text-color: rgb(4, 98, 204);
+  --selected-link-color: rgb(4, 98, 204);
+  --snippet-highlight-color: #fcf4dc;
+  --search-tag-highlight-color: #fcf4dc;
+  --copy-button-background-color-active: #eff0f3;
+  --invalid-tag-background-color: #fde4e8;
+  --invalid-tag-text-color: #b8272c;
+  --title-color: #3c3c43;
+  --source-linenumber-color: #67676c;
+}
+/* palette-table:light:end */
+@media (prefers-color-scheme: dark) {
+  /* palette-table:dark:begin */
+  :root {
+    --body-text-color: #dfdfd6;
+    --block-text-color: #98989f;
+    --body-background-color: #000000;
+    --section-background-color: #131313;
+    --detail-background-color: #000000;
+    --navbar-background-color: rgb(4, 98, 204);
+    --navbar-text-color: #ffffff;
+    --even-row-color: #000000;
+    --odd-row-color: #101315;
+    --link-color: rgb(5, 122, 255);
+    --link-color-active: rgb(85, 168, 255);
+    --search-input-background-color: #000000;
+    --search-input-text-color: #dfdfd6;
+    --search-input-placeholder-color: #98989f;
+    --snippet-text-color: #98989f;
+    --snippet-background-color: #131313;
+    --subnav-background-color: #101315;
+    --selected-background-color: #ffffff;
+    --selected-text-color: rgb(4, 98, 204);
+    --selected-link-color: rgb(4, 98, 204);
+    --snippet-highlight-color: #251d01;
+    --search-tag-highlight-color: #251d01;
+    --copy-button-background-color-active: #101315;
+    --invalid-tag-background-color: #270a0f;
+    --invalid-tag-text-color: #f66f81;
+    --title-color: #dfdfd6;
+    --source-linenumber-color: #98989f;
+  }
+  /* palette-table:dark:end */
+}
