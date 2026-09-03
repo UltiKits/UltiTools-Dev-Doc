@@ -2,8 +2,10 @@
 文章内容不一定是最新的，你可以前往 [Javadoc 文档](https://doc.dev.ultikits.com/javadoc) 来查看最新的内容
 :::
 
-::: danger Deprecated
-The `VersionWrapper` interface is deprecated since v6.2.0 and will be removed in a future version. Use the static methods in `XVersionUtils` instead.
+::: danger Removed in v6.3.0
+`VersionWrapper`, `DefaultVersionWrapper`, and `UltiTools#getVersionWrapper()` were deleted outright in v6.3.0.
+None of them exist in the jar; this page is kept only as a historical record.
+Use `XVersionUtils`'s static methods instead — every method below already delegated to one.
 :::
 
 # 接口 `VersionWrapper`

@@ -139,6 +139,38 @@ sets it to `false`, or sets it to anything other than a real JSON boolean is ref
 filesystem access, naming the missing field. An older panel build that does not yet send this field
 has every directory-delete request refused with a clear reason.
 
+## Credential file location <Badge type="tip" text="v6.3.0+" />
+
+The framework's own UltiCloud credential file — the panel-connection token, not anything a module
+owns — moved as of v6.3.0. This is operator-visible: it changes where a backup or a server-move needs
+to copy the credential from.
+
+| | Location |
+|---|---|
+| Before v6.3.0 | `plugins/UltiTools/data.json` |
+| v6.3.0 and later | `<server root>/.ultikits/credentials.json` |
+
+**The move happens automatically, once, on the first credential read/write after upgrading** — there
+is no separate migration command to run. The sequence is fail-safe by construction: the old file is
+read, the new file is written, the new file is read back to confirm it landed correctly, and only then
+is the old file deleted. If the write fails at any point, the old file is left exactly where it was
+and the framework falls back to it, so a failed migration never loses the credential — it just leaves
+the operator on the old location until the next successful attempt.
+
+The new location sits outside every default [editable root](#remote-file-api-boundary) described
+above, and — like `data.json` before it — is additionally covered by the unconditional, filename-based
+credential exclusion regardless of what roots an operator configures, refused from the remote file API
+at both the new location and, for the duration of an upgrade's restart window, the old one.
+
+**Three internal credential-coordination statics on `CloudAuthManager` are announced for removal in
+v6.4.0.** `currentCredentialGeneration()`, `invalidateCredentialOperations()`, and
+`commitTokenIfCurrent(TokenEntity, long)` were never a supported external API — they coordinate the
+framework's own asynchronous credential producers with its teardown path, and carry
+`@Deprecated(since = "6.3.0", forRemoval = true)` with a `{@removeIn 6.4.0}` javadoc tag. Their
+signatures and behaviour are unchanged in v6.3.0; the credential file I/O they used to imply now goes
+through the internal store described above. If your module calls any of the three, stop before
+v6.4.0 — nothing in the public panel-integration or external-plugin API surface depends on them.
+
 ## Remote action log
 
 Every remote action that passes the capability gate and the blocklist — allowed or denied — is

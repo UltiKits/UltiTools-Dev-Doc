@@ -29,6 +29,12 @@
 
 `UltiTools-API` 的 [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/COMPATIBILITY.md) 说明，它的版本号是产品阶段的标识，而不是严格的 semver 约定，框架的 MINOR 版本可能移除 API。
 
+::: tip 向框架本身贡献代码，而不只是使用它
+如果你打算向 `UltiTools-Reborn` 提交 pull request，请注意它的贡献语言政策和本文档站不同：新增的注释、javadoc、workflow 注释与 PR 标题正文都要求以英文为主、中文作为补充。
+CI 会对 `src/main` 的注释与 javadoc、workflow 文件与一个测试包强制执行这条规则，对照一份很小的、明确列出的白名单。
+这是框架仓库自己的政策，不是这个双语文档站的要求。
+:::
+
 这看起来与上面的规则矛盾，实际上并不矛盾，两者的区别值得先理解清楚。
 
 框架的版本号会被解析和链接。Maven 依据它选择构件，已编译的下游插件在运行时链接到它的类。这两件事都是兼容性问题，而一个需要回答兼容性问题的数字不能是自由格式的标识。
@@ -117,6 +123,12 @@ pin 不是模块的运行时下限。这是两个互相独立的数字，其中�
 只有在发布提高后的 pin 时才会产生代价：针对更新的框架构建可能记录更新的描述符，这意味着需要同时提高 `api-version`，而那会让仍在使用旧版框架的服务器无法升级。因此提高 pin 适合用来做检查，不适合用来做修复：在一次临时构建中提高 pin，观察哪些地方编译不通过，从这些 API 迁移出去，然后单独决定正式发布使用的 pin 是否需要变动。
 
 这种情形的应对方式是关注废弃通告，在移除正式发布之前完成迁移。
+
+::: tip 从废弃通告里读出移除期限
+自 v6.3.0 起，框架里每一个 `@Deprecated(forRemoval = true)` 成员都携带一个 `{@removeIn X.Y.Z}` javadoc 标签，指明移除会落在哪个具体版本。
+一旦项目版本到达该目标而成员仍在源码中声明，框架自己的 CI 就会在构建期失败，这个标签是被强制执行的承诺。
+完整列表见框架仓库的 [`compatibility/DEPRECATIONS.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/compatibility/DEPRECATIONS.md)，一次性查看所有 `ANNOUNCED` 状态的移除项及其期限。
+:::
 
 ### 描述符变更
 

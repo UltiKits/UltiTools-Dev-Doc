@@ -6,6 +6,12 @@ The content of this page may not be the latest. You can go to [Javadoc](https://
 The content of this page may be outdated. You can go to [Javadoc](https://doc.dev.ultikits.com/javadoc) to see the latest content.
 :::
 
+::: danger Removed in v6.3.0
+`getVersionWrapper()` and `VersionWrapper` were deleted outright in v6.3.0, along with `DefaultVersionWrapper`.
+Neither exists in the jar; the method rows below have been removed to match.
+Use `XVersionUtils`'s static methods instead — see [`VersionWrapper`](/api/version-wrapper) for the mapping.
+:::
+
 # 类 `UltiToolsPlugin`
 
 包 `com.ultikits.ultitools.abstracts`
@@ -46,7 +52,6 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `java.lang.String`                              | getLanguageCode()                                                           |
 | `static ListenerManager`                        | getListenerManager\()                                                       |
 | `static PluginManager`                          | getPluginManager\()                                                         |
-| `static VersionWrapper`                         | getVersionWrapper\() `@Deprecated`                                          |
 | `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
 | `java.lang.String`                              | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
 | `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
@@ -59,7 +64,6 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `static ConfigManager `                         | getConfigManager\()                                                         |
 | `static ListenerManager`                        | getListenerManager\()                                                       |
 | `static PluginManager`                          | getPluginManager\()                                                         |
-| `static VersionWrapper`                         | getVersionWrapper\() `@Deprecated`                                          |
 
 == 实例方法
 
@@ -87,7 +91,6 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `java.lang.String`                              | getLanguageCode()                                                           |
 | `static ListenerManager`                        | getListenerManager\()                                                       |
 | `static PluginManager`                          | getPluginManager\()                                                         |
-| `static VersionWrapper`                         | getVersionWrapper\() `@Deprecated`                                          |
 | `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
 | `java.lang.String`                              | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
 | `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |

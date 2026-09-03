@@ -17,8 +17,10 @@ UltiTools-API offers a more concise way to handle commands by encapsulating the 
 Starting with v6.2.0, you should inherit the `BaseCommandExecutor` class and override the `handleHelp` method. The `@CmdTarget`
 and `@CmdExecutor` annotations here represent the target type and executor information of the command.
 
-::: warning Deprecated
-`AbstractCommandExecutor` is deprecated since v6.2.0. Use `BaseCommandExecutor` instead which provides the same annotation-driven features plus a pluggable validation chain, improved context management, and custom type parser support.
+::: danger Removed in v6.3.0
+`AbstractCommandExecutor` (and the empty `AbstractCommendExecutor` shim) was deprecated since v6.2.0 and deleted outright in v6.3.0.
+Use `BaseCommandExecutor` instead — same annotation-driven features, plus a pluggable validation chain and custom type parsers.
+See [the migration guide](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/COMPATIBILITY.md#migrating-off-abstractcommandexecutor) in `COMPATIBILITY.md`.
 :::
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ExampleCommand.java
@@ -364,6 +366,12 @@ Parameter type is integer, in second.
 If the command is executed before the cooldown ends, the message `操作频繁，请 %d 秒后再试` will be sent, with the remaining seconds substituted for `%d`. As of v6.3.0, `en.json` carries this parameterized key, so English-locale servers see the translated `Frequent operations, please try again in %d seconds` instead of the raw Chinese string.
 
 This restriction only takes effect on **players**.
+
+**The cooldown applies after every invocation attempt, not only after a successful one.** A mapped
+method that throws still starts the cooldown, exactly as if it had returned normally — the validator
+does not distinguish success from failure. This is intentional: a command that errors out is still a
+server-resource cost, and a caller retrying an erroring command in a tight loop is exactly the pattern
+the cooldown exists to prevent.
 
 ::: tip A `@CmdCD` your validator chain cannot enforce now refuses to load <Badge type="tip" text="v6.3.0+" />
 As of v6.3.0, a class or method carrying `@CmdCD` whose validator chain has no `CooldownValidator` — most commonly a custom `ValidatorChain` that omits it, see [Creating Custom Validators](#creating-custom-validators) below — is refused at plugin load, naming the offending class and method. This closes the gap where the annotation looked declared but enforced nothing.

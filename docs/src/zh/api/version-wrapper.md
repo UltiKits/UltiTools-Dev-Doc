@@ -2,8 +2,10 @@
 文章内容不一定是最新的，你可以前往 [Javadoc 文档](https://doc.dev.ultikits.com/javadoc) 来查看最新的内容
 :::
 
-::: danger 已弃用
-`VersionWrapper` 接口自 v6.2.0 起已弃用，将在未来版本中移除。请使用 `XVersionUtils` 的静态方法代替。
+::: danger v6.3.0 起已移除
+`VersionWrapper`、`DefaultVersionWrapper` 与 `UltiTools#getVersionWrapper()` 已在 v6.3.0 中被彻底删除。
+v6.3.0 的 jar 里已经不存在其中任何一个，本页仅作为历史记录保留。
+请改用 `XVersionUtils` 的静态方法——下面每个方法原本委托的正是这些静态方法。
 :::
 
 # 接口 `VersionWrapper`
