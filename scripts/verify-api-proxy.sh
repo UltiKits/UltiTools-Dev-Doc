@@ -587,6 +587,26 @@ record "29 stylesheet 与类页 ETag 的指纹后缀相等（G-02-16，preview �
   "etag_stylesheet=${etag_stylesheet_a:-<无>} etag_class=${etag_class_a:-<无>}" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 30. auto 分支不再固化任何一次媒体查询结果（G-02-20）：类页注入脚本文本里
+#     classList.add 恰好出现两次（一次 dark、一次浅色排除类），且脚本不再
+#     引用 matchMedia——这两条合起来断言 auto 分支本身不产生任何 classList.add
+#     调用，把 palette.js 的 prefers-color-scheme 媒体查询规则留作运行期持续
+#     生效的唯一权威，让 auto 能在页面停留期间跟随系统外观切换实时变化，而不
+#     是把加载瞬间的判定结果固化成一个类。必须插在下面 6/15 号项的遍历循环之
+#     前——插在其后就重演了 02-REVIEW.md WR-01 修过的同一顺序问题：新响应不
+#     受 6/15 号项覆盖（26-28 号项已有同样的插入位置注记）。
+# ─────────────────────────────────────────────────────────────────────────────
+fetch "$url_class"
+API_HEADERS+=("$HEADERS_FILE")
+body_class_30=$(cat "$BODY_FILE" 2>/dev/null || true)
+n_classlist_add=$(printf '%s' "$body_class_30" | grep -o 'classList\.add' | wc -l | tr -d ' ')
+r=0
+[ "$n_classlist_add" = "2" ] || r=1
+printf '%s' "$body_class_30" | grep -qi 'matchMedia' && r=1
+record "30 类页注入脚本 auto 分支不加类：classList.add 恰好两次且不含 matchMedia（G-02-20）" \
+  "count=${n_classlist_add:-0}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 6 & 15. 每一条 /api/ 响应（含 302、301、404）都带 noindex 且不带 link 头
 #        （6 号），且都带与 EXPECTED_CSP 逐字相等的 Content-Security-Policy
 #        （15 号）。两项共享同一次对 API_HEADERS 的遍历——此时全部 fetch 点位
