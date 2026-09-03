@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useData, useRoute } from 'vitepress'
+import { useSidebar } from 'vitepress/theme'
 import { ref, watch, onMounted, nextTick } from 'vue'
 // @ts-ignore
 import VPNavBarMenuLink from 'vitepress/dist/client/theme-default/components/VPNavBarMenuLink.vue'
@@ -8,6 +9,17 @@ import VPNavBarMenuGroup from 'vitepress/dist/client/theme-default/components/VP
 
 const { theme, lang } = useData()
 const route = useRoute()
+
+// hasSidebar is a pure computed over frontmatter/sidebar-config/relative-path
+// (vitepress's own composables/sidebar.js). Bound straight into the template
+// below so server and client render the identical class on the same pass.
+// The sibling flag this same composable also exports additionally multiplies
+// in a media-query read that is always false during SSR, so it is not used
+// here. VPNavBar's own equivalent class is written via a post-render effect
+// instead of a direct computed, which lets its class differ between server
+// render and hydration; binding a computed straight into the template
+// removes that divergence rather than relying on tolerance for it.
+const { hasSidebar } = useSidebar()
 
 const indicatorStyle = ref({
   width: '0px',
@@ -62,7 +74,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-if="theme.nav" class="SecondNavBar">
+  <div v-if="theme.nav" class="SecondNavBar" :class="{ 'has-sidebar': hasSidebar }">
     <div class="container">
       <div class="content" ref="navContentRef">
         <template v-for="item in theme.nav" :key="JSON.stringify(item)">
@@ -117,6 +129,61 @@ onMounted(() => {
   height: 100%;
   margin: 0 16px;
   max-width: calc(var(--vp-layout-max-width) - 64px);
+}
+
+/* Sidebar-present branch, >=960px. Mirrors VPNavBar.vue:135-138's own
+   has-sidebar rule: the container's cap and margin are removed so the
+   boundary can track the sidebar's real width instead. The padding is
+   applied here on .container rather than on .content — unlike VPNavBar,
+   this component has no title/content split; .content (the nav links) and
+   .announcement (the out-of-scope promo link, deferred per 04-CONTEXT.md)
+   are siblings distributed by this rule's own justify-content:
+   space-between, so the inset boundary has to live where that distribution
+   happens for both of them to land on it, not only the nav links.
+   var(--vp-sidebar-width) is 272px with no breakpoint variant. The extra
+   20px on both sides is this repository's own `.VPDoc { padding: 20px }`
+   override (Layout.vue) — upstream's article boundary gets it from VPDoc
+   nesting inside VPContent's own sidebar padding; SecondNavBar is a
+   sibling fixed element with no such nesting, so both terms are added
+   directly. Together these reproduce the measured article-card edges of
+   292 and 1420 at a 1440px viewport exactly. */
+@media (min-width: 960px) {
+  .SecondNavBar.has-sidebar .container {
+    max-width: 100%;
+    margin: 0;
+    padding-left: calc(var(--vp-sidebar-width) + 20px);
+    padding-right: 20px;
+  }
+}
+
+/* At 1440px and above, add the same viewport-centring term VPNavBar.vue's
+   own has-sidebar rule applies at this breakpoint (VPNavBar.vue:180-184) —
+   zero at exactly 1440px, so the 292/1420 edges above still hold there and
+   only move outward past it, tracking VPContent.vue's has-sidebar rule at
+   the same breakpoint. */
+@media (min-width: 1440px) {
+  .SecondNavBar.has-sidebar .container {
+    padding-left: calc((100vw - var(--vp-layout-max-width)) / 2 + var(--vp-sidebar-width) + 20px);
+    padding-right: calc((100vw - var(--vp-layout-max-width)) / 2 + 20px);
+  }
+}
+
+/* No-sidebar branch, >=960px — the live state of roughly half the archived
+   pages today, not a defensive hypothetical: Chinese archived pages render
+   zero sidebar items, measured on production, on the local build artifact
+   and in the live preview DOM (04-CONTEXT.md correction 5). Centres the
+   container at the same 1104px cap VPDoc.vue applies to the article's own
+   no-sidebar .container at this breakpoint. SecondNavBar carries no padding
+   of its own (unlike .VPDoc, which insets 20px before centring that cap in
+   the remaining space) — centring 1104px directly within the full-width
+   .SecondNavBar reproduces the identical 168/1272 edges at 1440px, because
+   inset-then-centre and centre-in-full cancel out algebraically for a
+   symmetric cap. */
+@media (min-width: 960px) {
+  .SecondNavBar:not(.has-sidebar) .container {
+    max-width: 1104px;
+    margin: 0 auto;
+  }
 }
 
 .content {
