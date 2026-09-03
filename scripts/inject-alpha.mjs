@@ -44,8 +44,14 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-const ALPHA_REPO = 'UltiKits/UltiTools-Dev-Doc';
-const ALPHA_REF = 'alpha';
+// ALPHA_REPO / ALPHA_REF exist solely to let a fault-injection run point this
+// script at a ref/repo that cannot resolve, so D-44's fail-closed posture and
+// D-41's judge-emptiness-not-exit-code behavior can be demonstrated end to
+// end instead of only asserted (03-01-PLAN.md Task 2). They are not
+// production configuration — Cloudflare Pages' Build command never sets
+// them, and the default values below are the real upstream.
+const ALPHA_REPO = process.env.ALPHA_REPO || 'UltiKits/UltiTools-Dev-Doc';
+const ALPHA_REF = process.env.ALPHA_REF || 'alpha';
 
 const SNAPSHOT_VERSION = 'v6.3.0-SNAPSHOT';
 const ARCHIVE_DEST = path.join('docs', 'archive', SNAPSHOT_VERSION);
