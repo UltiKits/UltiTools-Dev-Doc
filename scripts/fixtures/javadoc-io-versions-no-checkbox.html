@@ -8,15 +8,32 @@
 
   Expected exit code from scripts/javadoc-io-index.sh --check-forms-only
   --page-file <this file>:
-    --version 6.2.4 (not UPLOADED)  -> 1 (G-02-11: this now trips the NEW
-      assertion three-point-one, not three-point-two — the versionId
-      CONTROL itself is entirely gone from the upload form block, not
-      merely missing a checkbox for this one version, so it fails closed
-      in BOTH tolerant and strict mode with no bootstrap retry possible;
-      "upstream structure changed, script needs a rewrite")
-    --version 6.2.5 (UPLOADED)      -> 0 (already-uploaded exception still
-      applies — a missing checkbox for an UPLOADED version is expected, not
-      a structural break; checked before assertion three-point-one runs)
+    --version 6.2.4 (not UPLOADED)  -> 1 (G-02-11: this trips assertion
+      three-point-one — the versionId CONTROL itself is entirely gone from
+      the upload form block, not merely missing a checkbox for this one
+      version, so it fails closed in BOTH tolerant and strict mode with no
+      bootstrap retry possible; "upstream structure changed, script needs
+      a rewrite")
+    --version 6.2.5 (UPLOADED)      -> 1 (G-02-21: also trips assertion
+      three-point-one, exactly like 6.2.4 above, and this is the point of
+      this fixture's contract having changed — before G-02-21, assertion
+      three-point-one ran AFTER the UPLOADED exception, so this case was
+      caught by the exception first and reported 0/skipped: "our version
+      is already uploaded, nothing to do here" — true on its own, but
+      wrong as an answer, because the form's versionId control had
+      vanished ENTIRELY, not just this version's row. A version being
+      already UPLOADED says nothing about whether the form is still
+      intact; conflating the two let a real structural break through as a
+      clean skip. Under the reordered assertions, structural intactness is
+      checked first and unconditionally, so this case now reports
+      1/broken regardless of 6.2.5's own upload state. This flip is not a
+      regression — it is this gap's fix made visible in a fixture: the
+      form here has genuinely lost every versionId control, and reporting
+      that as broken is the correct answer. This fixture is therefore the
+      sole regression guard for the reordering itself — put the UPLOADED
+      exception back in front of assertion three-point-one and this case
+      reverts to 0/skipped immediately, with no other offline case
+      noticing.)
 -->
 <div class="container">
   <p class="text-muted mb-3">28 versions, 1 uploaded</p>

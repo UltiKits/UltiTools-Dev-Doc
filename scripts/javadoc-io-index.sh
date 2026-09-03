@@ -292,30 +292,66 @@ validate_and_extract() {
     exit 1
   fi
 
-  # Exception to assertion three: a version already UPLOADED legitimately
-  # has no checkbox. This must be distinguished from "structure changed"
-  # before assertion three runs, not folded into it — both conditions look
-  # identical (no checkbox found) if checked in the wrong order.
-  if printf '%s' "$page" | grep -A2 -F "<td>${VERSION}</td>" | grep -q 'title="UPLOADED"'; then
-    echo "javadoc-io-index: 版本 ${VERSION} 已经是 UPLOADED 状态，无事可做。"
-    FORM_STATUS="skipped"
-    return 0
-  fi
-
-  # Assertion three-point-one (G-02-11): the versionId CONTROL itself — not
-  # this particular version's checkbox, but the presence of ANY versionId
-  # checkbox anywhere in the upload form — must still be there. Reads the
-  # upload form BLOCK (not the whole page), because this is a question
-  # about that form's own structure, the same scope assertion two already
-  # uses. Strict in both modes, no exception: a page where the control has
-  # vanished entirely is the same "upstream structure changed" condition
-  # assertions one and two exist to catch, not "the listing hasn't caught
-  # up with this version yet" that tolerant mode exists to give one retry
-  # for.
+  # Assertion three-point-one (G-02-11; reordered under G-02-21): the
+  # versionId CONTROL itself — not this particular version's checkbox, but
+  # the presence of ANY versionId checkbox anywhere in the upload form —
+  # must still be there. Reads the upload form BLOCK (not the whole page),
+  # because this is a question about that form's own structure, the same
+  # scope assertion two already uses. Strict in both modes, no exception: a
+  # page where the control has vanished entirely is the same "upstream
+  # structure changed" condition assertions one and two exist to catch, not
+  # "the listing hasn't caught up with this version yet" that tolerant mode
+  # exists to give one retry for.
+  #
+  # This runs BEFORE the UPLOADED exception below, and must: that exception
+  # answers a version-specific question ("does OUR version still need
+  # anything done"), while this assertion answers a structural one ("does
+  # this form still have any versionId controls at all") that has nothing
+  # to do with which version we're looking for. Running the exception
+  # first would let it silently swallow a structural failure whenever OUR
+  # version happens to already be UPLOADED: upstream deletes or renames
+  # every versionId control, our own already-uploaded row is still
+  # present, this function would return FORM_STATUS=skipped and exit 0,
+  # the weekly workflow's close-the-issue step treats both "ready" and
+  # "skipped" as green, and the javadoc-index issue gets closed on a run
+  # that just silently reported a broken upload form as fine — meanwhile
+  # the NEXT version to ship has no way to upload at all (G-02-21).
+  #
+  # Cost of running this check first, stated as fact rather than argued:
+  # if upstream ever lists every version as UPLOADED, the upload form
+  # legitimately has zero versionId controls left, and this reordered
+  # check reports broken for a form that isn't actually broken. That is
+  # indistinguishable from "upstream deleted the controls" by looking at
+  # the HTML alone, so this is a deliberate fail-closed trade: a false
+  # broken is loud and confirmed by a single page view, while the failure
+  # this reordering closes was a silent green nobody would ever look at
+  # again. The condition is also distant from today's reality — measured
+  # 2026-09-03, upstream listed 9 versions, 7 of them UPLOADED, with 6.1.1
+  # and 6.0.9 still carrying checkboxes, and this repository's own
+  # workflow only ever uploads those 7 site-archived versions, never
+  # touching the other two.
   if ! printf '%s' "$upload_block" | grep -q 'name="versionId"'; then
     echo "javadoc-io-index: 断言三之一失败——upload 表单里一个 versionId 复选框控件都不剩，控件本身已从页面上消失。上游页面结构变了，脚本需要重写。" >&2
     emit_result "broken" "$VERSION"
     exit 1
+  fi
+
+  # Exception to assertion three-point-two below (G-02-21: no longer an
+  # exception to assertion three-point-one — see that assertion's own
+  # comment above for why): a version already UPLOADED legitimately has no
+  # checkbox of its own in the listing that three-point-two checks next.
+  # This exception answers a version-specific question — "does OUR version
+  # still need anything done" — which is not the same question assertion
+  # three-point-one, immediately above, already answered — "does this form
+  # still have any versionId controls at all", a structural question with
+  # nothing to do with which version we're looking for. The version-
+  # specific judgment must never gate the structural one: doing so would
+  # let an already-uploaded version stand in for, and mask, a form that
+  # has lost its controls entirely.
+  if printf '%s' "$page" | grep -A2 -F "<td>${VERSION}</td>" | grep -q 'title="UPLOADED"'; then
+    echo "javadoc-io-index: 版本 ${VERSION} 已经是 UPLOADED 状态，无事可做。"
+    FORM_STATUS="skipped"
+    return 0
   fi
 
   # Assertion three-point-two: the control exists, but this specific
