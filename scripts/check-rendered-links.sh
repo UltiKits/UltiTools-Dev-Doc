@@ -67,10 +67,19 @@ ACTIVE_MARKER='data-ut-active-version'
 # The archived notice bar's own "go to the latest version" link (VER-05).
 NOTICE_ATTR='data-ut-notice-link'
 BADGE_MARKER='data-ut-unreleased-badge'
-# The label @viteplus/versions' auto-injected dropdown used to render before
-# 04-03 turned it off (versionsConfig.versionSwitcher: false) and wired in
+# The class @viteplus/versions' auto-injected dropdown renders on its own root
+# (components/version-switcher.component.vue:100 and :119), which 04-03 turned
+# off via versionsConfig.versionSwitcher: false and replaced with
 # UtVersionSwitcher.vue. Measured absent (0 hits) on the 04-03 artifact.
-OLD_LABEL='API Version'
+#
+# This used to search for the two-word English phrase "API Version" — the text
+# that dropdown was configured with on master. That is a natural-language
+# string over 394 rendered pages: a future doc sentence, table header or
+# translated heading would turn a permanent CI gate red for a reason unrelated
+# to what it tests, and the failure message would point at the version
+# switcher. The class cannot collide with prose, and it is what the component
+# renders unconditionally rather than what it happened to be configured with.
+OLD_SWITCHER_CLASS='VP(Screen)?VersionSwitcher'
 # Present in every built page, whatever this phase does — the control for the
 # zero-hit assertions below.
 CONTROL_MARKER='__VP_SITE_DATA__'
@@ -333,15 +342,15 @@ assert_active_version "$DIST/v6.2.1/guide/introduction.html" "v6.2.1" "archived-
 assert_active_version "$DIST/v6.2.1/zh/guide/introduction.html" "v6.2.1" "archived-zh (v6.2.1/zh/guide/introduction.html)"
 assert_active_version "$DIST/guide/introduction.html" "$CURRENT_VERSION" "latest-en (guide/introduction.html)"
 
-old_label_total="$({ grep -rhoE "$OLD_LABEL" "$DIST" --include='*.html' || true; } | wc -l)"
+old_switcher_total="$({ grep -rhoE "$OLD_SWITCHER_CLASS" "$DIST" --include='*.html' || true; } | wc -l)"
 marker_total="$({ grep -rhoE "${ACTIVE_MARKER}=\"[^\"]*\"" "$DIST" --include='*.html' || true; } | wc -l)"
 
-echo "      old_label_total=$old_label_total ${ACTIVE_MARKER}_total=$marker_total"
+echo "      old_switcher_total=$old_switcher_total ${ACTIVE_MARKER}_total=$marker_total"
 
-if [ "$old_label_total" -eq 0 ]; then
-  pass "  写死标签 \"$OLD_LABEL\" observed=$old_label_total expected=0"
+if [ "$old_switcher_total" -eq 0 ]; then
+  pass "  自动注入的旧下拉 \"$OLD_SWITCHER_CLASS\" observed=$old_switcher_total expected=0"
 else
-  fail "  写死标签 \"$OLD_LABEL\" observed=$old_label_total expected=0"
+  fail "  自动注入的旧下拉 \"$OLD_SWITCHER_CLASS\" observed=$old_switcher_total expected=0 —— versionsConfig.versionSwitcher 被打开了？"
 fi
 
 if [ "$marker_total" -gt 0 ]; then
