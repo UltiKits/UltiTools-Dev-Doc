@@ -41,7 +41,7 @@ import VPMenuLink from 'vitepress/dist/client/theme-default/components/VPMenuLin
 // manifest VersionNoticeBar.vue reads, so the notice bar and this switcher
 // cannot disagree about whether a given target page exists.
 import { VERSION_PAGES } from '../../config/version-pages.generated.mjs';
-import { activeVersion, buildPath, pageExists } from './versioning';
+import { activeVersion, buildPath, pageExists, versionState } from './versioning';
 
 interface VersioningPlugin {
   versions: string[];
@@ -106,7 +106,11 @@ const rows = computed<VersionRow[]>(() =>
     return {
       version: target,
       href,
-      unreleased: target.endsWith('-SNAPSHOT')
+      // versioning.ts owns the alpha rule (versionState -> 'alpha'), and this
+      // file's header says the derivation logic is never reimplemented here.
+      // Re-deriving it would let the badge and the notice bar disagree the
+      // day the alpha marker stops being a -SNAPSHOT suffix.
+      unreleased: versionState(target, current.value) === 'alpha'
     };
   })
 );
