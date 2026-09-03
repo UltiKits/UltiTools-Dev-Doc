@@ -8,12 +8,15 @@
 
   Expected exit code from scripts/javadoc-io-index.sh --check-forms-only
   --page-file <this file>:
-    --version 6.2.4 (not UPLOADED)  -> 1 (assertion three cannot find the
-      target version's checkbox and the version is not already UPLOADED —
-      fail-closed, "upstream structure changed, script needs a rewrite")
+    --version 6.2.4 (not UPLOADED)  -> 1 (G-02-11: this now trips the NEW
+      assertion three-point-one, not three-point-two — the versionId
+      CONTROL itself is entirely gone from the upload form block, not
+      merely missing a checkbox for this one version, so it fails closed
+      in BOTH tolerant and strict mode with no bootstrap retry possible;
+      "upstream structure changed, script needs a rewrite")
     --version 6.2.5 (UPLOADED)      -> 0 (already-uploaded exception still
       applies — a missing checkbox for an UPLOADED version is expected, not
-      a structural break)
+      a structural break; checked before assertion three-point-one runs)
 -->
 <div class="container">
   <p class="text-muted mb-3">28 versions, 1 uploaded</p>
