@@ -31,6 +31,23 @@
 // wrong even at the time it was written; .gitignore already excluded this
 // path, and `git ls-tree` on `master` confirms the file has never actually
 // been tracked.
+//
+// ARCHIVED_VERSIONS excludes any directory name ending in "-SNAPSHOT"
+// (03-02-PLAN.md, Claude's Discretion, 03-RESEARCH.md's "ARCHIVED_VERSIONS
+// 顺序耦合的最终建议"). `npm run build:with-alpha` runs
+// scripts/inject-alpha.mjs before `npm run build`, so docs/archive/ already
+// contains v6.3.0-SNAPSHOT by the time this script's readdirSync runs here
+// — that ordering is structurally forced (@viteplus/versions can only
+// discover a version directory that already exists on disk), so without
+// this filter SNAPSHOT would silently join the array as a side effect of
+// script-call order rather than as a decision anyone could read in code.
+// The exclusion itself is semantic, not just order-hygiene: this array
+// means "versions with a real javadoc.io index" (functions/api/_shared/
+// backlink.js's strict-equality match, Phase 2 D-29), and v6.3.0-SNAPSHOT
+// has never been published to Maven Central, so it has no javadoc.io index
+// to link to. Matching on a "-SNAPSHOT" suffix rather than the literal
+// "v6.3.0-SNAPSHOT" string means a future snapshot version's directory name
+// doesn't require a matching edit here.
 
 import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 
@@ -58,6 +75,7 @@ const GENERATED_AT = new Date().toISOString();
 const ARCHIVED_VERSIONS = readdirSync(ARCHIVE_DIR, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
+  .filter((name) => !name.endsWith('-SNAPSHOT'))
   .sort();
 
 mkdirSync('functions/api/_shared', { recursive: true });

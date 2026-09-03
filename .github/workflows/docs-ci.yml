@@ -241,3 +241,74 @@ jobs:
 
       - name: Check sidebar and nav link targets resolve to real pages
         run: bash scripts/check-sidebar-links.sh
+
+  build-with-alpha:
+    # 为什么不并进 build job（D-40）：`npm run build` 要保持纯净、不依赖外部
+    # 网络（scripts/inject-alpha.mjs 匿名下载 alpha 的 codeload tarball），
+    # 这样「站点自己坏了」与「注入之后坏了」在 CI 上从第一屏就分得开——两个
+    # 红绿信号分开显示，而不是合并构建再靠日志滚动去猜是哪一半坏的。一次
+    # 构建，不跑两遍：这个 job 内部只调用一次 `npm run build:with-alpha`，
+    # 它自己就会先注入再跑一次纯净的 `npm run build` 组合命令。
+    #
+    # 为什么不设为 required check：这个 job 依赖 GitHub codeload 与 alpha
+    # 分支的可达性——alpha 正在被强制推送、或 codeload 短暂故障时，这个 job
+    # 会红，但那不是当前这个 PR 自己的缺陷。与 examples-ci.yml 的
+    # version-consistency job 依赖 Maven Central 可用性、同样不设为
+    # required check 是同一类判断。
+    #
+    # 这个 job 就是 ROADMAP 验收标准 4「六道既有门禁逐道核对」里唯一能在
+    # CI 中直接跑出来的那一半（另一半是下面四道本地门禁在注入产物存在时
+    # 仍然全绿，本仓库零测试基础设施，这些命令本身就是验证载体）：
+    #   - 死链检查：发生在这个 job 跑的那次 vitepress build 里,扫描范围含
+    #     全部 docs/archive/（含新注入的 v6.3.0-SNAPSHOT/）；豁免由
+    #     .vitepress/config.mts 的 ignoreDeadLinks 数组第二、三个元素承担
+    #     （D-39：前缀正则 + isDeadLinkResolvableInSnapshot 函数）
+    #   - check-bilingual-parity.sh：头注释明说只扫 docs/src/，不含
+    #     docs/archive/，不受影响
+    #   - check-container-length.sh：CI 调用是 `find docs/src -name '*.md'`，
+    #     不含 docs/archive/，不受影响
+    #   - check-contrast.py：只读 functions/api/_shared/palette.js，与文档
+    #     内容无关，不受影响
+    #   - check-sidebar-links.sh：底部硬编码六个已发布归档版本常量名，不含
+    #     SNAPSHOT（D-47 已裁定不扩），不受影响
+    #   - check-version-consistency.sh：只看 config.mts 的 current 字段、
+    #     examples/pom.xml、Maven Central 三个版本号，不碰 docs/archive/，
+    #     不受影响
+    # 结论：注入产物存在时,六道里只有死链检查这一道的扫描范围包含它,且已有
+    # 专门的豁免机制覆盖；其余五道结论不变——这个 job 的最后一步断言把这条
+    # 结论落成一条可执行的证明,而不只是一句声明。
+    #
+    # ⚠ 这个新 job 的断言只判「构建成功 + SNAPSHOT 产物存在 + 零残留」,不判
+    # 任何 alpha 页面名。页面名断言留在 03-01 的一次性执行验证里——让一道
+    # 每次 PR 都跑的常驻门禁去依赖 alpha 当前的页面集,会在 alpha 正常演进
+    # 时把无关的 PR 拖红。
+    name: Site builds with alpha injection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 构建期会执行依赖里的任意 Node 代码，不持久化凭据可避免 token 落到 .git/config
+          persist-credentials: false
+
+      - name: Set up Node from .node-version
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: npm
+
+      - name: Install dependencies with npm ci
+        run: npm ci
+
+      - name: Build site with alpha content injected
+        run: npm run build:with-alpha
+
+      - name: Assert SNAPSHOT artifact exists with zero residual snippet references
+        run: |
+          test -f .vitepress/dist/v6.3.0-SNAPSHOT/guide/introduction.html
+          test -f .vitepress/dist/v6.3.0-SNAPSHOT/zh/guide/introduction.html
+          if grep -rn '@/\.\./examples/' docs/archive/v6.3.0-SNAPSHOT/; then
+            echo "::error::residual @/../examples/ reference found in injected tree after rewrite"
+            exit 1
+          fi
+          echo "build-with-alpha: SNAPSHOT artifact present, zero residual snippet references"
