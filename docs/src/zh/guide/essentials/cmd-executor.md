@@ -14,8 +14,9 @@ UltiTools-API 对原生的 `CommandExecutor` 接口进行了封装，提供了�
 
 从 v6.2.0 开始，你应该继承 `BaseCommandExecutor` 类，并重写 `handleHelp` 方法。这里的 `@CmdTarget` 和 `@CmdExecutor` 注解是代表了该命令的目标类型和执行器信息。
 
-::: warning 已弃用
-`AbstractCommandExecutor` 从 v6.2.0 开始已弃用。请使用 `BaseCommandExecutor`，它提供了相同的注解驱动功能，同时支持可插拔的验证链、改进的上下文管理和自定义类型解析器支持。
+::: danger v6.3.0 起已移除
+`AbstractCommandExecutor`（以及空壳 `AbstractCommendExecutor`）自 v6.2.0 起已弃用，并在 **v6.3.0 中被彻底删除**——不是不可达，而是这个类在 jar 里已经不存在了。请使用 `BaseCommandExecutor`，它提供了相同的注解驱动功能，同时支持可插拔的验证链、改进的上下文管理和自定义类型解析器支持。完整迁移指南见
+`COMPATIBILITY.md` 的 [Migrating off `AbstractCommandExecutor`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/COMPATIBILITY.md#migrating-off-abstractcommandexecutor)（该文件为英文，是仓库的权威版本对照文档）一节。
 :::
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ExampleCommand.java
@@ -328,6 +329,8 @@ public void listPoint(@CmdSender Player player) {
 冷却结束之前执行该指令将会发送消息：`操作频繁，请 %d 秒后再试`（`%d` 会替换为剩余秒数）。
 
 此限制仅对**玩家**生效。
+
+**冷却在每一次执行尝试之后都会生效，不只是在执行成功之后。** 即使映射的方法抛出异常，冷却依然会像正常返回一样开始计时——校验器不区分成功与失败。这是有意为之：报错的指令同样消耗服务器资源，而在紧密循环里反复重试一个报错指令，正是冷却机制要防止的模式。
 
 ::: tip 校验链无法强制执行的 @CmdCD 现在会拒绝加载 <Badge type="tip" text="v6.3.0+" />
 自 v6.3.0 起，标注了 `@CmdCD`、而其校验链中缺少 `CooldownValidator` 的类或方法——最常见的情形是省略了它的自定义 `ValidatorChain`，见下方[创建自定义验证器](#创建自定义验证器)一节——会在插件加载时被拒绝，并指出问题类与方法。这关闭了此前「看似已声明，实则拦不住任何调用」的缺口。

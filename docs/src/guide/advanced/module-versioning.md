@@ -29,6 +29,12 @@ The fourth item covers a case the first three miss, because nothing about the mo
 
 `UltiTools-API`'s [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/COMPATIBILITY.md) states that its version number is a product-stage signal rather than a strict semver contract, and that a MINOR release of the framework may remove an API.
 
+::: tip Contributing to the framework itself, not just consuming it
+If you plan to open a pull request against `UltiTools-Reborn`, note its contribution language policy differs from this site's: new comments, javadoc, workflow comments, and PR titles/bodies must be English-first with Chinese as a supplement.
+A CI check enforces this over `src/main` comments/javadoc, workflow files, and one test package, against a small named allowlist visible in review.
+This is the framework repository's own policy, not a requirement for this bilingual documentation site.
+:::
+
 This looks inconsistent with the rules above. It is not, and the difference is worth understanding first.
 
 The framework's version is resolved and linked against. Maven uses it to select an artifact, and already compiled downstream plugins link to its classes at runtime. Both are compatibility questions, and a number that has to answer a compatibility question cannot be a free-form signal.
@@ -117,6 +123,12 @@ A successful build is not hard to get, because this check only covers what the s
 The cost only arrives if you publish the raised pin: building against a newer framework may record newer descriptors, which means raising `api-version` as well, which leaves behind every server still on the older framework. Raising the pin is therefore useful as a check and poor as a fix. Raise it in a throwaway build, see what fails to compile, migrate away from those APIs, then decide separately whether the released pin should move.
 
 The way to handle this situation is to follow deprecation notices and migrate before the removal is released.
+
+::: tip Reading a deprecation notice for its deadline
+As of v6.3.0, every `@Deprecated(forRemoval = true)` member carries a machine-checked `{@removeIn X.Y.Z}` javadoc tag naming the concrete removal version.
+A build-time check fails the framework's own CI if the member is still declared once the project version reaches that target, so the tag is an enforced promise, not just documentation.
+See [`compatibility/DEPRECATIONS.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/compatibility/DEPRECATIONS.md) for every currently `ANNOUNCED` removal and its deadline in one place.
+:::
 
 ### Changed descriptors
 
