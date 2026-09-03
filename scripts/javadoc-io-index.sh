@@ -176,6 +176,15 @@ fetch_page() {
          "$VERSIONS_PAGE_URL") || true
   if [ -z "$page" ]; then
     echo "javadoc-io-index: 取不到 javadoc.io 版本列表页（网络问题），不是脚本本身判定错误。" >&2
+    # 独立取值，不复用 post-failed（G-02-14）：这里坏的是取版本列表页的 GET,
+    # post-failed 的正文断言的是 sync/upload 的 POST 收到上游 HTTP 错误——两者
+    # 不是同一件事，复用会让状态灯说假话（T-02-15 禁止两种失效共用一条路径）。
+    # $VERSION 在 :43 已初始化为空串，backfill 模式下（:522 的调用点）走到这里
+    # 时可能仍未被 --version 赋值；emit_result 因此可能写出 index_version=，
+    # 这是可接受的——不代表本次故障没有对应的版本，只是尚未确定是哪一个。
+    # 其余五处 exit 2（用法错误，:79/:115/:581/:599；超时，:588 已发 timeout）
+    # 不需要在这里一并处理：用法错误在运行尚未开始时发生，本就不该有状态灯。
+    emit_result "fetch-failed" "$VERSION"
     exit 2
   fi
   printf '%s' "$page"
