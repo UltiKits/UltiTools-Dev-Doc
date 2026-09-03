@@ -71,8 +71,20 @@ const active = computed(() =>
 // out. One shared list for both branches — the upstream mobile branch
 // iterates the unfiltered list and additionally renders the current version
 // separately, which is exactly the self-row defect this removes.
+//
+// The sort is not cosmetic. @viteplus/versions populates props.versioningPlugin
+// .versions from readdirSync(archivePath) with no sort of its own
+// (dist/index.js, StateModel.init), and readdir order on an ext4 dir_index
+// filesystem is hash order — the reader can be shown v6.2.3, v6.1.0, v6.2.4,
+// v6.2.0, and the order is not stable across machines or across the archive
+// directory being recreated. Ascending is chosen because it is what this site
+// already renders on the machines where readdir happens to return sorted
+// names, so making the order deterministic changes no reader's view.
+// scripts/generate-version-pages.mjs sorts the same names the same way; like
+// that one, this is a lexicographic sort and would place a future v6.10.0
+// before v6.9.0.
 const rowVersions = computed(() =>
-  [current.value, ...versions.value].filter((v) => v !== active.value)
+  [current.value, ...[...versions.value].sort()].filter((v) => v !== active.value)
 );
 
 interface VersionRow {
