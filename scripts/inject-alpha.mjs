@@ -299,6 +299,148 @@ if (missing.length > 0) {
   fail(`rewritten snippet reference(s) do not exist on disk:\n${missing.join('\n')}`);
 }
 
+// ── 5b. Rewrite absolute body links to carry the SNAPSHOT prefix ───────────
+// VitePress's dead-link ignore predicate is called as ignore(url) — the
+// target URL only, never the linking page (shouldIgnoreDeadLink,
+// node_modules/vitepress/dist/node/chunk-D3CUZ4fa.js) — so a predicate
+// cannot tell "this dead link came from SNAPSHOT content" from "this dead
+// link's target happens to coincide with a SNAPSHOT page" by inspecting
+// the URL alone (03-REVIEW.md CR-01; coordinator BLOCKER 2). The fix is to
+// make that provenance exist in the URL itself: rewrite every absolute
+// body link alpha writes (e.g. /api/version-wrapper, a page Phase 1
+// removed from master's current /api/ namespace, which is exactly the
+// defect class D-39 says must not block a site-class deploy) to carry the
+// /v6.3.0-SNAPSHOT/ prefix, unconditionally — the same technique already
+// used for the <<< @/../examples/ rewrite above, including its
+// zero-residual assertion. Once every SNAPSHOT-originating absolute link
+// is prefixed, the existing exactly-scoped regex exemption
+// (/^\/v6\.3\.0-SNAPSHOT\//) in .vitepress/config.mts is sufficient on its
+// own, and the unscoped isDeadLinkResolvableInSnapshot predicate this
+// commit deletes there is no longer needed.
+//
+// Static assets (images, etc.) are deliberately NOT rewritten: they are
+// served unversioned from docs/public/ (shared across every version), and
+// prefixing e.g. /maven-plugin-1.png would point it at a per-version path
+// that does not exist. The discriminator is VitePress's own convention —
+// page routes are extensionless clean URLs, asset paths have a file
+// extension in their last path segment — verified against the real
+// injected tree (03-01-SUMMARY.md Gap Closure): of 27 unique absolute
+// body-link targets across all 56 alpha pages, exactly 1
+// (/maven-plugin-1.png) has an extension and is the only image reference
+// among them.
+function shouldRewriteAbsolutePath(urlPath) {
+  const prefixed = `/${SNAPSHOT_VERSION}`;
+  if (urlPath === prefixed || urlPath.startsWith(`${prefixed}/`)) return false; // already prefixed — avoid double-prefixing
+  const withoutFragment = urlPath.split(/[?#]/)[0];
+  const lastSegment = withoutFragment.split('/').pop() ?? '';
+  if (lastSegment.includes('.')) return false; // has a file extension — a static asset served unversioned from docs/public/, not a page
+  return true;
+}
+
+function rewriteAbsolutePath(urlPath) {
+  return `/${SNAPSHOT_VERSION}${urlPath}`;
+}
+
+// Two link forms are rewritten: standard markdown inline links/images
+// (`[text](/path)`, `![alt](/path)`) and raw HTML anchor hrefs
+// (`href="/path"`) — the latter is reachable because this site's
+// markdown-it instance runs with VitePress's default html: true
+// (node_modules/vitepress/dist/node/chunk-D3CUZ4fa.js:
+// `MarkdownIt({ html: true, ... })`), so alpha content is not restricted
+// to markdown-only syntax even though it happens to use only markdown
+// syntax today (verified below). Reference-style link definitions
+// (`[label]: /path`) are NOT handled — verified zero occurrences across
+// the real injected tree (03-01-SUMMARY.md Gap Closure); if alpha ever
+// starts using that form, findUnprefixedAbsoluteLinks below will still
+// flag the target as a positive match for the residual assertion below
+// only for the markdown-inline/href forms it inspects, so a
+// reference-style-only link would silently NOT be caught by that
+// assertion — this is a disclosed, unaddressed gap, not a claimed-fixed
+// one.
+function findAbsoluteLinkMatches(content) {
+  const matches = [];
+  for (const m of content.matchAll(/!?\[[^\]]*\]\((\/[^)\s]*)/g)) matches.push(m);
+  for (const m of content.matchAll(/href=(["'])(\/[^"']*)/g)) {
+    // Normalize to the same [full, urlPath] shape as the markdown-link
+    // matches above (group 1 there, group 2 here) so callers don't need
+    // to know which pattern produced a given match.
+    matches.push({ 0: m[0], 1: m[2], index: m.index });
+  }
+  return matches;
+}
+
+function findUnprefixedAbsoluteLinks(content) {
+  return findAbsoluteLinkMatches(content)
+    .map((m) => m[1])
+    .filter((urlPath) => shouldRewriteAbsolutePath(urlPath));
+}
+
+// Control query, run once before trusting the detector on real content —
+// verification_discipline: a negative result from an unproven detector is
+// worthless (03-01-SUMMARY.md's own dead-link grep incident is exactly
+// this failure mode). This MUST find exactly one match; if it doesn't, the
+// detector itself is broken and the zero-residual assertion below cannot
+// be trusted either way.
+const controlProbeMatches = findUnprefixedAbsoluteLinks(
+  '[control probe](/this-should-be-flagged)\n<a href="/this-too">also flagged</a>\n[already prefixed](/v6.3.0-SNAPSHOT/x)\n![asset](/pic.png)\n'
+);
+if (controlProbeMatches.length !== 2) {
+  fail(
+    `internal error: unprefixed-absolute-link detector failed its own control query ` +
+    `(expected 2 matches — one markdown link, one href — got ${controlProbeMatches.length}: ${JSON.stringify(controlProbeMatches)}); ` +
+    `refusing to trust its zero-residual result on real content`
+  );
+}
+
+let bodyLinkRewriteCount = 0;
+for (const file of mdFiles) {
+  const content = readFileSync(file, 'utf-8');
+  let rewrittenContent = content.replace(/(!?\[[^\]]*\]\()(\/[^)\s]*)/g, (whole, prefix, urlPath) => {
+    if (!shouldRewriteAbsolutePath(urlPath)) return whole;
+    bodyLinkRewriteCount += 1;
+    return prefix + rewriteAbsolutePath(urlPath);
+  });
+  rewrittenContent = rewrittenContent.replace(/href=(["'])(\/[^"']*)/g, (whole, quote, urlPath) => {
+    if (!shouldRewriteAbsolutePath(urlPath)) return whole;
+    bodyLinkRewriteCount += 1;
+    return `href=${quote}${rewriteAbsolutePath(urlPath)}`;
+  });
+  if (rewrittenContent !== content) writeFileSync(file, rewrittenContent);
+}
+
+// Zero-residual assertion (control query already proven above): no
+// rewritable absolute body link may remain unprefixed after the pass.
+const unprefixedResidual = [];
+for (const file of mdFiles) {
+  const content = readFileSync(file, 'utf-8');
+  const found = findUnprefixedAbsoluteLinks(content);
+  if (found.length > 0) unprefixedResidual.push(`${file}: ${found.join(', ')}`);
+}
+if (unprefixedResidual.length > 0) {
+  fail(
+    `unprefixed absolute body link(s) found after rewrite — the dead-link exemption ` +
+    `in .vitepress/config.mts relies on every SNAPSHOT-originating absolute link ` +
+    `carrying a /${SNAPSHOT_VERSION}/ prefix:\n${unprefixedResidual.join('\n')}`
+  );
+}
+
+// No-double-prefix assertion, same control-then-real-query discipline as
+// above: a literal "/v6.3.0-SNAPSHOT/v6.3.0-SNAPSHOT/" substring can only
+// appear if a link that was already prefixed got prefixed again.
+const DOUBLE_PREFIX = `/${SNAPSHOT_VERSION}/${SNAPSHOT_VERSION}/`;
+const doublePrefixControlContent = `[x](${DOUBLE_PREFIX}y)`;
+if (!doublePrefixControlContent.includes(DOUBLE_PREFIX)) {
+  fail('internal error: double-prefix control query does not contain its own probe string');
+}
+const doublePrefixed = [];
+for (const file of mdFiles) {
+  const content = readFileSync(file, 'utf-8');
+  if (content.includes(DOUBLE_PREFIX)) doublePrefixed.push(file);
+}
+if (doublePrefixed.length > 0) {
+  fail(`double-prefixed absolute link(s) ("${DOUBLE_PREFIX}") found after rewrite in: ${doublePrefixed.join(', ')}`);
+}
+
 // ── 6. Frontmatter metadata: alphaCommit / alphaInjectedAt / noindex head ──
 // D-43 requires the injected commit and injection time to stay inside the
 // SNAPSHOT tree itself — the visible timestamp on the entry pages (step 7)
@@ -458,6 +600,7 @@ const javaFileCount = (function countJava(dir) {
 console.log(
   `inject-alpha: injected ${mdFiles.length} md files, ${javaFileCount} java files, ` +
   `rewrote ${replacedCount} snippet reference(s) across ${touchedFiles} file(s), ` +
+  `rewrote ${bodyLinkRewriteCount} absolute body link(s), ` +
   `frontmatter metadata on ${frontmatterProcessedCount} file(s), ` +
   `${bannerInsertedCount} unreleased-documentation banner(s), ` +
   `commit ${commitSha.slice(0, 7)}, snapshot-status.json written`
