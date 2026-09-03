@@ -140,6 +140,14 @@ const stopObserving = () => {
 const startObserving = () => {
   const el = barRef.value;
   if (!el) return;
+  // archived -> alpha (and back) changes state without ever passing through
+  // 'current', so the watcher below re-enters here while a live observer is
+  // still held. v-if stays truthy across that transition, so Vue patches the
+  // same element in place and barRef is unchanged — the old observer keeps
+  // observing it, and overwriting the reference would make it undisconnectable.
+  // Reachable in one SPA: a build:with-alpha artifact carries both the
+  // archived trees and v6.3.0-SNAPSHOT.
+  observer?.disconnect();
   writeHeight();
   observer = new ResizeObserver(writeHeight);
   observer.observe(el);
