@@ -102,16 +102,6 @@ html:has(.VersionNoticeBar) {
     :root {
         --ut-tabbar-height: 48px;
     }
-
-    /* The sidebar nav's top padding used to read a variable that has never
-       been defined anywhere in the installed vitepress package, so it always
-       fell through to a literal. Below 960px that literal was the main
-       nav's own height; at and above 960px it also had to clear the tab row
-       plus a 16px gap. Both branches below now name the values they were
-       already silently producing. */
-    #VPSidebarNav {
-        padding-top: calc(var(--ut-tabbar-height) + 16px);
-    }
 }
 
 :root {
@@ -251,8 +241,32 @@ html:has(.VersionNoticeBar) {
     border: none;
 }
 
+/* The sidebar nav's top padding used to read a variable that has never been
+   defined anywhere in the installed vitepress package
+   (--vp-nav-height-mobile: zero hits under node_modules/vitepress/, while
+   --vp-nav-height matches normally), so it always fell through to its 64px
+   literal. The two branches below name where that 64px comes from, and they
+   name two different things.
+
+   Below 960px .VPSidebar is the drawer and carries no nav-height padding of
+   its own, so this padding is what clears the main nav.
+
+   At and above 960px .VPSidebar already pads itself by --vp-nav-height
+   (VPSidebar.vue:99-101), so this padding is measured from below the nav and
+   has to clear the tab row plus a 16px gap instead. Both evaluate to 64px
+   today, which is why the ordering matters: these two rules have identical
+   specificity, so the ≥960px one has to come second to win. Written the
+   other way round it is dead code, and changing --ut-tabbar-height moves
+   nothing. Measured: first sidebar item at y=213 on an archived page at
+   1024px, clearing the tab row's 139–187 band. */
 #VPSidebarNav {
     padding-top: var(--vp-nav-height);
+}
+
+@media (min-width: 960px) {
+    #VPSidebarNav {
+        padding-top: calc(var(--ut-tabbar-height) + 16px);
+    }
 }
 
 main.main {
