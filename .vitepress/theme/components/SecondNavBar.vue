@@ -168,21 +168,42 @@ onMounted(() => {
   }
 }
 
-/* No-sidebar branch, >=960px — the live state of roughly half the archived
-   pages today, not a defensive hypothetical: Chinese archived pages render
-   zero sidebar items, measured on production, on the local build artifact
-   and in the live preview DOM (04-CONTEXT.md correction 5). Centres the
-   container at the same 1104px cap VPDoc.vue applies to the article's own
-   no-sidebar .container at this breakpoint. SecondNavBar carries no padding
-   of its own (unlike .VPDoc, which insets 20px before centring that cap in
-   the remaining space) — centring 1104px directly within the full-width
-   .SecondNavBar reproduces the identical 168/1272 edges at 1440px, because
-   inset-then-centre and centre-in-full cancel out algebraically for a
-   symmetric cap. */
+/* No-sidebar branch — the live state of roughly half the archived pages
+   today, not a defensive hypothetical: Chinese archived pages render zero
+   sidebar items, measured on production, on the local build artifact and in
+   the live preview DOM (04-CONTEXT.md correction 5).
+
+   Mirrors VPDoc.vue's own no-sidebar container, which needs two rules, not
+   one — the cap changes at 1440px, not at 960px:
+
+     VPDoc.vue:82-85    @media (min-width:  960px)  max-width:  992px
+     VPDoc.vue:108-111  @media (min-width: 1440px)  max-width: 1104px
+
+   and that container is centred inside .VPDoc's own 20px inset (Layout.vue's
+   `padding: 20px !important`), not inside the full viewport. Inset-then-centre
+   and centre-in-full cancel only while the cap is binding; below cap + 40px
+   the article container is simply the inset width and stops centring, so a
+   bare cap is still 4px out at 1024px. Reproducing the inset here — padding
+   on .container, border-box so the cap covers it — makes the two boundaries
+   agree at every width, not only where the cap binds.
+
+   Measured, tab row content edges vs article card border edges (headless
+   Chromium over CDP, /v6.2.1/zh/guide/introduction.html): 20/940 at 960,
+   20/1004 at 1024, 104/1096 at 1200, 144/1136 at 1280, 168/1272 at 1440,
+   248/1352 at 1600 — ΔL = ΔR = 0 at every one. */
 @media (min-width: 960px) {
   .SecondNavBar:not(.has-sidebar) .container {
-    max-width: 1104px;
+    box-sizing: border-box;
+    max-width: calc(992px + 40px);
     margin: 0 auto;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .SecondNavBar:not(.has-sidebar) .container {
+    max-width: calc(1104px + 40px);
   }
 }
 
