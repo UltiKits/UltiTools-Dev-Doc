@@ -79,4 +79,63 @@
             </plugin>
         </plugins>
     </build>
+
+    <!-- Not active by default. See pending-examples/test-utils/README.md for the full
+         explanation. The example living there uses ultikits-test-utils, which is written
+         but not yet published to Maven Central (framework repository .planning/phases/
+         08-gate-hardening-release-closeout/08-RELEASE-PACKAGE.md section 4.2). Declaring
+         that dependency in the default <dependencies> block above would fail dependency
+         resolution on every push and every PR against this repository, long before the
+         compiler ever gets a chance to see the file. Profile isolation, not a compiler
+         exclude, is what keeps that off the default build. -->
+    <profiles>
+        <profile>
+            <!-- Lifting condition: activate this profile (or fold its <dependency> and
+                 <build> additions into the defaults above) once com.ultikits:
+                 ultikits-test-utils:1.0.0 is published and resolvable from Maven Central. -->
+            <id>test-utils-examples</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <!-- add-source below, not add-test-source: every other example in this project
+                 is a plain compiled class under src/main/java, never actually run via
+                 mvn test, so this keeps the same convention rather than introducing a
+                 second one. Scope is compile, not the test scope a real consumer should
+                 use (per ultikits-test-utils's own README). add-source puts the pending
+                 file on the MAIN compile classpath, and a test-scope dependency is not on
+                 that classpath at all, so compile scope here is a build-verification
+                 convenience for this project only, not usage guidance. -->
+            <dependencies>
+                <dependency>
+                    <groupId>com.ultikits</groupId>
+                    <artifactId>ultikits-test-utils</artifactId>
+                    <version>1.0.0</version>
+                    <scope>compile</scope>
+                </dependency>
+            </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>3.6.0</version>
+                        <executions>
+                            <execution>
+                                <id>add-test-utils-pending-source</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>add-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>pending-examples/test-utils</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
