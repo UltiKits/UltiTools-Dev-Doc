@@ -323,9 +323,18 @@ watchEffect(() => {
     height: calc(100vh - var(--vp-nav-height) - var(--vp-layout-top-height, 0px));
     overflow: hidden;
     padding: 20px !important;
-    /* Was a literal 64px. The tab row's own height (48px) plus a 16px gap
-       below it, which is 64 at and above 960px — the same value the literal
-       produced, now named instead of repeated. */
+    /* Was a literal 64px: the tab row's own height (48px) plus a 16px gap
+       below it. At and above 960px the variable is 48px and this yields the
+       same 64px the literal produced, now named instead of repeated.
+
+       Below 960px the variable is 0px, so the expression would yield 16px —
+       but it never applies there. The mobile block near the end of this
+       stylesheet sets `.VPDoc { padding: 0 !important }`, same specificity
+       and later in source order, so it wins under `@media (max-width:
+       959px)` and the computed padding-top below 960px is 0px, both before
+       and after this change. Measured in headless Chromium over CDP: 0px at
+       375 and 768, 64px at 1024, 1280 and 1440 — identical to master at all
+       five. */
     padding-top: calc(var(--ut-tabbar-height) + 16px) !important;
     box-sizing: border-box;
 }
