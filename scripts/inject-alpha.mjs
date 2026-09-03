@@ -96,7 +96,22 @@ const tarballPath = path.join(tmpDir, 'alpha.tar.gz');
 const extractDir = path.join(tmpDir, 'extract');
 mkdirSync(extractDir, { recursive: true });
 
-const tarballUrl = `https://codeload.github.com/${ALPHA_REPO}/tar.gz/refs/heads/${ALPHA_REF}`;
+// Download by the resolved commit sha, not by branch name (WR-01,
+// 03-REVIEW.md; coordinator WARNING). codeload.github.com's
+// refs/heads/<name> path always serves the branch's CURRENT tip at
+// request time — if alpha moved in the window between the git ls-remote
+// call above and this download completing, a by-branch-name URL would
+// silently download a different commit than the one already recorded as
+// commitSha, and every downstream consumer of that value (frontmatter
+// alphaCommit, the entry-page banners, docs/public/snapshot-status.json,
+// and the nightly workflow's debounce comparison against that JSON) would
+// then be wrong about what was actually injected. codeload also accepts a
+// commit-ish directly in place of refs/heads/<name> (verified: `curl
+// https://codeload.github.com/<owner>/<repo>/tar.gz/<full-40-char-sha>`
+// returns the exact tree at that commit, with a top-level directory named
+// `<repo>-<full-sha>`), which pins the download to exactly the commit
+// already resolved, closing the race window entirely.
+const tarballUrl = `https://codeload.github.com/${ALPHA_REPO}/tar.gz/${commitSha}`;
 try {
   execFileSync('curl', [
     '-sS',
@@ -122,8 +137,14 @@ try {
 // in archive" for any listed member that is missing, which is this step's
 // fail-closed guarantee (D-42, D-45 — sidebar sources are required here too,
 // not just docs/src and examples/src).
+// topDir matches the download-by-sha URL above (codeload names the
+// top-level directory <repo>-<full-40-char-sha> for a commit-ish
+// download, verified against a real download — this is a different shape
+// than the <repo>-<branch-name> directory a refs/heads/ download
+// produces, which is why this must be derived from commitSha rather than
+// ALPHA_REF now that step 2 downloads by sha).
 const repoName = ALPHA_REPO.split('/')[1] ?? ALPHA_REPO;
-const topDir = `${repoName}-${ALPHA_REF}`;
+const topDir = `${repoName}-${commitSha}`;
 const members = [
   `${topDir}/docs/src`,
   `${topDir}/examples/src`,
