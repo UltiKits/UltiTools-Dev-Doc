@@ -61,45 +61,66 @@
 
    .vitepress/theme/components/VersionNoticeBar.vue measures its own height on
    mount and writes it to document.documentElement, which overrides everything
-   here. The two static values below exist only to remove the single frame
+   here. The three static values below exist only to remove the single frame
    between server-rendered markup and that first measurement. They are the
    upper bound of this component's own measured heights, taken from the built
-   preview in headless Chromium: 75px archived and 72px alpha at 1440, and 96px
-   English-archived / 93px English-alpha / 75px Chinese-archived at 375. The
-   upper bound is the right choice for a first-frame reserve — reserving a few
-   pixels too many shows a thin strip for one frame, reserving too few shows the
-   bar overlapping the nav. :has() support is the assumption — a browser without
-   it degrades to one frame of overlap on an archived or alpha page, not to a
-   broken page, and never affects the current release, where the 0px below is
-   already correct. */
+   preview in headless Chromium.
+
+   RE-MEASURED 2026-09-04 after 04-UI-REVIEW's spacing fixes (vertical padding
+   14px -> 16px, inter-row gap 4px -> 8px): both changes add to every state's
+   height, since every state renders two `.notice-row` elements, so all three
+   numbers below moved up from their prior values (75/96/96). Old values are
+   kept in the changelog line beneath each rule for the record.
+
+   Sampled all four page/locale combinations (archived EN, archived ZH, alpha
+   EN, alpha ZH) across every width in {320,340,360,375,400,430,460,500,550,
+   600,650,700,730,750,767,768,800,850,900,940,955,960,1000,1019,1020,1280,
+   1440}. Per band, the driving state is not the same one everywhere: the
+   archived-EN sentence is the tallest below 960px because it wraps to two
+   lines up to 650px inclusive (single line from 700px); the alpha-EN bar
+   (state sentence + commit/timestamp meta row) is tallest from 960px through
+   1019px because ITS sentence stays wrapped across that entire span, one
+   width later than the archived sentence unwraps; both drop back to their
+   one-line heights at 1020px, where archived (EN and ZH, byte-identical at
+   83px) becomes the tallest surviving state. :has() support is the
+   assumption — a browser without it degrades to one frame of overlap on an
+   archived or alpha page, not to a broken page, and never affects the current
+   release, where the 0px below is already correct. */
 :root {
     --vp-layout-top-height: 0px;
 }
 
+/* >=1020px. Was 75px; archived EN/ZH measured 83px at 1020/1280/1440 (alpha
+   EN/ZH measured 80px over the same span — archived is the taller state
+   here). */
 html:has(.VersionNoticeBar) {
-    --vp-layout-top-height: 75px;
+    --vp-layout-top-height: 83px;
 }
 
+/* <960px. Was 96px; archived-EN measured 104px (two-line wrap) from 320px
+   through 650px inclusive, the tallest state anywhere in this band — alpha
+   EN/ZH measured 101px over the same low end, archived-ZH and alpha-ZH's
+   unwrapped span measured no higher than 83px/80px respectively. */
 @media (max-width: 959px) {
     html:has(.VersionNoticeBar) {
-        --vp-layout-top-height: 96px;
+        --vp-layout-top-height: 104px;
     }
 }
 
-/* 960-1019px. The 75px above was sampled at 1440px only, and the bar's height
-   is a wrap-count function of width, so one sample cannot describe a branch
-   that runs from 960px upward. Measured at 8px steps in headless Chromium:
-   the English alpha bar (state sentence plus the commit-and-injection metadata
-   line) is 93px through 1019px and 72px from 1020px, so this band was
-   under-reserved by 18px — one frame of the bar over VPNav on a small laptop.
-   The archived bars stay on one line across the whole band (75px English and
-   Chinese at 960/1000/1024/1080/1152/1280) and the Chinese alpha bar is 72px
-   throughout, so this branch exists for the English alpha state alone. 96px is
-   reused rather than introducing a third number; over-reserving by 3px is the
-   safe direction, per the note above. */
+/* 960-1019px. Was 96px. The 75px/83px single-sample rules above cover 1440px
+   and >=1020px respectively, but the bar's height is a wrap-count function of
+   width, so neither sample describes this band on its own — re-confirmed by
+   sampling at 960/1000/1019px directly. The English alpha bar (state
+   sentence plus the commit-and-injection metadata line) measured 101px
+   throughout this entire band and drops to 80px at 1020px — the same
+   wrap/unwrap boundary the prior measurement pass found (then at 93px/72px,
+   before the spacing fixes added their +8px). The archived bars stay
+   single-line across the whole band (83px English and Chinese at 960/1000/
+   1019) and the Chinese alpha bar is 80px throughout, so this branch exists
+   for the English alpha state alone, same as before. */
 @media (min-width: 960px) and (max-width: 1019px) {
     html:has(.VersionNoticeBar) {
-        --vp-layout-top-height: 96px;
+        --vp-layout-top-height: 101px;
     }
 }
 
