@@ -55,7 +55,42 @@ export default withPwa(
         // dead-link checking for the rest of the site is unchanged.
         ignoreDeadLinks: [/^\/api\/index$/, /^\/v6\.3\.0-SNAPSHOT\//, isDeadLinkResolvableInSnapshot],
         head: [['link', { rel: 'icon', href: '/favicon.ico' }]],
-        sitemap: { hostname: 'https://dev.ultikits.com' },
+        // v6.3.0-SNAPSHOT is unreleased content injected at build time
+        // (scripts/inject-alpha.mjs) — it may change tomorrow, and a reader
+        // landing on it from a search result has no way to tell that (D-48,
+        // 03-CONTEXT.md), the same direction as Phase 1's D-05 (`/api/*`
+        // gets X-Robots-Tag: noindex). vitepress's generateSitemap does
+        // `items = await sitemap?.transformItems?.(items) || items` right
+        // before writing the stream (node_modules/vitepress/dist/node/
+        // chunk-D3CUZ4fa.js, 1.6.4) — item.url is already a full path segment
+        // like 'v6.2.4/zh/guide/introduction' (verified against production:
+        // the Chinese archive is served at /{version}/zh/..., not
+        // /zh/{version}/...), so one prefix filter covers both locales.
+        // This is a new exception, not a continuation of existing behaviour:
+        // the six already-released archived versions get neither canonical
+        // nor noindex today and are 85% of this sitemap — that's a
+        // site-wide SEO decision out of this Phase's scope (03-CONTEXT.md
+        // Deferred Ideas), not extended here.
+        //
+        // Filtering item.url alone is not enough: generateSitemap groups
+        // every page sharing the same path across all versions/locales and,
+        // when a page has 2+ such siblings, stamps each item with
+        // `links: pages2` — the *entire* sibling group, rendered as
+        // <xhtml:link rel="alternate"> tags (real-build finding: v6.2.0's
+        // own api/ulti-tools-plugin.html item carried an alternate link to
+        // v6.3.0-SNAPSHOT/api/ulti-tools-plugin.html even after item.url
+        // filtering removed SNAPSHOT's own top-level item). Each surviving
+        // item's links array needs the same prefix filter, or SNAPSHOT keeps
+        // leaking in through every other version's alternate-language tags.
+        sitemap: {
+            hostname: 'https://dev.ultikits.com',
+            transformItems: (items) => items
+                .filter((item) => !item.url.startsWith('v6.3.0-SNAPSHOT/'))
+                .map((item) => item.links
+                    ? { ...item, links: item.links.filter((link) => !link.url.startsWith('v6.3.0-SNAPSHOT/')) }
+                    : item
+                ),
+        },
         locales: { ...localeZH, ...localeEN },
         markdown: markdownConfig,
         pwa: pwaConfig,
