@@ -484,9 +484,14 @@ if [ "$MODE" = "--with-alpha" ]; then
 
   # 正控制：制造一个真实的未跟踪文件，再跑一次同样的命令，证明上面那个 0
   # 不是因为 git status 压根没在读 docs/src 这条路径。
+  # trap 先于任何可能失败的命令注册。set -e + pipefail 下，下一行那条管道失败会
+  # 直接中止脚本，Ctrl-C 同样，两种情况都会把控制文件留在 docs/src 里——正是这条
+  # 检查用来证明其干净的那棵树。下一次运行于是从上一次的残留里读出一个假的脏树。
   control_tmp="$(mktemp docs/src/.porcelain-control-XXXXXX)"
+  trap 'rm -f "$control_tmp"' EXIT INT TERM
   control_dirty="$(git status --porcelain -- docs/src | wc -l)"
   rm -f "$control_tmp"
+  trap - EXIT INT TERM
 
   echo "      对照组制造未跟踪文件后 porcelain 行数=$control_dirty"
 
