@@ -85,10 +85,11 @@ onMounted(() => {
 .SecondNavBar {
   position: fixed;
   /* One expression replaces the two hardcoded tops this rule and the 960px
-     block used to carry. --vp-nav-height-mobile does not exist anywhere in
-     vitepress (verified: zero hits under node_modules/vitepress/, while
-     --vp-nav-height matches normally), so the old base rule always fell
-     through to 65px — one pixel more than the real nav height. */
+     block used to carry. The previous fallback read a mobile-specific
+     nav-height custom property that is not defined anywhere in vitepress
+     (verified: zero hits under node_modules/vitepress/, while the real
+     nav-height variable matches normally), so it always fell through to
+     65px — one pixel more than the real nav height. */
   top: calc(var(--vp-layout-top-height, 0px) + var(--vp-nav-height));
   left: 0;
   z-index: 30;

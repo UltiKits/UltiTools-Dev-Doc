@@ -323,7 +323,10 @@ watchEffect(() => {
     height: calc(100vh - var(--vp-nav-height) - var(--vp-layout-top-height, 0px));
     overflow: hidden;
     padding: 20px !important;
-    padding-top: 64px !important;
+    /* Was a literal 64px. The tab row's own height (48px) plus a 16px gap
+       below it, which is 64 at and above 960px — the same value the literal
+       produced, now named instead of repeated. */
+    padding-top: calc(var(--ut-tabbar-height) + 16px) !important;
     box-sizing: border-box;
 }
 
@@ -346,9 +349,16 @@ watchEffect(() => {
 
 /* 修改 Aside 定位，使其包含在容器内 */
 .VPDoc .aside-container {
-    top: calc(var(--vp-layout-top-height, 0px) + 128px) !important;
+    /* Was the notice-bar variable plus a literal 128. The main nav height
+       plus the tab row height plus a 16px gap: 64 + 48 + 16 = 128, the same
+       value the literal produced. */
+    top: calc(var(--vp-layout-top-height, 0px) + var(--vp-nav-height) + var(--ut-tabbar-height) + 16px) !important;
     padding-top: 0 !important;
-    max-height: calc(100vh - var(--vp-nav-height) - var(--vp-layout-top-height, 0px) - 84px) !important;
+    /* Was a literal 84 subtrahend, with no traceable origin. It decomposes
+       into the tab row height, the same 16px gap used in the sibling top
+       offset above, and this repository's own 20px .VPDoc padding:
+       48 + 16 + 20 = 84, the same value the literal produced. */
+    max-height: calc(100vh - var(--vp-nav-height) - var(--vp-layout-top-height, 0px) - var(--ut-tabbar-height) - 16px - 20px) !important;
     overflow-y: auto !important;
 }
 
