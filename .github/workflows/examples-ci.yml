@@ -566,8 +566,7 @@ jobs:
         # T-02-07 的不对称容错姿态：这一步与上面开 issue 那一步写法相同——都没有
         # continue-on-error，两条查询命令都不用 `|| true` 兜底——但失败之后的
         # 后果不对称。开 issue 那一步失败时，job 已经因为不变式破裂而红，那一步
-        # 再失败不改变结论；这一步的 job 本来是绿的（success() 才会走到这里），
-        # 关闭动作一旦失败就会把这个本该绿的 job 拖红，这正是 D-07 要的效果：
+        # 再失败不改变结论；这一步一旦失败就会把 job 拖红，这正是 D-07 要的效果：
         # 关闭失败不能悄悄留下一盏关不掉、但看起来和「真的还坏着」一模一样的
         # 状态灯。
         #
@@ -577,10 +576,48 @@ jobs:
         #
         # if: 事件面与开 issue 那一步完全一致（D-14），仍按事件名而非
         # github.ref 卡，理由同 D-15——分支演练要在非 master 分支上 dispatch
-        # 到这里。状态函数必须显式写出来：Actions 只在 step 完全没有 if: 时
-        # 才隐式附加 success()，一旦写了自定义 if:，隐式附加就不再生效。
+        # 到这里。
+        #
+        # G-02-12 修复：守卫不再是「job 级状态函数」（旧写法是 success()）。
+        # 旧写法把这一步的关闭与 job 里**任何**一步的成败连在一起——索引步骤
+        # （id: index）就是第一个撞上这条耦合的例子：它在上游表单结构变化时
+        # exit 1，会让整个 job 变红，success() 因此为假，这一步被跳过，
+        # release-sync issue 因此继续挂着——而这条状态灯的正文写着「未关闭即
+        # 代表文档站落后于最新正式版」，此时那句话是假的：版本不变式明明已经
+        # 恢复，只是恰好在同一次运行里撞上了一个与它无关的索引失败。
+        # `Open or update javadoc-index issue` 的 `gh` 查询失败（那一步是有意
+        # fail-loud 的）会造成同样的连坐——索引步骤不是唯一能触发这条耦合的
+        # 例子，只是第一个被发现的。
+        #
+        # 新守卫改用 `steps.check.outputs.kind`（不变式检查步骤自身的输出）
+        # 判定这一件事是否发生了不变式已恢复：把它作为「已恢复」的信号会需要
+        # 额外论证「退出码为 0 时 kind 必定为空」这条隐含关系——`outputs.kind`
+        # 本来就只在 exit 1 时被脚本写入。这里直接使用
+        # `steps.check.outcome == 'success'`：`check` 这一步的契约就是
+        # 「exit 0 等于三个版本号相等」，`outcome` 直接就是那个脚本的退出结果，
+        # 不需要绕一层去论证与 kind 的关系。checkout 失败、`check` 被跳过、
+        # 或退出码非 0，四种情形下 `outcome` 都不等于 `success`，这条守卫在
+        # 那些情形下仍然是关闭的。
+        #
+        # `!cancelled()` 而不是隔壁 `Open or update javadoc-index issue` 用的
+        # 那个更宽的 `always()`：这一步会关 issue，是一次不可撤回的写操作，
+        # 在运行被取消的收尾阶段跑它没有意义——`always()` 连取消的运行也会让
+        # 它执行。隔壁那一步不改，是因为它没有本 gap 描述的缺陷，跟着改属于
+        # 本次修复范围之外的改动；两种写法在文件里并存，理由就写在这里，不
+        # 留给下一个读者去猜。
+        #
+        # D-32/D-34 的两盏独立状态灯不受影响：索引步骤自身的退出码分派、
+        # `javadoc-index` 状态灯的 broken/timeout/post-failed 分支、
+        # `Close javadoc-index issue if recovered`（它自己的 `success()` 守卫
+        # 与其 `index_result` 条件本就等价，不需要跟着改）全部原样保留——
+        # 本次改动只解耦了 release-sync 这一盏灯的关闭条件，索引出问题时仍然
+        # 由 `javadoc-index` 那盏灯表达，仍然把 job 拖红。
+        #
+        # D-14 的事件表达式三行原样不动。状态函数必须显式写出来：Actions 只
+        # 在 step 完全没有 if: 时才隐式附加 success()，一旦写了自定义 if:，
+        # 隐式附加就不再生效。
         if: |
-          success() &&
+          !cancelled() && steps.check.outcome == 'success' &&
           (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
            (github.event_name == 'push' && github.ref == 'refs/heads/master'))
         env:
