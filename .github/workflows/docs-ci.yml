@@ -214,8 +214,8 @@ jobs:
             echo "::error::out-of-range 样例（palette-contrast-out-of-range.css）退出码 $oor_exit，期望恰好 2——自检 5 新增于 G-02-22，见本 job 顶部注释"
             exit 1
           fi
-          if ! printf '%s\n' "$oor_out" | grep -q -- "--link-color"; then
-            echo "::error::out-of-range 样例的报错未点名 --link-color"
+          if ! printf '%s\n' "$oor_out" | grep -q -- "--border-color"; then
+            echo "::error::out-of-range 样例的报错未点名 --border-color"
             exit 1
           fi
 
