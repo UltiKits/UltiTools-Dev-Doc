@@ -84,7 +84,12 @@ onMounted(() => {
 <style scoped>
 .SecondNavBar {
   position: fixed;
-  top: var(--vp-nav-height-mobile, 65px);
+  /* One expression replaces the two hardcoded tops this rule and the 960px
+     block used to carry. --vp-nav-height-mobile does not exist anywhere in
+     vitepress (verified: zero hits under node_modules/vitepress/, while
+     --vp-nav-height matches normally), so the old base rule always fell
+     through to 65px — one pixel more than the real nav height. */
+  top: calc(var(--vp-layout-top-height, 0px) + var(--vp-nav-height));
   left: 0;
   z-index: 30;
   /* 确保在内容之上 */
@@ -101,8 +106,6 @@ onMounted(() => {
 @media (min-width: 960px) {
   .SecondNavBar {
     display: block;
-    top: 64px;
-    /* 这里固定为原来的高度 */
   }
 }
 

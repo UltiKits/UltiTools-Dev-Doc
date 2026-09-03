@@ -53,6 +53,39 @@
     --vp-home-hero-name-background: -webkit-linear-gradient(120deg, var(--vp-c-brand-1) 30%, var(--vp-c-brand-3));
 }
 
+/* Height of the version-state notice bar, and nothing else. VitePress's own
+   VPNav, VPSidebar, VPContent and the seven components under them already read
+   this variable, so writing it is what makes room for the bar. It carries ONLY
+   the bar's height — SecondNavBar's 48px is chrome BELOW VPNav, a different
+   kind of offset, and gets its own variable in plan 04-04.
+
+   .vitepress/theme/components/VersionNoticeBar.vue measures its own height on
+   mount and writes it to document.documentElement, which overrides everything
+   here. The two static values below exist only to remove the single frame
+   between server-rendered markup and that first measurement. They are the
+   upper bound of this component's own measured heights, taken from the built
+   preview in headless Chromium: 75px archived and 72px alpha at 1440, and 96px
+   English-archived / 93px English-alpha / 75px Chinese-archived at 375. The
+   upper bound is the right choice for a first-frame reserve — reserving a few
+   pixels too many shows a thin strip for one frame, reserving too few shows the
+   bar overlapping the nav. :has() support is the assumption — a browser without
+   it degrades to one frame of overlap on an archived or alpha page, not to a
+   broken page, and never affects the current release, where the 0px below is
+   already correct. */
+:root {
+    --vp-layout-top-height: 0px;
+}
+
+html:has(.VersionNoticeBar) {
+    --vp-layout-top-height: 75px;
+}
+
+@media (max-width: 959px) {
+    html:has(.VersionNoticeBar) {
+        --vp-layout-top-height: 96px;
+    }
+}
+
 :root {
     --vp-c-gray-1: #dddde3;
     --vp-c-gray-2: #e4e4e9;

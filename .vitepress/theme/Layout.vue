@@ -3,6 +3,8 @@ import DefaultTheme from 'vitepress/theme'
 import { inBrowser, useData, useRoute } from 'vitepress'
 import { watchEffect, nextTick, watch, onMounted, onUnmounted } from 'vue'
 // @ts-ignore
+import VersionNoticeBar from './components/VersionNoticeBar.vue'
+// @ts-ignore
 import SecondNavBar from './components/SecondNavBar.vue'
 // @ts-ignore
 import SidebarTranslations from './components/SidebarTranslations.vue'
@@ -250,6 +252,7 @@ watchEffect(() => {
             </div>
         </template>
         <template #layout-top>
+            <VersionNoticeBar />
             <SecondNavBar />
             <NolebaseHighlightTargetedHeading />
         </template>
@@ -317,7 +320,7 @@ watchEffect(() => {
 
 /* 圆角矩形容器包裹 VPDoc 下的 container */
 .VPDoc {
-    height: calc(100vh - var(--vp-nav-height));
+    height: calc(100vh - var(--vp-nav-height) - var(--vp-layout-top-height, 0px));
     overflow: hidden;
     padding: 20px !important;
     padding-top: 64px !important;
@@ -343,9 +346,9 @@ watchEffect(() => {
 
 /* 修改 Aside 定位，使其包含在容器内 */
 .VPDoc .aside-container {
-    top: 128px !important;
+    top: calc(var(--vp-layout-top-height, 0px) + 128px) !important;
     padding-top: 0 !important;
-    max-height: calc(100vh - var(--vp-nav-height) - 84px) !important;
+    max-height: calc(100vh - var(--vp-nav-height) - var(--vp-layout-top-height, 0px) - 84px) !important;
     overflow-y: auto !important;
 }
 
@@ -413,7 +416,7 @@ watchEffect(() => {
 
 .VPSidebar>.nav {
     /* 确保 nav 至少占满可视高度，减去 top padding */
-    min-height: calc(100vh - var(--vp-nav-height) - 32px);
+    min-height: calc(100vh - var(--vp-nav-height) - var(--vp-layout-top-height, 0px) - 32px);
     display: flex;
     flex-direction: column;
 }

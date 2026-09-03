@@ -1,8 +1,8 @@
 {
   "type": "module",
   "scripts": {
-    "dev": "node scripts/generate-snapshot-sidebar.mjs && vitepress dev",
-    "build": "node scripts/generate-api-version.mjs && node scripts/generate-snapshot-sidebar.mjs && vitepress build",
+    "dev": "node scripts/generate-snapshot-sidebar.mjs && node scripts/generate-version-pages.mjs && vitepress dev",
+    "build": "node scripts/generate-api-version.mjs && node scripts/generate-snapshot-sidebar.mjs && node scripts/generate-version-pages.mjs && vitepress build",
     "build:with-alpha": "node scripts/inject-alpha.mjs && npm run build",
     "clean:snapshot": "rm -rf docs/archive/v6.3.0-SNAPSHOT examples-snapshot .vitepress/config/.snapshot-source .vitepress/config/sidebar-snapshot.generated.mjs docs/public/snapshot-status.json",
     "preview": "vitepress preview",
