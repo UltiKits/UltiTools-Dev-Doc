@@ -26,6 +26,17 @@ const navZH = [
         text: '用户文档',
         link: 'https://doc.ultikits.com',
         skipVersioning: true
+    },
+    // 不传 link、不传 activeMatch、也不手传 versioningPlugin：
+    // @viteplus/versions 的 populateNav 步骤会自动把
+    // props.versioningPlugin = { versions, currentVersion } 合并进任何带
+    // component 键的 nav 项（见 04-UI-SPEC.md § Version Switcher Contract）。
+    // 手动传这个 prop 会造出第二份构建期数据，与自动合并的那份互相漂移。
+    // 桌面端由 SecondNavBar.vue、移动端由 VitePress 自带的 VPNavScreenMenu
+    // 消费同一条 nav 项——注册名为什么是 'VersionSwitcher' 而不是
+    // 'UtVersionSwitcher'，见 theme/index.mts。
+    {
+        component: 'VersionSwitcher'
     }
 ]
 

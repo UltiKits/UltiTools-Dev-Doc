@@ -30,6 +30,18 @@ const navEN = [
         text: 'User Doc',
         link: 'https://doc.ultikits.com',
         skipVersioning: true
+    },
+    // No link, no activeMatch, no versioningPlugin prop supplied by hand:
+    // @viteplus/versions' populateNav step auto-merges
+    // props.versioningPlugin = { versions, currentVersion } into any nav item
+    // carrying a component key (04-UI-SPEC.md § Version Switcher Contract).
+    // Supplying that prop here would duplicate a build-time value and let the
+    // two drift. Rendered by SecondNavBar.vue on desktop and by VitePress's
+    // own VPNavScreenMenu on mobile from this one entry — see
+    // theme/index.mts for why the registered name is 'VersionSwitcher', not
+    // 'UtVersionSwitcher'.
+    {
+        component: 'VersionSwitcher'
     }
 ]
 

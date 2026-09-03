@@ -98,10 +98,16 @@ export default withPwa(
             current: 'v6.2.5',
             sources: 'src',
             archive: 'archive',
-            versionSwitcher: {
-                text: 'API Version',
-                includeCurrentVersion: true
-            }
+            // `false`, not an object and not omitted. @viteplus/versions'
+            // versionSwitcher() checks exactly this sentinel
+            // (dist/index.js: `if(e.versionSwitcher===!1)return;`) to skip
+            // auto-injecting its static-label nav group. That group renders
+            // VPFlyout with :button="item.text" — a build-time string with no
+            // per-page value — so it is structurally incapable of satisfying
+            // VER-04 (04-UI-SPEC.md § Version Switcher Contract, "Resolved
+            // Implementation Findings"). The wrapper registered as
+            // UtVersionSwitcher in nav.en.mts/nav.zh.mts replaces it instead.
+            versionSwitcher: false
         }
     })
 )
