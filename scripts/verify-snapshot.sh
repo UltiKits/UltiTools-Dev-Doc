@@ -284,10 +284,23 @@ record "11 对照组：已发布归档版本不含 noindex" "status=$HTTP_STATUS
 #     条上线后，状态由 URL 路径推导（versioning.ts 的 activeVersion 读
 #     relativePath，不读 frontmatter），所以一个被误注入到 latest 的页面
 #     仍会被分类成 current release、渲染不出任何节点——这条断言测不出那种
-#     误注入。真正覆盖「溢出到 latest」这个方向的检查是 build-with-alpha
-#     job 里注入后对 `git status --porcelain docs/src` 的产物断言，由
-#     04-05 落在 docs-ci.yml 里；本条只继续证明它还能证明的那一半：当前
-#     发布版页面上不存在任何未发布信号。
+#     误注入。接手这个方向的是 build-with-alpha job 里注入后对
+#     `git status --porcelain -- docs/src docs/archive` 的产物断言
+#     （check-rendered-links.sh 第 7 节，由 04-05 落在 docs-ci.yml 里）。
+#
+#     ⚠ 那不是同一个观测面，不要读成「这个方向已经被完整覆盖了」：第 7 节看的是
+#     CI 工作树，本条看的是 Cloudflare Pages 实际服务出来的响应，而本仓库只有
+#     本条看后者。任何不改动 CI runner 上源码树就能到达已部署 latest 页面的东西
+#     ——构建后往 .vitepress/dist/guide/ 里的拷贝、一次路由或 _redirects 改动、
+#     一份陈旧的 Pages 产物——两条都观测不到。
+#
+#     内容层面的溢出在已部署 HTML 上没有可靠字面量可抓：状态由 URL 推导，而
+#     alphaCommit / alphaInjectedAt 这两个 frontmatter 键实测在渲染产物里零命中
+#     （SNAPSHOT 页面自己也是 0，见 04-REVIEW-FIX），所以对它们写一条零命中断言
+#     只会得到一条永远不会变红、也配不出正控制的假门禁。本条因此只断言它真能
+#     断言的那一半：当前发布版页面上不存在任何未发布信号。这个零命中不是孤立的
+#     ——第 7a/7b/8a/8b 条已在同一次运行里、同一个已部署站点上，四次证明
+#     data-ut-version-state 这个 marker 在这个观测通道里是抓得到的。
 #
 #     __VP_SITE_DATA__ 是本条自己的正向对照——每个构建产物页面都会内嵌它，
 #     缺失说明抓取失败或响应被截断，否则下面两条零命中的断言会在这种情况

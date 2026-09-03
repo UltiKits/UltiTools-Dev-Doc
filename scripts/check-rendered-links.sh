@@ -496,34 +496,42 @@ fi
 # only meaningful once this control has shown the command CAN report dirt.
 
 if [ "$MODE" = "--with-alpha" ]; then
-  echo "7. --with-alpha：注入后 latest 源码树保持未修改（替代 verify-snapshot.sh 第 12 条曾单独提供的溢出方向哨兵）"
+  echo "7. --with-alpha：注入后 latest 与已发布归档源码树都保持未修改（替代 verify-snapshot.sh 第 12 条曾单独提供的溢出方向哨兵）"
 
-  porcelain_dirty="$(git status --porcelain -- docs/src | wc -l)"
-  echo "      docs/src porcelain 行数=$porcelain_dirty"
+  # 路径原本只有 docs/src，于是「注入溢出进某个已发布的归档树」既不被这条覆盖，
+  # 也不被 verify-snapshot.sh 第 12 条覆盖。加上 docs/archive 不花任何代价：
+  # 唯一会被注入写入的归档子目录 docs/archive/v6.3.0-SNAPSHOT 本身就是
+  # gitignore 的（.gitignore:156），所以正常注入不会让这条变红。
+  porcelain_paths="docs/src docs/archive"
+  porcelain_dirty="$(git status --porcelain -- $porcelain_paths | wc -l)"
+  echo "      $porcelain_paths porcelain 行数=$porcelain_dirty"
 
   if [ "$porcelain_dirty" -eq 0 ]; then
-    pass "  latest 源码树 porcelain observed=$porcelain_dirty expected=0"
+    pass "  latest 与已发布归档源码树 porcelain observed=$porcelain_dirty expected=0"
   else
-    fail "  latest 源码树 porcelain observed=$porcelain_dirty expected=0 —— 注入写到了 latest 源码树外"
+    fail "  latest 与已发布归档源码树 porcelain observed=$porcelain_dirty expected=0 —— 注入写到了 SNAPSHOT 树之外"
   fi
 
-  # 正控制：制造一个真实的未跟踪文件，再跑一次同样的命令，证明上面那个 0
-  # 不是因为 git status 压根没在读 docs/src 这条路径。
+  # 正控制：在两条路径上各制造一个真实的未跟踪文件，再跑一次同样的命令，证明
+  # 上面那个 0 不是因为 git status 压根没在读这两条路径。归档侧的控制文件放在
+  # 一个已发布版本目录下，不放 SNAPSHOT 目录——后者是 gitignore 的，放在那里
+  # 的控制文件永远不会出现在 porcelain 输出里，那样的「对照组」自己就是假的。
   # trap 先于任何可能失败的命令注册。set -e + pipefail 下，下一行那条管道失败会
   # 直接中止脚本，Ctrl-C 同样，两种情况都会把控制文件留在 docs/src 里——正是这条
   # 检查用来证明其干净的那棵树。下一次运行于是从上一次的残留里读出一个假的脏树。
-  control_tmp="$(mktemp docs/src/.porcelain-control-XXXXXX)"
-  trap 'rm -f "$control_tmp"' EXIT INT TERM
-  control_dirty="$(git status --porcelain -- docs/src | wc -l)"
-  rm -f "$control_tmp"
+  control_src="$(mktemp docs/src/.porcelain-control-XXXXXX)"
+  control_archive="$(mktemp docs/archive/v6.2.4/.porcelain-control-XXXXXX)"
+  trap 'rm -f "$control_src" "$control_archive"' EXIT INT TERM
+  control_dirty="$(git status --porcelain -- $porcelain_paths | wc -l)"
+  rm -f "$control_src" "$control_archive"
   trap - EXIT INT TERM
 
-  echo "      对照组制造未跟踪文件后 porcelain 行数=$control_dirty"
+  echo "      对照组在两条路径各放一个未跟踪文件后 porcelain 行数=$control_dirty"
 
-  if [ "$control_dirty" -gt 0 ]; then
-    pass "  对照组：制造未跟踪文件后 porcelain observed=$control_dirty expected>0"
+  if [ "$control_dirty" -eq 2 ]; then
+    pass "  对照组：制造未跟踪文件后 porcelain observed=$control_dirty expected=2（两条路径各一条）"
   else
-    fail "  对照组：制造未跟踪文件后 porcelain observed=$control_dirty expected>0 —— 上面那个 0 是假的，git status 根本没在读这条路径"
+    fail "  对照组：制造未跟踪文件后 porcelain observed=$control_dirty expected=2 —— 上面那个 0 是假的，git status 至少有一条路径没在读"
   fi
 fi
 
