@@ -64,6 +64,8 @@ DIST=".vitepress/dist"
 STATE_MARKER='data-ut-version-state'
 LINK_ATTR='data-ut-version-link'
 ACTIVE_MARKER='data-ut-active-version'
+# The archived notice bar's own "go to the latest version" link (VER-05).
+NOTICE_ATTR='data-ut-notice-link'
 BADGE_MARKER='data-ut-unreleased-badge'
 # The label @viteplus/versions' auto-injected dropdown used to render before
 # 04-03 turned it off (versionsConfig.versionSwitcher: false) and wired in
@@ -227,6 +229,72 @@ if [ "$link_zh_first" -eq 0 ]; then
   pass "  zh_version_first observed=$link_zh_first expected=0（总数 $link_total 为对照组，证明搜索确实读到了属性）"
 else
   fail "  zh_version_first observed=$link_zh_first expected=0 —— 中文页版本切换会 404（实测 /zh/v6.2.4/... 返回 404）"
+fi
+
+# 上面那条只证明「没有 /zh/<版本>/ 这个坏形状」。它证明不了中文页发出的是对的形状：
+# 一次把 locale 段整个丢掉的回归（中文页发出 /v6.2.4/guide/introduction.html）在它
+# 和 link_total 上都是绿的，然后在生产上 404。所以这里补一条正向形状断言，并且跑在
+# --clean 一侧——CI 每个 PR 跑的就是这一侧。
+
+zh_page="$DIST/v6.2.1/zh/guide/introduction.html"
+if [ ! -f "$zh_page" ]; then
+  fail "  中文归档样本页 observed=(不存在) expected=$zh_page"
+else
+  zh_rows_total="$({ grep -oE "$LINK_ATTR=\"[^\"]*\"" "$zh_page" || true; } | wc -l)"
+  zh_rows_localised="$({ grep -oE "$LINK_ATTR=\"[^\"]*\"" "$zh_page" || true; } | { grep -c '/zh/' || true; })"
+  zh_rows_versioned="$({ grep -oE "$LINK_ATTR=\"/v[0-9][^\"]*/zh/[^\"]*\"" "$zh_page" || true; } | wc -l)"
+
+  echo "      中文样本页 rows=$zh_rows_total 带 /zh/ 段=$zh_rows_localised 版本在前且带 /zh/=$zh_rows_versioned"
+
+  if [ "$zh_rows_total" -gt 0 ]; then
+    pass "  对照组：中文样本页的切换器行数 observed=$zh_rows_total expected>0"
+  else
+    fail "  对照组：中文样本页的切换器行数 observed=$zh_rows_total expected>0 —— 下面两条的零都是假的，切换器根本没渲染"
+  fi
+
+  if [ "$zh_rows_localised" -eq "$zh_rows_total" ]; then
+    pass "  中文样本页每一行都带 /zh/ 段 observed=$zh_rows_localised expected=$zh_rows_total"
+  else
+    fail "  中文样本页每一行都带 /zh/ 段 observed=$zh_rows_localised expected=$zh_rows_total —— 有行把 locale 段丢了，会 404"
+  fi
+
+  if [ "$zh_rows_versioned" -gt 0 ]; then
+    pass "  中文样本页的版本行形状 /v<版本>/zh/… observed=$zh_rows_versioned expected>0"
+  else
+    fail "  中文样本页的版本行形状 /v<版本>/zh/… observed=$zh_rows_versioned expected>0 —— 只剩当前版本那一行了？"
+  fi
+fi
+
+# VER-05：归档提示条自己的「去最新版」链接。它是提示条存在的理由，而在 04-04 之前
+# 这个文件里对它一条断言都没有——一次把 href 发成空字符串的回归，在 285 个归档页上
+# 可以全绿通过。三条断言互为对照：总数是后两条的正控制，总数本身以「带 archived
+# 状态的页面数」为期望值，两者由同一棵树上的两次独立扫描得出。
+
+echo "3b. 归档提示条的一键到最新版链接（VER-05）"
+
+archived_pages="$({ grep -rl "$STATE_MARKER=\"archived\"" "$DIST" --include='*.html' || true; } | wc -l)"
+notice_total="$({ grep -rhoE "$NOTICE_ATTR=\"[^\"]*\"" "$DIST" --include='*.html' || true; } | wc -l)"
+notice_empty="$({ grep -rhoF "$NOTICE_ATTR=\"\"" "$DIST" --include='*.html' || true; } | wc -l)"
+notice_relative="$({ grep -rhoE "$NOTICE_ATTR=\"[^/\"][^\"]*\"" "$DIST" --include='*.html' || true; } | wc -l)"
+
+echo "      archived_pages=$archived_pages ${NOTICE_ATTR}_total=$notice_total 空值=$notice_empty 非绝对路径=$notice_relative"
+
+if [ "$archived_pages" -gt 0 ] && [ "$notice_total" -eq "$archived_pages" ]; then
+  pass "  $NOTICE_ATTR observed=$notice_total expected=$archived_pages（每个归档页恰好一条）"
+else
+  fail "  $NOTICE_ATTR observed=$notice_total expected=$archived_pages（每个归档页恰好一条）—— 归档页数为零也算不成立，那说明这条断言已经没有检查对象了"
+fi
+
+if [ "$notice_empty" -eq 0 ]; then
+  pass "  $NOTICE_ATTR 空值 observed=$notice_empty expected=0（总数 $notice_total 为对照组）"
+else
+  fail "  $NOTICE_ATTR 空值 observed=$notice_empty expected=0 —— 提示条的链接指向空，VER-05 形同虚设"
+fi
+
+if [ "$notice_relative" -eq 0 ]; then
+  pass "  $NOTICE_ATTR 非绝对路径 observed=$notice_relative expected=0（总数 $notice_total 为对照组）"
+else
+  fail "  $NOTICE_ATTR 非绝对路径 observed=$notice_relative expected=0 —— 相对路径在归档子目录下会解析到错的地方"
 fi
 
 # ── 4. Active-version marker (VER-04) + old fixed label must be gone ───────
