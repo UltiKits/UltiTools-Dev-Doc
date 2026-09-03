@@ -176,9 +176,29 @@ record "4 sidebar 含 alpha-only 页面 module-dependencies" "$([ "$r" -eq 0 ] &
 # 的输出），不是这份脚本自身，也不是整页原始 HTML——对整页 HTML 做同样的
 # grep 在这个多版本站点上恒为命中（见 snapshot_guide_sidebar_links 头注释），
 # 不具备区分力，03-01-SUMMARY.md 的 Deviations 已经证实过这一点。
+#
+# 这是一条负向断言（"不含某个字符串"），因此必须先证明真的搜过——一个
+# 空/失败的提取结果同样会让 grep -q ... && r=1 找不到匹配，从而与"提取
+# 成功且确实不含"报出同一个 PASS。这正是 RESEARCH.md Pitfall 1（sidebar
+# 未接线时静默 fallback 到 latest）想抓的失效形状，如果这条断言自己的
+# 提取步骤失败却报绿，就是在用同一种"没检查等于没问题"掩盖它本该发现的
+# 问题。提取结果先落到文件、判非空作为前置条件，前置条件不成立本身就是
+# FAIL，不能落到"未命中（正确）"这个分支。
+SIDEBAR_LINKS_FILE="$TMPDIR/sidebar-links-en.txt"
+snapshot_guide_sidebar_links "$INTRO_EN_FILE" > "$SIDEBAR_LINKS_FILE" 2>/dev/null
+sidebar_link_count=$(grep -c . "$SIDEBAR_LINKS_FILE" 2>/dev/null || true)
+sidebar_link_count="${sidebar_link_count:-0}"
 r=0
-snapshot_guide_sidebar_links "$INTRO_EN_FILE" | grep -q 'advanced/ulti-tools-plugin' && r=1
-record "5 sidebar 不含 master-only 页面 ulti-tools-plugin" "$([ "$r" -eq 0 ] && echo '未命中（正确）' || echo '命中（fallback 复现）')" "$r"
+if [ "$sidebar_link_count" -eq 0 ]; then
+  r=1
+  observed="提取失败或为空（无法判定——见断言 5 头注释；不视为通过）"
+elif grep -q 'advanced/ulti-tools-plugin' "$SIDEBAR_LINKS_FILE"; then
+  r=1
+  observed="命中（fallback 复现，共 ${sidebar_link_count} 条链接）"
+else
+  observed="未命中（正确，共 ${sidebar_link_count} 条链接）"
+fi
+record "5 sidebar 不含 master-only 页面 ulti-tools-plugin" "$observed" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 6. 第 1 条 HTML 含 robots noindex 的 meta 标签（D-48）
