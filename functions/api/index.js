@@ -36,6 +36,7 @@
 // preview before it merges. Preview and production run the exact same code;
 // only the request's own host differs.
 import { CURRENT_VERSION, GENERATED_AT } from './_shared/version.generated.js';
+import { withStandardHeaders } from './_shared/headers.js';
 
 export async function onRequestGet(context) {
   const location = new URL(
@@ -44,10 +45,18 @@ export async function onRequestGet(context) {
   );
 
   // Response.redirect()'s return value has immutable headers, and this
-  // response needs two more headers set (X-Robots-Tag, x-version-generated-at)
-  // beyond what the redirect factory provides — so it's built by hand instead.
-  const headers = new Headers({ Location: location.toString() });
-  headers.set('X-Robots-Tag', 'noindex');
+  // response needs more headers set (the CSP/X-Robots-Tag pair
+  // withStandardHeaders applies, plus x-version-generated-at) beyond what
+  // the redirect factory provides — so it's built by hand instead.
+  //
+  // withStandardHeaders (./_shared/headers.js) is the same function
+  // [[path]].js applies to every other /api/* response. Before this
+  // (WR-01, 02-REVIEW.md), this file built its Headers object without it
+  // and never carried a Content-Security-Policy at all — harmless only
+  // because [[path]].js's own catch-all route wins before this file is
+  // ever reached in production (see the CORRECTION note above), not
+  // because the omission was safe on its own terms.
+  const headers = withStandardHeaders(new Headers({ Location: location.toString() }));
   headers.set('x-version-generated-at', GENERATED_AT);
 
   return new Response(null, { status: 302, headers });

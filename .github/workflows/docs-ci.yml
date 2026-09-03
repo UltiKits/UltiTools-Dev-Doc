@@ -14,7 +14,7 @@ on:
   # No `workflow_dispatch` either — there is no pre-release manual-run use case
   # for a doc-only build/parity gate.
 
-# All three jobs only read the repository, build the site, and run local scripts —
+# All five jobs only read the repository, build the site, and run local scripts —
 # none needs write access, so the default token is narrowed to read-only.
 permissions:
   contents: read
@@ -74,3 +74,170 @@ jobs:
         # 不要加 xargs 的 -r：find 无结果时 xargs 仍调用一次命令，检查器的零参数守卫
         # 因此会以非零码退出；加了 -r 就变成静默通过，正是这道门禁要消灭的失效方式。
         run: find docs/src -name '*.md' -print0 | xargs -0 bash scripts/check-container-length.sh
+
+  palette-contrast:
+    # 检查对象：functions/api/_shared/palette.js 的 OVERRIDE_BLOCK —— 追加进
+    # javadoc stylesheet.css 尾部、覆盖 33 个自定义属性的浅深两色表（D-19 至
+    # D-24）。输入是这个 .js 文件本身而不是一份 .css：覆盖块是 Function 里的
+    # 一段模板字符串常量，源码就是唯一的真值来源，它拼接后的渲染产物不进仓
+    # 库、也不在构建产物里，没有第二份可读的东西。
+    #
+    # scripts/fixtures/ 下五份样例的作用：一道新门禁报「零违规」和它其实没
+    # 读到输入，在 CI 日志上看起来一模一样；五份样例分别证明它对一份必然
+    # 达标的输入以 0 退出、对一份只改了一个色值的输入以 1 退出并点名那一
+    # 对、对三份自身出错的输入各以 2 退出，唯有喂给它这样的输入才能把这些
+    # 情况区分开（scripts/check-contrast.py 的头注释有完整推理）。G-02-13
+    # 修复之前，这段注释描述的对照并不存在——job 只跑了检查真实调色板那一
+    # 行，既有 fixture 在 CI 里从未被调用过，读者会以为对照在位。
+    #
+    # violation 样例的断言判的是「恰好等于 1」，不是「非零」：自检失败（2）
+    # 与真实违规（1）在「非零」下无法区分，用非零判定就是把一次自检失败
+    # 误读成「门禁工作正常、只是没发现问题」——这正是 T-02-08 要防的失效
+    # 形状。
+    #
+    # duplicate-marker 样例覆盖的是 check-contrast.py 自检 4：标记字符串不
+    # 唯一时 text.find() 会静默挑中错误的那次出现、把表切歪，而不是报
+    # 错——这个失效形状既无法由 clean 样例的 PASS 条数下界接住，也无法由
+    # 自检 1/2 接住，只能用一份专门构造的输入文件单独证明。
+    #
+    # name-mismatch 样例（G-02-18）覆盖的是自检 2：它现在比的是浅深两表声
+    # 明的名字集合是否相等，而不是数量是否相等。这个场景在 clean 样例上
+    # 构造不出来——clean 的 27 条声明全在 PAIRS 里，改任何一条名字都会先
+    # 撞上自检 1；必须像 name-mismatch 这样，往两表各加一条 PAIRS 不引用
+    # 的声明，才能让「条数相同、名字不同」这个组合成立。这个失效形状也无
+    # 法由 clean 样例的 PASS 条数下界接住——被改名的变量条数不变、PAIRS
+    # 解析结果不变，PASS 仍是 52 条。
+    #
+    # out-of-range 样例（G-02-22）覆盖的是新增的自检 5：某个 rgb() 通道超
+    # 出 0-255。这个失效形状同样无法由别处接住——clean 样例的 PASS 条数
+    # 下界看不见它，因为越界取值仍然照常算出一条 PASS（只是数字不对，不
+    # 是少了一条）；自检 1 也看不见它，因为若越界的是 PAIRS 不引用的变量
+    # （真实门禁里点名的正是 --border-color，六个不被引用的变量之一），
+    # 自检 1 根本不会走到那个名字。只有专门构造一份越界样例、并对真实调
+    # 色板的非 PAIRS 变量做同样的越界改写，才能证明这条自检确实在起作用。
+    #
+    # clean 样例判的是「PASS 条数不少于 52」而不是「恰好等于 52」：这是五
+    # 条自检共同失效形状的兜底之一——被静默跳过的色对不会打印 FAIL，只会
+    # 让 PASS 变少；取下界不取等值，是为了让将来有意新增色对时不必同时改
+    # 这里的数字。
+    #
+    # 六条断言的顺序不是随意的：五份样例跑在真实调色板之前，是为了让「门禁
+    # 本身失灵」与「调色板真的不达标」在 CI 日志上从第一屏就分得开。
+    #
+    # 每条断言都显式捕获退出码再比较，不依赖 shell 的 `-e` 直接中止——
+    # GitHub 的默认 shell 带 `-e`，violation/duplicate-marker 两份样例的
+    # 非零退出会在比较之前就把整步拖红，examples-ci.yml 的索引步骤已经为
+    # 同一件事写过同一种 set +e / set -e 模式。
+    name: Javadoc palette contrast (WCAG)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 只读本地脚本与本地常量文件，不需要持久化凭据
+          persist-credentials: false
+
+      - name: Check javadoc palette override block against WCAG contrast thresholds
+        run: |
+          set +e
+          clean_out=$(python3 scripts/check-contrast.py scripts/fixtures/palette-contrast-clean.css 2>&1)
+          clean_exit=$?
+          set -e
+          echo "$clean_out"
+          if [ "$clean_exit" != "0" ]; then
+            echo "::error::clean 样例（palette-contrast-clean.css）退出码 $clean_exit，期望 0——对照本身失灵，见本 job 顶部注释"
+            exit 1
+          fi
+          clean_pass=$(printf '%s\n' "$clean_out" | grep -c '^PASS ' || true)
+          clean_fail=$(printf '%s\n' "$clean_out" | grep -c '^FAIL ' || true)
+          if [ "$clean_pass" -lt 52 ]; then
+            echo "::error::clean 样例只检查了 ${clean_pass} 对色值，期望不少于 52——某些色对可能被静默跳过"
+            exit 1
+          fi
+          if [ "$clean_fail" != "0" ]; then
+            echo "::error::clean 样例出现 ${clean_fail} 条不达标行，期望 0"
+            exit 1
+          fi
+
+          set +e
+          violation_out=$(python3 scripts/check-contrast.py scripts/fixtures/palette-contrast-violation.css 2>&1)
+          violation_exit=$?
+          set -e
+          echo "$violation_out"
+          if [ "$violation_exit" != "1" ]; then
+            echo "::error::violation 样例（palette-contrast-violation.css）退出码 $violation_exit，期望恰好 1——自检失败（2）与真实违规（1）在『非零』下无法区分"
+            exit 1
+          fi
+          if ! printf '%s\n' "$violation_out" | grep -q '^FAIL .*--link-color'; then
+            echo "::error::violation 样例未点名 --link-color，无法证明门禁读到的是被改掉的那一对，而不是对垃圾输入的泛化反应"
+            exit 1
+          fi
+
+          set +e
+          dup_out=$(python3 scripts/check-contrast.py scripts/fixtures/palette-contrast-duplicate-marker.css 2>&1)
+          dup_exit=$?
+          set -e
+          echo "$dup_out"
+          if [ "$dup_exit" != "2" ]; then
+            echo "::error::duplicate-marker 样例（palette-contrast-duplicate-marker.css）退出码 $dup_exit，期望恰好 2"
+            exit 1
+          fi
+          if ! printf '%s\n' "$dup_out" | grep -q "palette-table:light:begin"; then
+            echo "::error::duplicate-marker 样例的报错未点名重复的标记"
+            exit 1
+          fi
+
+          set +e
+          mismatch_out=$(python3 scripts/check-contrast.py scripts/fixtures/palette-contrast-name-mismatch.css 2>&1)
+          mismatch_exit=$?
+          set -e
+          echo "$mismatch_out"
+          if [ "$mismatch_exit" != "2" ]; then
+            echo "::error::name-mismatch 样例（palette-contrast-name-mismatch.css）退出码 $mismatch_exit，期望恰好 2——自检 2 现在比的是键集合，见本 job 顶部注释"
+            exit 1
+          fi
+          if ! printf '%s\n' "$mismatch_out" | grep -q -- "--fixture-only-light"; then
+            echo "::error::name-mismatch 样例的报错未点名 --fixture-only-light"
+            exit 1
+          fi
+          if ! printf '%s\n' "$mismatch_out" | grep -q -- "--fixture-only-dark"; then
+            echo "::error::name-mismatch 样例的报错未点名 --fixture-only-dark"
+            exit 1
+          fi
+
+          set +e
+          oor_out=$(python3 scripts/check-contrast.py scripts/fixtures/palette-contrast-out-of-range.css 2>&1)
+          oor_exit=$?
+          set -e
+          echo "$oor_out"
+          if [ "$oor_exit" != "2" ]; then
+            echo "::error::out-of-range 样例（palette-contrast-out-of-range.css）退出码 $oor_exit，期望恰好 2——自检 5 新增于 G-02-22，见本 job 顶部注释"
+            exit 1
+          fi
+          if ! printf '%s\n' "$oor_out" | grep -q -- "--border-color"; then
+            echo "::error::out-of-range 样例的报错未点名 --border-color"
+            exit 1
+          fi
+
+          python3 scripts/check-contrast.py functions/api/_shared/palette.js
+
+  sidebar-links:
+    # 检查方向与 bilingual-parity 相反：那道查「docs/src 下每个页面是否在
+    # sidebar 里有入口」（页面 -> sidebar）；这道查「sidebar 与 nav 里的每条
+    # link 是否指向一个真实存在的页面」（sidebar/nav -> 页面）。两道合起来才
+    # 覆盖 .planning/todos/pending/sidebar-nav-link-gate-blind-spot.md 记的
+    # 那个盲区——此前 sidebar/nav 的 link 值完全不在任何门禁的检查范围内。
+    # 豁免清单（Cloudflare Pages Function 接管的运行时路由，如 /api/）写在
+    # scripts/check-sidebar-links.sh 的 RUNTIME_ROUTE_EXEMPT 里，是精确 link
+    # 值的清单，不是路径前缀通配。
+    name: Sidebar and nav link targets resolve
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 只读本地脚本与本地配置文件，不需要持久化凭据
+          persist-credentials: false
+
+      - name: Check sidebar and nav link targets resolve to real pages
+        run: bash scripts/check-sidebar-links.sh
