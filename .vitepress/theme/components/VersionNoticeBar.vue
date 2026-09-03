@@ -202,7 +202,7 @@ watch(state, (next) => {
     z-index: var(--vp-z-index-layout-top);
     width: 100%;
     box-sizing: border-box;
-    padding: 14px 16px;
+    padding: 16px;
     border-bottom: 1px solid var(--vp-c-divider);
     font-size: 14px;
     line-height: 1.5;
@@ -211,7 +211,7 @@ watch(state, (next) => {
 
 @media (min-width: 960px) {
     .VersionNoticeBar {
-        padding: 14px 24px;
+        padding: 16px 24px;
     }
 }
 
@@ -232,7 +232,7 @@ watch(state, (next) => {
 }
 
 .notice-row + .notice-row {
-    margin-top: 4px;
+    margin-top: 8px;
 }
 
 .notice-label {
@@ -245,7 +245,7 @@ watch(state, (next) => {
 
 .notice-link {
     color: var(--vp-c-brand-1);
-    font-weight: 500;
+    font-weight: 600;
     text-decoration: none;
 }
 
