@@ -86,6 +86,23 @@ html:has(.VersionNoticeBar) {
     }
 }
 
+/* 960-1019px. The 75px above was sampled at 1440px only, and the bar's height
+   is a wrap-count function of width, so one sample cannot describe a branch
+   that runs from 960px upward. Measured at 8px steps in headless Chromium:
+   the English alpha bar (state sentence plus the commit-and-injection metadata
+   line) is 93px through 1019px and 72px from 1020px, so this band was
+   under-reserved by 18px — one frame of the bar over VPNav on a small laptop.
+   The archived bars stay on one line across the whole band (75px English and
+   Chinese at 960/1000/1024/1080/1152/1280) and the Chinese alpha bar is 72px
+   throughout, so this branch exists for the English alpha state alone. 96px is
+   reused rather than introducing a third number; over-reserving by 3px is the
+   safe direction, per the note above. */
+@media (min-width: 960px) and (max-width: 1019px) {
+    html:has(.VersionNoticeBar) {
+        --vp-layout-top-height: 96px;
+    }
+}
+
 /* Height of the tab row (SecondNavBar) itself, and nothing else. This is the
    single source of truth for that height — --vp-layout-top-height above
    carries only the notice bar's height. The two are different kinds of
