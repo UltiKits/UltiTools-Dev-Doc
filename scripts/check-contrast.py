@@ -86,11 +86,24 @@ emptied out without ever printing a FAIL line:
    in either the override block or this script's own pairing table would
    otherwise just skip that pair — indistinguishable from "checked and
    passed".
-2. The light table and the dark table parse out a different NUMBER of
-   `--custom-property: value;` declarations. The two blocks are supposed to
-   re-declare the exact same set of names (see palette.js's own header
-   comment on why); a count mismatch means something is structurally wrong
-   with the input before any color math even starts.
+2. The light table and the dark table do not re-declare the SAME SET of
+   `--custom-property` names — not merely the same COUNT of them. The two
+   blocks are supposed to re-declare the exact same set of names (see
+   palette.js's own header comment on why); equal counts do not imply equal
+   name sets. This is not a hypothetical: the real palette.js's dark table
+   declares 33 properties, of which PAIRS only references 27 — the
+   remaining six (--block-font-family, --body-font-family, --border-color,
+   --code-font-family, --copy-icon-brightness, --table-border-color) exist
+   only to satisfy the re-declare-everything contract, not to be checked
+   for contrast. Renaming or misspelling any one of those six left both
+   tables at 33 declarations each (a length comparison sees no difference)
+   while that variable's dark-mode override silently disappeared — e.g.
+   --border-color falls back to javadoc's own light-mode value in dark
+   mode. Self-check 1 does not catch this either, since it only walks names
+   PAIRS references. A count mismatch by itself still means something is
+   structurally wrong with the input before any color math even starts —
+   that observation is kept in the report — but the actual comparison this
+   check performs is over the two name sets, not their sizes.
 3. The pairing table is empty. A gate with zero pairs to check reports zero
    violations by construction, which is the same "looks fine, checked
    nothing" failure mode as #1 and #2, just at the level of this script's
@@ -261,14 +274,23 @@ def check_file(path):
     light_decls = parse_declarations(light_text)
     dark_decls = parse_declarations(dark_text)
 
-    # Self-check 2: declared counts must match between light and dark.
-    if len(light_decls) != len(dark_decls):
+    # Self-check 2 (G-02-18): the two blocks must re-declare the SAME SET
+    # of names, not merely the same count of them — see the module
+    # docstring's self-check 2 for why a count match alone is not enough.
+    if set(light_decls) != set(dark_decls):
+        light_only = sorted(set(light_decls) - set(dark_decls))
+        dark_only = sorted(set(dark_decls) - set(light_decls))
+        detail_parts = []
+        if light_only:
+            detail_parts.append("仅浅色表声明: " + ", ".join(light_only))
+        if dark_only:
+            detail_parts.append("仅深色表声明: " + ", ".join(dark_only))
         print(
             f"check-contrast.py: {path}: self-check failed — light block declares "
             f"{len(light_decls)} custom properties, dark block declares "
-            f"{len(dark_decls)}. The two blocks must re-declare the same set of "
-            "names; a count mismatch means something is structurally wrong "
-            "before any color math starts",
+            f"{len(dark_decls)}, but the two blocks do not re-declare the same "
+            "SET of names (a count match does not imply a name match): "
+            + "; ".join(detail_parts),
             file=sys.stderr,
         )
         return 2, []

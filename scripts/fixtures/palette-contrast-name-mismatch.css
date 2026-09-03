@@ -1,0 +1,99 @@
+/* Fixture for scripts/check-contrast.py — self-check 2 (G-02-18), the
+"same COUNT but different NAME SET" scenario.
+
+Structure is palette-contrast-clean.css copied verbatim, with exactly one
+addition per table: the light table gains --fixture-only-light at the end,
+the dark table gains --fixture-only-dark at the end. Both tables therefore
+declare 28 properties each — an equal count — but the two sets of names are
+not the same, which is the exact condition self-check 2 must now catch
+(before this gap it compared len(light_decls) != len(dark_decls), which
+this fixture would sail past with 28 == 28).
+
+Why this can't be built from palette-contrast-clean.css itself: all 27 of
+clean's declarations are referenced by PAIRS, so renaming any one of them
+trips self-check 1 (a PAIRS entry pointing at a name that no longer
+resolves) before self-check 2 ever gets a chance to run. The two new names
+here are deliberately NOT added to PAIRS, mirroring the real palette.js gap
+this fixture exists to catch: --block-font-family, --body-font-family,
+--border-color, --code-font-family, --copy-icon-brightness, and
+--table-border-color are all declared in palette.js's real dark table but
+never referenced by PAIRS, so a renamed/misspelled name among those six is
+invisible to self-check 1 and (before this fix) to self-check 2 as well.
+Before the fix this fixture exits 0 with the same 52 PASS lines
+palette-contrast-clean.css produces (verified); after the fix it exits
+exactly 2 and names both --fixture-only-light and --fixture-only-dark in
+its error output — that flip is the entire point of this fixture existing.
+
+Note for anyone editing this comment: same warning as
+palette-contrast-clean.css carries — do not spell out the four table-
+boundary marker strings a second time anywhere in this comment block. Doing
+so would trip self-check 4 (each marker must appear exactly once) and make
+this fixture exit 2 for the wrong reason — a red result that looks
+identical from the exit code alone but proves nothing about self-check 2.
+*/
+/* palette-table:light:begin */
+:root {
+  --body-text-color: #3c3c43;
+  --block-text-color: #67676c;
+  --body-background-color: #ffffff;
+  --section-background-color: #f8f8f8;
+  --detail-background-color: #ffffff;
+  --navbar-background-color: rgb(4, 98, 204);
+  --navbar-text-color: #ffffff;
+  --even-row-color: #ffffff;
+  --odd-row-color: #eff0f3;
+  --link-color: rgb(4, 98, 204);
+  --link-color-active: rgb(3, 73, 153);
+  --search-input-background-color: #ffffff;
+  --search-input-text-color: #3c3c43;
+  --search-input-placeholder-color: #67676c;
+  --snippet-text-color: #67676c;
+  --snippet-background-color: #f8f8f8;
+  --subnav-background-color: #eff0f3;
+  --selected-background-color: #ffffff;
+  --selected-text-color: rgb(4, 98, 204);
+  --selected-link-color: rgb(4, 98, 204);
+  --snippet-highlight-color: #fcf4dc;
+  --search-tag-highlight-color: #fcf4dc;
+  --copy-button-background-color-active: #eff0f3;
+  --invalid-tag-background-color: #fde4e8;
+  --invalid-tag-text-color: #b8272c;
+  --title-color: #3c3c43;
+  --source-linenumber-color: #67676c;
+  --fixture-only-light: #123456;
+}
+/* palette-table:light:end */
+@media (prefers-color-scheme: dark) {
+  /* palette-table:dark:begin */
+  :root {
+    --body-text-color: #dfdfd6;
+    --block-text-color: #98989f;
+    --body-background-color: #000000;
+    --section-background-color: #131313;
+    --detail-background-color: #000000;
+    --navbar-background-color: rgb(4, 98, 204);
+    --navbar-text-color: #ffffff;
+    --even-row-color: #000000;
+    --odd-row-color: #101315;
+    --link-color: rgb(5, 122, 255);
+    --link-color-active: rgb(85, 168, 255);
+    --search-input-background-color: #000000;
+    --search-input-text-color: #dfdfd6;
+    --search-input-placeholder-color: #98989f;
+    --snippet-text-color: #98989f;
+    --snippet-background-color: #131313;
+    --subnav-background-color: #101315;
+    --selected-background-color: #ffffff;
+    --selected-text-color: rgb(4, 98, 204);
+    --selected-link-color: rgb(4, 98, 204);
+    --snippet-highlight-color: #251d01;
+    --search-tag-highlight-color: #251d01;
+    --copy-button-background-color-active: #101315;
+    --invalid-tag-background-color: #270a0f;
+    --invalid-tag-text-color: #f66f81;
+    --title-color: #dfdfd6;
+    --source-linenumber-color: #98989f;
+    --fixture-only-dark: #654321;
+  }
+  /* palette-table:dark:end */
+}
