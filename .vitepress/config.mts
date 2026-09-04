@@ -50,7 +50,7 @@ export default withPwa(
         // anchored to the SNAPSHOT prefix is exactly scoped by construction —
         // it can only ever match a URL this injection step itself produced —
         // and needs no per-URL filesystem lookup or function predicate.
-        ignoreDeadLinks: [/^\/api\/index$/, /^\/v6\.3\.0-SNAPSHOT\//],
+        ignoreDeadLinks: [/^\/api\/index$/, /^\/(?:[a-z]{2}\/)?v6\.3\.0-SNAPSHOT\//],
         head: [['link', { rel: 'icon', href: '/favicon.ico' }]],
         // v6.3.0-SNAPSHOT is unreleased content injected at build time
         // (scripts/inject-alpha.mjs) — it may change tomorrow, and a reader
@@ -60,9 +60,9 @@ export default withPwa(
         // `items = await sitemap?.transformItems?.(items) || items` right
         // before writing the stream (node_modules/vitepress/dist/node/
         // chunk-D3CUZ4fa.js, 1.6.4) — item.url is already a full path segment
-        // like 'v6.2.4/zh/guide/introduction' (verified against production:
-        // the Chinese archive is served at /{version}/zh/..., not
-        // /zh/{version}/...), so one prefix filter covers both locales.
+        // like 'zh/v6.2.4/guide/introduction'. The Chinese archive is served at
+        // /{locale}/{version}/..., so the filter has to match the version
+        // segment wherever it sits rather than only at the start.
         // This is a new exception, not a continuation of existing behaviour:
         // the six already-released archived versions get neither canonical
         // nor noindex today and are 85% of this sitemap — that's a
@@ -79,14 +79,26 @@ export default withPwa(
         // filtering removed SNAPSHOT's own top-level item). Each surviving
         // item's links array needs the same prefix filter, or SNAPSHOT keeps
         // leaking in through every other version's alternate-language tags.
+        //
+        // The prefix test has to be locale-aware. Chinese archived pages used to
+        // be emitted as `v6.3.0-SNAPSHOT/zh/...`, which a `startsWith('v6.3.0-SNAPSHOT/')`
+        // test catches. They are now emitted as `zh/v6.3.0-SNAPSHOT/...`, which it
+        // does not: a locale-blind test let 28 Chinese SNAPSHOT <loc> entries into
+        // the sitemap (337 -> 365), publishing unreleased content that the filter
+        // exists to keep unindexed. Matching the version segment wherever it sits
+        // covers both shapes and any locale added later.
         sitemap: {
             hostname: 'https://dev.ultikits.com',
-            transformItems: (items) => items
-                .filter((item) => !item.url.startsWith('v6.3.0-SNAPSHOT/'))
-                .map((item) => item.links
-                    ? { ...item, links: item.links.filter((link) => !link.url.startsWith('v6.3.0-SNAPSHOT/')) }
-                    : item
-                ),
+            transformItems: (items) => {
+                const isSnapshot = (url: string) => /(^|\/)v6\.3\.0-SNAPSHOT\//.test(url);
+
+                return items
+                    .filter((item) => !isSnapshot(item.url))
+                    .map((item) => item.links
+                        ? { ...item, links: item.links.filter((link) => !isSnapshot(link.url)) }
+                        : item
+                    );
+            },
         },
         locales: { ...localeZH, ...localeEN },
         markdown: markdownConfig,

@@ -21,9 +21,21 @@
 // `#navbar-toggle-button` mobile-collapse behavior for free. Adding a class
 // or an icon would need a new CSS rule, and APIREF-02 scopes this Phase's
 // changes to custom-property overrides only.
+//
+// The two links place the version segment differently, which is not a typo.
+// English is the root locale and carries no locale segment, so its archived
+// path is /<version>/guide/... . Chinese is served at /<locale>/<version>/guide/...
+// with the locale first. Building the Chinese href as `${prefix}/zh/...` yields
+// /<version>/zh/..., which the site served only while locale.zh.mts carried
+// `link: '/zh/'` and @viteplus/versions could not recognise `zh` as a language.
+// A redirect rule in docs/public/_redirects still catches that old shape, but
+// emitting it here would make every archived Chinese backlink take a 301 hop.
+//
+// The security invariant above is unchanged by the reordering: `prefix` is
+// still the matched ARRAY ELEMENT, never request-derived data.
 export function backlinkLiHtml(requestedVersion, archivedVersions) {
   const candidate = `v${requestedVersion}`;
   const matched = archivedVersions.find((version) => version === candidate);
   const prefix = matched ? `/${matched}` : '';
-  return `<li><a href="${prefix}/guide/introduction">Docs</a>&nbsp;&middot;&nbsp;<a href="${prefix}/zh/guide/introduction">中文文档</a></li>`;
+  return `<li><a href="${prefix}/guide/introduction">Docs</a>&nbsp;&middot;&nbsp;<a href="/zh${prefix}/guide/introduction">中文文档</a></li>`;
 }

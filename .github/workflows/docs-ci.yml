@@ -314,7 +314,7 @@ jobs:
       - name: Assert SNAPSHOT artifact exists with zero residual snippet references
         run: |
           test -f .vitepress/dist/v6.3.0-SNAPSHOT/guide/introduction.html
-          test -f .vitepress/dist/v6.3.0-SNAPSHOT/zh/guide/introduction.html
+          test -f .vitepress/dist/zh/v6.3.0-SNAPSHOT/guide/introduction.html
           if grep -rn '@/\.\./examples/' docs/archive/v6.3.0-SNAPSHOT/; then
             echo "::error::residual @/../examples/ reference found in injected tree after rewrite"
             exit 1
