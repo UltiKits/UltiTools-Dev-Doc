@@ -6,7 +6,7 @@
     "build:with-alpha": "node scripts/inject-alpha.mjs && npm run build",
     "clean:snapshot": "rm -rf docs/archive/v6.3.0-SNAPSHOT examples-snapshot .vitepress/config/.snapshot-source .vitepress/config/sidebar-snapshot.generated.mjs docs/public/snapshot-status.json",
     "preview": "vitepress preview",
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "node scripts/generate-snapshot-sidebar.mjs && tsc -p tsconfig.json",
     "check:parity": "bash scripts/check-bilingual-parity.sh",
     "check:version-signal": "bash scripts/test-version-signal.sh"
   },
