@@ -92,21 +92,22 @@
     --vp-layout-top-height: 0px;
 }
 
-/* >=960px. Was 83px, under a three-band split that also carried a separate
-   960-1019px branch at 101px. Re-measured after the close control was added
-   (2026-09-04): the control takes 24px plus a 16px gap out of the text column,
-   which moves the English alpha sentence's unwrap boundary up from 1020px to
-   somewhere between 1020px and 1280px. The alpha-EN bar therefore now measures
-   101px at 1020px, where it previously measured 80px, so the >=1020px branch
-   and the 960-1019px branch converged on the same number and the third band
-   stopped saying anything the first did not. Measured maxima behind this one
-   value: 101px at 960/1000/1019/1020 (alpha-EN), 83px at 1280/1440
-   (archived-EN and archived-ZH, byte-identical). */
-html:has(.VersionNoticeBar) {
-    --vp-layout-top-height: 101px;
-}
+/* The four bands below are written mobile-first: min-width only, ascending,
+   with the unmediated rule carrying the value for the narrowest widths. They
+   were previously written as a max-width base plus two double-bounded ranges
+   (max-width: 339px / 340-599px / 600-959px), which tiled the range only at
+   INTEGER widths. Media queries are evaluated against a layout viewport that is
+   fractional under browser zoom and under fractional device pixel ratios, and a
+   width in (339, 340) matched none of those three rules — it fell through to
+   the unmediated 101px where 182px was required, an 81px under-reserve, with
+   the same shape at (599, 600) costing 42px. Ascending min-width has no such
+   gap: every width, fractional or not, satisfies some prefix of the rules and
+   takes the last one that matches, so a fractional width always resolves to the
+   band below it — the taller, more conservative reserve. This is the same
+   defect Bootstrap and Tailwind avoid by writing .98px max-widths; stating the
+   bands one-sided avoids it without carrying the fudge factor.
 
-/* <960px. Was 104px. Two separate corrections are folded into this number.
+   <340px. Was 104px across the whole sub-960 range. Two separate corrections
    First, the close control adds one wrapped line to the tallest state at the
    narrow end. Second, and independently of anything the control did, 104px was
    already too small: it was derived from archived-EN's 104px two-line wrap and
@@ -132,21 +133,35 @@ html:has(.VersionNoticeBar) {
    combinations): 182 at 320; 143 at 340-390; 122 at 414-550; 104 at 600-700;
    101 at 768-959. Over-reservation now peaks at 21px (414-550 measured against
    the 340-599 band) and first-frame overlap is 0. */
-@media (max-width: 339px) {
-    html:has(.VersionNoticeBar) {
-        --vp-layout-top-height: 182px;
-    }
+html:has(.VersionNoticeBar) {
+    --vp-layout-top-height: 182px;
 }
 
-@media (min-width: 340px) and (max-width: 599px) {
+@media (min-width: 340px) {
     html:has(.VersionNoticeBar) {
         --vp-layout-top-height: 143px;
     }
 }
 
-@media (min-width: 600px) and (max-width: 959px) {
+@media (min-width: 600px) {
     html:has(.VersionNoticeBar) {
         --vp-layout-top-height: 104px;
+    }
+}
+
+/* >=960px. Was 83px, under a three-band split that also carried a separate
+   960-1019px branch at 101px. Re-measured after the close control was added
+   (2026-09-04): the control takes 24px plus a 16px gap out of the text column,
+   which moves the English alpha sentence's unwrap boundary up from 1020px to
+   somewhere between 1020px and 1280px. The alpha-EN bar therefore now measures
+   101px at 1020px, where it previously measured 80px, so the >=1020px branch
+   and the 960-1019px branch converged on the same number and the third band
+   stopped saying anything the first did not. Measured maxima behind this one
+   value: 101px at 960/1000/1019/1020 (alpha-EN), 83px at 1280/1440
+   (archived-EN and archived-ZH, byte-identical). */
+@media (min-width: 960px) {
+    html:has(.VersionNoticeBar) {
+        --vp-layout-top-height: 101px;
     }
 }
 
