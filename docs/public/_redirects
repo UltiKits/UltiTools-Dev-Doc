@@ -31,3 +31,24 @@
 /v6.2.3/zh/* /zh/v6.2.3/:splat 301
 /v6.2.4/zh/* /zh/v6.2.4/:splat 301
 /v6.3.0-SNAPSHOT/zh/* /zh/v6.3.0-SNAPSHOT/:splat 301
+
+# 只有中文版的归档页，其语言切换器指向的英文地址。
+#
+# docs/archive/v6.2.0 到 v6.2.4 里 zh/guide/essentials/version-wrapper.md 存在而
+# 英文侧没有——当年就没写。VitePress 的语言切换器把语种前缀一换就当作对应页地址，
+# 不核对目标存不存在，于是这五个中文页上的 English 入口全部 404（每页 3 处：导航栏
+# 语言下拉、侧边栏底部、移动菜单，共 15 条）。
+#
+# 归档是冻结的发布快照，不能补一份当年并不存在的英文页，所以改为把这五个地址指向
+# 同一版本里讲同一主题的英文页 api/version-wrapper。同主题、同版本、正确语种，比
+# 落到指南首页更接近读者点 English 时想要的东西。
+#
+# 这与版本切换器已有的行为一致：目标版本没有这一篇时，它回落到那个版本的首页而不是
+# 发出一个 404。两处对「目标不存在」的处理方式因此相同。
+#
+# v6.1.0 不在列：那一版中英两侧都没有这一页，没有会 404 的链接。
+/v6.2.0/guide/essentials/version-wrapper /v6.2.0/api/version-wrapper 301
+/v6.2.1/guide/essentials/version-wrapper /v6.2.1/api/version-wrapper 301
+/v6.2.2/guide/essentials/version-wrapper /v6.2.2/api/version-wrapper 301
+/v6.2.3/guide/essentials/version-wrapper /v6.2.3/api/version-wrapper 301
+/v6.2.4/guide/essentials/version-wrapper /v6.2.4/api/version-wrapper 301
