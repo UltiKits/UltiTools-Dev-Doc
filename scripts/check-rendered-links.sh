@@ -738,6 +738,65 @@ else
   printf '%s\n' "$sidebar_report" | sed -n 's/^BAD \([0-9]*\) \(.*\)$/        \1× \2/p'
 fi
 
+
+# ── 9. 导航栏的社交链接确实渲染出来了 ────────────────────────────────────────
+# 这一节存在的理由是一个真实发生过、且**类型检查抓不住**的缺陷：
+# locale.{en,zh}.mts 曾经写成 `...socialEN`，把 DefaultTheme.SocialLink[] 用展开
+# 塞进 themeConfig，两条链接因此落成数字键 0 与 1，而 VitePress 读的是
+# themeConfig.socialLinks——导航栏的图标从未渲染过。
+#
+# 为什么门禁必须放在产物侧：TypeScript 的多余属性检查**不作用于展开表达式**。
+# 实测：即便给 localeEN 标注了 LocaleConfig<DefaultTheme.Config>，把 socialLinks
+# 改回 `...socialEN` 之后 `npm run typecheck` 仍然退 0。类型层面没有任何标注能
+# 抓住它，只有看渲染结果能。
+#
+# 期望值从配置源码里抽 link: 的取值，不写死也不数括号——social.zh.mts 的第二条是
+# 多行写法，按 `{icon:` 数会漏掉它（本节第一版就是这么错的）。
+echo "9. 导航栏社交链接在产物里渲染出来"
+
+check_social_links() {
+  local src="$1" page="$2" label="$3"
+  if [ ! -f "$page" ]; then
+    fail "  $label 找不到 $page"
+    return
+  fi
+  local links count container missing
+  links=$(grep -oE "link: *'[^']+'" "$src" | sed -E "s/link: *'(.*)'/\1/")
+  count=$(printf '%s\n' "$links" | grep -c . || true)
+
+  # 对照组：源码里抽不出链接时，下面的逐条断言会退化成零次检查而全绿。
+  if [ "$count" -gt 0 ]; then
+    pass "  $label 对照组：从 $(basename "$src") 抽出 $count 条链接 expected>0"
+  else
+    fail "  $label 对照组：从 $(basename "$src") 抽出 0 条链接 —— 下面的逐条断言等于没跑"
+    return
+  fi
+
+  container=$(grep -c 'VPNavBarSocialLinks' "$page" || true)
+  if [ "$container" -ge 1 ]; then
+    pass "  $label 导航栏社交链接容器 observed=$container expected>=1"
+  else
+    fail "  $label 导航栏社交链接容器 observed=$container expected>=1 —— VitePress 没读到 themeConfig.socialLinks（检查 locale 里是不是写成了展开）"
+  fi
+
+  # 在容器之后的一段有界窗口里数锚点，而不是全页数：页面正文里的团队成员卡片
+  # 同样渲染 VPSocialLink，全页计数会把它们一起算进来（第一版就是这么错的，
+  # 数出 14）。也不能只断言「配置里的 URL 出现在页面某处」——那些 URL 在
+  # git-changelog 的 repoURL 与正文里也出现，那样的断言在缺陷在场时照样通过，
+  # 是一条不可能失败的断言。
+  local window rendered
+  window=$(tr -d '\n' < "$page" | sed -n 's/.*VPNavBarSocialLinks//p' | cut -c1-1200)
+  rendered=$(printf '%s' "$window" | grep -o 'class="VPSocialLink' | wc -l | tr -d ' ')
+  if [ "$rendered" = "$count" ]; then
+    pass "  $label 容器内渲染出的社交链接数 observed=$rendered expected=$count"
+  else
+    fail "  $label 容器内渲染出的社交链接数 observed=$rendered expected=$count（期望值从 $(basename "$src") 的 link: 取值数出）"
+  fi
+}
+
+check_social_links ".vitepress/config/social.en.mts" "$DIST/guide/introduction.html" "英文"
+check_social_links ".vitepress/config/social.zh.mts" "$DIST/zh/guide/introduction.html" "中文"
+
 echo "----------------------------------------"
 echo "不成立条数: $failures"
 

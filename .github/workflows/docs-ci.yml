@@ -343,3 +343,37 @@ jobs:
 
       - name: Check Pages build command exists on master and alpha
         run: bash scripts/check-pages-build-command.sh
+
+  typecheck:
+    name: Config typechecks clean
+    runs-on: ubuntu-latest
+    # VitePress 用 esbuild 转译 .vitepress/config 下的 .mts，只剥类型不做检查——
+    # 这正是六条类型错误能长期存在而构建全绿的原因，其中一条还指着一个真缺陷
+    # （社交链接被以数组展开写进 themeConfig，导航栏的 GitHub 与 Discord 图标
+    # 从未渲染过）。本作业让那类错误不再能悄悄回来。
+    #
+    # 范围只有 .vitepress/config。theme/ 下的 .vue 组件需要 vue-tsc 才能检，
+    # 本轮没有引入——已知缺口，不是遗漏。
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 构建期会执行仓库外的代码，不持久化凭据可避免 token 落到 .git/config
+          persist-credentials: false
+
+      - name: Set up Node from .node-version
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'npm'
+
+      - name: Install dependencies with npm ci
+        run: npm ci
+
+      # typecheck 脚本自己会先跑 generate-snapshot-sidebar.mjs。这不是多余的：
+      # locale.{en,zh}.mts 无条件 import sidebar-snapshot.generated.mjs，而那个
+      # 文件是构建期生成、不进 git 的，干净检出里并不存在。第一版忘了这一步，
+      # 本地全绿而 CI 报两条 TS2307——本地带着历史构建留下的那份生成物。
+      # 生成器本身是 fail-open 的：没有注入源时写四个空数组并退 0，正是 CI 这一侧。
+      - name: Typecheck .vitepress/config
+        run: npm run typecheck

@@ -9,6 +9,26 @@ import { markdownConfig } from "./config/markdown.mjs";
 import { themeConfig } from "./config/theme.mjs";
 
 export default withPwa(
+    // 依赖树里有两份 vitepress：根上的 1.6.4，与 @viteplus/versions 自带的
+    // 2.0.0-alpha.16（它把 vitepress 同时写进 dependencies 与 peerDependencies，
+    // 前者强制了那份嵌套副本）。本文件的配置用根上那份的类型写成，而
+    // defineVersionedConfig 的参数类型来自嵌套那份，两个 UserConfig 是不同的
+    // 名义类型，TypeScript 因此拒绝。运行时没有这个问题：@viteplus/versions 的
+    // 运行时产物 dist/index.js 里没有任何 vitepress 引用（实测），那份嵌套副本
+    // 只参与类型解析。
+    //
+    // 去重不可行，四种 npm overrides 写法实测：
+    //   {"vitepress": "1.6.4"}                     → EOVERRIDE，与直接依赖冲突
+    //   {"vitepress": "$vitepress"}                → 退 0，嵌套副本纹丝不动
+    //   {"@viteplus/versions": {"vitepress": ...}} → 退 0，静默忽略；连删掉嵌套
+    //                                                目录后完整安装也会装回来
+    // 对照组：给 nanoid 加同样形式的 override 生效了，所以不是 overrides 在这个
+    // 项目里整体失效，而是这一条被 npm 忽略。真正的修法在上游。
+    //
+    // 用 @ts-expect-error 而不是 as any：前者会在错误消失时自己报
+    // 「未使用的指令」，逼人回来删掉；后者会永远沉默。它也只作用于下一行，
+    // 本文件其余部分照常被检查。
+    // @ts-expect-error 两份 vitepress 的 UserConfig 是不同的名义类型
     defineVersionedConfig({
         srcDir: 'docs',
         lastUpdated: true,

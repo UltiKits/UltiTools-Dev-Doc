@@ -1,10 +1,15 @@
+import type { LocaleConfig } from 'vitepress'
+import type { DefaultTheme } from 'vitepress/theme'
 import {navZH} from "./nav.zh.mjs";
 import {sidebarApiZH, sidebarGuideZH, sidebarGuideZH_v624, sidebarGuideZH_v620, sidebarGuideZH_v610} from "./sidebar.zh.mjs";
 import {sidebarGuideSnapshotZH, sidebarApiSnapshotZH} from "./sidebar-snapshot.generated.mjs";
 import {textCN} from "./text.zh.mjs";
 import {socialZH} from "./social.zh.mjs";
 
-const localeZH = {
+// 显式标注，不靠结构推断。没有标注时 themeConfig 里写错的形状不会被发现——
+// 曾经把 SocialLink[] 用展开写进 themeConfig，两条链接落成数字键 0 与 1，
+// 导航栏的社交图标因此从未渲染过，而类型检查一声不吭。
+const localeZH: LocaleConfig<DefaultTheme.Config> = {
     zh: {
         title: 'UltiKits 开发文档',
         label: '简体中文',
@@ -30,7 +35,13 @@ const localeZH = {
                 'v6.1.0/api/': sidebarApiZH,
             },
             ...textCN,
-            ...socialZH
+            // socialLinks，不是展开。socialZH 的类型是 DefaultTheme.SocialLink[]——
+            // 把数组展开进对象会让两条链接落成 themeConfig 上的数字键 0 与 1，
+            // 而 VitePress 读的是 theme.socialLinks（VPNavBarSocialLinks.vue:10,12 与
+            // VPNavScreenSocialLinks.vue:10,12，都带 v-if="theme.socialLinks" 守卫）。
+            // 实测：改之前产物里 VPNavBarSocialLinks 与 VPNavScreenSocialLinks 各 0 次，
+            // 导航栏的 GitHub 与 Discord 图标从未渲染过。
+            socialLinks: socialZH
         }
     }
 }
