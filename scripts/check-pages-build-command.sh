@@ -33,8 +33,10 @@
 # 真实的 6 个——曾据此误记过一条「6.3.0 发布阻塞」。而门禁自己一直报告 0 条不成
 # 立：它是绿的，同时在损坏克隆。
 #
-# 不要为省 CI 带宽把它改回去——省的是 CI 的几十 KB，代价是每个开发者的克隆。仓库
-# 是公开的，匿名 GET 不需要凭据，也不要为它引入 gh 或任何令牌。
+# 不要为省 CI 带宽把它改回去——方向是反的。实测：`git fetch --depth=1 origin
+# alpha` 拉取 600,293 字节 / 437 个对象的打包数据；这里的一次 GET 只有 1,359
+# 字节。改回去更贵，不是更省。仓库是公开的，匿名 GET 不需要凭据，也不要为它引入
+# gh 或任何令牌。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -66,24 +68,38 @@ fi
 if [ -n "${GITHUB_REPOSITORY:-}" ]; then
   SLUG="$GITHUB_REPOSITORY"
 else
-  remote_url="$(git remote get-url origin)"
+  remote_url="$(git remote get-url origin 2>/dev/null)" || {
+    echo "check-pages-build-command: git remote get-url origin 失败——当前目录没有 origin remote" >&2
+    exit 2
+  }
+  # 先剥尾部斜杠（可能不止一个），再剥 .git 后缀；顺序反过来会把
+  # "...UltiTools-Dev-Doc.git/" 先剥成 "...UltiTools-Dev-Doc.git"（只去掉了
+  # 斜杠），.git 混进 slug 里，后面的字符集校验会放行、请求会 404，对一个合法
+  # remote URL 报假红。
+  while [[ "$remote_url" == */ ]]; do
+    remote_url="${remote_url%/}"
+  done
   remote_url="${remote_url%.git}"
-  remote_url="${remote_url%/}"
-  # 只取最后两段路径，用 [[ =~ ]] 而不是 grep -oE 管道赋值——本仓库已有先例
-  # （javadoc-io-index.sh，记在 .planning/STATE.md）：pipefail 下一个合法未命中
-  # 的 grep -oE 若被直接赋值给变量，会中止整个脚本。字符类排除 `:`/`/`/`@`，
-  # 这样 `https://user:token@github.com/OWNER/REPO` 只产出 OWNER/REPO
-  # （userinfo 结构上进不来），`git@github.com:OWNER/REPO` 也不会把主机名
-  # 吞进 owner。
-  if [[ "$remote_url" =~ ([^:/@]+)/([^:/@]+)$ ]]; then
-    SLUG="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+
+  # 只认 github.com：raw.githubusercontent.com 是写死的字面量，如果 slug 解析
+  # 不锚定主机，任何「最后两段路径长得像 owner/repo」的 origin——gitee/gitlab
+  # 镜像、自建 fork、甚至一个碰巧同名的本地目录路径——都会被当成 GitHub 上同名
+  # 仓库去读，读到的是别人的 alpha，门禁却报告核对了"这份克隆"的 alpha。锚定
+  # 之后非 github.com 的 origin 结构上解析不出 slug，直接 exit 2，而不是再发一
+  # 次探测请求去识别它。github.com 上的 fork（owner 与 UltiKits 不同的那些）
+  # 仍然按预期解析到它自己的 owner/repo 并去读它自己的 alpha，这是正确行为，
+  # 不收窄成只认 UltiKits。
+  if [[ "$remote_url" =~ ^(https?|git|ssh)://([A-Za-z0-9._-]+@)?github\.com/([A-Za-z0-9._-]+)/([A-Za-z0-9._-]+)$ ]]; then
+    SLUG="${BASH_REMATCH[3]}/${BASH_REMATCH[4]}"
+  elif [[ "$remote_url" =~ ^([A-Za-z0-9._-]+@)?github\.com:([A-Za-z0-9._-]+)/([A-Za-z0-9._-]+)$ ]]; then
+    SLUG="${BASH_REMATCH[2]}/${BASH_REMATCH[3]}"
   else
     SLUG=""
   fi
 fi
 
-if [[ ! "$SLUG" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
-  echo "check-pages-build-command: 无法从当前环境解析出仓库 slug（owner/repo）" >&2
+if [[ ! "$SLUG" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || [[ "$SLUG" == *..* ]]; then
+  echo "check-pages-build-command: 无法从当前环境解析出仓库 slug（owner/repo）—— 仅支持 github.com 上的仓库" >&2
   exit 2
 fi
 
@@ -98,6 +114,10 @@ echo "----------------------------------------"
 
 has_script() {
   # has_script <package.json 内容> <脚本名>
+  # 退出码：0=存在，1=不存在，2=不是合法 JSON，127=node 不可用（shell 自身的
+  # command-not-found 状态码）。调用方必须逐个分派这四种结局，不能把非零一律
+  # 当成"不存在"——那会把"这份 JSON 解析不了"或"node 缺失"误报成"缺脚本"，
+  # 把读者指去修错的分支。
   printf '%s' "$1" | node -e '
     let s = ""; process.stdin.on("data", d => s += d).on("end", () => {
       let pkg; try { pkg = JSON.parse(s); } catch (e) { process.exit(2); }
@@ -106,20 +126,42 @@ has_script() {
   ' "$2"
 }
 
-local_pkg="$(cat package.json)"
-if has_script "$local_pkg" "$script_name"; then
-  pass "  本分支的 package.json 提供了 $script_name"
-else
-  fail "  本分支的 package.json 没有 $script_name —— Pages 会对本分支报 Missing script"
-fi
+run_has_script() {
+  # run_has_script <package.json 内容> <脚本名>
+  # 把 has_script 的真实退出码存进全局变量 HS_RC，用 `||` 接住以免在
+  # set -e 下，一旦 has_script 返回非零就把整个门禁在半途、不打印任何断言行地
+  # 中止掉。
+  HS_RC=0
+  has_script "$1" "$2" || HS_RC=$?
+}
+
+local_pkg="$(cat package.json)" || {
+  echo "check-pages-build-command: 读不到本分支的 package.json" >&2
+  exit 2
+}
+
+run_has_script "$local_pkg" "$script_name"
+case "$HS_RC" in
+  0) pass "  本分支的 package.json 提供了 $script_name" ;;
+  1) fail "  本分支的 package.json 没有 $script_name —— Pages 会对本分支报 Missing script" ;;
+  2) echo "check-pages-build-command: 本分支的 package.json 不是合法 JSON，无法核对 $script_name" >&2; exit 2 ;;
+  127) echo "check-pages-build-command: node 不可用（exit 127），无法核对本分支的 package.json" >&2; exit 2 ;;
+  *) echo "check-pages-build-command: has_script 对本分支返回未知状态码 $HS_RC" >&2; exit 2 ;;
+esac
 
 # 对照组：一个必然不存在的脚本名必须被判为缺失。没有这一条，上面的 PASS 可能只是
-# has_script 恒真（例如 node 不可用时的退出码被误读）。
-if has_script "$local_pkg" "__no_such_script_control__"; then
-  fail "  对照组：一个必然不存在的脚本名被判为存在 —— 检查函数恒真，上面的结果不算数"
-else
-  pass "  对照组：一个必然不存在的脚本名被判为缺失"
-fi
+# has_script 恒真（比如实现里把任何非零一律当成"存在"处理）。has_script 自身对
+# JSON 解析失败或 node 不可用返回的 2/127，会在各自调用点直接 exit 2 中止整个门
+# 禁，不会被这个对照组吸收——这个对照组只保证"不存在的脚本名不会被误判为存
+# 在"，不负责证明 node 可用（那由上面 case 语句里的 127 分支单独兜底）。
+run_has_script "$local_pkg" "__no_such_script_control__"
+case "$HS_RC" in
+  0) fail "  对照组：一个必然不存在的脚本名被判为存在 —— 检查函数恒真，上面的结果不算数" ;;
+  1) pass "  对照组：一个必然不存在的脚本名被判为缺失" ;;
+  2) echo "check-pages-build-command: 本分支的 package.json 不是合法 JSON，对照组无法核对" >&2; exit 2 ;;
+  127) echo "check-pages-build-command: node 不可用（exit 127），对照组无法核对" >&2; exit 2 ;;
+  *) echo "check-pages-build-command: has_script 对对照组返回未知状态码 $HS_RC" >&2; exit 2 ;;
+esac
 
 fetch_pkg_status() {
   # fetch_pkg_status <slug> <ref> <正文输出路径>
@@ -134,8 +176,11 @@ fetch_pkg_status() {
   printf '%s' "$code"
 }
 
-alpha_body="$(mktemp)"
-trap 'rm -f "$alpha_body"' EXIT
+alpha_body="$(mktemp)" || {
+  echo "check-pages-build-command: mktemp 失败，无法创建临时文件承接 alpha 的 package.json" >&2
+  exit 2
+}
+trap 'rm -f "$alpha_body"' EXIT INT TERM
 
 alpha_code="$(fetch_pkg_status "$SLUG" "$ALPHA_REF" "$alpha_body")"
 if [ "$alpha_code" != "200" ]; then
@@ -144,20 +189,29 @@ else
   alpha_pkg="$(cat "$alpha_body")"
   if [ -z "$alpha_pkg" ]; then
     fail "  origin/$ALPHA_REF 上读不到 package.json"
-  elif has_script "$alpha_pkg" "$script_name"; then
-    pass "  origin/$ALPHA_REF 的 package.json 提供了 $script_name"
   else
-    fail "  origin/$ALPHA_REF 的 package.json 没有 $script_name —— 该分支及其所有分支的 Pages 构建会失败，且要等到有人推一个该分支的分支才会被发现"
+    run_has_script "$alpha_pkg" "$script_name"
+    case "$HS_RC" in
+      0) pass "  origin/$ALPHA_REF 的 package.json 提供了 $script_name" ;;
+      1) fail "  origin/$ALPHA_REF 的 package.json 没有 $script_name —— 该分支及其所有分支的 Pages 构建会失败，且要等到有人推一个该分支的分支才会被发现" ;;
+      2) echo "check-pages-build-command: origin/$ALPHA_REF 的 package.json 不是合法 JSON，无法核对 $script_name" >&2; exit 2 ;;
+      127) echo "check-pages-build-command: node 不可用（exit 127），无法核对 origin/$ALPHA_REF 的 package.json" >&2; exit 2 ;;
+      *) echo "check-pages-build-command: has_script 对 origin/$ALPHA_REF 返回未知状态码 $HS_RC" >&2; exit 2 ;;
+    esac
   fi
 fi
 
-# 对照组：一个必然不存在的 ref 必须被判为取不到。没有这一条，上面的 PASS 可能只是
-# 状态检查恒真（例如状态码被解析成一个写死的默认值、请求其实从未落到网络上）。
+# 对照组：一个必然不存在的 ref 必须被判为取不到，且必须是 404——不是"任何非
+# 200"。没网、DNS 故障、代理拒绝、429 都会让 fetch_pkg_status 返回 "000" 或其
+# 它非 200 状态码，如果这里只要求"!= 200"就 PASS，那么 alpha 那一侧同样因为没
+# 出网而拿到的 FAIL 也会被这个"PASS"的对照组盖过去，等于什么都没证明。
 control_code="$(fetch_pkg_status "$SLUG" "__no_such_ref_control__" /dev/null)"
-if [ "$control_code" != "200" ]; then
-  pass "  对照组：一个必然不存在的 ref 被判为取不到（HTTP $control_code）"
-else
+if [ "$control_code" = "404" ]; then
+  pass "  对照组：一个必然不存在的 ref 被判为取不到（HTTP 404）"
+elif [ "$control_code" = "200" ]; then
   fail "  对照组：一个必然不存在的 ref 也返回了 200 —— 状态检查恒真，上面 alpha 的结果不算数"
+else
+  fail "  对照组：一个必然不存在的 ref 返回了 HTTP $control_code（不是 404 也不是 200）—— 请求可能没有真正落到网络上，上面 alpha 的结果不算数"
 fi
 
 echo "----------------------------------------"

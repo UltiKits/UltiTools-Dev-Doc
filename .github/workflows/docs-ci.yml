@@ -333,9 +333,15 @@ jobs:
     # 分支才被发现。本作业把那个等待期换成一次 CI 失败。
     #
     # 它读 origin/alpha 的 package.json，因此不能只依赖 checkout 拿到的那一个
-    # ref；脚本对 raw.githubusercontent.com 发一次匿名 HTTP GET，不做任何 git
-    # 写入，公开仓库无需凭据。不再用 `git fetch --depth=1`——那会在开发者的长期
-    # 克隆里写下 .git/shallow，细节见脚本自己的文件头注释。
+    # ref；脚本对 raw.githubusercontent.com 发两次匿名 HTTP GET（alpha 本体 +
+    # 一个必然不存在的 ref 作对照组），不做任何 git 写入，公开仓库无需凭据。不再
+    # 用 `git fetch --depth=1`——那会在开发者的长期克隆里写下 .git/shallow，细节
+    # 见脚本自己的文件头注释。
+    #
+    # 为什么不设为 required check：这两次请求打的是第三方匿名端点
+    # （raw.githubusercontent.com），脚本自身无重试；端点短暂故障时这个作业会
+    # 红，但那不是当前 PR 自己的缺陷。与上面 build-with-alpha 依赖 GitHub
+    # codeload 可达性、同样不设为 required check 是同一类判断。
     steps:
       - name: Checkout
         uses: actions/checkout@v4
