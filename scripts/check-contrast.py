@@ -87,10 +87,20 @@ quietly emptied out of:
   PAIRS-unreferenced declaration added to each table, same count, different
   name sets. Proves self-check 2 compares the two tables' declared NAMES,
   not merely how many declarations each has.
-- palette-contrast-out-of-range.css (G-02-22) — clean.css with exactly one
-  value changed (light-mode --link-color) to an out-of-range rgb() channel.
-  Proves self-check 5 catches a channel value CSS could only render by
-  clamping it into a different number than the one written in the file.
+- palette-contrast-out-of-range.css (G-02-22) — clean.css with
+  --border-color ADDED to both tables, light-mode carrying an out-of-range
+  rgb() channel (999) and dark-mode a valid one. Not a single-value edit of
+  an existing variable, and deliberately not on --link-color: --border-color
+  is one of the six properties palette.js declares that PAIRS never
+  references, so this fixture only exits 2 if self-check 5 walks EVERY
+  declaration rather than just the 27 PAIRS-referenced names. It has to be
+  added to both tables because self-check 2 compares the two tables' declared
+  name sets, and a name present in only one would trip that check first —
+  same exit code, wrong cause. Proves self-check 5 catches a channel value
+  CSS could only render by clamping it into a different number than the one
+  written in the file. The fixture's own header carries the full argument;
+  the CI assertion that pins the reported name to --border-color is in
+  docs-ci.yml (G-02-23).
 
 ## Why reject an out-of-range rgb() channel, not clamp it / 为什么拒绝越界
 ## 通道而不是钳制它到 0-255（G-02-22）
