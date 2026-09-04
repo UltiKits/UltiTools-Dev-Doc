@@ -1,6 +1,5 @@
 import { defineVersionedConfig } from '@viteplus/versions'
 import { withPwa } from '@vite-pwa/vitepress'
-import { withMermaid } from 'vitepress-plugin-mermaid'
 
 import { pwaConfig } from "./config/pwa.mjs";
 import { localeZH } from "./config/locale.zh.mjs";
