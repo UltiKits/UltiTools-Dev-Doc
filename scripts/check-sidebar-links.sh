@@ -173,8 +173,25 @@ check_guide_constant() {
   done
 }
 
-# API constants (sidebarApiEN/ZH) declare no base: field at all; their links
-# hang directly off each version's own .../api/ key.
+# API constants (sidebarApiEN/ZH) declare no base: field at all. Their links are
+# resolved against the version root, NOT against that version's api/ directory.
+#
+# This block used to build the path as "$root/api/$link.md" — it supplied the
+# api/ segment itself, on the assumption that the sidebar key 'vX.Y.Z/api/'
+# contributes that segment to the emitted URL. It does not. @viteplus/versions'
+# populateSidebar (dist/index.js) derives the injected base from the key's lang
+# and version only, producing '/<lang>/<version>/'; every other segment of the
+# key is dropped. So the gate resolved a file that exists
+# (docs/archive/v6.2.4/api/version-wrapper.md) while the rendered href was
+# /v6.2.4/version-wrapper.html, which does not exist — 24 addresses, 72
+# occurrences, green gate.
+#
+# A gate that re-implements the framework's path assembly is a defect source in
+# its own right: the two implementations only have to differ in one place for
+# the gate to report green while the defect is live. The link values now carry
+# the api/ prefix themselves and this resolves them as written, with no
+# reconstruction. check-rendered-links.sh section 8 covers the same ground from
+# the build artifact, which is the side a reader actually clicks.
 check_api_constant() {
   local const_name="$1" file="$2" lang="$3"; shift 3
   local versions=("$@")
@@ -191,7 +208,7 @@ check_api_constant() {
     [ "$lang" = "zh" ] && root="$ROOT/docs/archive/$version/zh"
     while IFS='|' read -r _base link; do
       [ -z "$link" ] && continue
-      local path="$root/api/$link.md"
+      local path="$root/$link.md"
       total=$((total + 1))
       if [ ! -f "$path" ]; then
         fail_line "$const_name -> $version -> $(rel_path "$path")"
