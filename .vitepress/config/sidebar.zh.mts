@@ -524,14 +524,22 @@ const sidebarGuideZH_v624: DefaultTheme.SidebarItem[] = [
     },
 ]
 
+// 链接以 api/ 起头，不是裸页名。这两个常量挂在 locale.{en,zh}.mts 的
+// `vX.Y.Z/api/` 键上，但 @viteplus/versions 的 populateSidebar（dist/index.js）
+// 注入的 base 只到「语言 + 版本」那一层——它由 sidebar 键解析出 lang 与 version
+// 后拼成 `/<lang>/<version>/`，键里 api/ 那一段不参与。裸页名于是落到
+// /vX.Y.Z/version-wrapper.html，而真实文件在 /vX.Y.Z/api/version-wrapper.html。
+// scripts/check-sidebar-links.sh 的 check_api_constant 曾自己补上这一段
+// （`$root/api/$link.md`），因此在链接实际失效时照常转绿；那条已随本次改动改成
+// 直接用 link 值解析，check-rendered-links.sh 第 8 节从产物侧再兜一层。
 const sidebarApiZH: DefaultTheme.SidebarItem[] = [
     {
         text: 'VersionWrapper',
-        link: 'version-wrapper'
+        link: 'api/version-wrapper'
     },
     {
         text: 'UltiToolsPlugin',
-        link: 'ulti-tools-plugin'
+        link: 'api/ulti-tools-plugin'
     },
 ]
 

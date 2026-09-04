@@ -633,6 +633,111 @@ if [ "$MODE" = "--with-alpha" ]; then
   fi
 fi
 
+
+# ── 8. Rendered sidebar hrefs must resolve in the build output ─────────────
+# scripts/check-sidebar-links.sh 检查的是配置里的 link 字面量，并且自己动手把
+# 它拼成一个 URL。那份重拼与 @viteplus/versions 的 populateSidebar 实际发出的
+# 不是同一个值——check_api_constant 里写死了一段 `api/`（`$root/api/$link.md`），
+# 而运行时注入的 base 只到版本根，于是门禁解析到存在的
+# docs/archive/v6.2.4/api/version-wrapper.md 并转绿，读者点到的却是
+# /v6.2.4/version-wrapper.html，实测 404，24 条地址、72 次出现。
+#
+# 「门禁自己重新实现一遍框架的路径拼接」这个写法本身就是缺陷来源：两份实现
+# 只要有一处不同，门禁就会在缺陷存在时报绿。本节从相反方向断言——取 VitePress
+# 真正渲染进侧边栏的 href，要求每一条要么在产物里解析得到文件，要么落在
+# Cloudflare Function 的路由范围内。字面量那一侧永远看不见这一类缺陷。
+echo "8. 侧边栏渲染出的 href 在产物里可解析"
+
+sidebar_report="$(python3 - "$DIST" "$ROOT/functions" <<'PY'
+import os, re, sys, collections
+
+dist, functions_root = sys.argv[1], sys.argv[2]
+
+# Function 路由前缀从 functions/ 的目录布局推出，不写死：
+# functions/api/[[path]].js 使 /api/ 及其下所有路径由 Function 提供，
+# 产物里没有对应文件是正常的，不是死链。
+route_prefixes = []
+if os.path.isdir(functions_root):
+    for name in sorted(os.listdir(functions_root)):
+        if name.startswith('_') or name.startswith('.'):
+            continue
+        if os.path.isdir(os.path.join(functions_root, name)):
+            route_prefixes.append('/' + name + '/')
+
+# 侧边栏条目的 <a>：VPSidebarItem 传入的 link 与 VPLink 自身的 link 叠加成
+# class="VPLink link link"。抽样 40 页实测该式命中数与 VPSidebarItem…is-link
+# 的块数逐页相等，所以它抽的正好是侧边栏条目，不多不少。
+ANCHOR = re.compile(r'<a class="VPLink link link" href="([^"]+)"')
+
+def resolves(href):
+    path = href.split('#')[0].split('?')[0]
+    if not path.startswith('/'):
+        return True          # 外链与相对锚点不在本节范围内
+    for p in route_prefixes:
+        if path == p.rstrip('/') or path == p or path.startswith(p):
+            return True
+    local = os.path.join(dist, path.lstrip('/'))
+    return (os.path.isfile(local)
+            or os.path.isfile(local + '.html')
+            or os.path.isfile(os.path.join(local.rstrip('/'), 'index.html')))
+
+occurrences = collections.Counter()
+pages = 0
+for root, _dirs, files in os.walk(dist):
+    if os.sep + 'assets' in root:
+        continue
+    for fn in files:
+        if not fn.endswith('.html'):
+            continue
+        pages += 1
+        with open(os.path.join(root, fn), encoding='utf-8', errors='ignore') as fh:
+            for href in ANCHOR.findall(fh.read()):
+                occurrences[href] += 1
+
+bad = {h: n for h, n in occurrences.items() if not resolves(h)}
+
+print(f"PAGES {pages}")
+print(f"DISTINCT {len(occurrences)}")
+print(f"OCCUR {sum(occurrences.values())}")
+print("ROUTES " + (",".join(route_prefixes) if route_prefixes else "(none)"))
+# 阴性对照：一个必然不存在的地址必须被判为不可解析。没有这一条，上面的
+# 「0 条不可解析」有可能只是因为 resolves() 恒真（例如 dist 路径拼错时
+# os.path.isfile 全部为假、而某个分支又提前 return True）。
+print("CONTROL " + ("unresolvable" if not resolves("/__no_such_page_control__/x.html") else "resolvable"))
+for h, n in sorted(bad.items()):
+    print(f"BAD {n} {h}")
+PY
+)"
+
+sidebar_pages="$(printf '%s\n' "$sidebar_report" | awk '/^PAGES /{print $2}')"
+sidebar_distinct="$(printf '%s\n' "$sidebar_report" | awk '/^DISTINCT /{print $2}')"
+sidebar_occur="$(printf '%s\n' "$sidebar_report" | awk '/^OCCUR /{print $2}')"
+sidebar_routes="$(printf '%s\n' "$sidebar_report" | sed -n 's/^ROUTES //p')"
+sidebar_control="$(printf '%s\n' "$sidebar_report" | awk '/^CONTROL /{print $2}')"
+sidebar_bad="$(printf '%s\n' "$sidebar_report" | grep -c '^BAD ' || true)"
+
+echo "      扫描 $sidebar_pages 个页面，互异侧边栏 href $sidebar_distinct 条 / 共 $sidebar_occur 次；Function 路由前缀=$sidebar_routes"
+
+# 对照组先判，且它不成立时下面那个 0 不算数。
+if [ "$sidebar_control" = "unresolvable" ]; then
+  pass "  对照组：一个必然不存在的地址被判为不可解析 observed=$sidebar_control"
+else
+  fail "  对照组：一个必然不存在的地址被判为 observed=$sidebar_control expected=unresolvable —— 解析器恒真，下面的结果不算数"
+fi
+
+if [ "${sidebar_distinct:-0}" -gt 0 ]; then
+  pass "  对照组：抽到的侧边栏 href observed=$sidebar_distinct expected>0"
+else
+  fail "  对照组：抽到的侧边栏 href observed=$sidebar_distinct expected>0 —— 抽取式没读到东西，本节结果无意义"
+fi
+
+if [ "$sidebar_bad" -eq 0 ]; then
+  pass "  全部侧边栏 href 可解析 observed=0 不可解析"
+else
+  fail "  侧边栏 href 不可解析 observed=$sidebar_bad 条互异地址 expected=0"
+  printf '%s\n' "$sidebar_report" | sed -n 's/^BAD \([0-9]*\) \(.*\)$/        \1× \2/p'
+fi
+
 echo "----------------------------------------"
 echo "不成立条数: $failures"
 
