@@ -67,6 +67,13 @@ ACTIVE_MARKER='data-ut-active-version'
 # The archived notice bar's own "go to the latest version" link (VER-05).
 NOTICE_ATTR='data-ut-notice-link'
 BADGE_MARKER='data-ut-unreleased-badge'
+# The notice bar's close control (added 2026-09-04) and the two accessible names
+# it renders. The labels are duplicated from VersionNoticeBar.vue's dismissLabel
+# on purpose: an assertion that re-derived them from the component would pass
+# whatever the component happened to say, including nothing.
+DISMISS_ATTR='data-ut-notice-dismiss'
+DISMISS_LABEL_EN='Dismiss this notice'
+DISMISS_LABEL_ZH='关闭此提示'
 # The class @viteplus/versions' auto-injected dropdown renders on its own root
 # (components/version-switcher.component.vue:100 and :119), which 04-03 turned
 # off via versionsConfig.versionSwitcher: false and replaced with
@@ -312,6 +319,46 @@ if [ "$notice_relative" -eq 0 ]; then
   pass "  $NOTICE_ATTR 非绝对路径 observed=$notice_relative expected=0（总数 $notice_total 为对照组）"
 else
   fail "  $NOTICE_ATTR 非绝对路径 observed=$notice_relative expected=0 —— 相对路径在归档子目录下会解析到错的地方"
+fi
+
+# ── 3c. Dismiss control on every notice bar ────────────────────────────────
+# The close button was added on maintainer request (2026-09-04) after the bar
+# had already shipped as non-dismissible. It is client-side behaviour, but its
+# markup is server-rendered, and that is the part this file can hold: the
+# control must exist in the built HTML of every bar, be a real <button> so it is
+# keyboard-reachable without a role/tabindex graft, and carry a non-empty
+# accessible name in the reader's own language.
+#
+# The two locale labels are counted separately and required to sum to the total.
+# A single "at least one aria-label" assertion would pass a regression that
+# wired only English, which is the shape a bilingual site actually regresses in.
+
+echo "3c. 提示条的关闭控件（2026-09-04 维护者要求追加）"
+
+bars_total="$({ grep -rhoE "$STATE_MARKER=\"[^\"]*\"" "$DIST" --include='*.html' || true; } | wc -l)"
+dismiss_total="$({ grep -rhoF "$DISMISS_ATTR" "$DIST" --include='*.html' || true; } | wc -l)"
+dismiss_buttons="$({ grep -rhoE "<button[^>]*$DISMISS_ATTR[^>]*>" "$DIST" --include='*.html' || true; } | wc -l)"
+label_en="$({ grep -rhoF "aria-label=\"$DISMISS_LABEL_EN\"" "$DIST" --include='*.html' || true; } | wc -l)"
+label_zh="$({ grep -rhoF "aria-label=\"$DISMISS_LABEL_ZH\"" "$DIST" --include='*.html' || true; } | wc -l)"
+
+echo "      bars=$bars_total ${DISMISS_ATTR}=$dismiss_total button元素=$dismiss_buttons 英文名=$label_en 中文名=$label_zh"
+
+if [ "$bars_total" -gt 0 ] && [ "$dismiss_total" -eq "$bars_total" ]; then
+  pass "  $DISMISS_ATTR observed=$dismiss_total expected=$bars_total（每条提示条恰好一个关闭控件）"
+else
+  fail "  $DISMISS_ATTR observed=$dismiss_total expected=$bars_total（提示条数为零也算不成立，那说明这条断言已经没有检查对象了）"
+fi
+
+if [ "$dismiss_total" -gt 0 ] && [ "$dismiss_buttons" -eq "$dismiss_total" ]; then
+  pass "  关闭控件是 <button> observed=$dismiss_buttons expected=$dismiss_total"
+else
+  fail "  关闭控件是 <button> observed=$dismiss_buttons expected=$dismiss_total —— 换成 <a>/<div> 后 Tab 到不了，键盘读者没有关闭途径"
+fi
+
+if [ "$label_en" -gt 0 ] && [ "$label_zh" -gt 0 ] && [ $((label_en + label_zh)) -eq "$dismiss_total" ]; then
+  pass "  可访问名称双语齐备 英文=$label_en 中文=$label_zh 合计=$dismiss_total"
+else
+  fail "  可访问名称双语齐备 英文=$label_en 中文=$label_zh 合计应为 $dismiss_total —— 任一语种为零即为只接了一侧"
 fi
 
 # ── 4. Active-version marker (VER-04) + old fixed label must be gone ───────

@@ -1,3 +1,33 @@
+<script lang="ts">
+// ── Dismissal state: module scope, on purpose ───────────────────────────────
+// A normal <script> block runs in module scope exactly once, while <script
+// setup> below runs per component instance (Vue SFC spec). That difference is
+// the whole mechanism: this object outlives the component across client-side
+// navigation, and dies when the theme chunk is re-evaluated on a full reload.
+//
+// Maintainer-specified lifetime (2026-09-04): dismissal survives in-site
+// navigation but NOT a page reload. localStorage and sessionStorage both
+// survive a reload, so neither can express this — module state is not a
+// shortcut here, it is the only storage with the requested lifetime.
+//
+// Keyed by version state rather than a single global flag, also specified: the
+// archived bar and the alpha bar warn about different things ("this content is
+// outdated" versus "this content may change under you"), so dismissing one must
+// leave the other free to appear.
+//
+// SSR: the object is created once per module evaluation and its only mutation
+// site is the click handler, which cannot fire during a build. Server render and
+// first client render therefore both read false, and no hydration mismatch is
+// introduced. Asserted in scripts/check-rendered-links.sh section 3c, which
+// requires the control to be present in the built HTML of every notice bar.
+import { reactive } from 'vue';
+
+const dismissed = reactive<Record<'archived' | 'alpha', boolean>>({
+  archived: false,
+  alpha: false,
+});
+</script>
+
 <script setup lang="ts">
 // Version-state notice bar. Three DOM outcomes, not three CSS states of one
 // node: an archived bar, an alpha bar, and — on the current release — nothing
@@ -32,6 +62,23 @@ const state = computed(() => versionState(version.value, CURRENT_VERSION));
 // introduction.html renders <html lang="zh-CN"> and SecondNavBar's own
 // lang.startsWith('zh') branch renders its Chinese copy there.
 const isZh = computed(() => lang.value.startsWith('zh'));
+
+// ── Dismissal (maintainer request, 2026-09-04) ──────────────────────────────
+// `visible`, not `state`, is what drives both the v-if and the height write-back
+// below. Routing the close button through the same computed that already gates
+// the current-release case means dismissal reuses the cleanup path that case
+// already proved, instead of adding a second one beside it.
+
+const dismissLabel = computed(() => (isZh.value ? '关闭此提示' : 'Dismiss this notice'));
+
+const visible = computed(
+  () => state.value !== 'current' && !dismissed[state.value as 'archived' | 'alpha']
+);
+
+const dismiss = () => {
+  if (state.value === 'current') return;
+  dismissed[state.value as 'archived' | 'alpha'] = true;
+};
 
 // ── Copy, verbatim from 04-UI-SPEC.md § Copywriting Contract ────────────────
 // The alpha sentence is not new copy: it is the already-reviewed sentence
@@ -121,6 +168,15 @@ const alphaMeta = computed(() =>
 // NOT unmount this component — only the inner v-if flips — so without the
 // watcher the variable survives and the whole site keeps a permanent blank
 // strip above the nav, which is a direct VER-07 failure.
+//
+// Dismissal is the same failure with a second trigger. The v-if sits on the
+// ROOT element, so flipping it false removes the element without unmounting the
+// component and onUnmounted never runs. The watcher below is therefore what
+// clears the variable on dismissal too — otherwise the bar would vanish while
+// the blank strip it reserved stayed for the rest of the session. It watches
+// `visible` for exactly that reason, and still watches `state` alongside it for
+// the archived -> alpha case, where `visible` stays true throughout and only
+// re-observing the patched element keeps the height correct.
 
 const barRef = ref<HTMLElement | null>(null);
 let observer: ResizeObserver | undefined;
@@ -154,13 +210,13 @@ const startObserving = () => {
 };
 
 onMounted(() => {
-  if (state.value !== 'current') startObserving();
+  if (visible.value) startObserving();
 });
 
 onUnmounted(stopObserving);
 
-watch(state, (next) => {
-  if (next === 'current') {
+watch([visible, state], ([isVisible]) => {
+  if (!isVisible) {
     stopObserving();
   } else {
     nextTick(startObserving);
@@ -170,20 +226,40 @@ watch(state, (next) => {
 
 <template>
   <div
-    v-if="state !== 'current'"
+    v-if="visible"
     ref="barRef"
     class="VersionNoticeBar"
     :class="`VersionNoticeBar--${state}`"
     :data-ut-version-state="state"
   >
-    <p class="notice-row notice-state">
-      <span class="notice-label">{{ stateLabel }}</span>
-      {{ stateSentence }}
-    </p>
-    <p v-if="state === 'alpha'" class="notice-row notice-meta">{{ alphaMeta }}</p>
-    <p v-else class="notice-row">
-      <a class="notice-link" :href="noticeHref" :data-ut-notice-link="noticeHref">{{ noticeLinkText }}</a>
-    </p>
+    <div class="notice-content">
+      <p class="notice-row notice-state">
+        <span class="notice-label">{{ stateLabel }}</span>
+        {{ stateSentence }}
+      </p>
+      <p v-if="state === 'alpha'" class="notice-row notice-meta">{{ alphaMeta }}</p>
+      <p v-else class="notice-row">
+        <a class="notice-link" :href="noticeHref" :data-ut-notice-link="noticeHref">{{ noticeLinkText }}</a>
+      </p>
+    </div>
+    <button
+      type="button"
+      class="notice-dismiss"
+      data-ut-notice-dismiss
+      :aria-label="dismissLabel"
+      :title="dismissLabel"
+      @click="dismiss"
+    >
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+        <path
+          d="M4 4 L12 12 M12 4 L4 12"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+        />
+      </svg>
+    </button>
   </div>
 </template>
 
@@ -200,6 +276,9 @@ watch(state, (next) => {
     top: 0;
     left: 0;
     z-index: var(--vp-z-index-layout-top);
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
     width: 100%;
     box-sizing: border-box;
     padding: 16px;
@@ -207,6 +286,15 @@ watch(state, (next) => {
     font-size: 14px;
     line-height: 1.5;
     color: var(--vp-c-text-1);
+}
+
+/* min-width: 0 is load-bearing, not defensive: without it this flex item takes
+   its max-content width as its floor, so .notice-meta's nowrap commit line
+   would push the bar wider than the viewport instead of scrolling inside its
+   own overflow-x: auto. */
+.notice-content {
+    flex: 1;
+    min-width: 0;
 }
 
 @media (min-width: 960px) {
@@ -262,5 +350,37 @@ watch(state, (next) => {
     color: var(--vp-c-text-1);
     white-space: nowrap;
     overflow-x: auto;
+}
+
+/* The close control carries no accent colour. 04-UI-SPEC.md § Color reserves
+   accent to two elements in this bar — the CTA link and the state-label word —
+   and states the check as "never a third", so the button inherits --vp-c-text-1
+   from the bar and its focus ring uses that same token. 24px square and the
+   16px gap keep it on the 4px grid; both are smaller than the two content rows
+   it sits beside, so the control adds no height of its own at any width. */
+.notice-dismiss {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background-color: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+/* --vp-c-bg, not an accent token: on both -soft state backgrounds this reads as
+   a subtle lighter square in light mode and a darker one in dark mode. */
+.notice-dismiss:hover {
+    background-color: var(--vp-c-bg);
+}
+
+.notice-dismiss:focus-visible {
+    outline: 2px solid var(--vp-c-text-1);
+    outline-offset: 2px;
 }
 </style>
