@@ -132,9 +132,25 @@
    (script execution disabled, both scrollbar models agreeing, 56 width/state
    combinations): 182 at 320; 143 at 340-390; 122 at 414-550; 104 at 600-700;
    101 at 768-959. Over-reservation now peaks at 21px (414-550 measured against
-   the 340-599 band) and first-frame overlap is 0. */
+   the 340-599 band) and first-frame overlap is 0.
+
+   The narrowest band was 182px, which was the height measured at 320px -- 19px
+   inside a band that extends to zero. Bar height is monotonically non-increasing
+   in width, so a band's maximum sits at its NARROW end, and every width below
+   320px was reserving less than it needed. Re-measured down to 100px: 203 at
+   240-280, 224 at 220-230, 284 at 190-200, and no plateau at all below that
+   (1202px at a 100px viewport). No single value bounds this band, so the band
+   declares a floor instead of pretending to one.
+
+   Floor is 240px and the reserve is the 203px measured there. Below 240px the
+   reserve is knowingly short. 240px sits under the narrowest viewport that
+   ships -- the Galaxy Fold cover display reports 280px -- and under a 375px
+   phone at 150% zoom, which lays out at 250px. It is also below VitePress's own
+   floor: .VPNav's scrollWidth stops tracking the viewport at 320px and pins
+   there, so under 320px the site's chrome is already wider than the screen and
+   one frame of notice-bar overlap is not the defect a reader meets first. */
 html:has(.VersionNoticeBar) {
-    --vp-layout-top-height: 182px;
+    --vp-layout-top-height: 203px;
 }
 
 @media (min-width: 340px) {
