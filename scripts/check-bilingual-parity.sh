@@ -105,9 +105,16 @@ check_extraction() {
   fi
 }
 
-# 前缀由脚本自己补，不是从 sidebar 源文件推断——sidebarApiEN/sidebarApiZH 内部
-# 完全没有 base: 字段，这层映射来自 .vitepress/config/locale.en.mts 的多 sidebar
-# 映射表：sidebarGuide* 隐含挂在 /guide/ 下，sidebarApi* 隐含挂在 /api/ 下。
+# sidebarGuide* 的 link: 值不带 guide/，前缀由脚本补；sidebarApi* 的 link: 值
+# 自带 api/，这里补空串。
+#
+# 两者写法不一致是有原因的。这层前缀原本两边都由脚本补，理由写的是「sidebarApi*
+# 内部没有 base: 字段，映射来自 locale.en.mts 的多 sidebar 映射表」。那个理由对
+# sidebarGuide* 成立，对 sidebarApi* 不成立：@viteplus/versions 的 populateSidebar
+# （dist/index.js）只由 sidebar 键里的 lang 与 version 拼出 base，键里的 api/ 一段
+# 不参与，而未版本化的 '/api/' 键连 base 都不注入。也就是说运行时从不补这一段，
+# 补它的只有这个脚本——于是脚本解析出存在的文件、门禁转绿，读者点到的却是少一段
+# api/ 的 404。前缀已移进 link: 值本身，这里就不能再补第二遍。
 build_paths() {
   local raw="$1" prefix="$2"
   if [ -n "$raw" ]; then
@@ -126,9 +133,9 @@ check_extraction "sidebarApiEN" "$ROOT/.vitepress/config/sidebar.en.mts" "$api_l
 check_extraction "sidebarGuideZH" "$ROOT/.vitepress/config/sidebar.zh.mts" "$guide_links_zh"
 check_extraction "sidebarApiZH" "$ROOT/.vitepress/config/sidebar.zh.mts" "$api_links_zh"
 
-covered_en=$( { build_paths "$guide_links_en" "guide/"; build_paths "$api_links_en" "api/"; \
+covered_en=$( { build_paths "$guide_links_en" "guide/"; build_paths "$api_links_en" ""; \
                 printf '%s\n' "$SIDEBAR_EXEMPT"; } | sort )
-covered_zh=$( { build_paths "$guide_links_zh" "guide/"; build_paths "$api_links_zh" "api/"; \
+covered_zh=$( { build_paths "$guide_links_zh" "guide/"; build_paths "$api_links_zh" ""; \
                 printf '%s\n' "$SIDEBAR_EXEMPT"; } | sort )
 
 uncovered_en=$(comm -23 <(printf '%s\n' "$en_pages") <(printf '%s\n' "$covered_en"))

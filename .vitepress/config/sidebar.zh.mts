@@ -468,14 +468,19 @@ const sidebarGuideZH_v624: DefaultTheme.SidebarItem[] = [
     },
 ]
 
+// 链接以 api/ 起头，不是裸页名。@viteplus/versions 的 populateSidebar 注入的
+// base 只到「语言 + 版本」那一层（dist/index.js 的 populateSidebar 由 sidebar 键
+// 解析出 lang/version 后拼成 `/<lang>/<version>/`），不含键里的 api/ 一段；而
+// 未版本化的 '/api/' 键解析出的 lang 与 version 都为空，base 干脆不注入。
+// 两种情况下裸页名都会落到少一段 api/ 的地址上，实测 404。
 const sidebarApiZH: DefaultTheme.SidebarItem[] = [
     {
         text: 'VersionWrapper',
-        link: 'version-wrapper'
+        link: 'api/version-wrapper'
     },
     {
         text: 'UltiToolsPlugin',
-        link: 'ulti-tools-plugin'
+        link: 'api/ulti-tools-plugin'
     },
 ]
 
