@@ -563,6 +563,42 @@ writeFileSync(
   `${JSON.stringify(snapshotStatus, null, 2)}\n`
 );
 
+// ── 8b. 注入页里的客户端脚本：可见性清单 ─────────────────────────────────
+// 注入的 markdown 原样进入一个 html: true 的 VitePress 构建，因此它里面的 HTML 与
+// Vue 脚本会在生产站的 origin 下真实执行。这不是理论问题：当前就有四个页面带
+// <script setup>，那是 VitePress 的正常用法，master 自己也在用。
+//
+// 本段不做净化——净化会误伤那四个合法用法，而把它们加进白名单则白名单本身成为
+// 绕过点。它只把「静默」变成「可见」：实际含 <script 的页面集合与
+// scripts/alpha-script-pages.txt 不一致时，构建红并逐条列出差异，由人确认。
+//
+// 放在注入脚本里而不是某个 CI 步骤里，是为了让本地 build:with-alpha 与 Cloudflare
+// 的生产构建都走这一关——CI 只是其中一条路径。
+const SCRIPT_ALLOWLIST_FILE = path.join('scripts', 'alpha-script-pages.txt');
+const allowedScriptPages = new Set(
+  readFileSync(SCRIPT_ALLOWLIST_FILE, 'utf8')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '' && !line.startsWith('#'))
+);
+const actualScriptPages = new Set(
+  mdFiles
+    .filter((file) => readFileSync(file, 'utf8').includes('<script'))
+    .map((file) => path.relative(ARCHIVE_DEST, file).split(path.sep).join('/'))
+);
+const scriptAdded = [...actualScriptPages].filter((p) => !allowedScriptPages.has(p)).sort();
+const scriptRemoved = [...allowedScriptPages].filter((p) => !actualScriptPages.has(p)).sort();
+if (scriptAdded.length > 0 || scriptRemoved.length > 0) {
+  const lines = [
+    `inject-alpha: 注入页里含 <script 的集合与 ${SCRIPT_ALLOWLIST_FILE} 不一致。`,
+    '  这份清单不判断脚本是否有害，只保证它的增减被人看见一次。确认过之后手动改那份文件。',
+  ];
+  for (const p of scriptAdded) lines.push(`  多出（清单里没有，注入内容里有）: ${p}`);
+  for (const p of scriptRemoved) lines.push(`  少了（清单里有，注入内容里没有）: ${p}`);
+  console.error(lines.join('\n'));
+  process.exit(1);
+}
+
 // ── 9. Summary ───────────────────────────────────────────────────────────
 const javaFileCount = (function countJava(dir) {
   let count = 0;

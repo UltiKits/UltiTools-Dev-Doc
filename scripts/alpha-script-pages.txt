@@ -1,0 +1,16 @@
+# 注入的 alpha 文档页里，**允许**含 <script 的那些。每行一个相对于注入根
+# （docs/archive/<快照版本>）的路径。以 # 开头的行与空行忽略。
+#
+# 为什么要这份清单：构建期注入把 alpha 分支的文档页抄进生产构建，它们里的 HTML 与
+# Vue 脚本会在 dev.ultikits.com 这个域下真实执行——能读写本站的 localStorage、
+# cookie，向本站发同源请求。而审查一条 alpha 的文档同步 PR 时，注意力在文字上，
+# 未必有人会发现多了一段脚本。
+#
+# 这份清单不做净化，只把「静默」变成「可见」：注入后实际含 <script 的页面集合与这里
+# 不一致，构建就红并逐条列出多了/少了哪个文件，由人确认后手动改这份清单。
+#
+# 下面四个都是 VitePress 的正常用法（首页与入门页的中英各一），master 自己也在用。
+index.md
+zh/index.md
+guide/introduction.md
+zh/guide/introduction.md
