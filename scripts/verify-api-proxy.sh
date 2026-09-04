@@ -287,12 +287,34 @@ printf '%s' "$body_stylesheet_a" | grep -q 'prefers-color-scheme: dark' || r=1
 record "10 stylesheet 响应体含深色媒体查询" "" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 11. stylesheet Cache-Control 的 max-age 是 3600
+# 11. stylesheet Cache-Control 的 max-age 是 Function 设的值，或 zone 把它抬到的值
+#
+# Function 对 stylesheet 设 max-age=3600（functions/api/[[path]].js 的
+# stylesheet 分支）。preview 上返回的就是 3600；生产站返回 14400，且**带缓存
+# 破坏串的全新响应也是 14400**，所以不是缓存残留，是 ultikits.com 这个 zone 的
+# Browser Cache TTL 设置在改写 Function 自己写的值。
+#
+# 这一项此前只认 3600，于是它在生产上永远是红的——而它的失效域本来就是生产。
+# 一条长期红的验证项会让整张报告失去意义：下次真有东西坏了，没人分得出来。
+#
+# 现在认两个值，且只认这两个：3600（Function 自己的值，preview 与任何不设
+# Browser Cache TTL 的环境）与 14400（zone 当前的 Browser Cache TTL，2026-09-04
+# 经 Cloudflare API 读取确认）。第三个值仍然红——那说明要么 Function 改了、要么
+# zone 改了，两种都该有人看一眼。
+#
+# 为什么不把 zone 设置改成 Respect Existing Headers：那是**域级**设置，对
+# ultikits.com 下 11 个走代理的主机名一起生效（面板、下载站、单点登录、API 等），
+# 为一份带指纹后缀的样式表去动它，影响面与收益不成比例（2026-09-04 维护者裁定）。
 # ─────────────────────────────────────────────────────────────────────────────
+# Function 自己设的值；与 functions/api/[[path]].js 的 stylesheet 分支保持一致。
+STYLESHEET_MAX_AGE_FUNCTION=3600
+# zone 的 Browser Cache TTL。改这个值之前先确认 zone 设置确实变了，而不是把一条
+# 真实的红改成绿。
+STYLESHEET_MAX_AGE_ZONE=14400
 cc_stylesheet_a=$(header_value "$HEADERS_FILE" "cache-control")
 r=0
-printf '%s' "$cc_stylesheet_a" | grep -qE 'max-age=3600(;|,|$)' || r=1
-record "11 stylesheet Cache-Control max-age=3600" "cache-control=${cc_stylesheet_a:-<无>}" "$r"
+printf '%s' "$cc_stylesheet_a" | grep -qE "max-age=($STYLESHEET_MAX_AGE_FUNCTION|$STYLESHEET_MAX_AGE_ZONE)(;|,|\$)" || r=1
+record "11 stylesheet Cache-Control max-age 为 $STYLESHEET_MAX_AGE_FUNCTION 或 $STYLESHEET_MAX_AGE_ZONE" "cache-control=${cc_stylesheet_a:-<无>}" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 12. 连续两次请求 stylesheet，ETag 相等且形状是「弱验证器 + 连字符 + 8 位十六进制」
