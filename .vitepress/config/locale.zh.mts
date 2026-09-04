@@ -9,7 +9,6 @@ const localeZH = {
         title: 'UltiKits 开发文档',
         label: '简体中文',
         lang: 'zh-CN',
-        link: '/zh/',
         description: 'Spigot 开发框架',
         themeConfig: {
             nav: navZH,

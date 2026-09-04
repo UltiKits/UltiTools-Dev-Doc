@@ -137,9 +137,9 @@ record "1 SNAPSHOT guide/introduction（英）可读" "status=$HTTP_STATUS" "$r"
 INTRO_EN_FILE="$BODY_FILE"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2. /v6.3.0-SNAPSHOT/zh/guide/introduction 返回 200（取回的 HTML 供第 8 条复用）
+# 2. /zh/v6.3.0-SNAPSHOT/guide/introduction 返回 200（取回的 HTML 供第 8 条复用）
 # ─────────────────────────────────────────────────────────────────────────────
-url_intro_zh="$BASE_URL/v6.3.0-SNAPSHOT/zh/guide/introduction"
+url_intro_zh="$BASE_URL/zh/v6.3.0-SNAPSHOT/guide/introduction"
 fetch "$url_intro_zh"
 r=0
 [ "$HTTP_STATUS" = "200" ] || r=1
@@ -223,7 +223,7 @@ grep -q 'data-ut-version-state="alpha"' "$BODY_FILE" || r=1
 grep -q 'This page describes the alpha branch and may change at any time' "$BODY_FILE" || r=1
 record "7a SNAPSHOT 首页（英）含提示条 alpha 态" "status=$HTTP_STATUS" "$r"
 
-url_home_zh="$BASE_URL/v6.3.0-SNAPSHOT/zh/"
+url_home_zh="$BASE_URL/zh/v6.3.0-SNAPSHOT/"
 fetch "$url_home_zh"
 r=0
 [ "$HTTP_STATUS" = "200" ] || r=1

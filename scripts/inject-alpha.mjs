@@ -349,9 +349,29 @@ if (missing.length > 0) {
 // body-link targets across all 56 alpha pages, exactly 1
 // (/maven-plugin-1.png) has an extension and is the only image reference
 // among them.
+//
+// The version segment goes AFTER the locale segment, because that is the shape
+// the site serves: /zh/v6.3.0-SNAPSHOT/guide/... , not /v6.3.0-SNAPSHOT/zh/... .
+// It was the other way round while locale.zh.mts carried `link: '/zh/'`, which
+// stopped @viteplus/versions from recognising `zh` as a language and left the
+// locale segment stranded inside the path. Prefixing blindly now produces a URL
+// the site does not serve, so both the guard and the rewrite have to know where
+// the locale segment is.
+const LOCALE_SEGMENTS = ['zh'];
+
+function splitLocale(urlPath) {
+  const segs = urlPath.split('/'); // leading '' from the leading slash
+  return LOCALE_SEGMENTS.includes(segs[1])
+    ? { locale: `/${segs[1]}`, rest: `/${segs.slice(2).join('/')}` }
+    : { locale: '', rest: urlPath };
+}
+
 function shouldRewriteAbsolutePath(urlPath) {
   const prefixed = `/${SNAPSHOT_VERSION}`;
-  if (urlPath === prefixed || urlPath.startsWith(`${prefixed}/`)) return false; // already prefixed — avoid double-prefixing
+  const { rest } = splitLocale(urlPath);
+  // Check after stripping the locale, so /zh/v6.3.0-SNAPSHOT/x counts as
+  // already prefixed just like /v6.3.0-SNAPSHOT/x does.
+  if (rest === prefixed || rest.startsWith(`${prefixed}/`)) return false; // already prefixed — avoid double-prefixing
   const withoutFragment = urlPath.split(/[?#]/)[0];
   const lastSegment = withoutFragment.split('/').pop() ?? '';
   if (lastSegment.includes('.')) return false; // has a file extension — a static asset served unversioned from docs/public/, not a page
@@ -359,7 +379,8 @@ function shouldRewriteAbsolutePath(urlPath) {
 }
 
 function rewriteAbsolutePath(urlPath) {
-  return `/${SNAPSHOT_VERSION}${urlPath}`;
+  const { locale, rest } = splitLocale(urlPath);
+  return `${locale}/${SNAPSHOT_VERSION}${rest}`;
 }
 
 // Two link forms are rewritten: standard markdown inline links/images
@@ -403,7 +424,7 @@ function findUnprefixedAbsoluteLinks(content) {
 // detector itself is broken and the zero-residual assertion below cannot
 // be trusted either way.
 const controlProbeMatches = findUnprefixedAbsoluteLinks(
-  '[control probe](/this-should-be-flagged)\n<a href="/this-too">also flagged</a>\n[already prefixed](/v6.3.0-SNAPSHOT/x)\n![asset](/pic.png)\n'
+  '[control probe](/this-should-be-flagged)\n<a href="/this-too">also flagged</a>\n[already prefixed](/v6.3.0-SNAPSHOT/x)\n[already prefixed, zh](/zh/v6.3.0-SNAPSHOT/x)\n![asset](/pic.png)\n'
 );
 if (controlProbeMatches.length !== 2) {
   fail(

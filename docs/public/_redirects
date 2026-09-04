@@ -10,3 +10,24 @@
 # pinning Chinese readers to a stale release forever.
 /zh/api/version-wrapper /api/version-wrapper 301
 /zh/api/ulti-tools-plugin /zh/guide/advanced/ulti-tools-plugin 301
+
+# Chinese archived pages moved from /<version>/zh/* to /zh/<version>/*.
+# Removing `link: '/zh/'` from locale.zh.mts let @viteplus/versions recognise
+# `zh` as a language again, so it now emits the locale segment first, matching
+# the locale keys the plugin generates internally. The old shape was live and
+# publicly reachable, so each archived version keeps a rule.
+#
+# v6.3.0-SNAPSHOT gets one too: the nightly alpha deploy publishes to this same
+# dev.ultikits.com hostname and therefore serves this same file, so
+# /v6.3.0-SNAPSHOT/zh/* is a real URL today that people share while reviewing
+# alpha docs. Sitemap exclusion keeps SNAPSHOT out of search results; it does
+# not keep it out of links pasted into issues. Once 6.3.0 releases and the
+# directory is renamed, the rule redirects one non-existent path to another and
+# is inert, so leaving it costs nothing.
+/v6.1.0/zh/* /zh/v6.1.0/:splat 301
+/v6.2.0/zh/* /zh/v6.2.0/:splat 301
+/v6.2.1/zh/* /zh/v6.2.1/:splat 301
+/v6.2.2/zh/* /zh/v6.2.2/:splat 301
+/v6.2.3/zh/* /zh/v6.2.3/:splat 301
+/v6.2.4/zh/* /zh/v6.2.4/:splat 301
+/v6.3.0-SNAPSHOT/zh/* /zh/v6.3.0-SNAPSHOT/:splat 301

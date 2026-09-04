@@ -25,22 +25,24 @@
 #                 local machine that has ever run it produces thereafter.
 #
 # ── Why the Chinese-path assertion is scoped to this phase's own attribute ──
-# Measured on the 2026-09-04 baseline, BEFORE this phase changed anything:
-# `grep -rohE 'href="/zh/v[0-9][^/"]*"' .vitepress/dist --include='*.html'`
-# returns roughly 6,000 hits, spread across all seven versions (v6.1.0 827,
-# v6.2.0 857, v6.2.1 857, v6.2.2 863, v6.2.3 863, v6.2.4 863, SNAPSHOT 869).
-# They are not produced by the version switcher. They come from VitePress's own
-# language switcher (VPNavBarTranslations) and overflow menu (VPNavBarExtra),
-# which enumerate site.locales, and @viteplus/versions generates locale keys
-# shaped `zh/v6.2.4` with link `/zh/v6.2.4/` while the site actually serves
-# `/v6.2.4/zh/`. That is a real live defect — it is why the language switcher
-# 404s from an archived English page today — but it is a separate, larger
-# problem with its own todo, and it is not this phase's to fix.
+# This block used to record ~6,000 `href="/zh/v<version>/"` hits across dist as
+# a known live defect that was out of scope: VitePress's own language switcher
+# (VPNavBarTranslations) and overflow menu (VPNavBarExtra) enumerate
+# site.locales, @viteplus/versions generated locale keys shaped `zh/v6.2.4`
+# with link `/zh/v6.2.4/`, and the site served `/v6.2.4/zh/` instead, so the
+# language switcher 404'd from every archived page.
 #
-# So the assertion below counts only hrefs carried on this phase's own
-# `data-ut-version-link` attribute. Do NOT "tighten" it into an unscoped search
-# across all of dist: that would be red on a baseline this phase never touched,
-# while saying nothing about the links this phase emits.
+# That defect is now fixed at its root. `link: '/zh/'` in locale.zh.mts was
+# keying the plugin's localesMap on `/zh/` instead of `zh`, so `zh` was never
+# recognised as a language and stayed in the path. With the line removed the
+# plugin's emitted URLs and its internal locale keys agree, and `/zh/<version>/`
+# is the shape the site serves — which is why the assertion below now expects
+# the OPPOSITE shape to be absent.
+#
+# The assertion is still scoped to this phase's own `data-ut-version-link`
+# attribute, because that is the link set this phase is responsible for. The
+# unscoped whole-dist counts are covered separately by the per-version scans in
+# section 1, which now read both $DIST/<version> and $DIST/<locale>/<version>.
 #
 # ── Reporting shape ─────────────────────────────────────────────────────────
 # Follows scripts/check-sidebar-links.sh: every count is echoed before it is
@@ -91,6 +93,10 @@ OLD_SWITCHER_CLASS='VP(Screen)?VersionSwitcher'
 # zero-hit assertions below.
 CONTROL_MARKER='__VP_SITE_DATA__'
 SNAPSHOT_DIR_NAME='v6.3.0-SNAPSHOT'
+# Chinese archived pages are served at /<locale>/<version>/..., not
+# /<version>/<locale>/.... Every per-version scan below has to look in both
+# places or it silently sees only the English half.
+LOCALE_SEGMENT='zh'
 
 # Derived, not hardcoded, matching this file's own convention of deriving
 # expected values from source rather than writing them twice.
@@ -177,12 +183,21 @@ for src_dir in docs/archive/*/; do
 
   expected="$(find "$src_dir" -type f -name '*.md' | wc -l)"
 
-  if [ ! -d "$DIST/$version" ]; then
+  # expected counts every .md under docs/archive/<version>/, which includes the
+  # Chinese half. That half is emitted to $DIST/<locale>/<version>/, so both
+  # trees have to be scanned; scanning only $DIST/<version> reports exactly the
+  # English half and reads as a 50% regression.
+  version_dirs=""
+  [ -d "$DIST/$version" ] && version_dirs="$DIST/$version"
+  [ -d "$DIST/$LOCALE_SEGMENT/$version" ] && version_dirs="$version_dirs $DIST/$LOCALE_SEGMENT/$version"
+
+  if [ -z "$version_dirs" ]; then
     fail "  $version observed=(产物目录不存在) expected=$expected"
     continue
   fi
 
-  observed="$({ grep -rl "$STATE_MARKER" "$DIST/$version" --include='*.html' || true; } | wc -l)"
+  # shellcheck disable=SC2086
+  observed="$({ grep -rl "$STATE_MARKER" $version_dirs --include='*.html' || true; } | wc -l)"
 
   if [ "$observed" -eq "$expected" ]; then
     pass "  $version observed=$observed expected=$expected"
@@ -198,7 +213,11 @@ done
 
 echo "2. 当前发布版不含提示条（同一文件集内配对照组）"
 
-latest_files="$(find "$DIST" -type f -name '*.html' | grep -vE "^$DIST/v[0-9]" || true)"
+# A version directory now appears at two depths: $DIST/<version> (English) and
+# $DIST/<locale>/<version> (Chinese). Excluding only the first left all 145
+# Chinese archived pages classified as "latest", which made the zero-notice-bar
+# assertion below read 145 instead of 0.
+latest_files="$(find "$DIST" -type f -name '*.html' | grep -vE "^$DIST/(v[0-9]|$LOCALE_SEGMENT/v[0-9])" || true)"
 latest_total="$(printf '%s\n' "$latest_files" | grep -c . || true)"
 
 if [ "$latest_total" -eq 0 ]; then
@@ -240,8 +259,9 @@ echo "3. 版本切换器发出的链接形状（04-03 已交付，不再允许�
 
 link_total="$({ grep -rhoE "$LINK_ATTR=\"[^\"]*\"" "$DIST" --include='*.html' || true; } | wc -l)"
 link_zh_first="$({ grep -rhoE "$LINK_ATTR=\"/zh/v[0-9][^\"]*\"" "$DIST" --include='*.html' || true; } | wc -l)"
+link_version_first="$({ grep -rhoE "$LINK_ATTR=\"/v[0-9][^\"]*/zh/[^\"]*\"" "$DIST" --include='*.html' || true; } | wc -l)"
 
-echo "      ${LINK_ATTR}_total=$link_total zh_version_first=$link_zh_first"
+echo "      ${LINK_ATTR}_total=$link_total zh_first=$link_zh_first version_first=$link_version_first"
 
 if [ "$link_total" -gt 0 ]; then
   pass "  $LINK_ATTR observed=$link_total expected>0"
@@ -249,10 +269,20 @@ else
   fail "  $LINK_ATTR observed=$link_total expected>0 —— 每个产物页都应带有该属性（04-03 已交付），零命中说明这条断言已经失去了检查对象"
 fi
 
-if [ "$link_zh_first" -eq 0 ]; then
-  pass "  zh_version_first observed=$link_zh_first expected=0（总数 $link_total 为对照组，证明搜索确实读到了属性）"
+# 这两条的期望值互换过一次。中文归档页曾经服务在 /<版本>/zh/，因为 locale.zh.mts
+# 里的 link: '/zh/' 让 @viteplus/versions 认不出 zh 是一门语言；那时 /zh/<版本>/
+# 是坏形状。删掉那一行之后，插件发出的与它内部 locale key 一致的 /zh/<版本>/ 才是
+# 站点真正服务的形状，坏的那个反过来成了 /<版本>/zh/。
+if [ "$link_version_first" -eq 0 ]; then
+  pass "  version_first observed=$link_version_first expected=0（总数 $link_total 为对照组，证明搜索确实读到了属性）"
 else
-  fail "  zh_version_first observed=$link_zh_first expected=0 —— 中文页版本切换会 404（实测 /zh/v6.2.4/... 返回 404）"
+  fail "  version_first observed=$link_version_first expected=0 —— 中文页版本切换会 404（站点服务的是 /zh/<版本>/…）"
+fi
+
+if [ "$link_zh_first" -gt 0 ]; then
+  pass "  zh_first observed=$link_zh_first expected>0（中文页确实发出了带 locale 段的版本链接）"
+else
+  fail "  zh_first observed=$link_zh_first expected>0 —— 上面那个零是假的：中文版本链接根本没发出来"
 fi
 
 # 上面那条只证明「没有 /zh/<版本>/ 这个坏形状」。它证明不了中文页发出的是对的形状：
@@ -260,15 +290,15 @@ fi
 # 和 link_total 上都是绿的，然后在生产上 404。所以这里补一条正向形状断言，并且跑在
 # --clean 一侧——CI 每个 PR 跑的就是这一侧。
 
-zh_page="$DIST/v6.2.1/zh/guide/introduction.html"
+zh_page="$DIST/zh/v6.2.1/guide/introduction.html"
 if [ ! -f "$zh_page" ]; then
   fail "  中文归档样本页 observed=(不存在) expected=$zh_page"
 else
   zh_rows_total="$({ grep -oE "$LINK_ATTR=\"[^\"]*\"" "$zh_page" || true; } | wc -l)"
   zh_rows_localised="$({ grep -oE "$LINK_ATTR=\"[^\"]*\"" "$zh_page" || true; } | { grep -c '/zh/' || true; })"
-  zh_rows_versioned="$({ grep -oE "$LINK_ATTR=\"/v[0-9][^\"]*/zh/[^\"]*\"" "$zh_page" || true; } | wc -l)"
+  zh_rows_versioned="$({ grep -oE "$LINK_ATTR=\"/zh/v[0-9][^\"]*\"" "$zh_page" || true; } | wc -l)"
 
-  echo "      中文样本页 rows=$zh_rows_total 带 /zh/ 段=$zh_rows_localised 版本在前且带 /zh/=$zh_rows_versioned"
+  echo "      中文样本页 rows=$zh_rows_total 带 /zh/ 段=$zh_rows_localised locale 在前且带版本=$zh_rows_versioned"
 
   if [ "$zh_rows_total" -gt 0 ]; then
     pass "  对照组：中文样本页的切换器行数 observed=$zh_rows_total expected>0"
@@ -283,9 +313,9 @@ else
   fi
 
   if [ "$zh_rows_versioned" -gt 0 ]; then
-    pass "  中文样本页的版本行形状 /v<版本>/zh/… observed=$zh_rows_versioned expected>0"
+    pass "  中文样本页的版本行形状 /zh/<版本>/… observed=$zh_rows_versioned expected>0"
   else
-    fail "  中文样本页的版本行形状 /v<版本>/zh/… observed=$zh_rows_versioned expected>0 —— 只剩当前版本那一行了？"
+    fail "  中文样本页的版本行形状 /zh/<版本>/… observed=$zh_rows_versioned expected>0 —— 只剩当前版本那一行了？"
   fi
 fi
 
@@ -415,7 +445,7 @@ assert_active_version() {
 }
 
 assert_active_version "$DIST/v6.2.1/guide/introduction.html" "v6.2.1" "archived-en (v6.2.1/guide/introduction.html)"
-assert_active_version "$DIST/v6.2.1/zh/guide/introduction.html" "v6.2.1" "archived-zh (v6.2.1/zh/guide/introduction.html)"
+assert_active_version "$DIST/zh/v6.2.1/guide/introduction.html" "v6.2.1" "archived-zh (zh/v6.2.1/guide/introduction.html)"
 assert_active_version "$DIST/guide/introduction.html" "$CURRENT_VERSION" "latest-en (guide/introduction.html)"
 
 old_switcher_total="$({ grep -rhoE "$OLD_SWITCHER_CLASS" "$DIST" --include='*.html' || true; } | wc -l)"
@@ -452,7 +482,13 @@ else
     fail "  dist/$SNAPSHOT_DIR_NAME observed=不存在 expected=存在 —— --with-alpha 断言的是 npm run build:with-alpha 的产物"
   else
     expected="$(find "docs/archive/$SNAPSHOT_DIR_NAME" -type f -name '*.md' | wc -l)"
-    observed="$({ grep -rl "$STATE_MARKER" "$DIST/$SNAPSHOT_DIR_NAME" --include='*.html' || true; } | wc -l)"
+    # Both trees, for the same reason as section 1: the Chinese half is emitted
+    # to $DIST/<locale>/<version>/, so scanning only $DIST/<version> reports
+    # exactly half and reads as a 50% coverage regression.
+    snapshot_dirs="$DIST/$SNAPSHOT_DIR_NAME"
+    [ -d "$DIST/$LOCALE_SEGMENT/$SNAPSHOT_DIR_NAME" ] && snapshot_dirs="$snapshot_dirs $DIST/$LOCALE_SEGMENT/$SNAPSHOT_DIR_NAME"
+    # shellcheck disable=SC2086
+    observed="$({ grep -rl "$STATE_MARKER" $snapshot_dirs --include='*.html' || true; } | wc -l)"
     if [ "$observed" -eq "$expected" ]; then
       pass "  $SNAPSHOT_DIR_NAME observed=$observed expected=$expected"
     else
@@ -463,8 +499,10 @@ else
     # which a silently auto-disabled nightly sync is detectable. Exactly one
     # token per page, both locales — zero means the detector is gone, more than
     # one means it is being rendered somewhere it should not be.
-    for rel in "guide/introduction.html" "zh/guide/introduction.html"; do
-      page="$DIST/$SNAPSHOT_DIR_NAME/$rel"
+    for page in \
+      "$DIST/$SNAPSHOT_DIR_NAME/guide/introduction.html" \
+      "$DIST/$LOCALE_SEGMENT/$SNAPSHOT_DIR_NAME/guide/introduction.html"; do
+      rel="${page#$DIST/}"
       if [ ! -f "$page" ]; then
         fail "  commit 令牌 $rel observed=(页面不存在) expected=1"
         continue
@@ -493,7 +531,7 @@ if [ "$MODE" = "--with-alpha" ]; then
   else
     for pair in \
       "guide/introduction.html:/$SNAPSHOT_DIR_NAME/guide/introduction.html" \
-      "zh/guide/introduction.html:/$SNAPSHOT_DIR_NAME/zh/guide/introduction.html"; do
+      "zh/guide/introduction.html:/$LOCALE_SEGMENT/$SNAPSHOT_DIR_NAME/guide/introduction.html"; do
       rel="${pair%%:*}"
       expected_href="${pair##*:}"
       page="$DIST/$rel"

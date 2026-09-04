@@ -14,14 +14,17 @@
 // Measured relativePath shapes on this site (read out of the built page chunks
 // under .vitepress/dist/assets/, not assumed):
 //
-//   v6.2.1/zh/guide/introduction.md   archived, Chinese
+//   zh/v6.2.1/guide/introduction.md   archived, Chinese
 //   v6.2.1/guide/introduction.md      archived, English
 //   zh/guide/introduction.md          current release, Chinese
 //   guide/introduction.md             current release, English
 //   index.md / zh/index.md            either locale's homepage
 //
-// The version segment, when present, comes FIRST — before the locale segment.
-// That ordering is what the served URL shape below has to match.
+// The locale segment, when present, comes FIRST — before the version segment.
+// That ordering is what the served URL shape below has to match. Note that
+// activeVersion and pageKey below are deliberately insensitive to the order:
+// both reduce the two orderings to the same answer, so only buildPath's
+// emission had to change when the ordering flipped.
 
 export type VersionState = 'current' | 'archived' | 'alpha';
 
@@ -92,13 +95,15 @@ export function pageExists(
 /**
  * The URL the site actually serves for this page in `target`:
  *
- *   /<version>/<locale>/<rest>.html   when target is not the current release
+ *   /<locale>/<version>/<rest>.html   when target is not the current release
  *   /<locale>/<rest>.html             when it is
  *
- * Do not substitute @viteplus/versions' own buildVersionPath here. It emits
- * /<locale>/<version>/<rest>, which this site does not serve: measured,
- * /zh/v6.2.4/guide/introduction.html returns 404 while
- * /v6.2.4/zh/guide/introduction.html returns 200 (04-RESEARCH.md finding 4).
+ * The locale segment comes first. It used to come second, because the site
+ * served /<version>/<locale>/<rest> — a shape produced by `link: '/zh/'` in
+ * locale.zh.mts, which stopped @viteplus/versions from recognising `zh` as a
+ * language at all. With that line removed the plugin emits the locale first,
+ * matching the locale keys it generates internally, and this function has to
+ * agree with it: a link built the old way now 404s.
  *
  * The .html suffix is required rather than cosmetic: cleanUrls is not set in
  * .vitepress/config.mts, so every link already present in the built output
@@ -121,7 +126,7 @@ export function buildPath(
     rest = rest.slice(0, -'index'.length).replace(/\/$/, '');
   }
 
-  const base = '/' + [target === current ? '' : target, locale, rest].filter(Boolean).join('/');
+  const base = '/' + [locale, target === current ? '' : target, rest].filter(Boolean).join('/');
 
   if (!isIndex) return base + '.html';
   return base.endsWith('/') ? base : base + '/';
