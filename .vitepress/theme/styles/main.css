@@ -61,29 +61,40 @@
 
    .vitepress/theme/components/VersionNoticeBar.vue measures its own height on
    mount and writes it to document.documentElement, which overrides everything
-   here. The two static values below exist only to remove the single frame
-   between server-rendered markup and that first measurement. They are the
-   upper bound of this component's own measured heights, taken from the built
-   preview in headless Chromium.
+   here. The four static values below exist only to remove the single frame
+   between server-rendered markup and that first measurement. Each one is the
+   upper bound of this component's own measured heights over the band it covers,
+   taken from the built preview in headless Chromium.
 
-   RE-MEASURED 2026-09-04, second pass, after the close control was added on
-   maintainer request. Sampled all four page/locale combinations (archived EN,
-   archived ZH, alpha EN, alpha ZH) across every width in {320,340,360,375,400,
-   430,460,500,550,600,650,700,730,750,767,768,800,850,900,940,955,959,960,
-   1000,1019,1020,1280,1440}, then verified as first-frame overlap with script
-   execution disabled, comparing the bar's bottom edge against .VPNav's top edge
-   at 18 widths on each of the four combinations.
+   MEASUREMENT OF RECORD, 2026-09-04. One sweep stands behind all four values,
+   and which reading supports which value is tabulated once, immediately above
+   the rules. Method: 35 widths {200,220,240,250,260,280,300,320,339,340,360,
+   375,390,414,430,500,550,599,600,650,700,730,750,767,768,800,850,900,959,960,
+   1000,1019,1020,1280,1440} crossed with four page/locale combinations
+   (archived-EN, archived-ZH, alpha-EN, alpha-ZH) and both scrollbar models —
+   280 readings. Script execution is disabled, because the static fallback is
+   what the first frame actually renders before the ResizeObserver corrects it.
+   Every reading asserts the page is styled before it counts
+   (--vp-layout-top-height non-empty AND .VPNav's computed position not static)
+   and that the requested viewport width was honoured, after an earlier pass in
+   this phase reported a clean result off an unstyled page served by a stale
+   preview. Result: the two scrollbar models agree at all 140 width/combination
+   pairs, and first-frame overlap is 0 at every width at or above the 240px
+   floor named below.
 
-   That pass corrected the previous one, which is why the band count went from
-   three to two. The previous note claimed "the archived-EN sentence is the
-   tallest below 960px" and put the alpha states at 101px across the same low
-   end. Measured on the pre-change build, alpha-EN is 143px at 320px and 122px
-   as far out as 550px — taller than archived-EN everywhere below 600px. The
-   alpha bar carries a third row the archived bar does not (the commit and
+   A second, narrower probe — {100,120,140,160,180,190,200,210,220,230,240,260,
+   280,300,320,339} on the same four combinations, 64 readings — exists only to
+   locate the narrow end of the first band. What it found is in that band's note.
+
+   This block is the only record of why these four numbers are what they are,
+   and it has been wrong before. A previous revision claimed "the archived-EN
+   sentence is the tallest below 960px" and put the alpha states at 101px across
+   the same low end. Measured, alpha-EN drives every band below 599px: the alpha
+   bar carries a third row the archived bar does not (the commit and
    injection-time metadata) and its English sentence is the longest copy in the
-   bar, so alpha-EN, not archived-EN, drives this band. Against the 104px then
-   reserved, that produced eight first-frame overlaps across 72 width/state
-   combinations on the build before this change.
+   bar. Against the 104px then reserved, that one stale sentence cost eight
+   first-frame overlaps. Re-measure and rewrite this block in the same change,
+   or it will happen again.
 
    :has() support is the assumption — a browser without it degrades to one frame
    of overlap on an archived or alpha page, not to a broken page, and never
@@ -107,48 +118,54 @@
    defect Bootstrap and Tailwind avoid by writing .98px max-widths; stating the
    bands one-sided avoids it without carrying the fudge factor.
 
-   <340px. Was 104px across the whole sub-960 range. Two separate corrections
-   First, the close control adds one wrapped line to the tallest state at the
-   narrow end. Second, and independently of anything the control did, 104px was
-   already too small: it was derived from archived-EN's 104px two-line wrap and
-   recorded the alpha states as "101px over the same low end", but the alpha bar
-   carries a third row (the commit-and-injection metadata) and its English
-   sentence is the longest copy in the bar. Re-measured across
-   {320,360,375,430,500,600,650,700,768,850,900,959} on both locales and both
-   states, alpha-EN measured 143px at 320px BEFORE this change, against the
-   104px reserved — eight of 72 width/state combinations overlapped on the first
-   frame on the pre-change build. Re-measured 2026-09-04 after the commit line was allowed to wrap
-   below 960px (it previously scrolled inside itself and, at <=345px, could not
-   be read without dragging that one line sideways). Wrapping also removed a
-   platform-dependent height: while the row overflowed it grew by a 15px
-   horizontal scrollbar on classic-scrollbar platforms and by 0px on
-   overlay-scrollbar ones, so the same bar measured 179px on a desktop and 164px
-   on a phone. Both now read 182px.
+   Per-band evidence. Each reserve is the maximum height measured anywhere in
+   the band it covers, so each is tight rather than padded. The driving
+   combination is named because it is not the same one throughout.
 
-   One band became three because a single value costs too much elsewhere:
-   alpha-EN spikes to 182px only at 320px, and reserving that across the whole
-   sub-960 range would leave 81px of first-frame blank at 768-959px, where the
-   tallest state is 101px. Per-width maxima behind the three values below
-   (script execution disabled, both scrollbar models agreeing, 56 width/state
-   combinations): 182 at 320; 143 at 340-390; 122 at 414-550; 104 at 600-700;
-   101 at 768-959. Over-reservation now peaks at 21px (414-550 measured against
-   the 340-599 band) and first-frame overlap is 0.
+     band      reserve  binding maximum, and the rest of the band
+     <340px    203px    203 at 240-280   (182 at 300-320, 161 at 339)  alpha-EN
+     >=340px   143px    143 at 340-390   (122 at 414-550, 104 at 599)  alpha-EN
+     >=600px   104px    104 at 600-700   (101 at 730-959)          archived-EN
+     >=960px   101px    101 at 960-1020  (83 at 1280-1440)             alpha-EN
 
-   The narrowest band was 182px, which was the height measured at 320px -- 19px
-   inside a band that extends to zero. Bar height is monotonically non-increasing
-   in width, so a band's maximum sits at its NARROW end, and every width below
-   320px was reserving less than it needed. Re-measured down to 100px: 203 at
-   240-280, 224 at 220-230, 284 at 190-200, and no plateau at all below that
-   (1202px at a 100px viewport). No single value bounds this band, so the band
-   declares a floor instead of pretending to one.
+   701-767px used to be missing from that table, and it was the one gap worth
+   closing: it straddles VitePress's own 768px nav breakpoint, the only place in
+   the range where a non-monotone step would be plausible. Measured, there is no
+   step. archived-EN falls from 104px at 700 to 83px at 730, alpha-EN holds
+   101px from 730 out to 1020, and every combination reads the same at 767 as at
+   768. The nav breakpoint does not move this bar's height, so the >=600px band
+   really is bounded by its own narrow end.
 
-   Floor is 240px and the reserve is the 203px measured there. Below 240px the
+   The >=960px reserve was 83px under an earlier split that also carried a
+   separate 960-1019px branch at 101px. The close control takes 24px plus a 16px
+   gap out of the text column, which moved the English alpha sentence's unwrap
+   boundary out past 1020px; alpha-EN then measured 101px at 1020px where it had
+   measured 80px, the two branches converged on one number, and the narrower of
+   them stopped saying anything the wider one did not.
+
+   The <340px band reserved 182px until this change, which was the height at
+   320px — 19px inside a band that extends to zero. Bar height is monotonically
+   non-increasing in width, so a band's maximum sits at its NARROW end, and
+   every width below 320px was reserving less than it needed. The narrow probe
+   found no plateau to stop at: 203 at 240-280, 224 at 220-230, 284 at 190-200,
+   and 1202px at a 100px viewport. No single value bounds a band that extends to
+   zero, so this one declares a floor instead of pretending to one.
+
+   Floor is 240px and the reserve is the 203px measured there; below 240px the
    reserve is knowingly short. 240px sits under the narrowest viewport that
-   ships -- the Galaxy Fold cover display reports 280px -- and under a 375px
-   phone at 150% zoom, which lays out at 250px. It is also below VitePress's own
+   ships — the Galaxy Fold cover display reports 280px — and under a 375px phone
+   at 150% zoom, which lays out at 250px. It is also below VitePress's own
    floor: .VPNav's scrollWidth stops tracking the viewport at 320px and pins
-   there, so under 320px the site's chrome is already wider than the screen and
-   one frame of notice-bar overlap is not the defect a reader meets first. */
+   there, so under 320px the site's chrome is already wider than the screen, and
+   one frame of notice-bar overlap is not the defect a reader meets first.
+
+   Over-reservation is what four bands cost instead of nine, and it is the right
+   way round to be wrong: reserving too much costs one frame of blank strip,
+   reserving too little costs one frame of the bar sitting on the nav. It peaks
+   at 99px (280px, archived-ZH), then 60px (500px, archived-ZH), 24px (730px,
+   alpha-ZH), 21px (1280px, alpha-EN). The bands are not split further because
+   every extra band is another number this comment has to keep true, and this
+   comment falling behind the rules is a defect this file has already shipped. */
 html:has(.VersionNoticeBar) {
     --vp-layout-top-height: 203px;
 }
@@ -165,16 +182,6 @@ html:has(.VersionNoticeBar) {
     }
 }
 
-/* >=960px. Was 83px, under a three-band split that also carried a separate
-   960-1019px branch at 101px. Re-measured after the close control was added
-   (2026-09-04): the control takes 24px plus a 16px gap out of the text column,
-   which moves the English alpha sentence's unwrap boundary up from 1020px to
-   somewhere between 1020px and 1280px. The alpha-EN bar therefore now measures
-   101px at 1020px, where it previously measured 80px, so the >=1020px branch
-   and the 960-1019px branch converged on the same number and the third band
-   stopped saying anything the first did not. Measured maxima behind this one
-   value: 101px at 960/1000/1019/1020 (alpha-EN), 83px at 1280/1440
-   (archived-EN and archived-ZH, byte-identical). */
 @media (min-width: 960px) {
     html:has(.VersionNoticeBar) {
         --vp-layout-top-height: 101px;
