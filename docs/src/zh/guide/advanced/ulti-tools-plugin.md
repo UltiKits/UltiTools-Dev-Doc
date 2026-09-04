@@ -9,7 +9,7 @@
 ::: danger v6.3.0 起已移除
 `getVersionWrapper()` 及其返回的 `VersionWrapper` 接口已在 v6.3.0 中被彻底删除，连同 `DefaultVersionWrapper` 一起。
 v6.3.0 的 jar 里两者都不存在，下方的方法列表已相应移除该行。
-请改用 `XVersionUtils` 的静态方法——历史映射关系见 [`VersionWrapper`](/zh/api/version-wrapper)。
+请改用 `XVersionUtils` 的静态方法——历史映射关系见 [`VersionWrapper`](/api/) 所在的 Javadoc。
 :::
 
 # 类 `UltiToolsPlugin`

@@ -9,7 +9,7 @@ See the [Javadoc](/api/) for the current API surface.
 ::: danger Removed in v6.3.0
 `getVersionWrapper()` and `VersionWrapper` were deleted outright in v6.3.0, along with `DefaultVersionWrapper`.
 Neither exists in the jar; the method rows below have been removed to match.
-Use `XVersionUtils`'s static methods instead — see [`VersionWrapper`](/api/version-wrapper) for the mapping.
+Use `XVersionUtils`'s static methods instead — see [`VersionWrapper`](/api/) in the Javadoc for the mapping.
 :::
 
 # 类 `UltiToolsPlugin`
