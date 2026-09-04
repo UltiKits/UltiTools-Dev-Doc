@@ -180,3 +180,9 @@ examples-snapshot/
 # decide whether alpha has moved since the last injection. Must NOT be
 # committed for the same reason as docs/archive/v6.3.0-SNAPSHOT/ above.
 docs/public/snapshot-status.json
+
+# Generated at build time by scripts/generate-version-pages.mjs (npm run build
+# and npm run dev, always — same as sidebar-snapshot.generated.mjs above).
+# Must NOT be committed: a committed copy would be byte-identical to a stale
+# run and would silently mask a failed generation instead of failing closed.
+.vitepress/config/version-pages.generated.mjs

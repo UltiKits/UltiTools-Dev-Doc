@@ -24,8 +24,17 @@ import './styles/main.css'
 
 // @ts-ignore
 import vImageViewer from 'vitepress-plugin-image-viewer/lib/vImageViewer.vue';
-// @ts-ignore
-import VersionSwitcher from '@viteplus/versions/components/version-switcher.component.vue'
+// This site's own wrapper (04-03-PLAN.md), not @viteplus/versions' own
+// version-switcher.component.vue — that upstream component's path builder
+// emits a measured-404 shape on this site's Chinese pages and its mobile
+// accordion hardcodes its own label. Registered below under the name
+// 'VersionSwitcher', not the file's own name 'UtVersionSwitcher': nav.en.mts
+// and nav.zh.mts, SecondNavBar.vue's component branch, and VitePress's own
+// VPNavScreenMenu component branch all resolve `component: 'VersionSwitcher'`
+// against this registered global name, so keeping it unchanged means none of
+// those three needed an edit when the import target moved. Do not "fix" this
+// mismatch — it is deliberate.
+import VersionSwitcher from './components/UtVersionSwitcher.vue'
 import Layout from './Layout.vue'
 
 // noinspection JSUnusedGlobalSymbols

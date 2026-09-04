@@ -21,9 +21,10 @@ on:
   # Public-repo caveat (GitHub Actions docs): a scheduled workflow is
   # automatically disabled after 60 days with no repository activity. If
   # that happens here, this cron silently stops firing — there is no GitHub
-  # notification for it. The detection channel is the visible
-  # alphaInjectedAt timestamp banner on the SNAPSHOT homepage (D-43): if
-  # that date stops advancing while alpha itself is still moving, this
+  # notification for it. The detection channel is the version notice bar's
+  # commit-and-injection-time row (D-43), rendered on every page in the
+  # SNAPSHOT tree rather than on four entry pages as before (04-02, D-59):
+  # if that date stops advancing while alpha itself is still moving, this
   # workflow has likely been auto-disabled and needs a manual re-enable
   # (Actions tab -> this workflow -> "Enable workflow") or a
   # workflow_dispatch run to confirm.

@@ -208,32 +208,42 @@ grep -qi 'name="robots"[[:space:]]*content="noindex"' "$INTRO_EN_FILE" || r=1
 record "6 SNAPSHOT 页面含 noindex meta 标签" "$([ "$r" -eq 0 ] && echo '命中' || echo '未命中')" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 7. 中英两个版本首页分别含 Unreleased documentation / 未发布内容
+# 7. 中英两个版本首页分别渲染出提示条的 alpha 态（04-02，D-59：接管此前
+#    inject-alpha.mjs 注入的 ::: warning 块，该块本轮已删除）。同时要求
+#    marker 属性与文案片段两者都在——marker 单独出现无法排除组件渲染了空
+#    文案，文案片段单独出现无法排除命中的是别的无关页面；两者都取自
+#    04-UI-SPEC.md § Copywriting Contract 的 alpha row-1（VersionNoticeBar.vue
+#    的 stateSentence，不含动态版本号那半，因此断言稳定）。
 # ─────────────────────────────────────────────────────────────────────────────
 url_home_en="$BASE_URL/v6.3.0-SNAPSHOT/"
 fetch "$url_home_en"
 r=0
 [ "$HTTP_STATUS" = "200" ] || r=1
-grep -q 'Unreleased documentation' "$BODY_FILE" || r=1
-record "7a SNAPSHOT 首页（英）含未发布提示" "status=$HTTP_STATUS" "$r"
+grep -q 'data-ut-version-state="alpha"' "$BODY_FILE" || r=1
+grep -q 'This page describes the alpha branch and may change at any time' "$BODY_FILE" || r=1
+record "7a SNAPSHOT 首页（英）含提示条 alpha 态" "status=$HTTP_STATUS" "$r"
 
 url_home_zh="$BASE_URL/v6.3.0-SNAPSHOT/zh/"
 fetch "$url_home_zh"
 r=0
 [ "$HTTP_STATUS" = "200" ] || r=1
-grep -q '未发布内容' "$BODY_FILE" || r=1
-record "7b SNAPSHOT 首页（中）含未发布提示" "status=$HTTP_STATUS" "$r"
+grep -q 'data-ut-version-state="alpha"' "$BODY_FILE" || r=1
+grep -q '本页内容来自 alpha 分支，随时可能变更，不属于任何已发布版本' "$BODY_FILE" || r=1
+record "7b SNAPSHOT 首页（中）含提示条 alpha 态" "status=$HTTP_STATUS" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 8. guide/introduction 页面（复用第 1/2 条已取回的 HTML）同样含未发布提示
+# 8. guide/introduction 页面（复用第 1/2 条已取回的 HTML）同样含提示条的
+#    alpha 态 marker 与文案片段
 # ─────────────────────────────────────────────────────────────────────────────
 r=0
-grep -q 'Unreleased documentation' "$INTRO_EN_FILE" || r=1
-record "8a SNAPSHOT guide/introduction（英）含未发布提示" "$([ "$r" -eq 0 ] && echo '命中' || echo '未命中')" "$r"
+grep -q 'data-ut-version-state="alpha"' "$INTRO_EN_FILE" || r=1
+grep -q 'This page describes the alpha branch and may change at any time' "$INTRO_EN_FILE" || r=1
+record "8a SNAPSHOT guide/introduction（英）含提示条 alpha 态" "$([ "$r" -eq 0 ] && echo '命中' || echo '未命中')" "$r"
 
 r=0
-grep -q '未发布内容' "$INTRO_ZH_FILE" || r=1
-record "8b SNAPSHOT guide/introduction（中）含未发布提示" "$([ "$r" -eq 0 ] && echo '命中' || echo '未命中')" "$r"
+grep -q 'data-ut-version-state="alpha"' "$INTRO_ZH_FILE" || r=1
+grep -q '本页内容来自 alpha 分支，随时可能变更，不属于任何已发布版本' "$INTRO_ZH_FILE" || r=1
+record "8b SNAPSHOT guide/introduction（中）含提示条 alpha 态" "$([ "$r" -eq 0 ] && echo '命中' || echo '未命中')" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 9. /snapshot-status.json 返回 200，且 commit 字段匹配 40 位十六进制
@@ -266,14 +276,44 @@ record "11 对照组：已发布归档版本不含 noindex" "status=$HTTP_STATUS
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 12. 对照组：/guide/introduction（latest）返回 200，不含 noindex，也不含
-#     Unreleased documentation——证明注入没有溢出到 latest
+#     提示条的任何状态 marker 或 alpha 行文案——证明这套机制没有溢出到
+#     latest。
+#
+#     ⚠ D-59 之后这条不再是「注入溢出」方向的完整哨兵。旧的字面量检查之所以
+#     是有效代理，是因为当时只有被注入的 markdown 才会产出那个字符串；提示
+#     条上线后，状态由 URL 路径推导（versioning.ts 的 activeVersion 读
+#     relativePath，不读 frontmatter），所以一个被误注入到 latest 的页面
+#     仍会被分类成 current release、渲染不出任何节点——这条断言测不出那种
+#     误注入。接手这个方向的是 build-with-alpha job 里注入后对
+#     `git status --porcelain -- docs/src docs/archive` 的产物断言
+#     （check-rendered-links.sh 第 7 节，由 04-05 落在 docs-ci.yml 里）。
+#
+#     ⚠ 那不是同一个观测面，不要读成「这个方向已经被完整覆盖了」：第 7 节看的是
+#     CI 工作树，本条看的是 Cloudflare Pages 实际服务出来的响应，而本仓库只有
+#     本条看后者。任何不改动 CI runner 上源码树就能到达已部署 latest 页面的东西
+#     ——构建后往 .vitepress/dist/guide/ 里的拷贝、一次路由或 _redirects 改动、
+#     一份陈旧的 Pages 产物——两条都观测不到。
+#
+#     内容层面的溢出在已部署 HTML 上没有可靠字面量可抓：状态由 URL 推导，而
+#     alphaCommit / alphaInjectedAt 这两个 frontmatter 键实测在渲染产物里零命中
+#     （SNAPSHOT 页面自己也是 0，见 04-REVIEW-FIX），所以对它们写一条零命中断言
+#     只会得到一条永远不会变红、也配不出正控制的假门禁。本条因此只断言它真能
+#     断言的那一半：当前发布版页面上不存在任何未发布信号。这个零命中不是孤立的
+#     ——第 7a/7b/8a/8b 条已在同一次运行里、同一个已部署站点上，四次证明
+#     data-ut-version-state 这个 marker 在这个观测通道里是抓得到的。
+#
+#     __VP_SITE_DATA__ 是本条自己的正向对照——每个构建产物页面都会内嵌它，
+#     缺失说明抓取失败或响应被截断，否则下面两条零命中的断言会在这种情况
+#     下同样报 PASS，而不是因为页面真的干净。
 # ─────────────────────────────────────────────────────────────────────────────
 fetch "$BASE_URL/guide/introduction"
 r=0
 [ "$HTTP_STATUS" = "200" ] || r=1
+grep -q '__VP_SITE_DATA__' "$BODY_FILE" || r=1
 grep -qi 'name="robots"[[:space:]]*content="noindex"' "$BODY_FILE" && r=1
-grep -q 'Unreleased documentation' "$BODY_FILE" && r=1
-record "12 对照组：latest 不含 noindex 也不含未发布提示" "status=$HTTP_STATUS" "$r"
+grep -q 'data-ut-version-state=' "$BODY_FILE" && r=1
+grep -q 'This page describes the alpha branch and may change at any time' "$BODY_FILE" && r=1
+record "12 对照组：latest 不含 noindex 也不含提示条未发布信号" "status=$HTTP_STATUS" "$r"
 
 echo
 if [ "$status" -eq 0 ]; then

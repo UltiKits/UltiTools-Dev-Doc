@@ -30,6 +30,28 @@ const navEN = [
         text: 'User Doc',
         link: 'https://doc.ultikits.com',
         skipVersioning: true
+    },
+    // No link, no activeMatch, no versioningPlugin prop supplied by hand:
+    // @viteplus/versions' populateNav step auto-merges
+    // props.versioningPlugin = { versions, currentVersion } into any nav item
+    // carrying a component key (04-UI-SPEC.md § Version Switcher Contract).
+    // Supplying that prop here would duplicate a build-time value and let the
+    // two drift. Rendered by SecondNavBar.vue on desktop and by VitePress's
+    // own VPNavScreenMenu on mobile from this one entry — see
+    // theme/index.mts for why the registered name is 'VersionSwitcher', not
+    // 'UtVersionSwitcher'.
+    //
+    // Server-rendered TWICE per page, not once. Both consumers iterate
+    // theme.nav and render a component branch: VitePress's own
+    // VPNavBarMenu.vue:21-25 as well as SecondNavBar.vue:82. The second copy
+    // is invisible only because Layout.vue hides
+    // `.VPNavBar .content-body > .VPNavBarMenu.menu` outright — an unrelated
+    // rule that predates the switcher. Removing that rule surfaces a duplicate
+    // flyout in the nav bar. scripts/check-rendered-links.sh asserts the
+    // occurrence count is exactly 2, so a third consumer, or a change to the
+    // hiding rule, is visible rather than silent.
+    {
+        component: 'VersionSwitcher'
     }
 ]
 

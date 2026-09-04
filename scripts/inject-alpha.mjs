@@ -523,71 +523,6 @@ for (const file of mdFiles) {
   frontmatterProcessedCount += 1;
 }
 
-// ── 7. Unreleased-documentation banner on the four entry pages ─────────────
-// Exactly four: the two literal locale homepages D-43 names, plus the two
-// guide/introduction.md pages — the sidebar's actual first entry and the
-// javadoc backlink's target, which is a more reliable freshness-detection
-// surface than index.md alone (layout: home renders the container block
-// below the hero/feature grid, not at the top of the viewport).
-const ENTRY_PAGES = [
-  { rel: 'index.md', lang: 'en' },
-  { rel: path.join('zh', 'index.md'), lang: 'zh' },
-  { rel: path.join('guide', 'introduction.md'), lang: 'en' },
-  { rel: path.join('zh', 'guide', 'introduction.md'), lang: 'zh' },
-];
-
-const shortSha = commitSha.slice(0, 7);
-
-// Title + 2 sentences of body, 3 lines total — inside AGENTS.md's 3-line
-// container-block ceiling (check-container-length.sh does not scan injected
-// output, but the convention still applies, per 03-CONTEXT.md D-43). The
-// literal strings "Unreleased documentation" / "未发布内容" are the exact
-// keywords later preview/verify steps grep for.
-function warningBanner(lang) {
-  const lines = lang === 'zh'
-    ? [
-        '::: warning 未发布内容',
-        '本页内容来自 alpha 分支，随时可能变更，不属于任何已发布版本。',
-        `本次注入来源 commit \`${shortSha}\`，注入时间 ${INJECTED_AT}。`,
-        ':::',
-      ]
-    : [
-        '::: warning Unreleased documentation',
-        'This page describes the alpha branch and may change at any time; it is not part of any released version.',
-        `Injected from commit \`${shortSha}\` at ${INJECTED_AT}.`,
-        ':::',
-      ];
-  return lines.join('\n');
-}
-
-const missingEntryPages = [];
-let bannerInsertedCount = 0;
-for (const { rel, lang } of ENTRY_PAGES) {
-  const filePath = path.join(ARCHIVE_DEST, rel);
-  if (!existsSync(filePath)) {
-    missingEntryPages.push(rel);
-    continue;
-  }
-  const content = readFileSync(filePath, 'utf-8');
-  const parsed = parseFrontmatter(content);
-  const banner = warningBanner(lang);
-  const newContent = parsed
-    ? `${parsed.raw}${banner}\n\n${parsed.rest}`
-    : `${banner}\n\n${content}`;
-  writeFileSync(filePath, newContent);
-  bannerInsertedCount += 1;
-}
-// Fail closed rather than silently insert fewer than four: these four paths
-// exist on alpha today, so a miss means alpha's directory layout changed
-// underneath this script (03-02-PLAN.md Task 1) — not something to paper
-// over with a partial banner set.
-if (missingEntryPages.length > 0) {
-  fail(`entry page(s) not found for unreleased-documentation banner: ${missingEntryPages.join(', ')}`);
-}
-if (bannerInsertedCount !== 4) {
-  fail(`expected exactly 4 unreleased-documentation banners, inserted ${bannerInsertedCount}`);
-}
-
 // ── 8. docs/public/snapshot-status.json ─────────────────────────────────────
 // docs/public/ is copied verbatim to the deployed site root (docs/public/
 // _redirects is the existing live proof of that path), so this becomes
@@ -623,6 +558,5 @@ console.log(
   `rewrote ${replacedCount} snippet reference(s) across ${touchedFiles} file(s), ` +
   `rewrote ${bodyLinkRewriteCount} absolute body link(s), ` +
   `frontmatter metadata on ${frontmatterProcessedCount} file(s), ` +
-  `${bannerInsertedCount} unreleased-documentation banner(s), ` +
   `commit ${commitSha.slice(0, 7)}, snapshot-status.json written`
 );

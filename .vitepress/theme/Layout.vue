@@ -3,6 +3,8 @@ import DefaultTheme from 'vitepress/theme'
 import { inBrowser, useData, useRoute } from 'vitepress'
 import { watchEffect, nextTick, watch, onMounted, onUnmounted } from 'vue'
 // @ts-ignore
+import VersionNoticeBar from './components/VersionNoticeBar.vue'
+// @ts-ignore
 import SecondNavBar from './components/SecondNavBar.vue'
 // @ts-ignore
 import SidebarTranslations from './components/SidebarTranslations.vue'
@@ -250,6 +252,7 @@ watchEffect(() => {
             </div>
         </template>
         <template #layout-top>
+            <VersionNoticeBar />
             <SecondNavBar />
             <NolebaseHighlightTargetedHeading />
         </template>
@@ -317,10 +320,22 @@ watchEffect(() => {
 
 /* 圆角矩形容器包裹 VPDoc 下的 container */
 .VPDoc {
-    height: calc(100vh - var(--vp-nav-height));
+    height: calc(100vh - var(--vp-nav-height) - var(--vp-layout-top-height, 0px));
     overflow: hidden;
     padding: 20px !important;
-    padding-top: 64px !important;
+    /* Was a literal 64px: the tab row's own height (48px) plus a 16px gap
+       below it. At and above 960px the variable is 48px and this yields the
+       same 64px the literal produced, now named instead of repeated.
+
+       Below 960px the variable is 0px, so the expression would yield 16px —
+       but it never applies there. The mobile block near the end of this
+       stylesheet sets `.VPDoc { padding: 0 !important }`, same specificity
+       and later in source order, so it wins under `@media (max-width:
+       959px)` and the computed padding-top below 960px is 0px, both before
+       and after this change. Measured in headless Chromium over CDP: 0px at
+       375 and 768, 64px at 1024, 1280 and 1440 — identical to master at all
+       five. */
+    padding-top: calc(var(--ut-tabbar-height) + 16px) !important;
     box-sizing: border-box;
 }
 
@@ -343,9 +358,16 @@ watchEffect(() => {
 
 /* 修改 Aside 定位，使其包含在容器内 */
 .VPDoc .aside-container {
-    top: 128px !important;
+    /* Was the notice-bar variable plus a literal 128. The main nav height
+       plus the tab row height plus a 16px gap: 64 + 48 + 16 = 128, the same
+       value the literal produced. */
+    top: calc(var(--vp-layout-top-height, 0px) + var(--vp-nav-height) + var(--ut-tabbar-height) + 16px) !important;
     padding-top: 0 !important;
-    max-height: calc(100vh - var(--vp-nav-height) - 84px) !important;
+    /* Was a literal 84 subtrahend, with no traceable origin. It decomposes
+       into the tab row height, the same 16px gap used in the sibling top
+       offset above, and this repository's own 20px .VPDoc padding:
+       48 + 16 + 20 = 84, the same value the literal produced. */
+    max-height: calc(100vh - var(--vp-nav-height) - var(--vp-layout-top-height, 0px) - var(--ut-tabbar-height) - 16px - 20px) !important;
     overflow-y: auto !important;
 }
 
@@ -413,7 +435,7 @@ watchEffect(() => {
 
 .VPSidebar>.nav {
     /* 确保 nav 至少占满可视高度，减去 top padding */
-    min-height: calc(100vh - var(--vp-nav-height) - 32px);
+    min-height: calc(100vh - var(--vp-nav-height) - var(--vp-layout-top-height, 0px) - 32px);
     display: flex;
     flex-direction: column;
 }
