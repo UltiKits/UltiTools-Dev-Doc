@@ -332,6 +332,19 @@ fi
 # The two locale labels are counted separately and required to sum to the total.
 # A single "at least one aria-label" assertion would pass a regression that
 # wired only English, which is the shape a bilingual site actually regresses in.
+#
+# What the count equality does and does not prove (second-pass review, 2026-09-04).
+# It counts the attribute across all of dist and compares against the bar count;
+# it does not assert the control sits INSIDE the bar. That is deliberate. The
+# realistic form of that regression -- the button moved out of the template's
+# root element -- is already caught here, because the root element is the
+# v-if: a button outside it renders on every page including the current release,
+# where no bar exists, so dismiss_total exceeds bars_total and this section
+# fails. The only variant that slips through is a button deliberately wrapped in
+# a second v-if="visible" beside the bar, which no refactor produces by
+# accident. A containment assertion written in grep would have to hard-code
+# attribute order and Vue's scoped-style data attributes, and a gate that goes
+# red on a harmless markup reshuffle costs more than the case it guards.
 
 echo "3c. 提示条的关闭控件（2026-09-04 维护者要求追加）"
 

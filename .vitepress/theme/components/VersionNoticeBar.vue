@@ -338,10 +338,26 @@ watch([visible, state], ([isVisible]) => {
     color: var(--vp-c-text-1);
 }
 
-/* min-width: 0 is load-bearing, not defensive: without it this flex item takes
-   its max-content width as its floor, so .notice-meta's nowrap commit line
-   would push the bar wider than the viewport instead of scrolling inside its
-   own overflow-x: auto. */
+/* Without min-width: 0 a flex item takes its max-content width as its floor, so
+   any non-wrapping content in this column pushes the bar wider than the
+   viewport instead of being contained by it.
+
+   As the component currently stands nothing triggers that, and the previous
+   version of this comment claimed otherwise. It justified the declaration by
+   .notice-meta's nowrap commit line "scrolling inside its own overflow-x: auto",
+   which stopped being true when that line was allowed to wrap below 960px; at
+   960px and above the line fits the column outright. Measured at 320, 375, 600,
+   959, 960 and 1440: forcing min-width: auto changes neither the column width
+   nor the bar's overflow anywhere.
+
+   Kept anyway, and kept with a control rather than on faith. Restoring nowrap on
+   .notice-meta while min-width is auto grows the column from 248px to 267px on
+   alpha-EN and to 311px on alpha-ZH at a 320px viewport, overflowing the bar by
+   3px and 47px; putting min-width: 0 back collapses both to 248px and 0px. So
+   the declaration still does exactly what it says -- it is the guard, and the
+   wrap is what currently keeps the guard idle. Anything added to this column
+   that cannot wrap (a nowrap row, a long unbroken token, a preformatted span)
+   makes it load-bearing again without further change. */
 .notice-content {
     flex: 1;
     min-width: 0;
