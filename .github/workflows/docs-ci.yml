@@ -50,6 +50,15 @@ jobs:
       - name: Assert rendered version-state notice bar, switcher links and active-version markers (clean side)
         run: bash scripts/check-rendered-links.sh --clean
 
+      # 同样折进这个既有 job：一个新 job 需要重新 checkout + npm ci + 完整
+      # build 才能跑这一把断言，而 .vitepress/dist 在这一步之前已经由本 job
+      # 产出。这一步只跑零参数模式（CI 无可用的部署 URL），断言 dist/sw.js
+      # 是自毁 rescue worker 而非 workbox precache worker——文件名或 scope
+      # 一旦改动，整次发布对已装旧 worker 的读者作废，且这件事在本地无从
+      # 发现（05-RESEARCH.md § Pitfall 3）。
+      - name: Assert sw.js is the self-destroying rescue worker (CACHE-02)
+        run: bash scripts/verify-sw.sh
+
   bilingual-parity:
     name: Bilingual page tree and sidebar coverage
     runs-on: ubuntu-latest
