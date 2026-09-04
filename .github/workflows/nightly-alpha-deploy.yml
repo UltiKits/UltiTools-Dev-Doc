@@ -1,0 +1,159 @@
+name: Nightly alpha deploy
+
+# Only schedule + workflow_dispatch — deliberately no `push`.
+#
+# A push trigger runs the copy of this workflow file that lives on the
+# pushed branch (GitHub Actions events-that-trigger-workflows docs). To
+# react to alpha commits via push, this file would have to exist on `alpha`
+# itself. But every site-class PR in this repository bases off `master`
+# (git.base_branch), and a workflow living only on `alpha` triggering off
+# `alpha` pushes while being reviewed/merged through a `master`-based PR
+# would make this a cross-branch change (D-50). `schedule`-triggered
+# workflows always run the copy on the repository's default branch — which
+# is `master` here — so keeping this nightly on `schedule` lets the whole
+# of Phase 3 land in one PR into `master`, with `alpha` untouched.
+on:
+  # Cron deliberately avoids the top and half of the hour: GitHub's own docs
+  # state those are the busiest, highest-queue-delay times for scheduled
+  # workflows. 19:37 UTC is also 03:37 in the maintainer's timezone
+  # (Asia/Shanghai) — off-peak on both sides of this decision.
+  #
+  # Public-repo caveat (GitHub Actions docs): a scheduled workflow is
+  # automatically disabled after 60 days with no repository activity. If
+  # that happens here, this cron silently stops firing — there is no GitHub
+  # notification for it. The detection channel is the version notice bar's
+  # commit-and-injection-time row (D-43), rendered on every page in the
+  # SNAPSHOT tree rather than on four entry pages as before (04-02, D-59):
+  # if that date stops advancing while alpha itself is still moving, this
+  # workflow has likely been auto-disabled and needs a manual re-enable
+  # (Actions tab -> this workflow -> "Enable workflow") or a
+  # workflow_dispatch run to confirm.
+  schedule:
+    - cron: '37 19 * * *'
+  # Manual entry point for testing this workflow and for forcing an
+  # immediate redeploy without waiting for the next cron tick.
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '跳过去抖（alpha 与已注入 commit 相同也强制触发）'
+        required: false
+        default: false
+        type: boolean
+
+# Single fixed group: both triggers (schedule, workflow_dispatch) must
+# queue behind each other, never run concurrently, and never cancel one
+# another. cancel-in-progress stays false on purpose — a cancelled run
+# might already have POSTed the Deploy Hook to Cloudflare before GitHub
+# tears down the runner, leaving this side unable to tell whether the
+# trigger landed or not. A queued duplicate run is cheap (it just re-reads
+# snapshot-status.json and may no-op); a cancelled-mid-POST run is not.
+concurrency:
+  group: nightly-alpha-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Trigger Cloudflare Pages rebuild when alpha has moved
+    runs-on: ubuntu-latest
+    # contents: read is all this job needs — it never runs a repository
+    # checkout step (see below), so there is no working tree to read
+    # either; the read scope only covers the implicit repo-metadata access
+    # the runner token always carries.
+    permissions:
+      contents: read
+    steps:
+      # No repository checkout step: `git ls-remote` works against a bare
+      # remote URL and needs no local working tree. Skipping it means no
+      # credentials are ever written to a local .git/config on this
+      # runner — same posture as docs-ci.yml's persist-credentials: false,
+      # taken one step further since there is nothing to check out at all.
+      - name: Resolve alpha HEAD via git ls-remote
+        id: alpha-head
+        run: |
+          # git ls-remote against a ref that does not exist returns EMPTY
+          # OUTPUT with EXIT CODE 0 (D-41) — this must be tested by
+          # checking for empty output, never by checking the exit code.
+          sha=$(git ls-remote https://github.com/UltiKits/UltiTools-Dev-Doc.git alpha | cut -f1)
+          if [ -z "$sha" ] || ! printf '%s' "$sha" | grep -qE '^[0-9a-f]{40}$'; then
+            echo "nightly-alpha: alpha ref not found or malformed" >&2
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      # Fail-OPEN direction, the opposite of the step above, and this
+      # asymmetry is intentional: debouncing is purely a build-count
+      # optimization. Letting an unreadable status file permanently wedge
+      # the nightly deploy would be far worse than an occasional redundant
+      # build — the degraded behavior below (trigger unconditionally) caps
+      # out at one build per night, 31/month, well under the Cloudflare
+      # Pages Free plan's 500 builds/month.
+      - name: Read last-injected commit from production snapshot-status.json
+        id: injected
+        run: |
+          body=$(curl -sS --max-time 30 --connect-timeout 10 https://dev.ultikits.com/snapshot-status.json || true)
+          commit=$(printf '%s' "$body" | grep -oE '"commit"[[:space:]]*:[[:space:]]*"[0-9a-f]{40}"' | grep -oE '[0-9a-f]{40}' || true)
+          if [ -z "$commit" ]; then
+            echo "nightly-alpha: snapshot-status unreadable, triggering unconditionally"
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+      - name: Decide whether to trigger a rebuild
+        id: decide
+        # Step outputs and the workflow_dispatch input are passed via env:
+        # rather than interpolated directly into the run: body — same
+        # defense-in-depth posture this file already applies to the Deploy
+        # Hook secret below, even though none of these three values are
+        # externally-untrusted content.
+        env:
+          ALPHA_SHA: ${{ steps.alpha-head.outputs.sha }}
+          INJECTED_COMMIT: ${{ steps.injected.outputs.commit }}
+          FORCE_INPUT: ${{ github.event.inputs.force }}
+        run: |
+          alpha_sha="$ALPHA_SHA"
+          injected_commit="$INJECTED_COMMIT"
+          force="$FORCE_INPUT"
+          if [ -n "$injected_commit" ] && [ "$alpha_sha" = "$injected_commit" ] && [ "$force" != "true" ]; then
+            echo "nightly-alpha: alpha unchanged at ${alpha_sha:0:7}, skipping"
+            echo "trigger=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "trigger=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: POST Cloudflare Pages Deploy Hook
+        if: steps.decide.outputs.trigger == 'true'
+        # The URL is a bearer credential: anyone holding it can trigger
+        # unlimited production rebuilds (Cloudflare's Deploy Hook docs
+        # describe no rate limit, concurrency limit, or queueing
+        # guarantee). It is referenced here only via secrets, only inside
+        # this env: mapping — never interpolated into the run: script body
+        # (D-52).
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.CLOUDFLARE_PAGES_DEPLOY_HOOK_URL }}
+        run: |
+          # Guard first: an unconfigured secret makes this value empty, and
+          # curl-ing an empty URL produces a confusing error instead of a
+          # clear one. This message names the missing secret generically —
+          # it never prints the value the secret would hold, so it
+          # discloses nothing that a verbose request log or a shell trace
+          # would.
+          if [ -z "$DEPLOY_HOOK_URL" ]; then
+            echo "nightly-alpha: Cloudflare Pages deploy hook secret is not configured" >&2
+            exit 1
+          fi
+          # This step deliberately runs no verbose request logging, prints
+          # nothing derived from this value, and enables no shell command
+          # tracing anywhere (D-52): GitHub only masks the complete secret
+          # value in logs — a concatenated or split form of it would leak.
+          code=$(curl -sS -X POST --max-time 30 --connect-timeout 10 -o /dev/null -w '%{http_code}' "$DEPLOY_HOOK_URL")
+          case "$code" in
+            2??)
+              echo "nightly-alpha: deploy hook accepted (status $code)"
+              ;;
+            *)
+              # Non-2xx must fail the job, not be swallowed — a hook that
+              # stops responding is our own infrastructure being broken,
+              # the same posture as D-44's fail-closed build failure.
+              echo "nightly-alpha: deploy hook returned $code" >&2
+              exit 1
+              ;;
+          esac

@@ -1,0 +1,80 @@
+<!--
+  Fixture: javadoc.io versions page, versionId values that a regex with
+  unescaped dots cannot tell apart from the real ones.
+  Same structure as javadoc-io-versions-ok.html with exactly one difference:
+  two versionId checkbox values have their dots replaced by "x" (6.2.4 ->
+  6x2x4, 6.2.3 -> 6x2x3). Both forms, both csrfToken fields, the version
+  table and the four remaining checkboxes are byte-identical.
+
+  This is the shape assertion three-point-two used to miss. It interpolated
+  the requested version straight into an ERE, where each dot is a wildcard,
+  so "6.2.4" matched "6x2x4" and the script believed the checkbox it needed
+  was present. It then skipped the bootstrap path and posted a target that
+  does not exist; the failure is classified transient and retried forever.
+
+  Expected from scripts/javadoc-io-index.sh --check-forms-only --page-file
+  <this file> --version 6.2.4: exit 0 — under --check-forms-only the listing
+  not yet carrying a version is legitimately soft, that is the bootstrap
+  path — but the output MUST carry the bootstrap-needed line, which the
+  normal fixture's output does not. Exit code alone cannot tell these two
+  apart; that line is the whole observable.
+-->
+<div class="container">
+  <p class="text-muted mb-3">28 versions, 1 uploaded</p>
+
+  <form method="post" action="/versions/com.ultikits/UltiTools-API/sync" class="mb-0 mr-2">
+    <input type="hidden" name="csrfToken" value="deadbeef00deadbeef00deadbeef0011-1700000000000-fixturefixturefixturefix1"/>
+    <button type="submit" class="btn btn-sm btn-secondary">Sync</button>
+  </form>
+
+  <table class="table">
+    <tbody>
+      <tr>
+        <td>6.2.5</td>
+        <td><span class="badge badge-success" title="UPLOADED">Available</span></td>
+        <td><a href="/doc/com.ultikits/UltiTools-API/6.2.5">View</a></td>
+      </tr>
+      <tr>
+        <td>6.2.4</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.3</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.2</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.1</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.0</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.1.0</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <form id="versions-upload-form" method="post" action="/versions/com.ultikits/UltiTools-API/upload">
+    <input type="hidden" name="csrfToken" value="deadbeef00deadbeef00deadbeef0011-1700000000000-fixturefixturefixturefix1"/>
+    <input type="checkbox" name="versionId" value="6x2x4" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6x2x3" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.2.2" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.2.1" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.2.0" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.1.0" class="form-check-input ml-1">
+    <button type="submit" class="btn btn-sm btn-primary">Upload selected</button>
+  </form>
+</div>

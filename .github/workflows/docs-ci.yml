@@ -23,7 +23,7 @@ on:
   # No `workflow_dispatch` either — there is no pre-release manual-run use case
   # for a doc-only build/parity gate.
 
-# All three jobs only read the repository, build the site, and run local scripts —
+# All five jobs only read the repository, build the site, and run local scripts —
 # none needs write access, so the default token is narrowed to read-only.
 permissions:
   contents: read
@@ -50,6 +50,14 @@ jobs:
 
       - name: Build site with dead-link checking
         run: npm run build
+
+      # 折进这个既有 job 而不是新开一个（04-RESEARCH.md § Gate 影响与 D-65）：
+      # 独立 job 要重新 npm ci + 完整 build 才能加一把 grep，这个 job 在这一步
+      # 之前已经把产物写进了 .vitepress/dist，多付一次构建换一个断言不划算。
+      # 这一步跑的是干净检出（--clean）那一侧：六个已提交的归档版本，且不含
+      # gitignore 的 v6.3.0-SNAPSHOT。不要把它"整理"成第七个 job。
+      - name: Assert rendered version-state notice bar, switcher links and active-version markers (clean side)
+        run: bash scripts/check-rendered-links.sh --clean
 
   bilingual-parity:
     name: Bilingual page tree and sidebar coverage
@@ -83,3 +91,306 @@ jobs:
         # 不要加 xargs 的 -r：find 无结果时 xargs 仍调用一次命令，检查器的零参数守卫
         # 因此会以非零码退出；加了 -r 就变成静默通过，正是这道门禁要消灭的失效方式。
         run: find docs/src -name '*.md' -print0 | xargs -0 bash scripts/check-container-length.sh
+
+  palette-contrast:
+    # 检查对象：functions/api/_shared/palette.js 的 OVERRIDE_BLOCK —— 追加进
+    # javadoc stylesheet.css 尾部、覆盖 33 个自定义属性的浅深两色表（D-19 至
+    # D-24）。输入是这个 .js 文件本身而不是一份 .css：覆盖块是 Function 里的
+    # 一段模板字符串常量，源码就是唯一的真值来源，它拼接后的渲染产物不进仓
+    # 库、也不在构建产物里，没有第二份可读的东西。
+    #
+    # scripts/fixtures/ 下五份样例的作用：一道新门禁报「零违规」和它其实没
+    # 读到输入，在 CI 日志上看起来一模一样；五份样例分别证明它对一份必然
+    # 达标的输入以 0 退出、对一份只改了一个色值的输入以 1 退出并点名那一
+    # 对、对三份自身出错的输入各以 2 退出，唯有喂给它这样的输入才能把这些
+    # 情况区分开（scripts/check-contrast.py 的头注释有完整推理）。G-02-13
+    # 修复之前，这段注释描述的对照并不存在——job 只跑了检查真实调色板那一
+    # 行，既有 fixture 在 CI 里从未被调用过，读者会以为对照在位。
+    #
+    # violation 样例的断言判的是「恰好等于 1」，不是「非零」：自检失败（2）
+    # 与真实违规（1）在「非零」下无法区分，用非零判定就是把一次自检失败
+    # 误读成「门禁工作正常、只是没发现问题」——这正是 T-02-08 要防的失效
+    # 形状。
+    #
+    # duplicate-marker 样例覆盖的是 check-contrast.py 自检 4：标记字符串不
+    # 唯一时 text.find() 会静默挑中错误的那次出现、把表切歪，而不是报
+    # 错——这个失效形状既无法由 clean 样例的 PASS 条数下界接住，也无法由
+    # 自检 1/2 接住，只能用一份专门构造的输入文件单独证明。
+    #
+    # name-mismatch 样例（G-02-18）覆盖的是自检 2：它现在比的是浅深两表声
+    # 明的名字集合是否相等，而不是数量是否相等。这个场景在 clean 样例上
+    # 构造不出来——clean 的 27 条声明全在 PAIRS 里，改任何一条名字都会先
+    # 撞上自检 1；必须像 name-mismatch 这样，往两表各加一条 PAIRS 不引用
+    # 的声明，才能让「条数相同、名字不同」这个组合成立。这个失效形状也无
+    # 法由 clean 样例的 PASS 条数下界接住——被改名的变量条数不变、PAIRS
+    # 解析结果不变，PASS 仍是 52 条。
+    #
+    # out-of-range 样例（G-02-22）覆盖的是新增的自检 5：某个 rgb() 通道超
+    # 出 0-255。这个失效形状同样无法由别处接住——clean 样例的 PASS 条数
+    # 下界看不见它，因为越界取值仍然照常算出一条 PASS（只是数字不对，不
+    # 是少了一条）；自检 1 也看不见它，因为若越界的是 PAIRS 不引用的变量
+    # （真实门禁里点名的正是 --border-color，六个不被引用的变量之一），
+    # 自检 1 根本不会走到那个名字。只有专门构造一份越界样例、并对真实调
+    # 色板的非 PAIRS 变量做同样的越界改写，才能证明这条自检确实在起作用。
+    #
+    # clean 样例判的是「PASS 条数不少于 52」而不是「恰好等于 52」：这是五
+    # 条自检共同失效形状的兜底之一——被静默跳过的色对不会打印 FAIL，只会
+    # 让 PASS 变少；取下界不取等值，是为了让将来有意新增色对时不必同时改
+    # 这里的数字。
+    #
+    # 六条断言的顺序不是随意的：五份样例跑在真实调色板之前，是为了让「门禁
+    # 本身失灵」与「调色板真的不达标」在 CI 日志上从第一屏就分得开。
+    #
+    # 每条断言都显式捕获退出码再比较，不依赖 shell 的 `-e` 直接中止——
+    # GitHub 的默认 shell 带 `-e`，violation/duplicate-marker 两份样例的
+    # 非零退出会在比较之前就把整步拖红，examples-ci.yml 的索引步骤已经为
+    # 同一件事写过同一种 set +e / set -e 模式。
+    name: Javadoc palette contrast (WCAG)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 只读本地脚本与本地常量文件，不需要持久化凭据
+          persist-credentials: false
+
+      - name: Check javadoc palette override block against WCAG contrast thresholds
+        run: |
+          set +e
+          clean_out=$(python3 scripts/check-contrast.py scripts/fixtures/palette-contrast-clean.css 2>&1)
+          clean_exit=$?
+          set -e
+          echo "$clean_out"
+          if [ "$clean_exit" != "0" ]; then
+            echo "::error::clean 样例（palette-contrast-clean.css）退出码 $clean_exit，期望 0——对照本身失灵，见本 job 顶部注释"
+            exit 1
+          fi
+          clean_pass=$(printf '%s\n' "$clean_out" | grep -c '^PASS ' || true)
+          clean_fail=$(printf '%s\n' "$clean_out" | grep -c '^FAIL ' || true)
+          if [ "$clean_pass" -lt 52 ]; then
+            echo "::error::clean 样例只检查了 ${clean_pass} 对色值，期望不少于 52——某些色对可能被静默跳过"
+            exit 1
+          fi
+          if [ "$clean_fail" != "0" ]; then
+            echo "::error::clean 样例出现 ${clean_fail} 条不达标行，期望 0"
+            exit 1
+          fi
+
+          set +e
+          violation_out=$(python3 scripts/check-contrast.py scripts/fixtures/palette-contrast-violation.css 2>&1)
+          violation_exit=$?
+          set -e
+          echo "$violation_out"
+          if [ "$violation_exit" != "1" ]; then
+            echo "::error::violation 样例（palette-contrast-violation.css）退出码 $violation_exit，期望恰好 1——自检失败（2）与真实违规（1）在『非零』下无法区分"
+            exit 1
+          fi
+          if ! printf '%s\n' "$violation_out" | grep -q '^FAIL .*--link-color'; then
+            echo "::error::violation 样例未点名 --link-color，无法证明门禁读到的是被改掉的那一对，而不是对垃圾输入的泛化反应"
+            exit 1
+          fi
+
+          set +e
+          dup_out=$(python3 scripts/check-contrast.py scripts/fixtures/palette-contrast-duplicate-marker.css 2>&1)
+          dup_exit=$?
+          set -e
+          echo "$dup_out"
+          if [ "$dup_exit" != "2" ]; then
+            echo "::error::duplicate-marker 样例（palette-contrast-duplicate-marker.css）退出码 $dup_exit，期望恰好 2"
+            exit 1
+          fi
+          if ! printf '%s\n' "$dup_out" | grep -q "palette-table:light:begin"; then
+            echo "::error::duplicate-marker 样例的报错未点名重复的标记"
+            exit 1
+          fi
+
+          set +e
+          mismatch_out=$(python3 scripts/check-contrast.py scripts/fixtures/palette-contrast-name-mismatch.css 2>&1)
+          mismatch_exit=$?
+          set -e
+          echo "$mismatch_out"
+          if [ "$mismatch_exit" != "2" ]; then
+            echo "::error::name-mismatch 样例（palette-contrast-name-mismatch.css）退出码 $mismatch_exit，期望恰好 2——自检 2 现在比的是键集合，见本 job 顶部注释"
+            exit 1
+          fi
+          if ! printf '%s\n' "$mismatch_out" | grep -q -- "--fixture-only-light"; then
+            echo "::error::name-mismatch 样例的报错未点名 --fixture-only-light"
+            exit 1
+          fi
+          if ! printf '%s\n' "$mismatch_out" | grep -q -- "--fixture-only-dark"; then
+            echo "::error::name-mismatch 样例的报错未点名 --fixture-only-dark"
+            exit 1
+          fi
+
+          set +e
+          oor_out=$(python3 scripts/check-contrast.py scripts/fixtures/palette-contrast-out-of-range.css 2>&1)
+          oor_exit=$?
+          set -e
+          echo "$oor_out"
+          if [ "$oor_exit" != "2" ]; then
+            echo "::error::out-of-range 样例（palette-contrast-out-of-range.css）退出码 $oor_exit，期望恰好 2——自检 5 新增于 G-02-22，见本 job 顶部注释"
+            exit 1
+          fi
+          if ! printf '%s\n' "$oor_out" | grep -q -- "--border-color"; then
+            echo "::error::out-of-range 样例的报错未点名 --border-color"
+            exit 1
+          fi
+
+          python3 scripts/check-contrast.py functions/api/_shared/palette.js
+
+  sidebar-links:
+    # 检查方向与 bilingual-parity 相反：那道查「docs/src 下每个页面是否在
+    # sidebar 里有入口」（页面 -> sidebar）；这道查「sidebar 与 nav 里的每条
+    # link 是否指向一个真实存在的页面」（sidebar/nav -> 页面）。两道合起来才
+    # 覆盖 .planning/todos/pending/sidebar-nav-link-gate-blind-spot.md 记的
+    # 那个盲区——此前 sidebar/nav 的 link 值完全不在任何门禁的检查范围内。
+    # 豁免清单（Cloudflare Pages Function 接管的运行时路由，如 /api/）写在
+    # scripts/check-sidebar-links.sh 的 RUNTIME_ROUTE_EXEMPT 里，是精确 link
+    # 值的清单，不是路径前缀通配。
+    name: Sidebar and nav link targets resolve
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 只读本地脚本与本地配置文件，不需要持久化凭据
+          persist-credentials: false
+
+      - name: Check sidebar and nav link targets resolve to real pages
+        run: bash scripts/check-sidebar-links.sh
+
+  build-with-alpha:
+    # 为什么不并进 build job（D-40）：`npm run build` 要保持纯净、不依赖外部
+    # 网络（scripts/inject-alpha.mjs 匿名下载 alpha 的 codeload tarball），
+    # 这样「站点自己坏了」与「注入之后坏了」在 CI 上从第一屏就分得开——两个
+    # 红绿信号分开显示，而不是合并构建再靠日志滚动去猜是哪一半坏的。一次
+    # 构建，不跑两遍：这个 job 内部只调用一次 `npm run build:with-alpha`，
+    # 它自己就会先注入再跑一次纯净的 `npm run build` 组合命令。
+    #
+    # 为什么不设为 required check：这个 job 依赖 GitHub codeload 与 alpha
+    # 分支的可达性——alpha 正在被强制推送、或 codeload 短暂故障时，这个 job
+    # 会红，但那不是当前这个 PR 自己的缺陷。与 examples-ci.yml 的
+    # version-consistency job 依赖 Maven Central 可用性、同样不设为
+    # required check 是同一类判断。
+    #
+    # 这个 job 就是 ROADMAP 验收标准 4「六道既有门禁逐道核对」里唯一能在
+    # CI 中直接跑出来的那一半（另一半是下面四道本地门禁在注入产物存在时
+    # 仍然全绿，本仓库零测试基础设施，这些命令本身就是验证载体）：
+    #   - 死链检查：发生在这个 job 跑的那次 vitepress build 里,扫描范围含
+    #     全部 docs/archive/（含新注入的 v6.3.0-SNAPSHOT/）；豁免由
+    #     .vitepress/config.mts 的 ignoreDeadLinks 数组第二、三个元素承担
+    #     （D-39：前缀正则 + isDeadLinkResolvableInSnapshot 函数）
+    #   - check-bilingual-parity.sh：头注释明说只扫 docs/src/，不含
+    #     docs/archive/，不受影响
+    #   - check-container-length.sh：CI 调用是 `find docs/src -name '*.md'`，
+    #     不含 docs/archive/，不受影响
+    #   - check-contrast.py：只读 functions/api/_shared/palette.js，与文档
+    #     内容无关，不受影响
+    #   - check-sidebar-links.sh：底部硬编码六个已发布归档版本常量名，不含
+    #     SNAPSHOT（D-47 已裁定不扩），不受影响
+    #   - check-version-consistency.sh：只看 config.mts 的 current 字段、
+    #     examples/pom.xml、Maven Central 三个版本号，不碰 docs/archive/，
+    #     不受影响
+    # 结论：注入产物存在时,六道里只有死链检查这一道的扫描范围包含它,且已有
+    # 专门的豁免机制覆盖；其余五道结论不变——这个 job 的最后一步断言把这条
+    # 结论落成一条可执行的证明,而不只是一句声明。
+    #
+    # ⚠ 这个新 job 的断言只判「构建成功 + SNAPSHOT 产物存在 + 零残留」,不判
+    # 任何 alpha 页面名。页面名断言留在 03-01 的一次性执行验证里——让一道
+    # 每次 PR 都跑的常驻门禁去依赖 alpha 当前的页面集,会在 alpha 正常演进
+    # 时把无关的 PR 拖红。
+    name: Site builds with alpha injection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 构建期会执行依赖里的任意 Node 代码，不持久化凭据可避免 token 落到 .git/config
+          persist-credentials: false
+
+      - name: Set up Node from .node-version
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: npm
+
+      - name: Install dependencies with npm ci
+        run: npm ci
+
+      - name: Build site with alpha content injected
+        run: npm run build:with-alpha
+
+      - name: Assert SNAPSHOT artifact exists with zero residual snippet references
+        run: |
+          test -f .vitepress/dist/v6.3.0-SNAPSHOT/guide/introduction.html
+          test -f .vitepress/dist/zh/v6.3.0-SNAPSHOT/guide/introduction.html
+          if grep -rn '@/\.\./examples/' docs/archive/v6.3.0-SNAPSHOT/; then
+            echo "::error::residual @/../examples/ reference found in injected tree after rewrite"
+            exit 1
+          fi
+          echo "build-with-alpha: SNAPSHOT artifact present, zero residual snippet references"
+
+      - name: Assert rendered version-state notice bar, switcher links, unreleased badge and injection boundary (injected side)
+        run: bash scripts/check-rendered-links.sh --with-alpha
+
+  pages-build-command:
+    name: Pages build command exists on both branches
+    runs-on: ubuntu-latest
+    # Cloudflare Pages 的构建命令是项目级的，对所有分支一起生效，而 master 与
+    # alpha 的 package.json 已分叉。2026-09-03 该命令被改成一个只存在于 master 的
+    # 脚本名，alpha 及其所有分支的部署因此静默失败了近一天——直到有人推一个 alpha
+    # 分支才被发现。本作业把那个等待期换成一次 CI 失败。
+    #
+    # 它读 origin/alpha 的 package.json，因此不能只依赖 checkout 拿到的那一个
+    # ref；脚本对 raw.githubusercontent.com 发两次匿名 HTTP GET（alpha 本体 +
+    # 一个必然不存在的 ref 作对照组），不做任何 git 写入，公开仓库无需凭据。不再
+    # 用 `git fetch --depth=1`——那会在开发者的长期克隆里写下 .git/shallow，细节
+    # 见脚本自己的文件头注释。
+    #
+    # 为什么不设为 required check：这两次请求打的是第三方匿名端点
+    # （raw.githubusercontent.com），脚本自身无重试；端点短暂故障时这个作业会
+    # 红，但那不是当前 PR 自己的缺陷。与上面 build-with-alpha 依赖 GitHub
+    # codeload 可达性、同样不设为 required check 是同一类判断。
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 构建期会执行仓库外的代码，不持久化凭据可避免 token 落到 .git/config
+          persist-credentials: false
+
+      - name: Check Pages build command exists on master and alpha
+        run: bash scripts/check-pages-build-command.sh
+
+  typecheck:
+    name: Config typechecks clean
+    runs-on: ubuntu-latest
+    # VitePress 用 esbuild 转译 .vitepress/config 下的 .mts，只剥类型不做检查——
+    # 这正是六条类型错误能长期存在而构建全绿的原因，其中一条还指着一个真缺陷
+    # （社交链接被以数组展开写进 themeConfig，导航栏的 GitHub 与 Discord 图标
+    # 从未渲染过）。本作业让那类错误不再能悄悄回来。
+    #
+    # 范围只有 .vitepress/config。theme/ 下的 .vue 组件需要 vue-tsc 才能检，
+    # 本轮没有引入——已知缺口，不是遗漏。
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 构建期会执行仓库外的代码，不持久化凭据可避免 token 落到 .git/config
+          persist-credentials: false
+
+      - name: Set up Node from .node-version
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: 'npm'
+
+      - name: Install dependencies with npm ci
+        run: npm ci
+
+      # typecheck 脚本自己会先跑 generate-snapshot-sidebar.mjs。这不是多余的：
+      # locale.{en,zh}.mts 无条件 import sidebar-snapshot.generated.mjs，而那个
+      # 文件是构建期生成、不进 git 的，干净检出里并不存在。第一版忘了这一步，
+      # 本地全绿而 CI 报两条 TS2307——本地带着历史构建留下的那份生成物。
+      # 生成器本身是 fail-open 的：没有注入源时写四个空数组并退 0，正是 CI 这一侧。
+      - name: Typecheck .vitepress/config
+        run: npm run typecheck

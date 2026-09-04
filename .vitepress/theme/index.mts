@@ -3,6 +3,8 @@ import { EnhanceAppContext, useData, useRoute } from 'vitepress'
 
 import { NolebaseInlineLinkPreviewPlugin, } from '@nolebase/vitepress-plugin-inline-link-preview/client'
 import { NolebaseGitChangelogPlugin } from '@nolebase/vitepress-plugin-git-changelog/client'
+// @ts-ignore
+import GitChangelogClientOnly from './components/GitChangelogClientOnly.vue'
 
 import { enhanceAppWithTabs } from 'vitepress-plugin-tabs/client'
 import giscusTalk from 'vitepress-plugin-comment-with-giscus'
@@ -24,8 +26,17 @@ import './styles/main.css'
 
 // @ts-ignore
 import vImageViewer from 'vitepress-plugin-image-viewer/lib/vImageViewer.vue';
-// @ts-ignore
-import VersionSwitcher from '@viteplus/versions/components/version-switcher.component.vue'
+// This site's own wrapper (04-03-PLAN.md), not @viteplus/versions' own
+// version-switcher.component.vue — that upstream component's path builder
+// emits a measured-404 shape on this site's Chinese pages and its mobile
+// accordion hardcodes its own label. Registered below under the name
+// 'VersionSwitcher', not the file's own name 'UtVersionSwitcher': nav.en.mts
+// and nav.zh.mts, SecondNavBar.vue's component branch, and VitePress's own
+// VPNavScreenMenu component branch all resolve `component: 'VersionSwitcher'`
+// against this registered global name, so keeping it unchanged means none of
+// those three needed an edit when the import target moved. Do not "fix" this
+// mismatch — it is deliberate.
+import VersionSwitcher from './components/UtVersionSwitcher.vue'
 import Layout from './Layout.vue'
 
 // noinspection JSUnusedGlobalSymbols
@@ -38,6 +49,12 @@ export default {
         vitepressBackToTop()
         ctx.app.use(NolebaseInlineLinkPreviewPlugin)
         ctx.app.use(NolebaseGitChangelogPlugin)
+        // 必须在 use(NolebaseGitChangelogPlugin) 之后：这一行按同名覆盖插件注册
+        // 的全局组件，把 changelog 整块移出服务端渲染。理由与实测见
+        // components/GitChangelogClientOnly.vue 的头注释。GitChangelogMarkdownSection
+        // 往每个 markdown 里插的是字面量 <NolebaseGitChangelog />，所以覆盖点
+        // 就是这个名字。
+        ctx.app.component('NolebaseGitChangelog', GitChangelogClientOnly);
         ctx.app.component('vImageViewer', vImageViewer);
         ctx.app.component('VersionSwitcher', VersionSwitcher);
     },
