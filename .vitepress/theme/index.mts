@@ -3,6 +3,8 @@ import { EnhanceAppContext, useData, useRoute } from 'vitepress'
 
 import { NolebaseInlineLinkPreviewPlugin, } from '@nolebase/vitepress-plugin-inline-link-preview/client'
 import { NolebaseGitChangelogPlugin } from '@nolebase/vitepress-plugin-git-changelog/client'
+// @ts-ignore
+import GitChangelogClientOnly from './components/GitChangelogClientOnly.vue'
 
 import { enhanceAppWithTabs } from 'vitepress-plugin-tabs/client'
 import giscusTalk from 'vitepress-plugin-comment-with-giscus'
@@ -47,6 +49,12 @@ export default {
         vitepressBackToTop()
         ctx.app.use(NolebaseInlineLinkPreviewPlugin)
         ctx.app.use(NolebaseGitChangelogPlugin)
+        // 必须在 use(NolebaseGitChangelogPlugin) 之后：这一行按同名覆盖插件注册
+        // 的全局组件，把 changelog 整块移出服务端渲染。理由与实测见
+        // components/GitChangelogClientOnly.vue 的头注释。GitChangelogMarkdownSection
+        // 往每个 markdown 里插的是字面量 <NolebaseGitChangelog />，所以覆盖点
+        // 就是这个名字。
+        ctx.app.component('NolebaseGitChangelog', GitChangelogClientOnly);
         ctx.app.component('vImageViewer', vImageViewer);
         ctx.app.component('VersionSwitcher', VersionSwitcher);
     },
