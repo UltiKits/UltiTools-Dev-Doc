@@ -116,12 +116,37 @@ html:has(.VersionNoticeBar) {
    {320,360,375,430,500,600,650,700,768,850,900,959} on both locales and both
    states, alpha-EN measured 143px at 320px BEFORE this change, against the
    104px reserved — eight of 72 width/state combinations overlapped on the first
-   frame on the pre-change build. The current value is alpha-EN's measured 164px
-   at 320px, the tallest state anywhere in this band (archived-EN 125px,
-   alpha-ZH 143px, archived-ZH 104px at the same width). */
-@media (max-width: 959px) {
+   frame on the pre-change build. Re-measured 2026-09-04 after the commit line was allowed to wrap
+   below 960px (it previously scrolled inside itself and, at <=345px, could not
+   be read without dragging that one line sideways). Wrapping also removed a
+   platform-dependent height: while the row overflowed it grew by a 15px
+   horizontal scrollbar on classic-scrollbar platforms and by 0px on
+   overlay-scrollbar ones, so the same bar measured 179px on a desktop and 164px
+   on a phone. Both now read 182px.
+
+   One band became three because a single value costs too much elsewhere:
+   alpha-EN spikes to 182px only at 320px, and reserving that across the whole
+   sub-960 range would leave 81px of first-frame blank at 768-959px, where the
+   tallest state is 101px. Per-width maxima behind the three values below
+   (script execution disabled, both scrollbar models agreeing, 56 width/state
+   combinations): 182 at 320; 143 at 340-390; 122 at 414-550; 104 at 600-700;
+   101 at 768-959. Over-reservation now peaks at 21px (414-550 measured against
+   the 340-599 band) and first-frame overlap is 0. */
+@media (max-width: 339px) {
     html:has(.VersionNoticeBar) {
-        --vp-layout-top-height: 164px;
+        --vp-layout-top-height: 182px;
+    }
+}
+
+@media (min-width: 340px) and (max-width: 599px) {
+    html:has(.VersionNoticeBar) {
+        --vp-layout-top-height: 143px;
+    }
+}
+
+@media (min-width: 600px) and (max-width: 959px) {
+    html:has(.VersionNoticeBar) {
+        --vp-layout-top-height: 104px;
     }
 }
 

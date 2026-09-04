@@ -352,6 +352,30 @@ watch([visible, state], ([isVisible]) => {
     overflow-x: auto;
 }
 
+/* Below 960px the commit line is allowed to wrap instead of scrolling inside
+   itself. Measured: its content is 267px wide while the available column is
+   248px at a 320px viewport (the bar's 32px of padding plus the close control's
+   24px and its 16px gap), so at <=345px it overflowed and the reader had to
+   drag that one line sideways to finish reading it. That line carries the
+   injected commit and timestamp, which are the only detector for the nightly
+   alpha sync silently stopping — a value that must be dragged into view is a
+   detector that will not be read on a phone.
+
+   This also removes a platform-dependent height: while the row overflowed it
+   grew by the horizontal scrollbar's 15px on classic-scrollbar platforms and by
+   0px on overlay-scrollbar ones (measured: 179px vs 164px for the same bar at
+   320px). Wrapping makes the two agree, so the static fallback below is one
+   number rather than a bet on which scrollbar model the reader has.
+
+   nowrap is kept at >=960px, where the line always fits and the hash and the
+   timestamp read as one unit. */
+@media (max-width: 959px) {
+    .notice-meta {
+        white-space: normal;
+        overflow-x: visible;
+    }
+}
+
 /* The close control carries no accent colour. 04-UI-SPEC.md § Color reserves
    accent to two elements in this bar — the CTA link and the state-label word —
    and states the check as "never a third", so the button inherits --vp-c-text-1
