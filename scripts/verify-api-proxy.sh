@@ -103,14 +103,24 @@ record() {
 # --path-as-is is opt-in per call because curl otherwise squashes "/../"
 # sequences out of the URL path before ever sending the request, which would
 # make item 8's path-traversal probe never reach the Function at all.
+# --header "<Name: value>" 可选，可重复，用于发条件请求（第 13、25 项）。
+#
+# 全程用 GET，绝不用 HEAD/curl -I：这个代理对 HEAD 与 GET 的行为不同，对一个
+# 已索引的类页发 HEAD 会拿到 404 降级页（2026-09-04 实测，同一 URL 同一时刻
+# GET 200 / HEAD 404；上游对 HEAD 返回 200，所以不是上游的问题，见
+# .planning/todos 的 api-proxy-head-returns-404）。用 HEAD 取响应头会量到降级页
+# 的头，据此得出的任何关于「这一页有没有某个头」的结论都是错的——本文件的
+# 第 25、29 项此前就因为一次这样的手测被判错了性质。
 fetch() {
   local path_as_is=""
   if [ "$1" = "--path-as-is" ]; then path_as_is="--path-as-is"; shift; fi
+  local hdrs=()
+  while [ "$1" = "--header" ]; do hdrs+=(-H "$2"); shift 2; done
   local url="$1"
   seq_n=$((seq_n + 1))
   HEADERS_FILE="$TMPDIR/h.$seq_n"
   BODY_FILE="$TMPDIR/b.$seq_n"
-  HTTP_STATUS=$(curl -s $path_as_is -o "$BODY_FILE" -D "$HEADERS_FILE" -w '%{http_code}' --max-time 30 "$url")
+  HTTP_STATUS=$(curl -s $path_as_is "${hdrs[@]}" -o "$BODY_FILE" -D "$HEADERS_FILE" -w '%{http_code}' --max-time 30 "$url")
 }
 
 header_value() {
@@ -320,6 +330,7 @@ record "11 stylesheet Cache-Control max-age 为 $STYLESHEET_MAX_AGE_FUNCTION 或
 # 12. 连续两次请求 stylesheet，ETag 相等且形状是「弱验证器 + 连字符 + 8 位十六进制」
 # ─────────────────────────────────────────────────────────────────────────────
 etag_stylesheet_a=$(header_value "$HEADERS_FILE" "etag")
+stamp_stylesheet_a=$(header_value "$HEADERS_FILE" "x-version-generated-at")
 fetch "$url_stylesheet"
 API_HEADERS+=("$HEADERS_FILE")
 etag_stylesheet_b=$(header_value "$HEADERS_FILE" "etag")
@@ -525,18 +536,77 @@ record "24 类页含且仅含一处注入脚本标识且位于 </head> 之前" \
 # 25. 连续两次请求同一类页，ETag 相等且正文字节数相等（G-02-8：注入脚本的字节
 #     对所有访客相同，判定发生在客户端，不引入按访客分裂响应的可观测证据）
 # ─────────────────────────────────────────────────────────────────────────────
+#
+#     2026-09-04 改：此前本项要求类页必须带 ETag，于是它在生产上永远是红的。
+#     Function 确实设了这个头（preview 实测 `W/"noetag-25ba0e4f"`），是 zone 把
+#     text/html 的 ETag 剥掉了——同一台主机上样式表的 ETag 完好，那是对照组。
+#
+#     但缺 ETag 对读者**没有代价**：类页带 Last-Modified，带正确值的
+#     If-Modified-Since 复发返回 304、下载 0 字节（三个类页复核一致，对照组给
+#     Mon, 01 Jan 2001 返回 200、76,764 字节）。所以本项现在断言的是读者真正在乎
+#     的那件事——回访时不用重下整页——而不是这个环境未必提供的那个具体头。
+#     条件请求真坏了它仍然会红。
 etag_class_a=$(header_value "$HEADERS_FILE" "etag")
+lastmod_class_a=$(header_value "$HEADERS_FILE" "last-modified")
+stamp_class_a=$(header_value "$HEADERS_FILE" "x-version-generated-at")
 size_class_a=$(wc -c < "$BODY_FILE" 2>/dev/null | tr -d ' ')
 fetch "$url_class"
 API_HEADERS+=("$HEADERS_FILE")
 etag_class_b=$(header_value "$HEADERS_FILE" "etag")
+lastmod_class_b=$(header_value "$HEADERS_FILE" "last-modified")
 size_class_b=$(wc -c < "$BODY_FILE" 2>/dev/null | tr -d ' ')
 r=0
-[ -n "$etag_class_a" ] || r=1
-[ "$etag_class_a" = "$etag_class_b" ] || r=1
+# 至少要有一个验证器，且两次请求之间不变。
+if [ -n "$etag_class_a" ]; then
+  [ "$etag_class_a" = "$etag_class_b" ] || r=1
+elif [ -n "$lastmod_class_a" ]; then
+  [ "$lastmod_class_a" = "$lastmod_class_b" ] || r=1
+else
+  r=1
+fi
 [ "$size_class_a" = "$size_class_b" ] || r=1
-record "25 类页连续两次请求 ETag 与字节数相等" \
-  "etag=${etag_class_a:-<无>} size=${size_class_a:-<无>}/${size_class_b:-<无>}" "$r"
+record "25 类页连续两次请求验证器与字节数相等" \
+  "etag=${etag_class_a:-<无>} last-modified=${lastmod_class_a:-<无>} size=${size_class_a:-<无>}/${size_class_b:-<无>}" "$r"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 25b. 类页的条件请求真的能省下整页：用第 25 项拿到的验证器复发，必须 304 且
+#      正文 0 字节；再用一个必然过期的验证器复发，必须 200 且正文非空。
+#
+#      第二次是对照组，不是多余的：没有它，「304」有可能只是这个端点对任何带
+#      条件头的请求都回 304，那样的绿说明不了任何事。
+# ─────────────────────────────────────────────────────────────────────────────
+r=0
+cond_desc=""
+if [ -n "$etag_class_a" ]; then
+  fetch --header "If-None-Match: $etag_class_a" "$url_class"
+  cond_desc="If-None-Match"
+elif [ -n "$lastmod_class_a" ]; then
+  fetch --header "If-Modified-Since: $lastmod_class_a" "$url_class"
+  cond_desc="If-Modified-Since"
+else
+  r=1; cond_desc="无验证器"
+fi
+if [ "$cond_desc" != "无验证器" ]; then
+  API_HEADERS+=("$HEADERS_FILE")
+  cond_status="$HTTP_STATUS"
+  # 304 不带正文，curl 的 -o 目标文件此时可能压根不被创建，wc 于是什么都不输出。
+  # 「文件不存在」与「文件长度为 0」在这里是同一件事——都表示没有传正文——所以在
+  # 取值处归一成 0，而不是让下面的比较去分辨空字符串。
+  cond_size=$(wc -c < "$BODY_FILE" 2>/dev/null | tr -d ' ')
+  cond_size=${cond_size:-0}
+  [ "$cond_status" = "304" ] || r=1
+  [ "$cond_size" = "0" ] || r=1
+  # 对照组：必然过期的验证器
+  fetch --header "If-Modified-Since: Mon, 01 Jan 2001 00:00:00 GMT" "$url_class"
+  API_HEADERS+=("$HEADERS_FILE")
+  ctl_status="$HTTP_STATUS"
+  ctl_size=$(wc -c < "$BODY_FILE" 2>/dev/null | tr -d ' ')
+  ctl_size=${ctl_size:-0}
+  [ "$ctl_status" = "200" ] || r=1
+  [ "${ctl_size:-0}" -gt 0 ] || r=1
+fi
+record "25b 类页条件请求 304 且不传正文（对照组：过期验证器得 200 全量）" \
+  "用 $cond_desc → ${cond_status:-<无>}/${cond_size:-<无>}字节；对照组 → ${ctl_status:-<无>}/${ctl_size:-<无>}字节" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 26. 修复本身：dejavu.css 子路径返回空正文的 200，Content-Type 为 CSS，且带
@@ -599,14 +669,25 @@ record "28 未索引版本同子路径同样得到空 200（分支不打上游�
 #     （02-UAT.md 的 G-02-16 已把这句写成结论）；本项是把该盲区收窄一格的
 #     第一件工具——它至少让「读者拿到的是哪一份」变成可观测的。
 # ─────────────────────────────────────────────────────────────────────────────
-fp_stylesheet=$(printf '%s' "$etag_stylesheet_a" | grep -oE -- '-[0-9a-f]{8}"$' | tr -d '"-')
-fp_class=$(printf '%s' "$etag_class_a" | grep -oE -- '-[0-9a-f]{8}"$' | tr -d '"-')
+#
+#     2026-09-04 改：本项此前把「读者拿到的是哪一份部署」这个信号挂在 ETag 的
+#     指纹后缀上，而 ETag 正是这个环境会剥掉的东西——于是它在生产上永远红，
+#     恰好在它唯一的失效域里失去作用。
+#
+#     信号换到 x-version-generated-at：两条响应都带它，生产与 preview 都没被剥
+#     （2026-09-04 实测：生产两者同为 2026-09-04T12:52:35.476Z，preview 两者同为
+#     2026-09-04T11:22:19.879Z）。用意一个字没变——样式表与类页必须来自同一份
+#     部署；换的只是载体，而且换成了一个在失效域里还活着的载体。
+#
+#     本项复用第 12 项与第 25 项已经取过的那两条响应的头文件，不发新请求，
+#     因此第 6/15 项的覆盖面与条数一个字节都没变。
+# ─────────────────────────────────────────────────────────────────────────────
 r=0
-[ -n "$fp_stylesheet" ] || r=1
-[ -n "$fp_class" ] || r=1
-[ "$fp_stylesheet" = "$fp_class" ] || r=1
-record "29 stylesheet 与类页 ETag 的指纹后缀相等（G-02-16，preview 上必绿，失效域是合并后的生产）" \
-  "etag_stylesheet=${etag_stylesheet_a:-<无>} etag_class=${etag_class_a:-<无>}" "$r"
+[ -n "$stamp_stylesheet_a" ] || r=1
+[ -n "$stamp_class_a" ] || r=1
+[ "$stamp_stylesheet_a" = "$stamp_class_a" ] || r=1
+record "29 stylesheet 与类页来自同一份部署（G-02-16，失效域是合并后的生产）" \
+  "stylesheet=${stamp_stylesheet_a:-<无>} class=${stamp_class_a:-<无>}" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 30. auto 分支不再固化任何一次媒体查询结果（G-02-20）：类页注入脚本文本里
