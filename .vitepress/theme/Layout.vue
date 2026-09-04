@@ -268,6 +268,27 @@ watchEffect(() => {
     display: none !important;
 }
 
+/* 768–959px：把汉堡按钮与手机菜单留下。
+   这一带此前没有任何导航承载体：VitePress 的汉堡从 768px 起隐藏
+   （VPNavBarHamburger.vue:10-14），手机菜单同样（VPNavScreen.vue:38-42），
+   上面那条规则无条件藏掉默认菜单，而 SecondNavBar 要到 960px 才显示
+   （SecondNavBar.vue 的 @media (min-width: 960px)）。三者叠加使深度指南、
+   API 接口、用户文档、版本切换器、语言切换与深色模式在该带全部够不着。
+   不改用默认菜单，是因为本站往导航栏里多放了开发者平台按钮与阅读增强
+   菜单：实测放出默认菜单后 .content 的 min-content 宽度达 974px（英文），
+   撑破 .container 造成页面横向滚动。手机菜单是覆盖层，不参与该行的排布。
+   上游两条规则都带 scoped 属性选择器（0,2,0），故用 !important 覆盖，
+   与本文件既有的两处覆盖写法一致。 */
+@media (min-width: 768px) and (max-width: 959px) {
+    .VPNavBarHamburger {
+        display: flex !important;
+    }
+
+    .VPNavScreen {
+        display: block !important;
+    }
+}
+
 /* 开发者平台按钮样式 */
 .developer-btn {
     display: inline-flex;
