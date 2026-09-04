@@ -721,3 +721,25 @@ jobs:
 
       - name: Run check-version-consistency.sh regression tests
         run: bash scripts/test-version-signal.sh
+
+  javadoc-index-assertions:
+    name: javadoc-io-index.sh structural assertions
+    runs-on: ubuntu-latest
+    # 这些 fixture 从 Phase 02 起就在仓库里，但在此之前没有任何东西跑它们：
+    # 本工作流只在发版路径上调用 javadoc-io-index.sh 的真实运行，fixture 只在
+    # 人工排查时被手动喂进 --check-forms-only。断言因此可以写松而无人发现——
+    # 三处出口（upload 表单不校验 method、版本号被拼进 ERE 让点号成通配符、
+    # csrfToken 只从 upload 表单抽）一直开着，直到 review 才被看见。
+    #
+    # 与同文件的 version-signal-regression-tests 不同，本作业不碰网络：
+    # --check-forms-only 配合 --page-file 完全离线，不触碰上游状态。因此它可以
+    # 在 pull_request 上跑，而不必像那一条那样排除 PR 事件。
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 构建期会执行仓库外的代码，不持久化凭据可避免 token 落到 .git/config
+          persist-credentials: false
+
+      - name: Run javadoc-io-index.sh fixture assertions
+        run: bash scripts/check-javadoc-index-assertions.sh

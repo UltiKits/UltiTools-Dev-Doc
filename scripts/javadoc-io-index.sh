@@ -166,7 +166,8 @@ emit_result() {
 # FORM_STATUS as an out-parameter for exactly this reason, so reusing it is
 # less ambiguous than introducing a second, parallel return-code contract.
 FORM_STATUS=""
-CSRF_TOKEN=""
+SYNC_CSRF_TOKEN=""
+UPLOAD_CSRF_TOKEN=""
 
 # GET the versions page (or read a local file in its place). Optional first
 # argument is the path to read instead of GETting; defaults to $PAGE_FILE so
@@ -252,41 +253,85 @@ fetch_page() {
 # (02-RESEARCH.md §2.3); caching a token across invocations or interleaving
 # another request would hand the POST a token the session no longer
 # recognizes. The bootstrap retry (G-02-11) introduces a SECOND GET; the
-# token it extracts overwrites CSRF_TOKEN from the first call, and each
-# GET/POST pairing is independently self-consistent — the second pass never
-# uses a token the first pass extracted, and vice versa.
+# tokens it extracts overwrite both SYNC_CSRF_TOKEN and UPLOAD_CSRF_TOKEN
+# from the first call, and each GET/POST pairing is independently
+# self-consistent — the second pass never uses a token the first pass
+# extracted, and vice versa.
+#
+# Two tokens, not one. The two forms each carry their own csrfToken hidden
+# field, and upstream is under no obligation to make them equal. This
+# function used to extract only the upload form's token and hand it to both
+# endpoints; if the sync form's field ever diverged, /sync would reject the
+# POST and the rejection would be classified transient and retried forever,
+# which is the exact opposite of what these structural assertions exist for.
+# ── 一个表单的身份由什么构成 ────────────────────────────────────────────────
+# 只由两件事构成：action 指向哪个端点，以及 method 是什么。此前三处断言各自
+# 只查了其中一部分，同一处设计薄弱因此开了三个出口：断言一两样都查了，断言二
+# 只查 action（上游把 upload 改成 method="get" 仍会通过，真实运行发 POST 被拒，
+# 归为暂态无限重试），而 csrfToken 只从 upload 那一份抽。这个 helper 把「身份」
+# 写死一次、两个表单共用，出口收敛成一个。
+#
+# 属性顺序不固定，所以两个属性各自作为条件测试同一个 <form> 开标签，而不是拼成
+# 一条有顺序的正则——上游的 sync 表单写成 method 在前，upload 表单写成 id 在前。
+# 两个条件必须落在同一个开标签内：分别在整页上找一次，会让「A 表单的 action
+# 加 B 表单的 method」凑出一个并不存在的表单。行内可能出现多个 <form> 开标签，
+# 因此逐个扫描而不是只看第一个。
+extract_post_form_block() {
+  local page="$1" endpoint="$2"
+  awk -v ep="$endpoint" '
+    !flag {
+      rest = $0
+      while (match(rest, /<form[^>]*>/)) {
+        tag = substr(rest, RSTART, RLENGTH)
+        if (tag ~ ("action=\"[^\"]*" ep "\"") && tag ~ /method="post"/) { flag = 1; break }
+        rest = substr(rest, RSTART + RLENGTH)
+      }
+    }
+    flag { print }
+    flag && /<\/form>/ { exit }
+  ' <<< "$page"
+}
+
+# 从一个表单块里抽 csrfToken 隐藏域的值；抽不到就输出空串，由调用方判定。
+# 用 bash 的 =~ 而不是 grep 管道，理由与下面 validate_and_extract 里原本那段
+# 一样：set -euo pipefail 下，一条合法地找不到东西的 grep 管道被直接赋值时会
+# 中止整个脚本，而「找不到」正是调用方要自己处理的情况。
+extract_csrf_token() {
+  local block="$1"
+  if [[ "$block" =~ name=\"csrfToken\"[^\>]*value=\"([^\"]*)\" ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+  fi
+}
+
 validate_and_extract() {
   local page="$1" mode="$2"
 
-  if ! printf '%s' "$page" | grep -qE '<form[^>]*action="[^"]*/sync"[^>]*method="post"' \
-     && ! printf '%s' "$page" | grep -qE '<form[^>]*method="post"[^>]*action="[^"]*/sync"'; then
-    echo "javadoc-io-index: 断言一失败——找不到 action 指向 /sync 的 post 表单。上游页面结构变了，脚本需要重写。" >&2
+  local sync_block upload_block
+  sync_block=$(extract_post_form_block "$page" "/sync")
+  if [ -z "$sync_block" ]; then
+    echo "javadoc-io-index: 断言一失败——找不到 action 指向 /sync 且 method 为 post 的表单。上游页面结构变了，脚本需要重写。" >&2
     emit_result "broken" "$VERSION"
     exit 1
   fi
 
-  local upload_block
-  upload_block=$(awk '/<form[^>]*action="[^"]*\/upload"/{flag=1} flag{print} flag && /<\/form>/{exit}' <<< "$page")
+  upload_block=$(extract_post_form_block "$page" "/upload")
   if [ -z "$upload_block" ]; then
-    echo "javadoc-io-index: 断言二失败——找不到 action 指向 /upload 的 post 表单。上游页面结构变了，脚本需要重写。" >&2
+    echo "javadoc-io-index: 断言二失败——找不到 action 指向 /upload 且 method 为 post 的表单。上游页面结构变了，脚本需要重写。" >&2
     emit_result "broken" "$VERSION"
     exit 1
   fi
 
-  # Bash regex match inside an `if` condition, not a grep|sed pipe assigned
-  # straight to a variable — under `set -euo pipefail`, a multi-stage pipe
-  # whose only match-bearing command legitimately finds nothing (grep -oE
-  # exits 1 on no match) aborts the whole script the instant it's used as a
-  # plain assignment's right-hand side, even though "not found" is exactly
-  # the case this function needs to handle itself, not fail on. A command
-  # tested by `if` is exempt from that abort regardless of pipefail, so the
-  # extraction is done as a regex match rather than a pipe.
-  if [[ "$upload_block" =~ name=\"csrfToken\"[^\>]*value=\"([^\"]*)\" ]]; then
-    CSRF_TOKEN="${BASH_REMATCH[1]}"
-  else
-    CSRF_TOKEN=""
+  # 两份 token 各自从自己的表单块里抽，各自校验。抽取为什么用 bash 的 =~ 而不是
+  # grep 管道，见 extract_csrf_token 自己的注释。
+  SYNC_CSRF_TOKEN="$(extract_csrf_token "$sync_block")"
+  if [ -z "$SYNC_CSRF_TOKEN" ]; then
+    echo "javadoc-io-index: 断言一失败——sync 表单里抽不到 csrfToken 隐藏域的值。上游页面结构变了，脚本需要重写。" >&2
+    emit_result "broken" "$VERSION"
+    exit 1
   fi
-  if [ -z "$CSRF_TOKEN" ]; then
+
+  UPLOAD_CSRF_TOKEN="$(extract_csrf_token "$upload_block")"
+  if [ -z "$UPLOAD_CSRF_TOKEN" ]; then
     echo "javadoc-io-index: 断言二失败——upload 表单里抽不到 csrfToken 隐藏域的值。上游页面结构变了，脚本需要重写。" >&2
     emit_result "broken" "$VERSION"
     exit 1
@@ -361,7 +406,39 @@ validate_and_extract() {
   # "strict" mode (the bootstrap retry's second call, after a refresh has
   # already happened) has no more retries left and fails closed exactly
   # like every other assertion here.
-  if ! printf '%s' "$page" | grep -qE "name=\"versionId\"[^>]*value=\"${VERSION}\""; then
+  # 字面比较，不把 $VERSION 拼进正则。此前写成
+  # grep -qE "name=\"versionId\"[^>]*value=\"${VERSION}\"" —— 版本号里的点号
+  # 在 ERE 里是通配符，实测把清单里的 6.2.4 改成 6x2x4、再以 --version 6.2.4
+  # 运行 --check-forms-only 仍然退 0，三个点各自匹配了 x。脚本据此以为目标复选框
+  # 在，跳过引导路径，去 POST 一个并不存在的目标，失败又被归为暂态。该缺陷自脚本
+  # 写成即存在。
+  #
+  # 修法不是给版本号转义，而是把正则从这条判断里整个去掉：先把清单里所有
+  # versionId 控件的 value 抽成一行一个，再用 grep -qxF 做整行字面比较。转义只
+  # 是让今天这一个元字符不再生效，字面比较让「版本号里出现任何正则元字符」这一
+  # 类边界情况不存在。
+  #
+  # 属性顺序两种都认（name 在前或 value 在前）——与上面表单身份那处同样的理由。
+  # 扫描范围仍是整页而不是 upload 块，与本次改动前一致：收窄它是与本缺陷无关的
+  # 行为变更。
+  # || true：清单里一个都抽不到时 grep 退 1，而 set -euo pipefail 下这会中止整个
+  # 脚本；「一个都没有」正是下面这条判断自己要处理的情况。控件本身是否存在已由
+  # 上面的断言三之一守住。
+  local listed_version_ids
+  listed_version_ids=$(printf '%s' "$page" | awk '
+    {
+      rest = $0
+      while (match(rest, /<input[^>]*>/)) {
+        tag = substr(rest, RSTART, RLENGTH)
+        if (tag ~ /name="versionId"/ && match(tag, /value="[^"]*"/)) {
+          v = substr(tag, RSTART + 7, RLENGTH - 8)
+          print v
+        }
+        rest = substr(rest, RSTART + RLENGTH)
+      }
+    }
+  ' || true)
+  if ! printf '%s\n' "$listed_version_ids" | grep -qxF "$VERSION"; then
     if [ "$mode" = "tolerant" ]; then
       FORM_STATUS="bootstrap-needed"
       return 0
@@ -435,7 +512,7 @@ ensure_form_ready() {
   if [ "$DRY_RUN" = true ]; then
     echo "javadoc-io-index: [dry-run][bootstrap-needed] 本该在这里向上游 POST 一次 sync 刷新清单，实际不发送，但仍继续重取页面并以 strict 模式判定第二遍。"
   else
-    if ! request_sync "$CSRF_TOKEN"; then
+    if ! request_sync "$SYNC_CSRF_TOKEN"; then
       return 1
     fi
   fi
@@ -499,11 +576,14 @@ request_sync() {
 # checks make do_post's own return code correct regardless of how — or
 # whether — its caller wraps the call.
 do_post() {
-  local version="$1" token="$2"
+  # 三个参数而不是两个：两个端点各用各自表单里的那份 token。合成一份传给两边，
+  # 会在上游让两个表单携带不同 token 的那天，把 /sync 的拒绝变成一个被归类为
+  # 暂态、于是无限重试的失败。
+  local version="$1" sync_token="$2" upload_token="$3"
   if ! curl -sS --fail --connect-timeout 10 --max-time 60 \
     --cookie "$COOKIE_JAR" --cookie-jar "$COOKIE_JAR" \
     --user-agent "$USER_AGENT" \
-    --data-urlencode "csrfToken=${token}" \
+    --data-urlencode "csrfToken=${sync_token}" \
     "${UPSTREAM_ORIGIN}${SYNC_PATH}" >/dev/null; then
     return 1
   fi
@@ -511,7 +591,7 @@ do_post() {
   if ! curl -sS --fail --connect-timeout 10 --max-time 60 \
     --cookie "$COOKIE_JAR" --cookie-jar "$COOKIE_JAR" \
     --user-agent "$USER_AGENT" \
-    --data-urlencode "csrfToken=${token}" \
+    --data-urlencode "csrfToken=${upload_token}" \
     --data-urlencode "versionId=${version}" \
     "${UPSTREAM_ORIGIN}${UPLOAD_PATH}" >/dev/null; then
     return 1
@@ -601,7 +681,7 @@ run_single() {
   # made true (same "worded differently so neither ever asserts something
   # false" posture .github/workflows/examples-ci.yml's own D-32/D-34
   # comment describes for timeout vs. broken).
-  if ! do_post "$VERSION" "$CSRF_TOKEN"; then
+  if ! do_post "$VERSION" "$SYNC_CSRF_TOKEN" "$UPLOAD_CSRF_TOKEN"; then
     echo "javadoc-io-index: POST 请求（sync 或 upload）失败——上游 HTTP 错误，判定为第三方服务暂态问题，不代表脚本坏了。" >&2
     emit_result "post-failed" "$VERSION"
     return 2
@@ -684,7 +764,7 @@ run_backfill() {
     # still names the real cause (POST failure, not a poll timeout) so that
     # reader isn't told something false; only the final aggregate label is
     # shared.
-    if ! do_post "$v" "$CSRF_TOKEN"; then
+    if ! do_post "$v" "$SYNC_CSRF_TOKEN" "$UPLOAD_CSRF_TOKEN"; then
       echo "javadoc-io-index: [backfill] 版本 ${v} 的 POST 请求（sync 或 upload）失败，视为第三方服务暂态问题；不中断其余版本，下一个周期会自动重试。"
       any_timeout=1
       continue
