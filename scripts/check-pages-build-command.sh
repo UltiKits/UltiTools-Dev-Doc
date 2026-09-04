@@ -21,6 +21,20 @@
 # 去读 Pages 的真实配置。为这一件事新增一份长期凭据，代价大于收益（2026-09-04
 # 维护者裁定）。改 Cloudflare 控制台时请一并改这份文件——这句话写在这里，也写在
 # scripts/pages-build-command 自己里。
+#
+# ── 为什么读 alpha 走 HTTP 而不是 git fetch（2026-09-05）───────────────────
+# 原先这里是 `git fetch --quiet --depth=1 origin alpha`。它在 CI 里无害——
+# `pages-build-command` 是独立作业，checkout 本来就是临时的——但在开发者的长期
+# 克隆里会写下 `.git/shallow`，把 alpha 的 tip 记成无父提交。实测症状三条数字
+# 对照：`git rev-list --count origin/alpha` 报 1（真值 233）；
+# `git merge-base origin/master origin/alpha` 返回空且退出 1（真值 `1ae9606`）；
+# 本地 alpha 报 ahead 228 / behind 1（真值 ahead 0 / behind 5）。merge-base 一旦
+# 缺失，merge 退化成两路比较，alpha 与 master 的冲突面看起来是 95 个文件而不是
+# 真实的 6 个——曾据此误记过一条「6.3.0 发布阻塞」。而门禁自己一直报告 0 条不成
+# 立：它是绿的，同时在损坏克隆。
+#
+# 不要为省 CI 带宽把它改回去——省的是 CI 的几十 KB，代价是每个开发者的克隆。仓库
+# 是公开的，匿名 GET 不需要凭据，也不要为它引入 gh 或任何令牌。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -44,6 +58,37 @@ command_line="$(head -n1 "$RECORD_FILE" | tr -d '\r')"
 script_name="$(printf '%s' "$command_line" | sed -nE 's/^[[:space:]]*npm[[:space:]]+run[[:space:]]+([A-Za-z0-9:._-]+)[[:space:]]*$/\1/p')"
 if [ -z "$script_name" ]; then
   echo "check-pages-build-command: $RECORD_FILE 的第一行不是 'npm run <脚本名>' 的形状：$command_line" >&2
+  exit 2
+fi
+
+# 解析出 owner/repo，供后面匿名 HTTP 读 alpha 的 package.json 用。GitHub Actions
+# 里优先信任 GITHUB_REPOSITORY；本地跑就退回只读的 `git remote get-url origin`。
+if [ -n "${GITHUB_REPOSITORY:-}" ]; then
+  SLUG="$GITHUB_REPOSITORY"
+else
+  remote_url="$(git remote get-url origin)"
+  remote_url="${remote_url%.git}"
+  remote_url="${remote_url%/}"
+  # 只取最后两段路径，用 [[ =~ ]] 而不是 grep -oE 管道赋值——本仓库已有先例
+  # （javadoc-io-index.sh，记在 .planning/STATE.md）：pipefail 下一个合法未命中
+  # 的 grep -oE 若被直接赋值给变量，会中止整个脚本。字符类排除 `:`/`/`/`@`，
+  # 这样 `https://user:token@github.com/OWNER/REPO` 只产出 OWNER/REPO
+  # （userinfo 结构上进不来），`git@github.com:OWNER/REPO` 也不会把主机名
+  # 吞进 owner。
+  if [[ "$remote_url" =~ ([^:/@]+)/([^:/@]+)$ ]]; then
+    SLUG="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+  else
+    SLUG=""
+  fi
+fi
+
+if [[ ! "$SLUG" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
+  echo "check-pages-build-command: 无法从当前环境解析出仓库 slug（owner/repo）" >&2
+  exit 2
+fi
+
+if [[ ! "$ALPHA_REF" =~ ^[A-Za-z0-9._/-]+$ ]] || [[ "$ALPHA_REF" == *..* ]]; then
+  echo "check-pages-build-command: ALPHA_REF 含非法字符或路径穿越" >&2
   exit 2
 fi
 
@@ -76,10 +121,27 @@ else
   pass "  对照组：一个必然不存在的脚本名被判为缺失"
 fi
 
-if ! git fetch --quiet --depth=1 origin "$ALPHA_REF" 2>/dev/null; then
-  fail "  取不到 origin/$ALPHA_REF —— 无法核对另一侧，视为不成立而不是跳过"
+fetch_pkg_status() {
+  # fetch_pkg_status <slug> <ref> <正文输出路径>
+  # 向 raw.githubusercontent.com 发一次匿名 GET，正文写入第三个参数指定的路径，
+  # HTTP 状态码打印到 stdout。主机名写死为字面量，不从环境取；不加 -L（跟着状态码
+  # 判定走 fail 分支更安全）、不加 -k/--insecure（保留证书校验）、不传任何认证
+  # 相关参数——仓库公开，匿名读足够。
+  local slug="$1" ref="$2" out="$3"
+  local code
+  code="$(curl -sS -o "$out" -w '%{http_code}' --connect-timeout 10 --max-time 30 \
+    "https://raw.githubusercontent.com/${slug}/${ref}/package.json")" || code="000"
+  printf '%s' "$code"
+}
+
+alpha_body="$(mktemp)"
+trap 'rm -f "$alpha_body"' EXIT
+
+alpha_code="$(fetch_pkg_status "$SLUG" "$ALPHA_REF" "$alpha_body")"
+if [ "$alpha_code" != "200" ]; then
+  fail "  取不到 origin/$ALPHA_REF 上的 package.json（HTTP $alpha_code）—— 无法核对另一侧，视为不成立而不是跳过"
 else
-  alpha_pkg="$(git show "FETCH_HEAD:package.json" 2>/dev/null || true)"
+  alpha_pkg="$(cat "$alpha_body")"
   if [ -z "$alpha_pkg" ]; then
     fail "  origin/$ALPHA_REF 上读不到 package.json"
   elif has_script "$alpha_pkg" "$script_name"; then
@@ -87,6 +149,15 @@ else
   else
     fail "  origin/$ALPHA_REF 的 package.json 没有 $script_name —— 该分支及其所有分支的 Pages 构建会失败，且要等到有人推一个该分支的分支才会被发现"
   fi
+fi
+
+# 对照组：一个必然不存在的 ref 必须被判为取不到。没有这一条，上面的 PASS 可能只是
+# 状态检查恒真（例如状态码被解析成一个写死的默认值、请求其实从未落到网络上）。
+control_code="$(fetch_pkg_status "$SLUG" "__no_such_ref_control__" /dev/null)"
+if [ "$control_code" != "200" ]; then
+  pass "  对照组：一个必然不存在的 ref 被判为取不到（HTTP $control_code）"
+else
+  fail "  对照组：一个必然不存在的 ref 也返回了 200 —— 状态检查恒真，上面 alpha 的结果不算数"
 fi
 
 echo "----------------------------------------"
