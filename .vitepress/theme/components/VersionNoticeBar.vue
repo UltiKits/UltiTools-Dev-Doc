@@ -15,6 +15,19 @@
 // outdated" versus "this content may change under you"), so dismissing one must
 // leave the other free to appear.
 //
+// Accepted consequence, not an oversight (second-pass review WR-19): the key is
+// per state, so it is not per page. Closing the archived bar on one archived
+// page removes VER-05's one-click route to the current release from EVERY
+// archived page for the rest of the session, including pages not yet opened.
+// That follows from the two specified properties above -- any scope narrow
+// enough to bring the link back per page would also re-show the warning the
+// reader just dismissed on every page, which is what the close control exists
+// to stop. It is bounded by the version switcher, which is an independent route
+// to the current release and is never dismissible. Recorded here and in
+// 04-UI-SPEC.md's dismissible section because it widens a requirement's reach;
+// keying `dismissed` by relativePath alongside state is the change if that
+// trade is ever revisited.
+//
 // SSR: the object is created once per module evaluation and its only mutation
 // site is the click handler, which cannot fire during a build. Server render and
 // first client render therefore both read false, and no hydration mismatch is
