@@ -69,15 +69,53 @@ const isZh = computed(() => lang.value.startsWith('zh'));
 // the current-release case means dismissal reuses the cleanup path that case
 // already proved, instead of adding a second one beside it.
 
+// Feeds aria-label and nothing else. It was also bound to title, which reads as
+// a harmless duplicate and is not: aria-label supplies the accessible NAME and
+// title supplies the accessible DESCRIPTION, so a screen reader announced the
+// same sentence twice. Dropping title rather than aria-label costs the hover
+// tooltip a sighted mouse user got on this icon-only button, which is the
+// cheaper loss -- title is not exposed on touch at all, and
+// scripts/check-rendered-links.sh section 3c asserts the name through
+// aria-label, so title was never the channel being verified.
 const dismissLabel = computed(() => (isZh.value ? '关闭此提示' : 'Dismiss this notice'));
 
 const visible = computed(
   () => state.value !== 'current' && !dismissed[state.value as 'archived' | 'alpha']
 );
 
+// The early return is not dead code even though the button only renders under
+// v-if="visible", which already requires state !== 'current'. It is what narrows
+// `key` to the two keys `dismissed` actually has, so the write below needs no
+// type assertion: the runtime check and the type are the same statement rather
+// than a cast asserting an invariant enforced somewhere else in the file.
+//
+// Retargeting focus is the other half of the fix. Activating this control
+// removes the focused button from the DOM along with the bar, so without a
+// retarget focus is destroyed: measured in headless Chromium, document
+// .activeElement becomes <body> the moment the bar is removed. That is the
+// WCAG 2.4.3 failure -- a screen reader loses its place and the reader gets no
+// announcement of where they now are.
+//
+// Measured rather than assumed, because the obvious next claim is wrong here:
+// the following Tab does NOT restart from the top of the document in Chrome. It
+// landed on .VPNavBarMenuLink, because the spec's sequential focus navigation
+// starting point is set to the removed element's position. Chrome's mitigation
+// is real and is not a substitute -- it repairs the Tab sequence, not the lost
+// focus, and it is a per-engine behaviour rather than something to rely on.
+//
+// The bar renders above VPNav, so VPNav's first focusable is the element the
+// reader would have reached next anyway. After the fix focus lands on a.title
+// (the localised home link: href="/" on English pages, "/zh/" on Chinese ones)
+// and the next Tab continues to the search button. nextTick, because the
+// element must be gone before focus moves; moving it first would let Vue's
+// removal reset focus to <body> again.
 const dismiss = () => {
-  if (state.value === 'current') return;
-  dismissed[state.value as 'archived' | 'alpha'] = true;
+  const key = state.value;
+  if (key === 'current') return;
+  dismissed[key] = true;
+  nextTick(() => {
+    document.querySelector<HTMLElement>('.VPNav a[href], .VPNav button')?.focus();
+  });
 };
 
 // ── Copy, verbatim from 04-UI-SPEC.md § Copywriting Contract ────────────────
@@ -247,7 +285,6 @@ watch([visible, state], ([isVisible]) => {
       class="notice-dismiss"
       data-ut-notice-dismiss
       :aria-label="dismissLabel"
-      :title="dismissLabel"
       @click="dismiss"
     >
       <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
