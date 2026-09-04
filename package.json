@@ -3,6 +3,7 @@
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
+    "build:with-alpha": "npm run build",
     "preview": "vitepress preview",
     "check:parity": "bash scripts/check-bilingual-parity.sh",
     "check:version-signal": "bash scripts/test-version-signal.sh"
