@@ -1,20 +1,20 @@
 <!--
-  Fixture: javadoc.io versions page, MISSING csrfToken state.
+  Fixture: javadoc.io versions page, sync form missing its csrfToken.
   Same structure as javadoc-io-versions-ok.html with exactly one difference:
-  both hidden csrfToken inputs are removed (sync form and upload form).
-  Everything else — both forms' method/action, the version table, all six
-  versionId checkboxes — is byte-identical to the normal fixture.
+  the sync form's hidden csrfToken input is removed. The upload form keeps
+  its own csrfToken, and everything else — both forms' method/action, the
+  version table, all six versionId checkboxes — is byte-identical.
 
-  Expected exit code from scripts/javadoc-io-index.sh --check-forms-only
-  --page-file <this file> --version <any>: 1 — fail-closed, "upstream
-  structure changed, script needs a rewrite", not a silent skip.
+  Distinct from javadoc-io-versions-no-csrf.html, which removes BOTH tokens.
+  This one isolates the half the script used to ignore: it extracted only the
+  upload form's token and submitted that same value to /sync as well, so a
+  page like this passed every structural check. If upstream's two forms ever
+  carry different tokens, /sync rejects the POST and the rejection is
+  classified transient and retried forever.
 
-  The assertion that reports it is now assertion ONE (the sync form's
-  csrfToken), not assertion two. The script used to extract a single token
-  from the upload form and submit it to both endpoints; it now extracts and
-  validates each form's own token, and the sync form is checked first. With
-  both tokens removed, as this fixture does, the sync half fails first.
-  javadoc-io-versions-sync-no-csrf.html isolates that half on its own.
+  Expected from scripts/javadoc-io-index.sh --check-forms-only --page-file
+  <this file> --version <any>: exit 1, with the assertion-one message naming
+  the sync form's csrfToken.
 -->
 <div class="container">
   <p class="text-muted mb-3">28 versions, 1 uploaded</p>
@@ -64,6 +64,7 @@
   </table>
 
   <form id="versions-upload-form" method="post" action="/versions/com.ultikits/UltiTools-API/upload">
+    <input type="hidden" name="csrfToken" value="deadbeef00deadbeef00deadbeef0011-1700000000000-fixturefixturefixturefix1"/>
     <input type="checkbox" name="versionId" value="6.2.4" class="form-check-input ml-1">
     <input type="checkbox" name="versionId" value="6.2.3" class="form-check-input ml-1">
     <input type="checkbox" name="versionId" value="6.2.2" class="form-check-input ml-1">
