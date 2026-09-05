@@ -14,8 +14,11 @@
 # 本脚本只查「页面 → sidebar 有入口」这一个方向，不查反方向的「sidebar 入口指向
 # 不存在的页面」——按 01-CONTEXT.md D-04 收窄，反方向另立。
 #
-# 当前抽取假设 sidebar 的 link: 值不含尾斜杠、不以 / 开头（两侧全量常量已核对过，
-# 见 01-RESEARCH.md Pattern 3）；未来若新增此类写法，需要重新核对本脚本的假设。
+# 当前抽取假设 sidebar 的 link: 值不含尾斜杠（两侧全量常量已核对过，见
+# 01-RESEARCH.md Pattern 3）。以斜杠开头的 link 指向 Function 接管的运行时路由
+# （如 D-30 新增的 /api/ 那条），不对应 docs/src 下的任何页面，本脚本在
+# build_paths 里跳过它们；这类 link 是否真的指向一个合法的运行时路由，由
+# scripts/check-sidebar-links.sh 的 RUNTIME_ROUTE_EXEMPT 精确清单负责。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -118,7 +121,10 @@ check_extraction() {
 build_paths() {
   local raw="$1" prefix="$2"
   if [ -n "$raw" ]; then
-    printf '%s\n' "$raw" | sed "s#^#${prefix}#; s#\$#.md#"
+    # 以 / 开头的 link（D-30 新增的 /api/ 那条）指向 Function 接管的运行时路由，
+    # 不对应 docs/src 下的任何文件——加上 prefix 会拼出一条永远匹配不到任何
+    # 页面的垃圾路径，跳过它们，不计入本函数的输出。
+    { printf '%s\n' "$raw" | grep -vE '^/' || true; } | sed "s#^#${prefix}#; s#\$#.md#"
   fi
 }
 

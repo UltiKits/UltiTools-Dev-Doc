@@ -12,9 +12,20 @@
 // changes). If Phase 2 needs scoping the auto-generated file can't express,
 // re-evaluate then.
 
-import { GENERATED_AT, CURRENT_VERSION } from './_shared/version.generated.js';
+import { GENERATED_AT, CURRENT_VERSION, ARCHIVED_VERSIONS } from './_shared/version.generated.js';
 import { readThrough } from './_shared/cache.js';
 import { notIndexedPage, upstreamDownPage } from './_shared/pages.js';
+// PALETTE_MARKER dropped from this import (02-09 cleanup, editing this line
+// anyway for appearance.js below): OVERRIDE_BLOCK is the only export of
+// palette.js this file actually reads; PALETTE_MARKER has no reference
+// below it.
+import { OVERRIDE_BLOCK } from './_shared/palette.js';
+import { backlinkLiHtml } from './_shared/backlink.js';
+import { withStandardHeaders } from './_shared/headers.js';
+// G-02-8: the appearance-detection script appended to every HTML response's
+// <head> below. See that module's own header comment for the full
+// reasoning (VitePress parity, sync-inline requirement, class semantics).
+import { APPEARANCE_SCRIPT } from './_shared/appearance.js';
 
 // Upstream host and protocol live ONLY here. context.params.path never
 // contributes to host/protocol — that boundary is the SSRF mitigation (T-01-01
@@ -31,6 +42,40 @@ function isValidSegment(segment) {
   return true;
 }
 
+// G-02-7 version-root redirect: a single segment matching this pattern is
+// treated as a bare version number (`/api/6.2.5`) and gets redirected
+// straight to that version's index.html, instead of falling through to the
+// proxy branch where it would 303 out of UPSTREAM_PATH_PREFIX (see
+// upstream.js's header comment for the upstream behavior this closes).
+//
+// Anchored WHITELIST, not a reuse of isValidSegment's blacklist: this
+// segment is about to be interpolated into a Location this Function sends
+// to the browser (`new URL(...)` below), the second such place in this file
+// (the first is the zero-segment guard above, which uses a build-time
+// constant instead of request-derived input — T-02-08-02). isValidSegment's
+// blacklist only rejects characters known to reshape the upstream path; it
+// was never designed to prove a value is safe to place in a Location.
+// Restricting this segment to digits and dots by construction makes path
+// traversal or a cross-origin jump structurally impossible here, without
+// having to re-argue whether the blacklist covers every case.
+//
+// A REGEX, not a membership test against CURRENT_VERSION/ARCHIVED_VERSIONS:
+// verified against the live upstream during planning — a version that
+// exists but is not yet indexed (e.g. 9.9.9) redirects to
+// `/api/9.9.9/index.html`, which then 404s upstream, giving the reader the
+// accurate "this version has not been indexed" page. A membership test
+// would instead send that same request into the proxy branch, where
+// upstream's own 303 gets caught by redirect-blocked and degrades to the
+// identical page by a longer path — and a membership list needs editing
+// every time a new version shape appears, where the regex needs none.
+const VERSION_SEGMENT_RE = /^\d+(?:\.\d+)*$/;
+
+// G-02-10: the exact three path segments upstream's own stylesheet.css
+// @import points at, relative to a version root (`/api/{version}/`). See the
+// branch below (just above upstreamUrl's construction) for why this one
+// subpath gets answered inside this Function instead of being proxied.
+const SELF_ANSWERED_DEJAVU_SUBPATH = 'resources/fonts/dejavu.css';
+
 // A segment counts as a non-HTML asset request when its last path component
 // has a dot-extension that isn't "html" (e.g. stylesheet.css,
 // member-search-index.js). No extension at all, or an .html extension, is
@@ -43,14 +88,104 @@ function isNonHtmlAsset(lastSegment) {
   return ext !== 'html';
 }
 
-// Every response this Function produces — 2xx, redirect, or error — carries
-// these two headers (D-05): no upstream canonical, always noindex. Applied
-// as the very last step before a Response leaves this file so no branch can
-// forget it.
-function withStandardHeaders(headers) {
-  headers.delete('link');
-  headers.set('X-Robots-Tag', 'noindex');
-  return headers;
+// withStandardHeaders (D-05, D-26) now lives in ./_shared/headers.js,
+// shared with index.js (WR-01, 02-REVIEW.md) — see that module's own
+// header comment for the full CSP reasoning. Applied as the very last step
+// before a Response leaves this file so no branch can forget it.
+
+// Module-level memoization: the fingerprint depends only on this module's
+// own template output (OVERRIDE_BLOCK, a fixed-argument rendering of
+// backlinkLiHtml) and the build-time ARCHIVED_VERSIONS array, never on any
+// per-request value, so every request in the same isolate reuses the same
+// Promise instead of re-hashing identical bytes.
+//
+// The dummy version argument ('0.0.0') stays fixed on purpose: it keeps the
+// fingerprint from varying per request the way the real per-page argument
+// (segments[0]) would. segments[0] itself needs no folding in here — it is
+// already part of the request URL, which the fingerprint is combined with
+// to form the cache key (stampedCacheKey below), so a different segment[0]
+// already produces a different cache key on its own.
+//
+// ARCHIVED_VERSIONS is folded in for real (not as a dummy), because it is
+// the one input that changes the actual per-request output of
+// backlinkLiHtml(segments[0], ARCHIVED_VERSIONS) without any source-code
+// edit at all: every time a version is archived, this build-time array
+// gains an entry, and every already-cached page under that version's
+// prefix should switch from an empty-prefix backlink to a version-prefixed
+// one. Without ARCHIVED_VERSIONS in the fingerprint, that switch would
+// never invalidate the edge-cached HTML entry (CR-01, 02-REVIEW.md) — the
+// cache key is the URL plus this stamp, and archiving a version changes
+// neither on its own. GENERATED_AT is deliberately NOT folded in here: it
+// changes on every build, which would bust the entire HTML edge cache on
+// every deploy, not just on the archival/template changes this fingerprint
+// exists to catch.
+//
+// Net effect: changing any color value in OVERRIDE_BLOCK, changing the
+// <li>'s structure or copy, changing the injected appearance script's
+// bytes, or archiving a new version all change the fingerprint
+// automatically — no one has to remember to bump a version number by
+// hand.
+//
+// G-02-8: APPEARANCE_SCRIPT is folded in for the same reason ARCHIVED_
+// VERSIONS is — it is served bytes this Function controls that can change
+// without any other input here changing, so leaving it out would mean an
+// edit to appearance.js never invalidates HTML already sitting in the
+// edge cache (same failure CR-01 fixed for ARCHIVED_VERSIONS, 02-REVIEW.md).
+let themeStampPromise;
+
+function themeStamp() {
+  if (!themeStampPromise) {
+    const fingerprintSource =
+      OVERRIDE_BLOCK +
+      backlinkLiHtml('0.0.0', []) +
+      ARCHIVED_VERSIONS.join(',') +
+      APPEARANCE_SCRIPT;
+    themeStampPromise = crypto.subtle
+      .digest('SHA-256', new TextEncoder().encode(fingerprintSource))
+      .then((digest) => {
+        const bytes = new Uint8Array(digest).slice(0, 4);
+        return Array.from(bytes)
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('');
+      });
+  }
+  return themeStampPromise;
+}
+
+// The theme fingerprint is folded into this Function's own cache key
+// (caches.default) for BOTH branches now — the stylesheet branch and the
+// HTML branch use the same stampedCacheKey call. This is the only channel
+// by which a theming change reaches a reader whose copy is already sitting
+// in caches.default: the key is the URL, so without the fingerprint in it,
+// a reader requesting an already-cached entry keeps getting yesterday's
+// <li> or yesterday's palette until upstream's long max-age naturally
+// expires.
+//
+// This key only reaches caches.default — the layer this Function actually
+// controls. There is a second, separate cache sitting in front of this
+// Function entirely (a Cloudflare zone cache keyed by request URL, which
+// caches text/css but not text/html — confirmed 2026-09-03: a fresh
+// cache-busted stylesheet.css URL requested twice returns
+// cf-cache-status: MISS then HIT with x-cache still reporting the first
+// request's MISS, i.e. the second request never reaches this Function at
+// all, while the same test against an HTML page reports
+// cf-cache-status: DYNAMIC both times). This key has no effect on that
+// zone layer; the only handle this Function has on it is the
+// Cloudflare-CDN-Cache-Control TTL set in the stylesheet branch below.
+function stampedCacheKey(request, stamp) {
+  const url = new URL(request.url);
+  url.searchParams.set('__theme', stamp);
+  return new Request(url.toString(), request);
+}
+
+// Builds a weak validator ETag by combining the upstream's own ETag (or the
+// literal "noetag" when upstream didn't send one) with the theme fingerprint,
+// joined by a single hyphen. Weak (W/) because the bytes being served are not
+// byte-for-byte identical to any single upstream representation — they're
+// upstream bytes plus an appended override block.
+function weakEtag(upstreamEtag, stamp) {
+  const base = upstreamEtag ? upstreamEtag.replace(/^W\//, '').replace(/"/g, '') : 'noetag';
+  return `W/"${base}-${stamp}"`;
 }
 
 export async function onRequestGet(context) {
@@ -115,16 +250,282 @@ export async function onRequestGet(context) {
     return new Response(null, { status: 301, headers });
   }
 
+  // G-02-7 version root: `/api/{version}` (no further path) redirects to
+  // that version's index.html instead of falling through to the proxy
+  // branch below, where the bare version segment would 303 out of
+  // UPSTREAM_PATH_PREFIX (see VERSION_SEGMENT_RE's own comment, and
+  // upstream.js's header comment for the upstream behavior this closes).
+  // 302, not 301, for the same reason as the zero-segment guard above: a
+  // 301 is cached by browsers permanently, and the target filename
+  // (index.html) is not something this repository can promise forever.
+  // Location is built from the incoming request (never a hardcoded host),
+  // same as every other redirect in this file, so PR-preview visitors stay
+  // on the preview domain.
+  if (segments.length === 1 && VERSION_SEGMENT_RE.test(segments[0])) {
+    const location = new URL(`/api/${segments[0]}/index.html`, context.request.url);
+    const headers = withStandardHeaders(new Headers({ Location: location.toString() }));
+    return new Response(null, { status: 302, headers });
+  }
+
+  // G-02-10: upstream's own stylesheet.css (served by the isStylesheet
+  // branch below) imports a font subpath that does not exist upstream.
+  // Answered here, before upstreamUrl is even constructed, so this branch
+  // never issues a fetch and never touches HTMLRewriter.
+  //
+  // 1. What upstream is doing, and the measurement behind it: stylesheet.css
+  //    line 5 reads `@import url('resources/fonts/dejavu.css')` in every
+  //    indexed version checked during planning (6.1.0, 6.2.0, 6.2.5 — that
+  //    line is byte-identical across all three). The published
+  //    UltiTools-API jar ships no DejaVu font files, and javadoc.io's own
+  //    origin 404s on the same subpath. This is not a defect this
+  //    repository introduced — it is upstream behavior, faithfully
+  //    proxied.
+  //
+  // 2. Why answer a zero-visual-impact 404 at all: palette.js:170-172
+  //    already overrides all three font-family custom properties this
+  //    stylesheet would otherwise resolve DejaVu into, so DejaVu is never
+  //    referenced by anything this site renders, loaded or not — the
+  //    rendered page is byte-for-byte the same either way. This branch does
+  //    NOT make the font load; it only silences a console error. Do not
+  //    describe this as "the font now loads" — it does not, and was never
+  //    going to. The only observable difference is whether that red 404
+  //    sits in devtools.
+  //
+  // 3. Why an exact four-segment match, not an extension match or a
+  //    resources/ prefix match, with the measurements that ruled each out:
+  //    under the same version, script-dir/jquery-ui.min.css returns 200 and
+  //    stylesheet.css returns 200 — an extension match on .css would empty
+  //    both, including the very file this Phase appends OVERRIDE_BLOCK to.
+  //    resources/glass.png returns 200 (499 bytes) and resources/x.png
+  //    returns 200 — a resources/ prefix match would erase the magnifier
+  //    icon UAT test 4 confirmed rendering. Both measured live against
+  //    upstream during planning for G-02-10.
+  //
+  // 4. The reason underneath those specific casualties: any match wider
+  //    than this one exact subpath swallows other genuine upstream 404s
+  //    along with it, making a real upstream outage invisible behind this
+  //    Function's own synthesized 200. Staying able to see upstream fail is
+  //    the one thing this proxy cannot give up — the maintainer's ruling on
+  //    G-02-10 wrote this in as a scope boundary, not a tradeoff left to
+  //    implementation convenience.
+  //
+  // 5. Why the version segment is guarded by VERSION_SEGMENT_RE: version is
+  //    the only part of this subpath that legitimately varies. Reusing the
+  //    existing anchored whitelist (rather than adding a second regex)
+  //    keeps /api/anything/resources/fonts/dejavu.css from getting this
+  //    synthesized 200. Reused here purely as a guard, not interpolated
+  //    into a Location the way G-02-7 uses it above — this use can only
+  //    narrow what qualifies, never widen it.
+  //
+  // 6. Why this branch sits before upstreamUrl is constructed: the position
+  //    itself is the proof that this path never produces an upstream
+  //    request — no comment has to assert it separately. The deployed gate
+  //    confirms this against a never-indexed version (9.9.9): if any
+  //    upstream request had actually fired for that version, it would 404,
+  //    not 200.
+  //
+  // 7. Why Content-Type is part of the fix, not decoration: in standard
+  //    mode, a browser refuses to apply an @import target whose response
+  //    isn't served as CSS, and still logs a console error regardless of
+  //    status code. A 200 with the wrong MIME type would just trade one
+  //    console error for a different one.
+  //
+  // 8. Cache lifetime and what did NOT change: max-age=3600 on both sides
+  //    matches the stylesheet branch's own TTL (D-20) — the rule that a
+  //    response carrying this repository's own bytes does not inherit
+  //    upstream's one-year max-age. The short TTL also bounds how long a
+  //    reader could be left holding this empty stylesheet if this branch is
+  //    ever reverted. This response is deliberately NOT folded into
+  //    themeStamp's fingerprint: it never goes through readThrough, never
+  //    enters the edge read/write cache, and carries no theme-derived
+  //    bytes — there is nothing here that could go stale relative to a
+  //    theme change. Writing this down (rather than leaving it silent) lets
+  //    the next reader tell "considered and excluded" apart from
+  //    "forgotten", the same treatment palette.js gives font sizes it
+  //    deliberately leaves uncovered.
+  if (
+    segments.length === 4 &&
+    VERSION_SEGMENT_RE.test(segments[0]) &&
+    segments.slice(1).join('/') === SELF_ANSWERED_DEJAVU_SUBPATH
+  ) {
+    const headers = withStandardHeaders(new Headers());
+    headers.set('Content-Type', 'text/css; charset=utf-8');
+    headers.set('Cache-Control', 'public, max-age=3600');
+    headers.set('Cloudflare-CDN-Cache-Control', 'public, max-age=3600');
+    headers.set('x-version-generated-at', GENERATED_AT);
+    // T-02-10-03 (threat register): a boolean fact only, same shape as the
+    // existing x-upstream-redirect: blocked header — no upstream URL, no
+    // internal path, no input beyond the version segment already visible in
+    // the request URL itself.
+    headers.set('x-upstream-fetch', 'skipped');
+    return new Response(null, { status: 200, headers });
+  }
+
   const upstreamUrl = new URL(
     `${UPSTREAM_PATH_PREFIX}/${segments.join('/')}`,
     UPSTREAM_ORIGIN
   );
 
-  const result = await readThrough(context, context.request, upstreamUrl);
+  const lastSegment = segments[segments.length - 1];
+  // Exact filename match, not extension match: an extension match (".css")
+  // would also catch any other upstream stylesheet javadoc might ship in a
+  // future version, none of which this override block is written for.
+  const isStylesheet = lastSegment === 'stylesheet.css';
+  const isHtmlRequest = !isNonHtmlAsset(lastSegment);
+
+  let readThroughOptions;
+
+  if (isStylesheet) {
+    const stamp = await themeStamp();
+    readThroughOptions = {
+      // This is the only place in this Function that reads an upstream body
+      // entirely into memory. That is allowed here specifically because
+      // stylesheet.css is measured at 30,650 bytes (RESEARCH.md §1.1) — a
+      // world apart from the 409 KB-class objects like
+      // member-search-index.js this proxy also serves. The exact-filename
+      // check above (not an extension match) is what keeps this branch from
+      // ever being reached by one of those larger files.
+      cacheKey: stampedCacheKey(context.request, stamp),
+      transformOk: async (upstreamResponse) => {
+        const upstreamBody = await upstreamResponse.text();
+        const stampedBody = `${upstreamBody}\n${OVERRIDE_BLOCK}`;
+        const headers = new Headers(upstreamResponse.headers);
+        // D-20 (REVISED for G-02-16 — see 02-UAT.md's correction on this
+        // gap): stylesheet.css still uses a short, symmetric TTL on both
+        // sides — Cloudflare-CDN-Cache-Control controls the zone-cache copy
+        // sitting in front of this Function, Cache-Control controls the
+        // browser copy — instead of following upstream's max-age=31536000.
+        // This branch's caches.default entry now uses the same
+        // theme-fingerprinted cacheKey as the HTML branch (see
+        // stampedCacheKey's own header comment for why there are two
+        // separate cache layers and what each TTL/key actually controls).
+        // Both the key and this TTL only bound the staleness of entries
+        // WRITTEN AFTER this change ships — neither retroactively shortens
+        // an entry already sitting in either cache layer; those retire only
+        // via the one-time manual purge recorded in this plan's
+        // user_setup.
+        headers.set('Cache-Control', 'public, max-age=3600');
+        headers.set('Cloudflare-CDN-Cache-Control', 'public, max-age=3600');
+        headers.set('ETag', weakEtag(upstreamResponse.headers.get('etag'), stamp));
+        // Content-Length, if upstream sent one, describes the pre-append
+        // byte count and is now wrong.
+        headers.delete('Content-Length');
+        return new Response(stampedBody, {
+          status: upstreamResponse.status,
+          headers,
+        });
+      },
+    };
+  } else if (isHtmlRequest) {
+    const stamp = await themeStamp();
+    readThroughOptions = {
+      cacheKey: stampedCacheKey(context.request, stamp),
+      transformOk: async (upstreamResponse) => {
+        // D-27 (REVISED for G-02-8 — see 02-UAT.md's Scope Decision, D-38):
+        // this Function now makes exactly TWO structural changes to
+        // upstream HTML, not one. The original invariant ("the only
+        // structural change is prepending one <li>") was explicitly
+        // relaxed by the maintainer when scoping G-02-8: APIREF-02's
+        // implementation constraint (custom-property overrides only) was
+        // never meant to forbid appearance sync, and syncing the site's
+        // own toggle onto this page structurally requires injecting a
+        // script — there is no custom-property-only way to read
+        // localStorage. The two changes are:
+        //   1. Prepending one <li> to ul#navbar-top-firstrow (unchanged
+        //      from the original D-27 — the guide/API backlink).
+        //   2. Appending one inline <script> to <head> (new in G-02-8 —
+        //      the appearance-detection script, functions/api/_shared/
+        //      appearance.js).
+        // This relaxation is scoped to appearance sync only. It does NOT
+        // extend to the deep-mode magnifier icon test 4 exempted under
+        // the same APIREF-02 constraint — that stays out of scope unless
+        // separately decided.
+        //
+        // Cache argument, re-verified against the actual implementation
+        // (not assumed) before writing this paragraph: APPEARANCE_SCRIPT
+        // is a build-time constant (see appearance.js's own header
+        // comment — zero request-time input), so the bytes appended here
+        // are identical for every reader of a given deploy; which theme
+        // those bytes RESOLVE to is decided entirely client-side, inside
+        // the injected script, after the response has already left this
+        // Function. stampedCacheKey (below) is still exactly "URL +
+        // themeStamp", and themeStamp's fingerprintSource now folds in
+        // APPEARANCE_SCRIPT (see that function's own comment) so an edit
+        // to this script busts already-cached HTML the same way an edit
+        // to OVERRIDE_BLOCK or a new archived version already did — but
+        // neither the cache key's SHAPE nor its per-reader behavior
+        // changes: no new dimension is added, and no Vary header is
+        // introduced, because nothing about the response varies by
+        // reader in the first place.
+        const backlink = backlinkLiHtml(segments[0], ARCHIVED_VERSIONS);
+        // CR-02 (02-REVIEW.md): same reasoning as the stylesheet branch's
+        // weakEtag() call above — the served bytes are not byte-for-byte
+        // identical to any single upstream representation, so upstream's
+        // own ETag must not be passed through untouched. Set it on a
+        // pre-transform copy of the headers (not the eventual stored/
+        // outgoing headers built later in onRequestGet) so HTMLRewriter's
+        // transform() carries it straight into both the client response
+        // and the copy readThrough writes into caches.default — this is
+        // the same composite validator, computed the same way, just
+        // applied to the branch whose bytes actually change per D-29's
+        // version-aware backlink and per CR-01's fingerprint fix.
+        //
+        // Content-Length is deliberately left untouched here, unlike the
+        // stylesheet branch's explicit `headers.delete('Content-Length')`:
+        // the body handed to HTMLRewriter.transform() below is a streamed
+        // ReadableStream, not a fixed-length source, and Cloudflare's own
+        // Response docs state "The Content-Length header is automatically
+        // set by the runtime based on the Response data source, and any
+        // manual value set in Headers will be ignored... Using any other
+        // type of ReadableStream results in chunked encoding"
+        // (developers.cloudflare.com/workers/runtime-apis/response). A
+        // stale Content-Length value surviving in this Headers object has
+        // no effect on what is actually sent.
+        const headers = new Headers(upstreamResponse.headers);
+        headers.set('ETag', weakEtag(upstreamResponse.headers.get('etag'), stamp));
+        return new HTMLRewriter()
+          .on('ul#navbar-top-firstrow', {
+            element(el) {
+              el.prepend(backlink, { html: true });
+            },
+          })
+          .on('head', {
+            // append, not prepend: prepending would insert ahead of
+            // upstream's own <meta charset> tag, moving it out of the
+            // "first 1024 bytes" position browsers require for charset
+            // sniffing to reliably kick in. Appending lands at the end of
+            // <head> instead, leaving charset's position untouched while
+            // still executing before body parsing begins — first paint
+            // never happens ahead of this script, so there is no flash of
+            // the wrong theme.
+            element(el) {
+              el.append(APPEARANCE_SCRIPT, { html: true });
+            },
+          })
+          .transform(
+            new Response(upstreamResponse.body, {
+              status: upstreamResponse.status,
+              headers,
+            })
+          );
+      },
+    };
+  }
+
+  const result = await readThrough(context, context.request, upstreamUrl, readThroughOptions);
 
   if (result.kind === 'ok') {
     const headers = withStandardHeaders(new Headers(result.response.headers));
     headers.set('x-version-generated-at', GENERATED_AT);
+    if (isHtmlRequest) {
+      // D-20/D-27: the edge copy keeps following upstream's own long TTL
+      // (the stored response's headers are untouched by this branch) — only
+      // what's sent to THIS browser is shortened, because this response now
+      // carries this repository's own bytes (the injected backlink <li> and,
+      // as of G-02-8, the injected appearance-detection <script>) and
+      // upstream's one-year max-age was never a promise about those bytes.
+      headers.set('Cache-Control', 'public, max-age=3600');
+    }
     return new Response(result.response.body, {
       status: result.response.status,
       headers,
@@ -133,20 +534,34 @@ export async function onRequestGet(context) {
 
   // Every failure branch below is deliberately never cached (D-07): no
   // cache.put call exists on this path at all, and Cache-Control: no-store
-  // is set explicitly rather than relied upon as a side effect.
-  const lastSegment = segments[segments.length - 1];
+  // is set explicitly rather than relied upon as a side effect. This holds
+  // for redirect-blocked too — it flows through the same result.kind !==
+  // 'ok' branch in readThrough (cache.js), so no change was needed there.
   const upstreamStatusValue =
     result.kind === 'unreachable' ? 'unreachable' : String(result.status);
+  const isRedirectBlocked = result.kind === 'redirect-blocked';
 
   if (isNonHtmlAsset(lastSegment)) {
     // A non-HTML asset that can't be fetched gets an honest empty response
     // with the real (or synthesized) status code, not a text/html body a
     // browser would flag as a MIME mismatch for a stylesheet or script.
-    const status = result.kind === 'unreachable' ? 502 : result.status;
+    // redirect-blocked gets its own synthesized 404 here, same as
+    // 'unreachable' synthesizes 502: result.status for that kind is the
+    // upstream's raw 3xx, and sending a 3xx status code with an empty body
+    // and no Location header would look like a broken redirect to the
+    // browser, not a clean failure (T-02-08-01).
+    const status = result.kind === 'unreachable' ? 502 : isRedirectBlocked ? 404 : result.status;
     const headers = withStandardHeaders(new Headers());
     headers.set('Cache-Control', 'no-store');
     headers.set('x-upstream-status', upstreamStatusValue);
     headers.set('x-version-generated-at', GENERATED_AT);
+    if (isRedirectBlocked) {
+      // G-02-7 / T-02-08-03: the fact that a redirect was blocked is
+      // observable; the redirect's target is not. Never place
+      // result.location (or anything derived from it) into a response
+      // header.
+      headers.set('x-upstream-redirect', 'blocked');
+    }
     return new Response(null, { status, headers });
   }
 
@@ -155,13 +570,20 @@ export async function onRequestGet(context) {
   // "upstream-error"/"unreachable" (upstream is broken or unreachable) —
   // one says "this version was never indexed", the other says "try again
   // later" — so they get different pages and different status codes.
+  // redirect-blocked joins "not-found" here (G-02-7): from a reader's
+  // perspective, "upstream 303'd us to its own site chrome instead of
+  // content" and "upstream said 404" are the same fact — there is nothing
+  // this Function can serve at this address.
   const headers = withStandardHeaders(new Headers());
   headers.set('Content-Type', 'text/html; charset=utf-8');
   headers.set('Cache-Control', 'no-store');
   headers.set('x-upstream-status', upstreamStatusValue);
   headers.set('x-version-generated-at', GENERATED_AT);
+  if (isRedirectBlocked) {
+    headers.set('x-upstream-redirect', 'blocked');
+  }
 
-  if (result.kind === 'not-found') {
+  if (result.kind === 'not-found' || isRedirectBlocked) {
     return new Response(notIndexedPage(CURRENT_VERSION), { status: 404, headers });
   }
   // upstream-error or unreachable both degrade to the same 502 page — the

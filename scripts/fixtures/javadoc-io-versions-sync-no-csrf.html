@@ -1,0 +1,76 @@
+<!--
+  Fixture: javadoc.io versions page, sync form missing its csrfToken.
+  Same structure as javadoc-io-versions-ok.html with exactly one difference:
+  the sync form's hidden csrfToken input is removed. The upload form keeps
+  its own csrfToken, and everything else — both forms' method/action, the
+  version table, all six versionId checkboxes — is byte-identical.
+
+  Distinct from javadoc-io-versions-no-csrf.html, which removes BOTH tokens.
+  This one isolates the half the script used to ignore: it extracted only the
+  upload form's token and submitted that same value to /sync as well, so a
+  page like this passed every structural check. If upstream's two forms ever
+  carry different tokens, /sync rejects the POST and the rejection is
+  classified transient and retried forever.
+
+  Expected from scripts/javadoc-io-index.sh --check-forms-only --page-file
+  <this file> --version <any>: exit 1, with the assertion-one message naming
+  the sync form's csrfToken.
+-->
+<div class="container">
+  <p class="text-muted mb-3">28 versions, 1 uploaded</p>
+
+  <form method="post" action="/versions/com.ultikits/UltiTools-API/sync" class="mb-0 mr-2">
+    <button type="submit" class="btn btn-sm btn-secondary">Sync</button>
+  </form>
+
+  <table class="table">
+    <tbody>
+      <tr>
+        <td>6.2.5</td>
+        <td><span class="badge badge-success" title="UPLOADED">Available</span></td>
+        <td><a href="/doc/com.ultikits/UltiTools-API/6.2.5">View</a></td>
+      </tr>
+      <tr>
+        <td>6.2.4</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.3</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.2</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.1</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.0</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.1.0</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <form id="versions-upload-form" method="post" action="/versions/com.ultikits/UltiTools-API/upload">
+    <input type="hidden" name="csrfToken" value="deadbeef00deadbeef00deadbeef0011-1700000000000-fixturefixturefixturefix1"/>
+    <input type="checkbox" name="versionId" value="6.2.4" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.2.3" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.2.2" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.2.1" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.2.0" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.1.0" class="form-check-input ml-1">
+    <button type="submit" class="btn btn-sm btn-primary">Upload selected</button>
+  </form>
+</div>

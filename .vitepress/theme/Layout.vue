@@ -3,6 +3,8 @@ import DefaultTheme from 'vitepress/theme'
 import { inBrowser, useData, useRoute } from 'vitepress'
 import { watchEffect, nextTick, watch, onMounted, onUnmounted } from 'vue'
 // @ts-ignore
+import VersionNoticeBar from './components/VersionNoticeBar.vue'
+// @ts-ignore
 import SecondNavBar from './components/SecondNavBar.vue'
 // @ts-ignore
 import SidebarTranslations from './components/SidebarTranslations.vue'
@@ -250,6 +252,7 @@ watchEffect(() => {
             </div>
         </template>
         <template #layout-top>
+            <VersionNoticeBar />
             <SecondNavBar />
             <NolebaseHighlightTargetedHeading />
         </template>
@@ -263,6 +266,41 @@ watchEffect(() => {
 /* 隐藏默认菜单 */
 .VPNavBar .content-body>.VPNavBarMenu.menu {
     display: none !important;
+}
+
+/* 768px 起把汉堡按钮与手机菜单留下（960px 起由下一条交还给 tab 行）。
+   这一带此前没有任何导航承载体：VitePress 的汉堡从 768px 起隐藏
+   （VPNavBarHamburger.vue:10-14），手机菜单同样（VPNavScreen.vue:38-42），
+   上面那条规则无条件藏掉默认菜单，而 SecondNavBar 要到 960px 才显示
+   （SecondNavBar.vue 的 @media (min-width: 960px)）。三者叠加使深度指南、
+   API 接口、用户文档、版本切换器、语言切换与深色模式在该带全部够不着。
+   不改用默认菜单，是因为本站往导航栏里多放了开发者平台按钮与阅读增强
+   菜单：实测放出默认菜单后 .content 的 min-content 宽度达 974px（英文），
+   撑破 .container 造成页面横向滚动。手机菜单是覆盖层，不参与该行的排布。
+   上游两条规则都带 scoped 属性选择器（0,2,0），故用 !important 覆盖，
+   与本文件既有的两处覆盖写法一致。 */
+@media (min-width: 768px) {
+    .VPNavBarHamburger {
+        display: flex !important;
+    }
+
+    .VPNavScreen {
+        display: block !important;
+    }
+}
+
+/* 960px 起交还给 SecondNavBar。
+   只用 min-width、靠后写的规则覆盖前面的，而不是给上一条配一个
+   max-width: 959px——那样 959 与 960 之间的小数宽度会两条都不命中，
+   落回同一个导航真空。边界由 960 这一个数字定义，结构上不存在缝。 */
+@media (min-width: 960px) {
+    .VPNavBarHamburger {
+        display: none !important;
+    }
+
+    .VPNavScreen {
+        display: none !important;
+    }
 }
 
 /* 开发者平台按钮样式 */
@@ -317,10 +355,22 @@ watchEffect(() => {
 
 /* 圆角矩形容器包裹 VPDoc 下的 container */
 .VPDoc {
-    height: calc(100vh - var(--vp-nav-height));
+    height: calc(100vh - var(--vp-nav-height) - var(--vp-layout-top-height, 0px));
     overflow: hidden;
     padding: 20px !important;
-    padding-top: 64px !important;
+    /* Was a literal 64px: the tab row's own height (48px) plus a 16px gap
+       below it. At and above 960px the variable is 48px and this yields the
+       same 64px the literal produced, now named instead of repeated.
+
+       Below 960px the variable is 0px, so the expression would yield 16px —
+       but it never applies there. The mobile block near the end of this
+       stylesheet sets `.VPDoc { padding: 0 !important }`, same specificity
+       and later in source order, so it wins under `@media (max-width:
+       959px)` and the computed padding-top below 960px is 0px, both before
+       and after this change. Measured in headless Chromium over CDP: 0px at
+       375 and 768, 64px at 1024, 1280 and 1440 — identical to master at all
+       five. */
+    padding-top: calc(var(--ut-tabbar-height) + 16px) !important;
     box-sizing: border-box;
 }
 
@@ -343,9 +393,16 @@ watchEffect(() => {
 
 /* 修改 Aside 定位，使其包含在容器内 */
 .VPDoc .aside-container {
-    top: 128px !important;
+    /* Was the notice-bar variable plus a literal 128. The main nav height
+       plus the tab row height plus a 16px gap: 64 + 48 + 16 = 128, the same
+       value the literal produced. */
+    top: calc(var(--vp-layout-top-height, 0px) + var(--vp-nav-height) + var(--ut-tabbar-height) + 16px) !important;
     padding-top: 0 !important;
-    max-height: calc(100vh - var(--vp-nav-height) - 84px) !important;
+    /* Was a literal 84 subtrahend, with no traceable origin. It decomposes
+       into the tab row height, the same 16px gap used in the sibling top
+       offset above, and this repository's own 20px .VPDoc padding:
+       48 + 16 + 20 = 84, the same value the literal produced. */
+    max-height: calc(100vh - var(--vp-nav-height) - var(--vp-layout-top-height, 0px) - var(--ut-tabbar-height) - 16px - 20px) !important;
     overflow-y: auto !important;
 }
 
@@ -413,7 +470,7 @@ watchEffect(() => {
 
 .VPSidebar>.nav {
     /* 确保 nav 至少占满可视高度，减去 top padding */
-    min-height: calc(100vh - var(--vp-nav-height) - 32px);
+    min-height: calc(100vh - var(--vp-nav-height) - var(--vp-layout-top-height, 0px) - 32px);
     display: flex;
     flex-direction: column;
 }

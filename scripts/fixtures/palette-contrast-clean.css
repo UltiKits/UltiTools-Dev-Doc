@@ -1,0 +1,93 @@
+/* Fixture for scripts/check-contrast.py — a WCAG-compliant palette.
+
+Structure mirrors functions/api/_shared/palette.js's OVERRIDE_BLOCK (a light
+`:root` block, followed by a dark-mode media query wrapping a second
+`:root` block), but only declares the 27 custom properties
+scripts/check-contrast.py's pairing table (PAIRS) actually references —
+not the full 33-variable mapping palette.js carries. Every value here is
+copied verbatim from 02-02's actual palette.js light/dark declarations;
+scripts/check-contrast.py must exit 0 against this file with zero FAIL
+lines, because it is meant to prove the real palette, minus its 6
+non-referenced variables, reads clean.
+
+Note for anyone editing this comment: do not spell out the four table-
+boundary marker strings ("palette dash table colon light colon begin",
+and its light-end / dark-begin / dark-end siblings, each concatenated as
+one unbroken run of characters) anywhere in this comment block.
+scripts/check-contrast.py now locates the light and dark tables by finding
+each marker and requires each one to appear EXACTLY ONCE in the file (self-
+check 4) — this fixture's four real markers are below, flanking the actual
+declaration blocks, and writing one of those same strings a second time up
+here would trip that self-check and make the gate exit 2 instead of 0. This
+is the same class of trap the file used to warn about when the split was
+still keyed on the literal media-query string, just caught loudly now
+instead of silently: self-check 4 exists precisely so a duplicated marker
+is reported by name rather than mis-splitting the input without a word.
+
+See scripts/fixtures/palette-contrast-violation.css for why a second,
+deliberately-broken fixture exists alongside this one.
+*/
+/* palette-table:light:begin */
+:root {
+  --body-text-color: #3c3c43;
+  --block-text-color: #67676c;
+  --body-background-color: #ffffff;
+  --section-background-color: #f8f8f8;
+  --detail-background-color: #ffffff;
+  --navbar-background-color: rgb(4, 98, 204);
+  --navbar-text-color: #ffffff;
+  --even-row-color: #ffffff;
+  --odd-row-color: #eff0f3;
+  --link-color: rgb(4, 98, 204);
+  --link-color-active: rgb(3, 73, 153);
+  --search-input-background-color: #ffffff;
+  --search-input-text-color: #3c3c43;
+  --search-input-placeholder-color: #67676c;
+  --snippet-text-color: #67676c;
+  --snippet-background-color: #f8f8f8;
+  --subnav-background-color: #eff0f3;
+  --selected-background-color: #ffffff;
+  --selected-text-color: rgb(4, 98, 204);
+  --selected-link-color: rgb(4, 98, 204);
+  --snippet-highlight-color: #fcf4dc;
+  --search-tag-highlight-color: #fcf4dc;
+  --copy-button-background-color-active: #eff0f3;
+  --invalid-tag-background-color: #fde4e8;
+  --invalid-tag-text-color: #b8272c;
+  --title-color: #3c3c43;
+  --source-linenumber-color: #67676c;
+}
+/* palette-table:light:end */
+@media (prefers-color-scheme: dark) {
+  /* palette-table:dark:begin */
+  :root {
+    --body-text-color: #dfdfd6;
+    --block-text-color: #98989f;
+    --body-background-color: #000000;
+    --section-background-color: #131313;
+    --detail-background-color: #000000;
+    --navbar-background-color: rgb(4, 98, 204);
+    --navbar-text-color: #ffffff;
+    --even-row-color: #000000;
+    --odd-row-color: #101315;
+    --link-color: rgb(5, 122, 255);
+    --link-color-active: rgb(85, 168, 255);
+    --search-input-background-color: #000000;
+    --search-input-text-color: #dfdfd6;
+    --search-input-placeholder-color: #98989f;
+    --snippet-text-color: #98989f;
+    --snippet-background-color: #131313;
+    --subnav-background-color: #101315;
+    --selected-background-color: #ffffff;
+    --selected-text-color: rgb(4, 98, 204);
+    --selected-link-color: rgb(4, 98, 204);
+    --snippet-highlight-color: #251d01;
+    --search-tag-highlight-color: #251d01;
+    --copy-button-background-color-active: #101315;
+    --invalid-tag-background-color: #270a0f;
+    --invalid-tag-text-color: #f66f81;
+    --title-color: #dfdfd6;
+    --source-linenumber-color: #98989f;
+  }
+  /* palette-table:dark:end */
+}

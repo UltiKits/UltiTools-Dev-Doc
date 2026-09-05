@@ -1,0 +1,62 @@
+{
+  // 只为「类型检查」而存在的配置。没有任何东西用它来编译：VitePress 用 esbuild
+  // 转译 .mts，只剥类型不做检查（这正是下面这些错误能长期存在而构建全绿的原因）。
+  //
+  // 检查范围只有 .vitepress/config——那是改一次配置就可能悄悄改变全站行为的地方，
+  // 也是类型检查回报最高的地方。theme/ 下的 .vue 组件不在范围内：检查它们需要
+  // vue-tsc（第二个工具链），本轮没有引入。这是已知缺口，不是遗漏。
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "strict": false,
+
+    // skipLibCheck 打开。关掉它会把整个生态的 .d.ts 拉进来检查：实测 34 条错误里
+    // 有 32 条在 node_modules 内部（workbox-core 要 ServiceWorker 全局、
+    // @vueuse/core 要 Web Bluetooth 类型、vite-plugin-pwa 解析不到自己的子模块），
+    // 全部与本仓库的代码无关。这道检查要守的是「改配置时得到真实的类型检查」，
+    // 不是替上游包检查它们自己的声明文件。
+    "skipLibCheck": true,
+
+    // lib 要显式给全：下面的 types 把全局类型包收窄到 @types/node，若不补 DOM
+    // 与 WebWorker，依赖它们的库声明会成片报「找不到名称」。
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "types": ["node"],
+
+    // ── 为什么要把 vite 钉到一份 ────────────────────────────────────────────
+    // 依赖树里有三份 vite，而且这不是打包事故，是结构上必需的：
+    //
+    //   vitepress@1.6.4                    dependencies  vite ^5.4.14  → 5.4.21
+    //   @vitejs/plugin-vue 等的 peer        peer          vite ^5||^6   → 6.4.1
+    //   @viteplus/versions 自带的 vitepress dependencies  vite ^7.3.1   → 7.3.1
+    //
+    // vitepress 1.6.4 硬依赖 vite 5，所以强制统一到某一个版本会违反它自己的
+    // 声明。三份共存是这套依赖的正确形态。
+    //
+    // 但对**类型检查**而言，这三份的 Plugin 接口是同一个东西的三个副本：
+    // vite.mts 里 GitChangelog() 返回根上 vite 6 的 Plugin，而 vitepress 的
+    // UserConfig.vite 期望的是 vitepress/node_modules/vite@5 的 PluginOption，
+    // TypeScript 因此报三条 TS2322——它报的是名义类型不同，不是真的接口不兼容
+    // （构建一直是通过的，插件在运行时正常工作）。
+    //
+    // 下面这条 paths 只影响 TypeScript 的模块解析，不影响 Node 与 Vite 的运行时
+    // 解析，因此不改变任何运行时行为。它消掉的正是那三条名义差异。
+    //
+    // 刻意**不**给 vitepress 加同样的映射：实测那样做会引入两条新错误
+    // （TS2589「类型实例化过深」，以及 @viteplus/versions 与 vitepress 之间
+    // rewrites 类型的真实冲突），等于用两条换两条并打开一个新的检查面。
+    // 两份 vitepress 造成的两条错误保留在原地，用两处会自失效的
+    // @ts-expect-error 标出来，见 .vitepress/config.mts。
+    "baseUrl": ".",
+    "paths": {
+      "vite": ["./node_modules/vite"],
+      "vite/*": ["./node_modules/vite/*"]
+    }
+  },
+  "include": [
+    ".vitepress/config.mts",
+    ".vitepress/config/**/*.mts",
+    ".vitepress/config/**/*.ts"
+  ]
+}

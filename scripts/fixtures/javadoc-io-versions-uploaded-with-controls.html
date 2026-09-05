@@ -1,0 +1,132 @@
+<!--
+  Fixture: javadoc.io versions page shaped like the real upstream listing
+  measured 2026-09-03 — MOSTLY-uploaded, not mostly-pending (G-02-21).
+
+  javadoc-io-versions-ok.html has the ratio backwards: one UPLOADED row and
+  six checkboxes. The real upstream page that day had the opposite shape —
+  9 versions total, 7 already UPLOADED, only 2 (6.1.1 and 6.0.9) still
+  carrying a checkbox — and that inverted ratio is exactly what this
+  fixture reproduces, in the same descending order upstream used:
+
+    6.2.5  UPLOADED
+    6.2.4  UPLOADED
+    6.2.3  UPLOADED
+    6.2.2  UPLOADED
+    6.2.1  UPLOADED
+    6.2.0  UPLOADED
+    6.1.1  not uploaded (checkbox present)
+    6.1.0  UPLOADED
+    6.0.9  not uploaded (checkbox present)
+
+  6.1.1 sits between two UPLOADED rows (6.2.0 above, 6.1.0 below); 6.0.9
+  follows a single UPLOADED row (6.1.0) with nothing after it. Both
+  adjacency shapes are deliberate and are half of this fixture's value —
+  do not reorder the table to put the two not-uploaded rows together, or
+  next to each other, "for tidiness".
+
+  What this fixture covers:
+    - The legitimate skip path — controls present AND the target version
+      is UPLOADED — for TWO different UPLOADED rows (6.2.5 and 6.1.0), not
+      just one. javadoc-io-versions-ok.html already covers this once; this
+      fixture proves it is not a one-row coincidence and proves the row
+      selection itself is correct when there are multiple UPLOADED rows to
+      choose among.
+    - A not-uploaded version (6.1.1) sandwiched between two UPLOADED rows
+      must resolve as ok, not skipped — this pins down that the `grep -A2`
+      window scripts/javadoc-io-index.sh uses to read the UPLOADED badge
+      for ONE <td>VERSION</td> row does not bleed into the two-line window
+      of the adjacent UPLOADED row above it.
+
+  What this fixture does NOT cover: the reordering itself (G-02-21's core
+  fix). Every versionId control here is intact, so assertion
+  three-point-one passes regardless of whether it runs before or after the
+  UPLOADED exception — measured both ways, 6.2.5 exits 0 with
+  index_result=skipped under either ordering. The reordering's regression
+  guard is javadoc-io-versions-no-checkbox.html's 6.2.5 case (0/skipped ->
+  1/broken); do not read this fixture's existence as meaning the ordering
+  is covered twice — it is covered exactly once, there.
+
+  Division of labor with javadoc-io-versions-ok.html: ok.html is one
+  UPLOADED row plus six checkboxes — the inverse of what upstream actually
+  looks like — and it proves the skip path exists at all, but it cannot
+  exercise correct row selection among several UPLOADED rows, and it has
+  no not-uploaded row adjacent to an UPLOADED one to stress the grep
+  window. This fixture exists for those two things specifically.
+
+  Expected exit code from scripts/javadoc-io-index.sh --check-forms-only
+  --page-file <this file>:
+    --version 6.2.5 (UPLOADED)     -> 0, index_result=skipped
+    --version 6.1.0 (UPLOADED)     -> 0, index_result=skipped
+    --version 6.1.1 (not UPLOADED, checkbox present, between two UPLOADED
+      rows)                        -> 0, index_result=none (checkbox
+      found, ok path — --check-forms-only does not proceed to POST)
+
+  Token values below are deliberately fabricated (fixed hex/timestamp/
+  suffix shape from 02-RESEARCH.md §2.3) — never a real csrfToken or
+  session cookie.
+-->
+<div class="container">
+  <p class="text-muted mb-3">28 versions, 7 uploaded</p>
+
+  <form method="post" action="/versions/com.ultikits/UltiTools-API/sync" class="mb-0 mr-2">
+    <input type="hidden" name="csrfToken" value="deadbeef00deadbeef00deadbeef0011-1700000000000-fixturefixturefixturefix1"/>
+    <button type="submit" class="btn btn-sm btn-secondary">Sync</button>
+  </form>
+
+  <table class="table">
+    <tbody>
+      <tr>
+        <td>6.2.5</td>
+        <td><span class="badge badge-success" title="UPLOADED">Available</span></td>
+        <td><a href="/doc/com.ultikits/UltiTools-API/6.2.5">View</a></td>
+      </tr>
+      <tr>
+        <td>6.2.4</td>
+        <td><span class="badge badge-success" title="UPLOADED">Available</span></td>
+        <td><a href="/doc/com.ultikits/UltiTools-API/6.2.4">View</a></td>
+      </tr>
+      <tr>
+        <td>6.2.3</td>
+        <td><span class="badge badge-success" title="UPLOADED">Available</span></td>
+        <td><a href="/doc/com.ultikits/UltiTools-API/6.2.3">View</a></td>
+      </tr>
+      <tr>
+        <td>6.2.2</td>
+        <td><span class="badge badge-success" title="UPLOADED">Available</span></td>
+        <td><a href="/doc/com.ultikits/UltiTools-API/6.2.2">View</a></td>
+      </tr>
+      <tr>
+        <td>6.2.1</td>
+        <td><span class="badge badge-success" title="UPLOADED">Available</span></td>
+        <td><a href="/doc/com.ultikits/UltiTools-API/6.2.1">View</a></td>
+      </tr>
+      <tr>
+        <td>6.2.0</td>
+        <td><span class="badge badge-success" title="UPLOADED">Available</span></td>
+        <td><a href="/doc/com.ultikits/UltiTools-API/6.2.0">View</a></td>
+      </tr>
+      <tr>
+        <td>6.1.1</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.1.0</td>
+        <td><span class="badge badge-success" title="UPLOADED">Available</span></td>
+        <td><a href="/doc/com.ultikits/UltiTools-API/6.1.0">View</a></td>
+      </tr>
+      <tr>
+        <td>6.0.9</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <form id="versions-upload-form" method="post" action="/versions/com.ultikits/UltiTools-API/upload">
+    <input type="hidden" name="csrfToken" value="deadbeef00deadbeef00deadbeef0011-1700000000000-fixturefixturefixturefix1"/>
+    <input type="checkbox" name="versionId" value="6.1.1" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.0.9" class="form-check-input ml-1">
+    <button type="submit" class="btn btn-sm btn-primary">Upload selected</button>
+  </form>
+</div>
