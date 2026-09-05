@@ -134,7 +134,7 @@ fi
 # 3 — README.md specifically links to CACHING.md. Catches a rename that
 # orphans the pointer even if some other unrelated .md link still resolves.
 readme_targets=$(md_link_targets "$ROOT/README.md")
-if printf '%s\n' "$readme_targets" | grep -qx 'CACHING.md'; then
+if grep -qx 'CACHING.md' <<< "$readme_targets"; then
   record "3 README.md 含指向 CACHING.md 的链接" "target=CACHING.md" 0
 else
   record "3 README.md 含指向 CACHING.md 的链接" "targets=[${readme_targets:-<空>}]" 1
