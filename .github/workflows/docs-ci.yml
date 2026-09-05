@@ -361,6 +361,34 @@ jobs:
       - name: Check Pages build command exists on master and alpha
         run: bash scripts/check-pages-build-command.sh
 
+  root-doc-links:
+    name: Root-level docs are reachable from README
+    runs-on: ubuntu-latest
+    # 独立 job 而不是折进 build（与上面 build-with-alpha/pages-build-command
+    # 的既有取舍方向相反，值得写清楚为什么）：build job 里折进去的两条断言
+    # （check-rendered-links.sh、verify-sw.sh）复用的是同一次 npm run build
+    # 已经产出的 .vitepress/dist，多付一次构建换一把断言不划算。这道断言
+    # 恰恰相反——它只读两份仓库根目录的纯文本文件，不需要任何构建产物，把
+    # 它折进 build 等于让一次纯文本检查排在 npm ci 加一次完整构建之后，
+    # 白等一次不相关的构建。
+    #
+    # 它为什么存在：06-PATTERNS.md 带对照组实测过，现有 8 个 docs-ci.yml
+    # job 与 4 个 examples-ci.yml job 没有一个扫描仓库根目录的 Markdown——
+    # build 的死链检查只走 docs/src 与 docs/archive（VitePress 的
+    # srcDir），bilingual-parity/container-length 明确只扫 docs/src，
+    # sidebar-links 查的是 sidebar/nav 的 link 目标，不是 README.md 自己的
+    # 链接。CACHING.md 与 README.md 这次改动因此完全在既有门禁视野之外，
+    # 一次未来的改名或删除会静默孤儿化 README 里那条指针。
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 只读本地脚本与本地文档文件，不需要持久化凭据
+          persist-credentials: false
+
+      - name: Check README reaches the root caching document (CACHE-04)
+        run: bash scripts/check-root-doc-links.sh
+
   typecheck:
     name: Config typechecks clean
     runs-on: ubuntu-latest
