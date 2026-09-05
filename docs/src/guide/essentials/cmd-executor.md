@@ -23,6 +23,10 @@ Use `BaseCommandExecutor` instead — same annotation-driven features, plus a pl
 See [the migration guide](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/COMPATIBILITY.md#migrating-off-abstractcommandexecutor) in `COMPATIBILITY.md`.
 :::
 
+::: tip `/cmd help` is gated the same as any other invocation <Badge type="tip" text="v6.3.0+" />
+Before v6.3.0, the help subcommand ran ahead of the validator chain, so `handleHelp` could still run for a console sender on a `@CmdTarget(PLAYER)` command, or for a sender missing the required permission. As of v6.3.0, `handleGatedHelp` runs `SenderTypeValidator` and `PermissionValidator` first, so a wrong sender type or a missing permission is refused before your `handleHelp` implementation ever runs.
+:::
+
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ExampleCommand.java
 
 You have completed an empty command executor that does nothing! The `@CmdTarget` and `@CmdExecutor` annotations here

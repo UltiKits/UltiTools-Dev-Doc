@@ -27,6 +27,20 @@ v6.3.0 起，监听器包扫描路径也会检查这个条件，补上了唯一�
 只有连接器入口点（`PluginManager.register(UltiToolsPlugin)`）完全不做组件扫描，那里目前还没有任何地方检查这个条件——跟踪于 [issue #334](https://github.com/UltiKits/UltiTools-Reborn/issues/334)。
 :::
 
+## 重载漂移报告 <Badge type="tip" text="v6.3.0+" />
+
+`@ConditionalOnConfig` 只在组件扫描时（插件启动）求值一次。`ul reload` 会重新读取配置文件，但它本身不会注册或注销任何组件——它只报告发生了什么变化。
+
+v6.3.0 起，漂移消息会说明容器里实际持有什么，而不只是条件现在给出的答案：
+
+```
+[UltiTools-API] @ConditionalOnConfig drift after reload: com.example.MyService (config/config.yml -> myFeature.enabled) now evaluates to disabled, but the component is already registered. @ConditionalOnConfig is evaluated once at component scan; a restart is required to remove the component.
+```
+
+::: tip v6.3.0 之前，建议是一句固定文案
+消息过去无条件建议"需要重启"，哪怕从未构造过任何实例。v6.3.0 起，建议会跟随容器实际持有的状态：已存在且现在禁用会建议重启移除，不存在且现在禁用则无需重启（改看启动日志），不存在且现在启用会建议重启创建，已存在且现在启用同样无需重启。
+:::
+
 ## 注解属性
 
 | 属性 | 类型 | 默认值 | 说明 |

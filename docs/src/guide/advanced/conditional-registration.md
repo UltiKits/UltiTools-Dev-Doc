@@ -27,6 +27,20 @@ As of v6.3.0 the listener package-scan path evaluates the condition too, closing
 Only the connector entry point (`PluginManager.register(UltiToolsPlugin)`) performs no component scan at all, so nothing there evaluates the condition yet -- tracked in [issue #334](https://github.com/UltiKits/UltiTools-Reborn/issues/334).
 :::
 
+## Reload Drift Reporting <Badge type="tip" text="v6.3.0+" />
+
+`@ConditionalOnConfig` is evaluated once, at component scan (plugin startup). `ul reload` re-reads the config file, but it never registers or unregisters anything by itself -- it only reports what changed.
+
+As of v6.3.0, the drift message names what the container actually holds, not just what the condition now answers:
+
+```
+[UltiTools-API] @ConditionalOnConfig drift after reload: com.example.MyService (config/config.yml -> myFeature.enabled) now evaluates to disabled, but the component is already registered. @ConditionalOnConfig is evaluated once at component scan; a restart is required to remove the component.
+```
+
+::: tip Before v6.3.0, the advice was one fixed sentence
+The message used to advise "a restart is required" unconditionally, even when nothing had ever been constructed. As of v6.3.0 the advice follows what the container actually holds: present and now disabled restarts to remove it, absent and now disabled needs no restart (check the startup log instead), absent and now enabled restarts to create it, and present and now enabled needs no restart either.
+:::
+
 ## Annotation Attributes
 
 | Attribute | Type | Default | Description |
