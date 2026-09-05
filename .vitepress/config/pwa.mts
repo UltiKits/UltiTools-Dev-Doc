@@ -2,6 +2,7 @@ import {PwaOptions} from "@vite-pwa/vitepress";
 
 const pwaConfig: PwaOptions = {
     registerType: 'prompt',
+    selfDestroying: true,
     outDir: '../.vitepress/dist',
     includeAssets: ['favicon.ico'],
     manifest: {
