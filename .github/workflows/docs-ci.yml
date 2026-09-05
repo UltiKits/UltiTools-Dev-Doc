@@ -59,6 +59,15 @@ jobs:
       - name: Assert rendered version-state notice bar, switcher links and active-version markers (clean side)
         run: bash scripts/check-rendered-links.sh --clean
 
+      # 同样折进这个既有 job：一个新 job 需要重新 checkout + npm ci + 完整
+      # build 才能跑这一把断言，而 .vitepress/dist 在这一步之前已经由本 job
+      # 产出。这一步只跑零参数模式（CI 无可用的部署 URL），断言 dist/sw.js
+      # 是自毁 rescue worker 而非 workbox precache worker——文件名或 scope
+      # 一旦改动，整次发布对已装旧 worker 的读者作废，且这件事在本地无从
+      # 发现（05-RESEARCH.md § Pitfall 3）。
+      - name: Assert sw.js is the self-destroying rescue worker (CACHE-02)
+        run: bash scripts/verify-sw.sh
+
   bilingual-parity:
     name: Bilingual page tree and sidebar coverage
     runs-on: ubuntu-latest
@@ -360,6 +369,34 @@ jobs:
 
       - name: Check Pages build command exists on master and alpha
         run: bash scripts/check-pages-build-command.sh
+
+  root-doc-links:
+    name: Root-level docs are reachable from README
+    runs-on: ubuntu-latest
+    # 独立 job 而不是折进 build（与上面 build-with-alpha/pages-build-command
+    # 的既有取舍方向相反，值得写清楚为什么）：build job 里折进去的两条断言
+    # （check-rendered-links.sh、verify-sw.sh）复用的是同一次 npm run build
+    # 已经产出的 .vitepress/dist，多付一次构建换一把断言不划算。这道断言
+    # 恰恰相反——它只读两份仓库根目录的纯文本文件，不需要任何构建产物，把
+    # 它折进 build 等于让一次纯文本检查排在 npm ci 加一次完整构建之后，
+    # 白等一次不相关的构建。
+    #
+    # 它为什么存在：06-PATTERNS.md 带对照组实测过，现有 8 个 docs-ci.yml
+    # job 与 4 个 examples-ci.yml job 没有一个扫描仓库根目录的 Markdown——
+    # build 的死链检查只走 docs/src 与 docs/archive（VitePress 的
+    # srcDir），bilingual-parity/container-length 明确只扫 docs/src，
+    # sidebar-links 查的是 sidebar/nav 的 link 目标，不是 README.md 自己的
+    # 链接。CACHING.md 与 README.md 这次改动因此完全在既有门禁视野之外，
+    # 一次未来的改名或删除会静默孤儿化 README 里那条指针。
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 只读本地脚本与本地文档文件，不需要持久化凭据
+          persist-credentials: false
+
+      - name: Check README reaches the root caching document (CACHE-04)
+        run: bash scripts/check-root-doc-links.sh
 
   typecheck:
     name: Config typechecks clean
