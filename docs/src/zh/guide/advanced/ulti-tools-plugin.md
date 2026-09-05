@@ -3,13 +3,13 @@
 :::
 
 ::: tip 🐌 本页更新速度较慢
-文章内容不一定是最新的，你可以前往 [Javadoc 文档](https://doc.dev.ultikits.com/javadoc) 来查看最新的内容
+完整的类参考在 [Javadoc](/api/) 页面。
 :::
 
 ::: danger v6.3.0 起已移除
 `getVersionWrapper()` 及其返回的 `VersionWrapper` 接口已在 v6.3.0 中被彻底删除，连同 `DefaultVersionWrapper` 一起。
 v6.3.0 的 jar 里两者都不存在，下方的方法列表已相应移除该行。
-请改用 `XVersionUtils` 的静态方法——历史映射关系见 [`VersionWrapper`](/zh/api/version-wrapper)。
+请改用 `XVersionUtils` 的静态方法——历史映射关系见 [`VersionWrapper`](/api/version-wrapper)。
 :::
 
 # 类 `UltiToolsPlugin`

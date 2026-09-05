@@ -1,0 +1,90 @@
+<!--
+  Fixture: javadoc.io versions page, NORMAL state.
+  Simulates: sync form present (csrfToken hidden field), upload form present
+  (csrfToken hidden field + versionId checkboxes for the 6 site-archived
+  versions), and one already-UPLOADED version (6.2.5, no checkbox, badge
+  only) — the exception case scripts/javadoc-io-index.sh's assertion three
+  must treat as "no-op", not as "structure broken".
+
+  Expected exit code from scripts/javadoc-io-index.sh --check-forms-only
+  --page-file <this file>:
+    --version 6.1.0 / 6.2.0 / 6.2.1 / 6.2.2 / 6.2.3 / 6.2.4  -> 0 (checkbox found)
+    --version 6.2.5                                          -> 0 (already
+      UPLOADED — index_result=skipped, not index_result=broken)
+    --version 9.9.9 (G-02-11, never listed here — see
+      javadoc-io-versions-after-sync.html)                   ->
+      --check-forms-only: 0 (structure intact, listing just doesn't have
+        this version yet — FORM_STATUS=bootstrap-needed, printed and
+        returned without touching upstream state)
+      --dry-run (no --page-file-after-sync given, so the bootstrap
+        retry's second pass re-reads this SAME file): 1 (still not
+        found — the second, strict-mode pass fails closed exactly like
+        every other structural assertion)
+
+  This file itself must NEVER contain a 9.9.9 versionId checkbox — a
+  negative assertion in javadoc-io-index.sh's own offline self-check
+  depends on that absence to prove "first fetch genuinely had nothing,
+  the after-sync fixture is what changed".
+
+  Token values below are deliberately fabricated (fixed hex/timestamp/suffix
+  shape from 02-RESEARCH.md §2.3) — never a real csrfToken or session cookie.
+-->
+<div class="container">
+  <p class="text-muted mb-3">28 versions, 1 uploaded</p>
+
+  <form method="post" action="/versions/com.ultikits/UltiTools-API/sync" class="mb-0 mr-2">
+    <input type="hidden" name="csrfToken" value="deadbeef00deadbeef00deadbeef0011-1700000000000-fixturefixturefixturefix1"/>
+    <button type="submit" class="btn btn-sm btn-secondary">Sync</button>
+  </form>
+
+  <table class="table">
+    <tbody>
+      <tr>
+        <td>6.2.5</td>
+        <td><span class="badge badge-success" title="UPLOADED">Available</span></td>
+        <td><a href="/doc/com.ultikits/UltiTools-API/6.2.5">View</a></td>
+      </tr>
+      <tr>
+        <td>6.2.4</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.3</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.2</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.1</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.0</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.1.0</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <form id="versions-upload-form" method="post" action="/versions/com.ultikits/UltiTools-API/upload">
+    <input type="hidden" name="csrfToken" value="deadbeef00deadbeef00deadbeef0011-1700000000000-fixturefixturefixturefix1"/>
+    <input type="checkbox" name="versionId" value="6.2.4" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.2.3" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.2.2" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.2.1" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.2.0" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.1.0" class="form-check-input ml-1">
+    <button type="submit" class="btn btn-sm btn-primary">Upload selected</button>
+  </form>
+</div>

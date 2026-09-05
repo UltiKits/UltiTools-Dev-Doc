@@ -1,0 +1,92 @@
+/* Fixture for scripts/check-contrast.py — a duplicated table-boundary marker
+(G-02-13).
+
+Simulates a marker string getting copy-pasted into an explanatory comment,
+so it appears twice in the file instead of exactly once — the failure mode
+self-check 4 exists to catch (see check-contrast.py's module docstring).
+Identical to scripts/fixtures/palette-contrast-clean.css in every other
+byte: same 27 declarations, same light/dark values, same real marker pair
+flanking each table. The one difference is right here, in this comment:
+the light-table begin marker, palette-table:light:begin, is spelled out a
+second time in this sentence — that string now appears twice in the file
+(once here, once at its real, structural location below), which is exactly
+what self-check 4 checks for.
+
+scripts/check-contrast.py must exit 2 against this file (NOT 0, NOT 1) —
+this is a self-check failure, not a real contrast violation and not a
+clean pass. Its stderr must name the duplicated marker.
+
+Reminder for anyone running all three fixtures in one invocation: don't.
+check-contrast.py returns immediately on the first file whose self-check
+fails (exit 2) — any files listed after this one on the same command line
+are never read at all. Each fixture is meant to be invoked in its own,
+separate call; docs-ci.yml's palette-contrast job does exactly that.
+
+See scripts/fixtures/palette-contrast-clean.css and
+scripts/fixtures/palette-contrast-violation.css for the other two fixtures
+this one is meant to be run alongside (never together, per above).
+*/
+/* palette-table:light:begin */
+:root {
+  --body-text-color: #3c3c43;
+  --block-text-color: #67676c;
+  --body-background-color: #ffffff;
+  --section-background-color: #f8f8f8;
+  --detail-background-color: #ffffff;
+  --navbar-background-color: rgb(4, 98, 204);
+  --navbar-text-color: #ffffff;
+  --even-row-color: #ffffff;
+  --odd-row-color: #eff0f3;
+  --link-color: rgb(4, 98, 204);
+  --link-color-active: rgb(3, 73, 153);
+  --search-input-background-color: #ffffff;
+  --search-input-text-color: #3c3c43;
+  --search-input-placeholder-color: #67676c;
+  --snippet-text-color: #67676c;
+  --snippet-background-color: #f8f8f8;
+  --subnav-background-color: #eff0f3;
+  --selected-background-color: #ffffff;
+  --selected-text-color: rgb(4, 98, 204);
+  --selected-link-color: rgb(4, 98, 204);
+  --snippet-highlight-color: #fcf4dc;
+  --search-tag-highlight-color: #fcf4dc;
+  --copy-button-background-color-active: #eff0f3;
+  --invalid-tag-background-color: #fde4e8;
+  --invalid-tag-text-color: #b8272c;
+  --title-color: #3c3c43;
+  --source-linenumber-color: #67676c;
+}
+/* palette-table:light:end */
+@media (prefers-color-scheme: dark) {
+  /* palette-table:dark:begin */
+  :root {
+    --body-text-color: #dfdfd6;
+    --block-text-color: #98989f;
+    --body-background-color: #000000;
+    --section-background-color: #131313;
+    --detail-background-color: #000000;
+    --navbar-background-color: rgb(4, 98, 204);
+    --navbar-text-color: #ffffff;
+    --even-row-color: #000000;
+    --odd-row-color: #101315;
+    --link-color: rgb(5, 122, 255);
+    --link-color-active: rgb(85, 168, 255);
+    --search-input-background-color: #000000;
+    --search-input-text-color: #dfdfd6;
+    --search-input-placeholder-color: #98989f;
+    --snippet-text-color: #98989f;
+    --snippet-background-color: #131313;
+    --subnav-background-color: #101315;
+    --selected-background-color: #ffffff;
+    --selected-text-color: rgb(4, 98, 204);
+    --selected-link-color: rgb(4, 98, 204);
+    --snippet-highlight-color: #251d01;
+    --search-tag-highlight-color: #251d01;
+    --copy-button-background-color-active: #101315;
+    --invalid-tag-background-color: #270a0f;
+    --invalid-tag-text-color: #f66f81;
+    --title-color: #dfdfd6;
+    --source-linenumber-color: #98989f;
+  }
+  /* palette-table:dark:end */
+}

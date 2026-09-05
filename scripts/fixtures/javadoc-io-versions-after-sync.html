@@ -1,0 +1,91 @@
+<!--
+  Fixture: javadoc.io versions page, POST-SYNC state (G-02-11).
+  Simulates what the bootstrap retry's second fetch sees AFTER an upstream
+  /sync refresh discovered a brand-new release: identical to
+  javadoc-io-versions-ok.html except for exactly two additions — a 9.9.9
+  row in the version table (not UPLOADED, same badge shape as every other
+  undiscovered-but-now-listed version) and a matching 9.9.9 versionId
+  checkbox in the upload form. Nothing else differs, including the two
+  fabricated token values, which stay byte-identical to the OK fixture.
+
+  This is the "first fetch had nothing, sync fixed it" half of G-02-11's
+  offline self-check. javadoc-io-versions-ok.html is the "before" half —
+  it must never contain a 9.9.9 checkbox, or this pairing stops proving
+  anything.
+
+  Expected exit code from scripts/javadoc-io-index.sh:
+    --dry-run --page-file javadoc-io-versions-ok.html
+      --page-file-after-sync <this file> --version 9.9.9  -> 0 (first pass
+      on the OK fixture records FORM_STATUS=bootstrap-needed; the dry-run
+      branch skips the actual sync POST but still re-fetches — reading
+      THIS file instead — and re-validates in strict mode, which now finds
+      the 9.9.9 checkbox and returns FORM_STATUS=ok)
+
+  Token values below are deliberately fabricated (fixed hex/timestamp/suffix
+  shape from 02-RESEARCH.md §2.3) — never a real csrfToken or session cookie.
+-->
+<div class="container">
+  <p class="text-muted mb-3">29 versions, 1 uploaded</p>
+
+  <form method="post" action="/versions/com.ultikits/UltiTools-API/sync" class="mb-0 mr-2">
+    <input type="hidden" name="csrfToken" value="deadbeef00deadbeef00deadbeef0011-1700000000000-fixturefixturefixturefix1"/>
+    <button type="submit" class="btn btn-sm btn-secondary">Sync</button>
+  </form>
+
+  <table class="table">
+    <tbody>
+      <tr>
+        <td>9.9.9</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.5</td>
+        <td><span class="badge badge-success" title="UPLOADED">Available</span></td>
+        <td><a href="/doc/com.ultikits/UltiTools-API/6.2.5">View</a></td>
+      </tr>
+      <tr>
+        <td>6.2.4</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.3</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.2</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.1</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.2.0</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>6.1.0</td>
+        <td><span class="badge badge-secondary" title="DISCOVERED">Not uploaded yet</span></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <form id="versions-upload-form" method="post" action="/versions/com.ultikits/UltiTools-API/upload">
+    <input type="hidden" name="csrfToken" value="deadbeef00deadbeef00deadbeef0011-1700000000000-fixturefixturefixturefix1"/>
+    <input type="checkbox" name="versionId" value="9.9.9" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.2.4" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.2.3" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.2.2" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.2.1" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.2.0" class="form-check-input ml-1">
+    <input type="checkbox" name="versionId" value="6.1.0" class="form-check-input ml-1">
+    <button type="submit" class="btn btn-sm btn-primary">Upload selected</button>
+  </form>
+</div>

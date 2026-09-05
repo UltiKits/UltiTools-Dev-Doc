@@ -14,8 +14,11 @@
 # 本脚本只查「页面 → sidebar 有入口」这一个方向，不查反方向的「sidebar 入口指向
 # 不存在的页面」——按 01-CONTEXT.md D-04 收窄，反方向另立。
 #
-# 当前抽取假设 sidebar 的 link: 值不含尾斜杠、不以 / 开头（两侧全量常量已核对过，
-# 见 01-RESEARCH.md Pattern 3）；未来若新增此类写法，需要重新核对本脚本的假设。
+# 当前抽取假设 sidebar 的 link: 值不含尾斜杠（两侧全量常量已核对过，见
+# 01-RESEARCH.md Pattern 3）。以斜杠开头的 link 指向 Function 接管的运行时路由
+# （如 D-30 新增的 /api/ 那条），不对应 docs/src 下的任何页面，本脚本在
+# build_paths 里跳过它们；这类 link 是否真的指向一个合法的运行时路由，由
+# scripts/check-sidebar-links.sh 的 RUNTIME_ROUTE_EXEMPT 精确清单负责。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -105,44 +108,43 @@ check_extraction() {
   fi
 }
 
-# sidebarGuide* 的 link: 值不带 guide/，前缀由脚本补；sidebarApi* 的 link: 值
-# 自带 api/，这里补空串。
+# 前缀由脚本自己补，不是从 sidebar 源文件推断——sidebarGuideEN/sidebarGuideZH 内部
+# 完全没有 base: 字段，这层映射来自 .vitepress/config/locale.en.mts 的多 sidebar
+# 映射表：sidebarGuide* 隐含挂在 /guide/ 下。
 #
-# 两者写法不一致是有原因的。这层前缀原本两边都由脚本补，理由写的是「sidebarApi*
-# 内部没有 base: 字段，映射来自 locale.en.mts 的多 sidebar 映射表」。那个理由对
-# sidebarGuide* 成立，对 sidebarApi* 不成立：@viteplus/versions 的 populateSidebar
-# （dist/index.js）只由 sidebar 键里的 lang 与 version 拼出 base，键里的 api/ 一段
-# 不参与，而未版本化的 '/api/' 键连 base 都不注入。也就是说运行时从不补这一段，
-# 补它的只有这个脚本——于是脚本解析出存在的文件、门禁转绿，读者点到的却是少一段
-# api/ 的 404。前缀已移进 link: 值本身，这里就不能再补第二遍。
+# sidebarApiEN/sidebarApiZH 的抽取层已随 01-04-PLAN.md（D-18）移除——这是一次零
+# 覆盖移除，不是放宽门禁。依据有两条：docs/src/api/ 与 docs/src/zh/api/ 两个目
+# 录在同一 plan 里被删空，那层抽取此前覆盖的就是 0 个 docs/src/ 页面；而它抽出
+# 的 sidebar link 指向的两个页面全部落在 docs/archive/ 下，本脚本 :11 已经声明
+# 扫描范围不含归档树。sidebarApiEN/sidebarApiZH 两个常量本身与它们的 export 都
+# 继续保留（六条归档 sidebar key 仍在消费），只是不再参与本脚本的覆盖检查。
 build_paths() {
   local raw="$1" prefix="$2"
   if [ -n "$raw" ]; then
-    printf '%s\n' "$raw" | sed "s#^#${prefix}#; s#\$#.md#"
+    # 以 / 开头的 link（D-30 新增的 /api/ 那条）指向 Function 接管的运行时路由，
+    # 不对应 docs/src 下的任何文件——加上 prefix 会拼出一条永远匹配不到任何
+    # 页面的垃圾路径，跳过它们，不计入本函数的输出。
+    { printf '%s\n' "$raw" | grep -vE '^/' || true; } | sed "s#^#${prefix}#; s#\$#.md#"
   fi
 }
 
 guide_links_en=$(extract_sidebar_links "sidebarGuideEN" "$ROOT/.vitepress/config/sidebar.en.mts")
-api_links_en=$(extract_sidebar_links "sidebarApiEN" "$ROOT/.vitepress/config/sidebar.en.mts")
 guide_links_zh=$(extract_sidebar_links "sidebarGuideZH" "$ROOT/.vitepress/config/sidebar.zh.mts")
-api_links_zh=$(extract_sidebar_links "sidebarApiZH" "$ROOT/.vitepress/config/sidebar.zh.mts")
 
 echo "第二层：docs/src/ 下每个页面在对应语种 latest sidebar 里的入口覆盖"
 check_extraction "sidebarGuideEN" "$ROOT/.vitepress/config/sidebar.en.mts" "$guide_links_en"
-check_extraction "sidebarApiEN" "$ROOT/.vitepress/config/sidebar.en.mts" "$api_links_en"
 check_extraction "sidebarGuideZH" "$ROOT/.vitepress/config/sidebar.zh.mts" "$guide_links_zh"
-check_extraction "sidebarApiZH" "$ROOT/.vitepress/config/sidebar.zh.mts" "$api_links_zh"
 
-covered_en=$( { build_paths "$guide_links_en" "guide/"; build_paths "$api_links_en" ""; \
+covered_en=$( { build_paths "$guide_links_en" "guide/"; \
                 printf '%s\n' "$SIDEBAR_EXEMPT"; } | sort )
-covered_zh=$( { build_paths "$guide_links_zh" "guide/"; build_paths "$api_links_zh" ""; \
+covered_zh=$( { build_paths "$guide_links_zh" "guide/"; \
                 printf '%s\n' "$SIDEBAR_EXEMPT"; } | sort )
 
 uncovered_en=$(comm -23 <(printf '%s\n' "$en_pages") <(printf '%s\n' "$covered_en"))
 uncovered_zh=$(comm -23 <(printf '%s\n' "$zh_pages") <(printf '%s\n' "$covered_zh"))
 
-report_missing "docs/src/ 下未进入 sidebarGuideEN/sidebarApiEN（豁免清单之外）的页面" "$uncovered_en"
-report_missing "docs/src/zh/ 下未进入 sidebarGuideZH/sidebarApiZH（豁免清单之外）的页面" "$uncovered_zh"
+report_missing "docs/src/ 下未进入 sidebarGuideEN（豁免清单之外）的页面" "$uncovered_en"
+report_missing "docs/src/zh/ 下未进入 sidebarGuideZH（豁免清单之外）的页面" "$uncovered_zh"
 
 # 只有 parity_status 决定退出码——上面两节的所有 OK/FAIL 判定都汇入这一个变量。
 exit "$parity_status"

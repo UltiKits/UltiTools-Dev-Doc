@@ -1,0 +1,9 @@
+npm run build:with-alpha
+# 上面第一行是 Cloudflare Pages 项目 ultitools-dev-doc 当前配置的构建命令。
+# 它是项目级设置，对所有分支一起生效，而 master 与 alpha 的 package.json 已分叉。
+#
+# 在 Cloudflare 控制台改构建命令时，请一并改这一行，并确认 alpha 的 package.json
+# 也提供了新的脚本名——否则 alpha 及其所有分支的部署会静默失败，要等到有人推一个
+# alpha 分支才会被发现。scripts/check-pages-build-command.sh 读的就是这一行。
+#
+# 只解析第一行，且只支持 `npm run <脚本名>` 这一种形状。
