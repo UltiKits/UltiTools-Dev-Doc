@@ -19,6 +19,10 @@ UltiTools-API 对原生的 `CommandExecutor` 接口进行了封装，提供了�
 `COMPATIBILITY.md` 的 [Migrating off `AbstractCommandExecutor`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/COMPATIBILITY.md#migrating-off-abstractcommandexecutor)（该文件为英文，是仓库的权威版本对照文档）一节。
 :::
 
+::: tip `/命令 help` 现在与其他调用一样受同一套校验 <Badge type="tip" text="v6.3.0+" />
+v6.3.0 之前，help 子命令会在校验链之前执行，导致在 `@CmdTarget(PLAYER)` 命令上用控制台调用、或发送者缺少所需权限时，`handleHelp` 仍然会被调用。v6.3.0 起，`handleGatedHelp` 会先跑 `SenderTypeValidator` 和 `PermissionValidator`，发送者类型不匹配或权限缺失都会在你的 `handleHelp` 实现被调用之前被拒绝。
+:::
+
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ExampleCommand.java
 
 这样你就完成了一个空的什么都不做的命令执行器。这里的 `@CmdTarget` 和 `@CmdExecutor` 注解是代表了该命令的发送者类型和执行器信息。我们将在下一节详细介绍这两个注解。
