@@ -282,7 +282,9 @@ if [ "$#" -ge 1 ] && [ -n "${1:-}" ]; then
   cf_status_busted=$(grep -i '^cf-cache-status:' "$headers_busted" 2>/dev/null | tr -d '\r' | head -1)
 
   echo "AUDIT  cache-busted 对比: plain [${etag_plain:-<空>} / ${cf_status_plain:-<空>}]  vs  cache-busted [${etag_busted:-<空>} / ${cf_status_busted:-<空>}]"
-  if [ -n "$etag_plain" ] && [ "$etag_plain" = "$etag_busted" ]; then
+  if [ -z "$etag_plain" ] || [ -z "$etag_busted" ]; then
+    echo "AUDIT  verdict: no etag on one or both fetches — 无法判定，见上方 http-status/headers"
+  elif [ "$etag_plain" = "$etag_busted" ]; then
     echo "AUDIT  verdict: etags matched — 无边缘陈旧字节的证据"
   else
     echo "AUDIT  verdict: etags did NOT match — 需要向维护者呈报，见 05-AUDIT.md"
