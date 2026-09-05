@@ -8,6 +8,21 @@
 # CURRENT_VERSION at request time (see functions/api/[[path]].js), while a
 # static rule here cannot. The extra hop is the accepted cost of not
 # pinning Chinese readers to a stale release forever.
+#
+# 这两条是承重的，别删。它们看起来像死代码，因为 functions/ 下只有 api/*，
+# 没有任何语言前缀处理器 —— 但那正是它们生效的前提：_redirects 对被 Function
+# 接管的路径不生效，而 Function 只声明 /api/*，所以 /zh/api/* 落回这里。
+#
+# 这个误判真实发生过一次（2026-09-05，alpha 分支 805f57e 的提交信息里把
+# 「functions/ 下没有语言前缀处理器」当成了「/zh/api/* 无人处理」的证据，
+# 结论正好反了）。那条错误的因果永久留在 alpha 的历史里，改不动，所以在这里
+# 立一块牌子。
+#
+# 生产实测（2026-09-05）：
+#   /zh/api/version-wrapper -> 301 -> /api/version-wrapper -> 301 -> VersionWrapper.html (200)
+#   对照组 /zh/api/definitely-not-a-page -> 404
+# scripts/verify-api-proxy.sh 的第 5c 项断言这条链路。那个脚本目前不被任何
+# CI 调用（里程碑 v1.0 收尾时记录的技术债），所以删掉本行不会被自动拦住。
 /zh/api/version-wrapper /api/version-wrapper 301
 /zh/api/ulti-tools-plugin /zh/guide/advanced/ulti-tools-plugin 301
 
