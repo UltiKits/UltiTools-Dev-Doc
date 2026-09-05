@@ -74,9 +74,21 @@ is_self_destroying_worker() {
 }
 
 # self_check — the positive control. Applies is_self_destroying_worker to
-# two bundled fixtures, one that must be rejected and one that must be
-# accepted. This is what stops the gate from reporting green after the
-# classifier has stopped discriminating.
+# three bundled fixtures. This is what stops the gate from reporting green
+# after the classifier has stopped discriminating.
+#
+# Fixture A and fixture C both carry the AMD `define([` wrapper and must
+# both be REJECTED; fixture B carries none of it and must be ACCEPTED.
+# Fixture C exists because fixture A alone does not isolate the negative
+# branch (line 72, the `define([` rejection): fixture A already lacks all
+# three positive substrings, so it is already rejected by the positive-half
+# checks (lines 69-71) before execution ever reaches line 72 — a regression
+# that disables only line 72 still leaves fixture A rejected (for the wrong
+# reason) and fixture B accepted, so a two-fixture self_check would still
+# report PASS. Fixture C carries all three positive substrings AND the
+# `define([` wrapper, so the positive-half checks alone cannot reject it —
+# only the negative branch can, making fixture C's rejection depend
+# entirely on line 72 actually running.
 self_check() {
   local tmp
   tmp=$(mktemp -d)
@@ -84,6 +96,7 @@ self_check() {
 
   local fixture_workbox="$tmp/workbox-shaped.js"
   local fixture_rescue="$tmp/rescue-shaped.js"
+  local fixture_workbox_full="$tmp/workbox-shaped-with-positive-substrings.js"
 
   # Fixture A — shaped like the workbox precache worker's opening line: the
   # AMD module-wrapper prefix followed by a quoted hashed workbox chunk
@@ -119,18 +132,35 @@ self.addEventListener('activate', (e) => {
 });
 FIXTURE
 
-  local workbox_result=0 rescue_result=0
+  # Fixture C — the AMD `define([` wrapper AND all three positive
+  # substrings. Its only distinguishing property from fixture B is the
+  # `define([` wrapper, so it can be rejected only via the negative-branch
+  # check at line 72. Must be REJECTED (is_self_destroying_worker returns 1).
+  cat > "$fixture_workbox_full" <<'FIXTURE'
+define(["./workbox-7883ad30ea6ce6a4bf1c37fb1f7c1c1f"], function (workbox) {
+  "use strict";
+  self.skipWaiting();
+  self.registration.unregister();
+  self.caches.delete(cacheName);
+});
+FIXTURE
+
+  local workbox_result=0 rescue_result=0 workbox_full_result=0
   is_self_destroying_worker "$fixture_workbox"; workbox_result=$?
   is_self_destroying_worker "$fixture_rescue"; rescue_result=$?
+  is_self_destroying_worker "$fixture_workbox_full"; workbox_full_result=$?
 
-  if [ "$workbox_result" -eq 1 ] && [ "$rescue_result" -eq 0 ]; then
+  if [ "$workbox_result" -eq 1 ] && [ "$rescue_result" -eq 0 ] && [ "$workbox_full_result" -eq 1 ]; then
     return 0
   fi
   if [ "$workbox_result" -ne 1 ]; then
-    echo "self_check: workbox-shaped fixture was NOT rejected (expected reject)" >&2
+    echo "self_check: workbox-shaped fixture (A) was NOT rejected (expected reject)" >&2
   fi
   if [ "$rescue_result" -ne 0 ]; then
-    echo "self_check: rescue-shaped fixture was NOT accepted (expected accept)" >&2
+    echo "self_check: rescue-shaped fixture (B) was NOT accepted (expected accept)" >&2
+  fi
+  if [ "$workbox_full_result" -ne 1 ]; then
+    echo "self_check: workbox-shaped-with-positive-substrings fixture (C) was NOT rejected (expected reject) — negative branch is not discriminating" >&2
   fi
   return 1
 }
@@ -181,12 +211,13 @@ if [ -n "$chunk" ] && grep -q '"/sw.js"' "$chunk" && grep -q 'scope:"/"' "$chunk
 fi
 record "4 注册代码仍在 bundle 内，/sw.js 与根 scope 字面量未变" "chunk=${chunk:-<未找到>}" "$chunk_result"
 
-# 5 — self_check, the positive control. Both verdicts must be right or the
-# item is FAIL.
+# 5 — self_check, the positive control. All three verdicts must be right
+# (including fixture C, which isolates the negative `define([` branch) or
+# the item is FAIL.
 if self_check; then
-  record "5 内容分类器自检（拒绝 workbox 样例、接受 rescue 样例）" "两个 fixture 均判定正确" 0
+  record "5 内容分类器自检（拒绝 2 个 workbox 样例、接受 1 个 rescue 样例）" "三个 fixture 均判定正确" 0
 else
-  record "5 内容分类器自检（拒绝 workbox 样例、接受 rescue 样例）" "fixture 判定有误，见上方 stderr" 1
+  record "5 内容分类器自检（拒绝 2 个 workbox 样例、接受 1 个 rescue 样例）" "fixture 判定有误，见上方 stderr" 1
 fi
 
 # Optional live-URL half — evidence for the CACHE-01 audit, never a gate.
