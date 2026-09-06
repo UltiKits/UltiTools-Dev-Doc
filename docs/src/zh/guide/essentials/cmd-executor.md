@@ -320,7 +320,7 @@ public void listPoint(@CmdSender Player player) {
   }
 ```
 
-::: danger `@RunAsync` 方法体不得直接访问世界、实体、方块或区块状态。
+::: danger `@RunAsync` 方法体不得直接访问世界、实体、方块或区块状态。 <Badge type="danger" text="v6.3.0+" />
 这里的异步只留给纯 CPU 或 I/O 工作。异步方法体唯一可以进行的 Bukkit 调用，是通过 `Bukkit.getScheduler().runTask(...)`（就像上面示例那样）把涉及这些状态的工作调度回主线程；注解本身从不授予对这些 API 的安全访问。方法体只做这类状态访问的处理器根本没有理由标注它。
 :::
 

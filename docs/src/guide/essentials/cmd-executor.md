@@ -356,7 +356,7 @@ public void listPoint(@CmdSender Player player) {
 }
 ```
 
-::: danger An `@RunAsync` body must not touch world, entity, block or chunk state directly.
+::: danger An `@RunAsync` body must not touch world, entity, block or chunk state directly. <Badge type="danger" text="v6.3.0+" />
 Asynchrony here is reserved for pure-CPU or I/O work. The one Bukkit call an async body may make is scheduling its state-touching work back onto the main thread through `Bukkit.getScheduler().runTask(...)`, the pattern shown above; the annotation never grants safe access to those APIs by itself. A handler whose body consists only of such state access has no reason to carry the annotation at all.
 :::
 
