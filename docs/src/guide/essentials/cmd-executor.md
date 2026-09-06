@@ -356,8 +356,8 @@ public void listPoint(@CmdSender Player player) {
 }
 ```
 
-::: danger A handler touching world, entity, block, chunk or scheduler state must not carry @RunAsync
-Asynchrony here is reserved for pure-CPU or I/O work. A return to Bukkit state from an async body must go through `Bukkit.getScheduler().runTask(...)`, the pattern shown above.
+::: danger An `@RunAsync` body must not touch world, entity, block or chunk state directly.
+Asynchrony here is reserved for pure-CPU or I/O work. The one Bukkit call an async body may make is scheduling its state-touching work back onto the main thread through `Bukkit.getScheduler().runTask(...)`, the pattern shown above; the annotation never grants safe access to those APIs by itself. A handler whose body consists only of such state access has no reason to carry the annotation at all.
 :::
 
 An unannotated command body is not executed inline on the calling thread: the framework already defers it by one tick through `runTask()`. That deferral only changes when the body starts, not whether it can block the server: once the tick arrives, the whole body (including any expensive CPU or I/O work inside it) still runs synchronously on the main thread. Removing `@RunAsync` restores safe dispatch only for a handler that was never doing expensive work in the first place; a handler that mixes expensive work with Bukkit access needs that expensive part kept off-thread and handed back through `Bukkit.getScheduler().runTask(...)`, the pattern shown above, not the annotation simply removed. Paper also does not guard every world, entity, block or chunk access from an async body: its asynchronous-operation checks cover a limited set of unsafe operations, so breaking the rule above can leave a handler running on unsafe or inconsistent state instead of crashing outright, and the absence of an exception is not evidence the code is safe. Work that genuinely belongs off-thread should use `@AsyncCommand` instead, which adds a processing message and a timeout around that boundary.
