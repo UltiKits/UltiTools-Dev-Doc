@@ -356,6 +356,12 @@ public void listPoint(@CmdSender Player player) {
 }
 ```
 
+::: danger A handler touching world, entity, block, chunk or scheduler state must not carry @RunAsync
+Asynchrony here is reserved for pure-CPU or I/O work. A return to Bukkit state from an async body must go through `Bukkit.getScheduler().runTask(...)`, the pattern shown above.
+:::
+
+An unannotated command body is not executed inline on the calling thread: the framework already defers it by one tick through `runTask()`. Removing `@RunAsync` from a handler that never needed it therefore does not block the server; it restores the same deferred synchronous dispatch every other command uses. The observable failure when the rule above is broken is a crash: Paper's asynchronous-operation check rejects the first world, entity, block or chunk access, and the command dies mid-handler. Work that genuinely belongs off-thread should use `@AsyncCommand` instead, which adds a processing message and a timeout around that boundary.
+
 ### Command cooldown
 
 If you don't want a command to be executed in large quantities and consume server resources, then you can add
