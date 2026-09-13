@@ -72,7 +72,16 @@ identify-string: test-plugin
 ### 编写模块主类
 
 新建一个主类继承 `UltiToolsPlugin` ，类似传统的Paper插件，UltiTools模块也需要重写启动和关闭方法。
-但是UltiToolsPlugin增加了一个可选的 `UltiToolsPlugin#reloadSelf()` 方法，用于模块重载时执行。
+UltiToolsPlugin 还定义了两个生命周期钩子方法，`onReload()` 和 `onUnregister()`，分别用于重载与卸载时的工作。
+
+::: tip 自 v6.3.0 起
+`reloadSelf()` 与 `unregisterSelf()` 是 `final` 方法，改为重写 `onReload()` 与
+`onUnregister()`。
+:::
+
+`onUnregister()` 在框架注销该模块的命令与监听器之前运行，此时模块自身的 bean 仍然存活。`onReload()` 在框架自身的重载步骤之后运行：配置重载、语言目录刷新，以及下文所述的重载日志行。
+
+执行 `/ul reload` 时，框架会在调用 `onReload()` 之前记录一行日志，写明模块名称。如果模块原有的重写只是记录自己的重载日志，这个重写可以直接删除。如果模块有实际的重载或卸载工作，把原有的 `reloadSelf()`/`unregisterSelf()` 重写改名为 `onReload()`/`onUnregister()`，方法体不变。
 
 <<< @/../examples/src/main/java/com/ultikits/docs/quickstart/MyPlugin.java
 
