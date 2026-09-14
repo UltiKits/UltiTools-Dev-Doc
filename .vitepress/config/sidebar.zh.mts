@@ -113,6 +113,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
             {
                 text: '面板集成',
                 link: 'advanced/panel-integration'
+            },
+            {
+                text: '云端登录',
+                link: 'advanced/cloud-login'
             }
         ]
     },
