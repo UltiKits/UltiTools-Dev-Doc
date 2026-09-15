@@ -20,7 +20,7 @@ UltiTools-API 对原生的 `CommandExecutor` 接口进行了封装，提供了�
 :::
 
 ::: tip `/命令 help` 现在与其他调用一样受同一套校验 <Badge type="tip" text="v6.3.0+" />
-v6.3.0 之前，help 子命令会在校验链之前执行，导致在 `@CmdTarget(PLAYER)` 命令上用控制台调用、或发送者缺少所需权限时，`handleHelp` 仍然会被调用。v6.3.0 起，`handleGatedHelp` 会先跑 `SenderTypeValidator` 和 `PermissionValidator`，发送者类型不匹配或权限缺失都会在你的 `handleHelp` 实现被调用之前被拒绝。
+v6.3.0 之前，help 子命令会在校验链之前执行，导致在 `@CmdTarget(PLAYER)` 命令上用控制台调用、或发送者缺少所需权限时，`handleHelp` 仍然会被调用。v6.3.0 起，`handleGatedHelp` 会先跑 `SenderTypeValidator` 和 `PermissionValidator`，发送者类型不匹配或权限缺失都会在你的 `handleHelp` 实现被调用之前被拒绝。自定义校验器子类若 `shouldValidate` 判定当前上下文不适用，同样会在这里被跳过，与正常命令派发时一致。
 :::
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ExampleCommand.java

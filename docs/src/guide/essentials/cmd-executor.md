@@ -24,7 +24,7 @@ See [the migration guide](https://github.com/UltiKits/UltiTools-Reborn/blob/alph
 :::
 
 ::: tip `/cmd help` is gated the same as any other invocation <Badge type="tip" text="v6.3.0+" />
-Before v6.3.0, the help subcommand ran ahead of the validator chain, so `handleHelp` could still run for a console sender on a `@CmdTarget(PLAYER)` command, or for a sender missing the required permission. As of v6.3.0, `handleGatedHelp` runs `SenderTypeValidator` and `PermissionValidator` first, so a wrong sender type or a missing permission is refused before your `handleHelp` implementation ever runs.
+Before v6.3.0, the help subcommand ran ahead of the validator chain, so `handleHelp` could still run for a console sender on a `@CmdTarget(PLAYER)` command, or for a sender missing the required permission. As of v6.3.0, `handleGatedHelp` runs `SenderTypeValidator` and `PermissionValidator` first, so a wrong sender type or a missing permission is refused before your `handleHelp` implementation ever runs. A custom validator subclass whose `shouldValidate` reports the context does not apply is skipped here too, the same as during normal command dispatch.
 :::
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ExampleCommand.java
