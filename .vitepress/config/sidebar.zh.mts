@@ -113,6 +113,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
             {
                 text: '面板集成',
                 link: 'advanced/panel-integration'
+            },
+            {
+                text: '经济系统',
+                link: 'advanced/economy'
             }
         ]
     },
