@@ -2,16 +2,17 @@
 
 ::: warning As of v6.3.0 — unreleased
 Everything on this page describes behaviour landing in UltiTools-API v6.3.0, currently on the
-`alpha` branch. If you are running v6.2.5 or earlier, none of the config keys or classes below exist
-yet.
+`alpha` branch. On v6.2.5 or earlier, most of the config keys and classes below do not exist yet;
+where one already exists, its section says what changed.
 :::
 
-UltiTools connects to the UltiPanel remote-management platform over a WebSocket. As of v6.3.0, four
+UltiTools connects to the UltiPanel remote-management platform over a WebSocket. As of v6.3.0, five
 things about that connection change: every panel-facing capability becomes an operator-visible
-switch, remote command filtering becomes an operator-editable blocklist, the remote file API is
-confined to an explicit set of editable roots with an unconditional credential exclusion, and a
-module can now observe or answer panel messages without the framework growing a second dispatch
-mechanism beside the existing one.
+switch; remote command filtering becomes an operator-editable blocklist; the remote file API is
+confined to an explicit set of editable roots with an unconditional credential exclusion; the live
+log stream can no longer be started, stopped, paused or resumed from the panel, and its batch
+interval now takes effect; and a module can now observe or answer panel messages without the
+framework growing a second dispatch mechanism beside the existing one.
 
 ## Capabilities
 
