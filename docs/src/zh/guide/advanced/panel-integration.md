@@ -19,7 +19,7 @@ API 被限定在一组显式的可编辑根目录内，并附带一层不可配�
 ultipanel:
   capabilities:
     monitoring: true          # TPS、内存、世界/玩家快照
-    logs: true                # 实时控制台日志流 + 控制
+    logs: true                # 实时控制台日志流
     player-events: true       # 上线/下线/聊天事件
     file-read: true           # 在可编辑根目录内读取与列出文件
     file-write: false         # 在可编辑根目录内写入/上传文件
@@ -167,6 +167,67 @@ ultipanel:
 ```
 
 这里刻意没有可以完全关闭该日志的配置键。
+
+## 实时日志流
+
+`logs` 能力开启时，框架会在每次面板连接建立时挂上自己的日志处理器，并在连接保持期间持续把
+控制台日志记录发送给面板。
+
+自 v6.3.0 起，动作为 `start`、`stop`、`pause` 或 `resume` 的 `log_stream` 或
+`log_stream_control` 请求会收到一条说明该动作不受支持的错误响应，日志发送照常进行。v6.3.0
+之前框架接受这四个动作，但在任何已发布版本上，它们都没有改变面板实际收到的内容。框架与面板
+中继之间只有一条连接，也无法识别连接背后的各个查看者，因此无法针对单个查看者暂停或停止日志
+流。暂停或隐藏实时日志视图由面板视图自己完成，例如不再渲染新的日志行。
+
+`status` 动作仍会得到应答。自 v6.3.0 起，它的 `data` 对象除 `action` 与 `clientId` 外，还
+携带以下字段：
+
+| 字段 | 含义 |
+|---|---|
+| `connected` | 本服务器与面板的连接当前是否在线。v6.3.0 新增 |
+| `logTransmitterEnabled` | 日志传输器是否在接收日志记录 |
+| `queueSize` | 已排队、尚未发送的日志条目数 |
+
+响应中不再包含 `subscriberCount` 与 `streaming` 字段。
+
+被拒绝的这些动作背后的 `LogStreamManager` 公开方法已在 v6.3.0 中移除：
+`startLogStream(String, String)`、`startLogStream(String)`、`stopLogStream(String)`、
+`pauseLogStream(String)`、`resumeLogStream(String)`、`isStreaming()` 与 `getSubscriberCount()`。
+
+### 批量发送配置
+
+发往面板的日志记录会先排队，再分批发送，相关配置位于 `ultipanel.logging.batch` 下：
+
+```yaml
+ultipanel:
+  logging:
+    batch:
+      enabled: true
+      size: 10
+      interval: 5000
+```
+
+| 键 | 默认值 | 作用 |
+|---|---|---|
+| `enabled` | `true` | 设为 `false` 时，每条日志记录都作为独立消息立即发送 |
+| `size` | `10` | 单次发送的最大条目数。排队条目达到这个数量时，不等时间间隔到达就立即发送。最小为 1 |
+| `interval` | `5000` | 两次定时发送之间的毫秒数，无论 `monitoring` 能力是否开启都按它执行。最小为 1000 |
+
+队列中最多等待 1000 条日志。队列已满时，最早的条目会被丢弃。
+
+自 v6.3.0 起，随框架发布的 `config.yml` 声明了这一段，修改后的间隔也会生效。v6.3.0 之前，
+发布的文件里没有这一段，新的间隔值也不会让已经在运行的发送任务重新调度。已有的 `config.yml`
+不会被改写来补上这一段；在你手动加上之前，使用上表的默认值。
+
+框架在每次面板连接建立时，从内存中已加载的配置读取这些键。低于最小值的配置会被拒绝，框架记
+录一条指明该键的警告，并保留默认值。修改 `config.yml` 不会影响已经建立的连接，`ul reload`
+会重新读取文件但不会重新建立连接，因此请重启服务器来应用修改后的值。
+
+服务器运行期间，动作为 `config` 的 `log_stream` 请求可以携带 `batchConfig` 对象，包含
+`enabled`、`size`、`interval` 中的任意几项。框架会先按同样的限制检查请求中的每一个值，再统
+一应用，任一值无效时整个请求都会被拒绝。检查通过后这些值立即生效，新的间隔会让正在运行的发
+送任务重新调度。以这种方式设置的值会保持到下一次面板连接建立，届时框架会重新应用
+`config.yml` 中的值。
 
 ## 模块扩展点
 

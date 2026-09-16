@@ -22,7 +22,7 @@ Every panel-facing capability is gated by a switch under `ultipanel.capabilities
 ultipanel:
   capabilities:
     monitoring: true          # TPS, memory, world/player snapshots
-    logs: true                # live console log stream + control
+    logs: true                # live console log stream
     player-events: true       # join/quit/chat events
     file-read: true           # read + list files within the editable roots
     file-write: false         # write/upload files within the editable roots
@@ -188,6 +188,73 @@ ultipanel:
 ```
 
 There is deliberately no key to disable this log entirely.
+
+## Live log stream
+
+When the `logs` capability is on, the framework attaches its log handler each time the panel
+connection opens, and sends console log records to the panel for as long as the connection stays up.
+
+As of v6.3.0, a `log_stream` or `log_stream_control` request whose action is `start`, `stop`,
+`pause` or `resume` receives an error response stating that the action is not supported, and
+delivery continues unchanged. Before v6.3.0 the framework accepted these four actions, but on no
+released version did any of them change what reached the panel. The framework holds one connection
+to the panel relay and cannot identify the viewers behind it, so it cannot pause or stop the stream
+for a single viewer. Pausing or hiding the live view is done by the panel view itself, for example
+by no longer rendering new lines.
+
+The `status` action is still answered. As of v6.3.0, its `data` object carries these fields
+alongside `action` and `clientId`:
+
+| Field | Meaning |
+|---|---|
+| `connected` | Whether this server's connection to the panel is currently up. New in v6.3.0 |
+| `logTransmitterEnabled` | Whether the log transmitter is accepting records |
+| `queueSize` | Number of log entries queued and not yet sent |
+
+The `subscriberCount` and `streaming` fields are no longer sent.
+
+The public `LogStreamManager` methods behind the refused actions were removed in v6.3.0:
+`startLogStream(String, String)`, `startLogStream(String)`, `stopLogStream(String)`,
+`pauseLogStream(String)`, `resumeLogStream(String)`, `isStreaming()` and `getSubscriberCount()`.
+
+### Batch settings
+
+Log records bound for the panel are queued and sent in batches, configured under
+`ultipanel.logging.batch`:
+
+```yaml
+ultipanel:
+  logging:
+    batch:
+      enabled: true
+      size: 10
+      interval: 5000
+```
+
+| Key | Default | Effect |
+|---|---|---|
+| `enabled` | `true` | `false` sends every log record immediately as its own message |
+| `size` | `10` | Largest number of entries in one send. When this many entries are queued, they are sent without waiting for the interval. Must be at least 1 |
+| `interval` | `5000` | Milliseconds between scheduled sends, whether or not the `monitoring` capability is on. Must be at least 1000 |
+
+At most 1,000 entries wait in the queue. When it is full, the oldest entry is dropped.
+
+As of v6.3.0, the shipped `config.yml` declares this block and a changed interval takes effect.
+Before v6.3.0 the block was missing from the shipped file, and a new interval never rescheduled the
+sender that was already running. An existing `config.yml` is not rewritten to add the block; until
+you add it, the defaults above apply.
+
+The framework reads these keys each time the panel connection opens, from the configuration held in
+memory. A value below its minimum is refused with a warning that names the key, and the default is
+kept. Editing `config.yml` does not affect a connection that is already open, and `ul reload`
+re-reads the file without reopening the connection, so restart the server to apply a changed value.
+
+On a running server, a `log_stream` request with the action `config` can carry a `batchConfig`
+object with any of `enabled`, `size` and `interval`. The framework checks every value in the request
+against the same limits before applying any of them, and refuses the whole request if one is
+invalid. Otherwise the values apply immediately, and a new interval reschedules the running sender.
+Values set this way last until the panel connection next opens, when the values from `config.yml`
+are applied again.
 
 ## Module extension point
 
