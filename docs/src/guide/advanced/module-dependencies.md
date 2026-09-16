@@ -43,6 +43,12 @@ A dependency cycle, or a `depends` entry naming a module that is not installed, 
 
 The console names the full cycle as a path, `A -> B -> C -> A`, and says which module's author to contact. This mirrors how Paper itself reports a plugin load cycle.
 
+As of v6.3.0, a module declaring several missing `depends` targets at once is named all of them in one console line, not just the first — you no longer need to fix one, restart, and discover the next.
+
+## Duplicate `plugin.yml` names
+
+As of v6.3.0: dependency resolution looks a module up by either its simple class name or its `plugin.yml` `name:` value. If two installed modules declare the SAME `name:`, only one of them can claim that name in the dependency graph — whichever module is discovered first wins, and the console logs a WARNING naming both modules and the shared name so this is not silent. Which module wins depends on load order (currently filesystem-dependent — not something this page's ordering rules control), so treat this WARNING as a signal to rename one module's `plugin.yml` `name:`, not as something to rely on resolving the same way every restart.
+
 ## Falling back to the legacy order
 
 `-Dultitools.useLegacyPluginLoading=true` restores the pre-6.3.0 behavior: every module loads in filesystem order with no dependency resolution at all, including no cycle detection. This is a JVM system property, consumed once at server startup, not a reloadable config key — the same shape as Paper's own `-Dpaper.useLegacyPluginLoading=true`.
