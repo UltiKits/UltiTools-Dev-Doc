@@ -117,6 +117,10 @@ const sidebarGuideEN: SidebarItemExt[] = [
                 link: 'advanced/panel-integration'
             },
             {
+                text: 'Economy',
+                link: 'advanced/economy'
+            },
+            {
                 text: 'Cloud Login',
                 link: 'advanced/cloud-login'
             }

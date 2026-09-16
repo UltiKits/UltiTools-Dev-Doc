@@ -14,6 +14,13 @@ UltiTools提供了优雅的单例模式的封装API，让你可以像操作对�
 
 <<< @/../examples/src/main/java/com/ultikits/docs/config/SomeConfig.java
 
+::: warning 构造函数必须廉价且无副作用（自 v6.3.0 起）
+
+框架会在每次加载、每次重载、每次面板写入尝试时构造并丢弃一个该类的临时实例，仅用于证明它仍可构造。
+请让构造函数保持上面示例中 `super(configFilePath)` 这种单行写法。
+
+:::
+
 #### @ConfigEntity
 
 `@ConfigEntity` 注解用于标记一个配置文件的位置，需要一个字符串参数，用于指定配置文件在插件配置文件夹中的路径。通常这个路径与你在开发过程中resource文件夹目录中的路径是相同的。

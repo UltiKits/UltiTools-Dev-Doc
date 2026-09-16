@@ -115,6 +115,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
                 link: 'advanced/panel-integration'
             },
             {
+                text: '经济系统',
+                link: 'advanced/economy'
+            },
+            {
                 text: '云端登录',
                 link: 'advanced/cloud-login'
             }

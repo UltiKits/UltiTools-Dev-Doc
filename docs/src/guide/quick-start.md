@@ -77,7 +77,16 @@ identify-string: test-plugin
 
 Create a new class that extends `UltiToolsPlugin`, similar to traditional Paper plugins,
 UltiTools modules also need to override the startup and shutdown methods.
-But UltiToolsPlugin adds an optional `UltiToolsPlugin#reloadSelf()` method for execution when the module is reloaded.
+UltiToolsPlugin also defines two lifecycle hooks, `onReload()` and `onUnregister()`, for reload and unload work.
+
+::: tip Since v6.3.0
+`reloadSelf()` and `unregisterSelf()` are `final`. Override `onReload()` and `onUnregister()`
+instead.
+:::
+
+`onUnregister()` runs before the framework unregisters this module's commands and listeners, so the module's own beans are still alive during cleanup. `onReload()` runs after the framework's own reload steps: configuration reload, language catalogue refresh, and the reload log line described below.
+
+On `/ul reload`, the framework logs one line naming the module before calling `onReload()`. A module whose existing override only logged its own reload no longer needs that log line and can delete the override. A module with real reload or unload work renames its existing `reloadSelf()`/`unregisterSelf()` override to `onReload()`/`onUnregister()`, with the method body unchanged.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/quickstart/MyPlugin.java
 

@@ -18,6 +18,14 @@ the `AbstractConfigEntity` class.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/config/SomeConfig.java
 
+::: warning Constructor must be cheap and side-effect-free (as of v6.3.0)
+
+The framework builds and discards a throwaway instance of your class on every load, reload, and
+panel write attempt, just to prove it is still constructible. Keep the constructor to the
+`super(configFilePath)`-only idiom shown above.
+
+:::
+
 #### @ConfigEntity
 
 The `@ConfigEntity` annotation is used to mark the location of a configuration file, which requires a string parameter

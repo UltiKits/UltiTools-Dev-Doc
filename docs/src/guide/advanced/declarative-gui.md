@@ -197,6 +197,15 @@ Navigator.of(context).push("settings");
 - **Extract constant widgets**: reuse `static final` widgets for parts that never change (e.g. background tiles).
 - **Localize refresh**: push state down to leaf nodes so only small parts of the tree rebuild (make a single button stateful rather than the whole page).
 
+### 6.4 Maximum tree depth
+
+As of v6.3.0, the framework raises a `RenderDepthExceededException` if a widget tree nests
+deeper than 64 levels (`Container`/`GridView`/composed widgets counted together) — a sanity
+ceiling against a runaway recursive tree-building helper, not a limit any hand-written GUI is
+expected to approach; every example on this page nests 3–4 levels at most. If you see this
+exception, look for a recursive helper with no base case rather than trying to build a deeper
+page.
+
 ---
 
 ## 7. Full example: shop page
