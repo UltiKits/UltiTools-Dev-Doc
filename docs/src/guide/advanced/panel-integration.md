@@ -10,9 +10,10 @@ UltiTools connects to the UltiPanel remote-management platform over a WebSocket.
 things about that connection change: every panel-facing capability becomes an operator-visible
 switch; remote command filtering becomes an operator-editable blocklist; the remote file API is
 confined to an explicit set of editable roots with an unconditional credential exclusion; the live
-log stream can no longer be started, stopped, paused or resumed from the panel, and its batch
-interval now takes effect; and a module can now observe or answer panel messages without the
-framework growing a second dispatch mechanism beside the existing one.
+log stream can no longer be started, stopped, paused or resumed from the panel, its batch interval
+and `debug` level now take effect, and its level filter no longer suppresses error reports raised
+from log records; and a module can now observe or answer panel messages without the framework
+growing a second dispatch mechanism beside the existing one.
 
 ## Capabilities
 
@@ -256,6 +257,71 @@ against the same limits before applying any of them, and refuses the whole reque
 invalid. Otherwise the values apply immediately, and a new interval reschedules the running sender.
 Values set this way last until the panel connection next opens, when the values from `config.yml`
 are applied again.
+
+### Levels and excluded loggers
+
+Two more keys under `ultipanel.logging` decide which log records the handler sends to the panel.
+Neither key is in the shipped `config.yml`. When a key is absent, its default applies.
+
+```yaml
+ultipanel:
+  logging:
+    levels:
+      - "info"
+      - "warning"
+      - "error"
+    excluded-loggers:
+      - "com.mojang.authlib"
+      - "net.minecraft.network"
+      - "org.apache.http"
+      - "com.zaxxer.hikari"
+      - "org.eclipse.jetty"
+```
+
+| Key | Default | Effect |
+|---|---|---|
+| `levels` | `info`, `warning`, `error` | Levels whose records are sent to the panel. The names that match records are `error` (`SEVERE`), `warning` (`WARNING`), `info` (`INFO`) and `debug` (`CONFIG`, `FINE`, `FINER`, `FINEST`). Any other name is accepted without a warning and matches no record |
+| `excluded-loggers` | The five names in the example above | Logger name prefixes whose records are dropped. A list you set replaces the defaults, so include any default you want to keep |
+
+The framework reads both keys at the same point as the batch keys, each time the panel connection
+opens, so restart the server to apply a changed value here too. A few entries the framework sends to
+the panel directly, such as player join, quit and chat lines, do not pass through the handler, and
+neither key applies to them. Chat lines, sent while the `player-events` capability is on, arrive at
+the `debug` level even when `debug` is not in `levels`.
+
+Each `excluded-loggers` entry is compared, case-sensitively, with the start of the name of the
+`java.util.logging` logger that emitted the record, so an entry of `org.apache` also excludes
+`org.apache.http` and every other name that begins with it. That name is not part of the entry sent
+to the panel. The entry's `logger` field is a label the framework derives from its own
+classification of the record: `UltiTools` for loggers under `com.ultikits.ultitools`, a name taken
+from the logger name for other loggers whose name contains `plugin`, `MinecraftServer` for server
+loggers, and `database`, `network` or `system` for the rest. Copying that label into
+`excluded-loggers` matches only a logger whose own name happens to start with it. For example, an
+entry of `MinecraftServer` matches none of the records labelled `MinecraftServer`, because the
+framework gives that label to server loggers such as `Minecraft` and `net.minecraft.*`, not to a
+logger with that name.
+
+As of v6.3.0, adding `debug` to `levels` sends debug records to the panel. Before v6.3.0 the handler
+kept its own threshold at `INFO`, so it discarded `CONFIG`, `FINE`, `FINER` and `FINEST` records
+before checking `levels`, and `debug` had no effect. The framework now lowers that threshold while
+`debug` is in the list. It does not change the level of any logger, so a debug record reaches the
+panel only if the logger that emits it is already set to let the record through.
+
+As of v6.3.0, `levels` no longer affects automatic error reporting. The handler passes every `SEVERE`
+record that carries an exception to error reporting (`ultipanel.logging.error-reporting`), whether or
+not `error` is in `levels`. Before v6.3.0, a record whose level was not in `levels` was dropped
+before that step, so removing `error` from `levels` also stopped these reports. The handler is not
+attached while the `logs` capability is off, so these reports also depend on that capability.
+Exclusion comes before both steps: a record from an excluded logger is neither sent to the panel nor
+reported as an error. Error reports raised elsewhere, such as an exception thrown by a command, do
+not pass through the handler, and neither key applies to them.
+
+On a running server, the `log_stream` request with the action `config` described above can also
+carry a `levels` array. As of v6.3.0 the framework applies it; before v6.3.0 the field was ignored.
+The whole request is refused if any name is not one of the four above, and an empty array leaves no
+level enabled. Levels set this way last until the panel connection next opens, when the handler is
+created again from `config.yml`, or from the defaults if `levels` is absent there. The request has
+no field for excluded loggers.
 
 ## Module extension point
 
