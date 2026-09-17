@@ -238,7 +238,7 @@ ultipanel:
 | `levels` | `info`、`warning`、`error` | 发送给面板的日志级别。能匹配到日志记录的名称是 `error`（`SEVERE`）、`warning`（`WARNING`）、`info`（`INFO`）与 `debug`（`CONFIG`、`FINE`、`FINER`、`FINEST`）。其他名称会被接受，不产生警告，也不匹配任何记录 |
 | `excluded-loggers` | 上面示例中的五个名称 | 记录器名称前缀，来自这些记录器的日志记录会被丢弃。你设置的列表会整体替换默认值，需要保留的默认项请一并写上 |
 
-与批量发送的键一样，框架在每次面板连接建立时读取这两个键，因此修改后的值同样需要重启服务器来应用。框架直接发送给面板的少数条目，例如玩家进入和离开服务器的日志行，不经过日志处理器，这两个键对它们不起作用。
+与批量发送的键一样，框架在每次面板连接建立时读取这两个键，因此修改后的值同样需要重启服务器来应用。框架直接发送给面板的少数条目，例如玩家进入、离开服务器和聊天的日志行，不经过日志处理器，这两个键对它们不起作用。聊天日志行在 `player-events` 能力开启时发送，即使 `levels` 中没有 `debug`，它们也以 `debug` 级别到达面板。
 
 每个 `excluded-loggers` 条目都会与发出该记录的 `java.util.logging` 记录器名称的开头比较，区分大小写，因此 `org.apache` 这样的条目也会排除 `org.apache.http` 以及其他所有以它开头的名称。发送给面板的条目中不包含这个名称。条目的 `logger` 字段是框架根据自己对记录的分类得出的标签：`com.ultikits.ultitools` 下的记录器为 `UltiTools`，名称中含有 `plugin` 的其他记录器为从记录器名称中取出的一个名称，服务器记录器为 `MinecraftServer`，其余为 `database`、`network` 或 `system`。把这个标签抄进 `excluded-loggers`，只会匹配到名称恰好以它开头的记录器。例如，`MinecraftServer` 这个条目不会匹配任何标签为 `MinecraftServer` 的记录，因为框架把这个标签给了 `Minecraft`、`net.minecraft.*` 这类服务器记录器，而不是名为 `MinecraftServer` 的记录器。
 

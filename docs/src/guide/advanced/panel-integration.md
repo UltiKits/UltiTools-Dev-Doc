@@ -285,8 +285,9 @@ ultipanel:
 
 The framework reads both keys at the same point as the batch keys, each time the panel connection
 opens, so restart the server to apply a changed value here too. A few entries the framework sends to
-the panel directly, such as player join and quit lines, do not pass through the handler, and neither
-key applies to them.
+the panel directly, such as player join, quit and chat lines, do not pass through the handler, and
+neither key applies to them. Chat lines, sent while the `player-events` capability is on, arrive at
+the `debug` level even when `debug` is not in `levels`.
 
 Each `excluded-loggers` entry is compared, case-sensitively, with the start of the name of the
 `java.util.logging` logger that emitted the record, so an entry of `org.apache` also excludes
