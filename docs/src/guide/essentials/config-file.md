@@ -109,12 +109,18 @@ However, if you want to save it immediately, you can call the `save` method.
 
 :::
 
+::: info Saving on disable, as of v6.3.0
+On disable, UltiTools saves a configuration only if your code changed it since it was last loaded or saved.
+A configuration your module did not change is not rewritten, so edits the server owner made to its file while the server was running survive a restart.
+If your module did change it, the file is still rewritten, and a WARNING is logged when that write overwrites edits made to the file on disk.
+:::
+
 ```java
 boolean something = someConfig.getSomething();
 ```
 
 ::: tip
-Although UltiTools lets you modify and save the configuration file from code, doing so is discouraged: it produces unexpected changes for users and can overwrite edits they have not saved yet.
+Although UltiTools lets you modify and save the configuration file from code, doing so is discouraged: it produces unexpected changes for users and, once your code has changed a configuration, can overwrite edits they made to its file while the server was running.
 Configuration exists for the user to read and edit, so whether to apply a change is the user's call and your code should only write in response to an explicit user action.
 For data your own plugin needs to persist, use [Data Storage](/guide/essentials/data-storage) instead.
 :::
@@ -158,7 +164,7 @@ automatically.
 Bukkit preserves existing comments across a save, and UltiTools sets `options().parseComments(true)` explicitly rather than relying on the default. A key added for the first time also gets its `@ConfigEntry(comment)` written alongside it; a key the operator already has is left untouched.
 :::
 
-One cosmetic side effect: SnakeYAML re-emits a double-quoted string value as single-quoted on save. The value itself does not change, only its quoting style.
+One cosmetic side effect: SnakeYAML re-emits a double-quoted string value as single-quoted on save. The value itself does not change, only its quoting style. As of v6.3.0 this happens only when a file is actually saved: a configuration nothing changed is not rewritten on disable.
 
 ## Configuration file reload
 
