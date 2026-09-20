@@ -20,9 +20,9 @@ the `AbstractConfigEntity` class.
 
 ::: warning Constructor must be cheap and side-effect-free (as of v6.3.0)
 
-The framework builds and discards a throwaway instance of your class on every load, reload, and
-panel write attempt, just to prove it is still constructible. Keep the constructor to the
-`super(configFilePath)`-only idiom shown above.
+The framework builds and discards throwaway instances of your class: two on every load, reload and
+panel write attempt, one on every `save()`, and one per configuration when the server stops.
+Keep the constructor to the `super(configFilePath)`-only idiom shown above.
 
 :::
 
@@ -112,7 +112,13 @@ However, if you want to save it immediately, you can call the `save` method.
 ::: info Saving on disable, as of v6.3.0
 On disable, UltiTools saves a configuration only if your code changed it since it was last loaded or saved.
 A configuration your module did not change is not rewritten, so edits the server owner made to its file while the server was running survive a restart.
-If your module did change it, the file is still rewritten, and a WARNING is logged when that write overwrites edits made to the file on disk.
+If your module did change it, the file is still rewritten, and a WARNING is logged when that write overwrites edits made to the file on disk; a file whose YAML the framework could not parse the last time it read it is never rewritten at all, and gets its own WARNING.
+:::
+
+::: warning Configuration writes hold a lock, as of v6.3.0
+Loading, saving, a panel write and the shutdown save of one configuration run one at a time, so a panel write arriving on the WebSocket thread and the shutdown save cannot interleave.
+Your own `save()` call waits for any of those already in progress, and the throwaway construction above happens while that lock is held, which is the other reason to keep the constructor cheap.
+Changes your module makes to its own fields, from any thread, are not covered by this lock.
 :::
 
 ```java
