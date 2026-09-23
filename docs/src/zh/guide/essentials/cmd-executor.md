@@ -346,6 +346,41 @@ public void listPoint(@CmdSender Player player) {
 自 v6.3.0 起，标注了 `@CmdCD`、而其校验链中缺少 `CooldownValidator` 的类或方法——最常见的情形是省略了它的自定义 `ValidatorChain`，见下方[创建自定义验证器](#创建自定义验证器)一节——会在插件加载时被拒绝，并指出问题类与方法。这关闭了此前「看似已声明，实则拦不住任何调用」的缺口。
 :::
 
+#### 绑定到配置项 <Badge type="tip" text="v6.3.0+" />
+
+::: info 自 v6.3.0 起
+`@CmdCD` 可以不写字面量，改为从模块自己的配置文件中读取冷却时间，服主因此可以直接调整它。
+:::
+
+用 `key` 指定一个 `@ConfigEntry` 路径，并用 `config` 指定配置实体类。值的单位与 `value` 相同，都是秒，默认值只写在配置字段上：
+
+```java
+@ConfigEntry(path = "features.wild.cooldown", comment = "/wild 的冷却时间（秒）")
+private int wildCooldown = 60;
+```
+
+```java
+@CmdMapping(format = "wild")
+@CmdCD(config = EssentialsConfig.class, key = "features.wild.cooldown")
+public void wild(@CmdSender Player player) { ... }
+```
+
+绑定的值为 `0` 表示没有冷却，与 `value = 0` 相同。键按 `@ConfigEntry(path = ...)` 声明的路径匹配；`path` 为空时按字段名匹配。与字面量的 `@CmdCD` 一样，绑定的 `@CmdCD` 可以写在执行器类上，也可以写在映射方法上，以最具体的声明为准。
+
+绑定在加载时检查。以下情况只有该模块被拒绝加载，日志中会给出键名和值：
+
+- `value` 与 `key` 同时设置；
+- 该配置类没有为模块恰好注册一次；
+- 键没有匹配到任何 `@ConfigEntry` 路径；
+- 被绑定字段的类型不是 `int`、`long`、`Integer` 或 `Long`；
+- 值为负数、`null`，或大于 `Integer.MAX_VALUE`。
+
+绑定的值为负数会导致模块被拒绝加载，而字面量的 `@CmdCD` 值小于等于 0 时仍然只是关闭该映射的冷却。
+
+修改后的值在执行 `/ul reload` 时生效。解析出的秒数按执行器缓存，只在配置重载成功后刷新，因此通过面板所做的修改同样要等到下一次 `/ul reload`。重载时读到无效的值会保留当前正在使用的值，并输出一条 WARNING。已经在计时的冷却保持它开始计时时确定的结束时间。
+
+[外部插件 API](/zh/guide/advanced/external-plugin-api) 执行器中的绑定会被拒绝。使用绑定的模块必须在 `plugin.yml` 中声明 `api-version: 630`：6.2.x 框架会静默忽略这些新属性，完全不会执行冷却；6.3.0 则会拒绝使用了绑定、却声明了更低 `api-version` 的模块。`@Scheduled` 也支持同样的绑定方式，见[绑定到配置项的时间](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间)。
+
 ### 执行锁
 
 如果你希望一个命令只能被一条一条地执行，那么可以在相应的方法前面添加 `@UsageLimit` 注解：

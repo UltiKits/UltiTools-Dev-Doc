@@ -223,6 +223,12 @@ If the linkage error you have is neither of the two situations above, it belongs
 
 [jls13]: https://docs.oracle.com/javase/specs/jls/se21/html/jls-13.html
 
+### New annotation attributes
+
+A missing method or field fails loudly with a linkage error. A missing annotation attribute does not: the JVM drops any attribute the running annotation type does not declare, and nothing is logged. As of v6.3.0, `@Scheduled(config = ..., periodKey = ..., delayKey = ...)` and `@CmdCD(config = ..., key = ...)` read an interval or cooldown from a config key. A module that uses them still loads on a 6.2.x framework, where a bound `@Scheduled` runs once at load instead of on its interval and a bound `@CmdCD` enforces no cooldown.
+
+Raising the pin does not prevent this, for the reason given in [The pin and `api-version`](#the-pin-and-api-version). A module that uses either binding must declare `api-version: 630`, so that an older framework refuses it at load. To surface the mistake on the version you develop against, 6.3.0 itself refuses a module that uses a binding while declaring a lower `api-version`, naming the module, the binding and the required floor. Existing literal usages such as `@Scheduled(period = 6000)` and `@CmdCD(60)` are unaffected and need no change.
+
 ## Current state of the modules
 
 Most modules are still on `1.0.0`, because they have had no release requiring this decision. Two of them made a decision before this page existed and reached opposite conclusions: one used MINOR for a bug fix, the other MAJOR for a new feature, and neither matches the table above. They are being reconciled module by module rather than renumbered retroactively, because a published version number may already have been written down by server owners.

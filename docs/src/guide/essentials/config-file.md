@@ -86,6 +86,14 @@ The snippet below only illustrates its logic, import the framework class shown a
 <<< @/../examples/src/main/java/com/ultikits/docs/config/StringHashMapParser.java
 :::
 
+#### Numeric fields
+
+YAML stores a whole number such as `1800` as an integer. As of v6.3.0, a boxed `Long`, `Float` or `Double` field loads such a value, the same way a primitive `long`, `float` or `double` field does. Earlier versions could not set an integer into a boxed field of another numeric type, so such a field loaded on the first boot, when its default was written, and failed on every later boot and reload. Only widening conversions are applied, so a boxed field accepts exactly what its primitive type accepts.
+
+A decimal such as `0.5` is read as a `Double`, and narrowing it into a `float` or `Float` field is not supported ([#534](https://github.com/UltiKits/UltiTools-Reborn/issues/534)). Use `double` or `Double` for a value that may contain a decimal point.
+
+As of v6.3.0, an `int`, `long`, `Integer` or `Long` field can also drive a task interval or a command cooldown: see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing) for `@Scheduled` and [Binding the cooldown to a config key](/guide/essentials/cmd-executor#binding-the-cooldown-to-a-config-key) for `@CmdCD`. The config class must be registered exactly once for the module, so a directory `@ConfigEntity` cannot be bound.
+
 #### @Getter and @Setter
 
 `@Getter` and `@Setter` are Lombok annotations, which are used to automatically generate `getter` and `setter` methods.

@@ -387,6 +387,41 @@ the cooldown exists to prevent.
 As of v6.3.0, a class or method carrying `@CmdCD` whose validator chain has no `CooldownValidator` — most commonly a custom `ValidatorChain` that omits it, see [Creating Custom Validators](#creating-custom-validators) below — is refused at plugin load, naming the offending class and method. This closes the gap where the annotation looked declared but enforced nothing.
 :::
 
+#### Binding the cooldown to a config key <Badge type="tip" text="v6.3.0+" />
+
+::: info As of v6.3.0
+Instead of a literal, `@CmdCD` can read the cooldown from a key in your module's own config file, so a server owner can tune it.
+:::
+
+Name a `@ConfigEntry` path with `key` and give the config entity class with `config`. The value is in seconds, like `value`, and the default lives only in the config field:
+
+```java
+@ConfigEntry(path = "features.wild.cooldown", comment = "Seconds between /wild uses")
+private int wildCooldown = 60;
+```
+
+```java
+@CmdMapping(format = "wild")
+@CmdCD(config = EssentialsConfig.class, key = "features.wild.cooldown")
+public void wild(@CmdSender Player player) { ... }
+```
+
+A bound value of `0` means no cooldown, the same as `value = 0`. The key is matched against `@ConfigEntry(path = ...)` as declared, or against the field name when `path` is empty. Like a literal `@CmdCD`, a bound one may sit on the executor class or on a mapping method, and the most-derived declaration wins.
+
+The binding is checked at load. The module alone is refused, and the log names the key and the value, when:
+
+- `value` is set together with `key`;
+- the config class is not registered exactly once for the module;
+- the key matches no `@ConfigEntry` path;
+- the bound field is not an `int`, `long`, `Integer` or `Long`;
+- the value is negative, `null` or above `Integer.MAX_VALUE`.
+
+A negative bound value refuses the module, while a literal `@CmdCD` value of 0 or less still disables the cooldown for that mapping.
+
+A changed value takes effect at `/ul reload`. The resolved seconds are cached per executor and refreshed only after a successful configuration reload, so a panel edit also waits for the next `/ul reload`. An invalid value on reload keeps the running one and logs a WARNING. A cooldown that is already running keeps the end time it was stamped with.
+
+A binding in an [External Plugin API](/guide/advanced/external-plugin-api) executor is refused. A module that uses a binding must declare `api-version: 630` in its `plugin.yml`: a 6.2.x framework silently ignores the new attributes and would enforce no cooldown at all, and 6.3.0 refuses a module that uses a binding while declaring a lower `api-version`. `@Scheduled` accepts the same kind of binding, see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing).
+
 ### Execution lock
 
 If you want a command to be executed only one by one, you can add `@UsageLimit` in front of the corresponding method:
