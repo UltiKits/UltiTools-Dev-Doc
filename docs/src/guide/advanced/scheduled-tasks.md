@@ -44,6 +44,8 @@ Set `async = true` for tasks that don't need to access the Bukkit API directly (
 
 <<< @/../examples/src/main/java/com/ultikits/docs/scheduled/InterestService.java
 
+`async = true` applies to literal timings only. A task whose timing is [bound to a config key](#config-bound-timing) must be sync, as of v6.3.0.
+
 ::: warning Bukkit Thread Safety
 When `async = true`, the task runs off the main server thread. You **must not** call most Bukkit API methods from async threads. If you need to interact with the Bukkit API from an async task, dispatch back to the main thread:
 
@@ -110,12 +112,13 @@ A binding is checked when the module loads. If any check fails, that module alon
 
 A changed value is applied at `/ul reload`, and the task keeps its place in its cycle. The next run is the last run plus the new period. Before the first run it is the time the task was armed plus the new delay. If that moment has already passed, the task runs on the next tick. A reload never runs a task early and never postpones it by restarting its clock.
 
-A task whose value did not change is not touched. An invalid value on reload is not applied: the running value is kept and a WARNING names the key. An edit made from the panel takes effect at the next `/ul reload`.
+A task whose value did not change is not touched. An invalid value on reload is not applied: the running value is kept and a WARNING names the key. An edit made from the panel takes effect at the next `/ul reload`. A panel write that sets a bound key outside the range above, such as `0`, is refused like a `@Range` violation, and nothing is written.
 
 ### Binding restrictions
 
 - Sync only. A bound method cannot be `async = true`; that combination is refused at load. Bind a sync task and hand the heavy work to `Bukkit.getScheduler().runTaskAsynchronously(...)` from its body. Literal `async` tasks are unaffected. Issue [#535](https://github.com/UltiKits/UltiTools-Reborn/issues/535) tracks allowing async bindings.
 - Declared methods only. The binding is found on the bean class's own declared methods, the same as an unbound `@Scheduled`. A method inherited from a superclass is neither scheduled nor checked, so declare the bound method on the bean class itself ([#532](https://github.com/UltiKits/UltiTools-Reborn/issues/532)).
+- No `@Range` on a bound field. The binding's range above is the field's range. A module `@Range` on the same field would make an out-of-range reload throw from the config reload itself, which aborts the rest of that module's reload ([#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509)) instead of keeping the running value. If the field already had a `@Range` before you bound it, remove it.
 - Modules only. A binding on a bean of an [External Plugin API](/guide/advanced/external-plugin-api) plugin is refused.
 
 ### Required `api-version`

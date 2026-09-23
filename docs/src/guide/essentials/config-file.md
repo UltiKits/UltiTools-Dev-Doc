@@ -92,7 +92,7 @@ YAML stores a whole number such as `1800` as an integer. As of v6.3.0, a boxed `
 
 A decimal such as `0.5` is read as a `Double`, and narrowing it into a `float` or `Float` field is not supported ([#534](https://github.com/UltiKits/UltiTools-Reborn/issues/534)). Use `double` or `Double` for a value that may contain a decimal point.
 
-As of v6.3.0, an `int`, `long`, `Integer` or `Long` field can also drive a task interval or a command cooldown: see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing) for `@Scheduled` and [Binding the cooldown to a config key](/guide/essentials/cmd-executor#binding-the-cooldown-to-a-config-key) for `@CmdCD`. The config class must be registered exactly once for the module, so a directory `@ConfigEntity` cannot be bound.
+As of v6.3.0, an `int`, `long`, `Integer` or `Long` field can also drive a task interval or a command cooldown: see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing) for `@Scheduled` and [Binding the cooldown to a config key](/guide/essentials/cmd-executor#binding-the-cooldown-to-a-config-key) for `@CmdCD`. The config class must be registered exactly once for the module, so a directory `@ConfigEntity` cannot be bound. Do not also put a [`@Range`](/guide/advanced/config-validation) on a bound field: the binding enforces its own range, and a `@Range` violation during `/ul reload` aborts the rest of the module's reload ([#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509)).
 
 #### @Getter and @Setter
 

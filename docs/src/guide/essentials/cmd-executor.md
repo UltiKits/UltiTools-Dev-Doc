@@ -418,7 +418,9 @@ The binding is checked at load. The module alone is refused, and the log names t
 
 A negative bound value refuses the module, while a literal `@CmdCD` value of 0 or less still disables the cooldown for that mapping.
 
-A changed value takes effect at `/ul reload`. The resolved seconds are cached per executor and refreshed only after a successful configuration reload, so a panel edit also waits for the next `/ul reload`. An invalid value on reload keeps the running one and logs a WARNING. A cooldown that is already running keeps the end time it was stamped with.
+A changed value takes effect at `/ul reload`. The resolved seconds are cached per executor and refreshed only after a successful configuration reload, so a panel edit also waits for the next `/ul reload`. An invalid value on reload keeps the running one and logs a WARNING. A cooldown that is already running keeps the end time it was stamped with, whatever the new value is: a reload to `0` stamps no new cooldown, and the running ones expire on their own. A panel write that sets the bound key outside its range, such as a negative value, is refused like a `@Range` violation, and nothing is written.
+
+Do not put a module `@Range` on a bound field; the binding's range is the field's range. With a `@Range` on the same field, an out-of-range reload throws from the config reload itself and aborts the rest of that module's reload ([#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509)), instead of keeping the running value.
 
 A binding in an [External Plugin API](/guide/advanced/external-plugin-api) executor is refused. A module that uses a binding must declare `api-version: 630` in its `plugin.yml`: a 6.2.x framework silently ignores the new attributes and would enforce no cooldown at all, and 6.3.0 refuses a module that uses a binding while declaring a lower `api-version`. `@Scheduled` accepts the same kind of binding, see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing).
 
