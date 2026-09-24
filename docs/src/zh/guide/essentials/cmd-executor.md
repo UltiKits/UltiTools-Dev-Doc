@@ -105,7 +105,7 @@ public void addPoint(@CmdSender Player player, @CmdParam("name") String name) {
 
 ```java
 @CmdMapping(format = "add <name>")
-public void addPoint(@CmdSender Player player, @CmdParam(value = "name", suggest="listName") String name) {
+public void addPoint(@CmdSender Player player, @CmdParam(value = "name", suggest = "listName") String name) {
   ...
 }
 
@@ -143,8 +143,8 @@ public void tp(@CmdSender Player player, @CmdParam(value = "target", suggest = "
 
 ```java
 @CmdMapping(format = "add <name>")
-public void addPoint(@CmdSender Player player, 
-                     @CmdParam(value = "name", suggest="[名称]") String name) {
+public void addPoint(@CmdSender Player player,
+                     @CmdParam(value = "name", suggest = "[名称]") String name) {
   ...
 }
 
@@ -176,9 +176,9 @@ protected List<String> suggest(Player player, Command command, String[] strings)
 ```java
 @CmdSuggest({PointSuggest.class})
 public class PointCommand extends BaseCommandExecutor {
-    
+
     @CmdMapping(format = "add <name>")
-    public void addPoint(@CmdSender Player player, @CmdParam(value = "name", suggest="listName") String name) {
+    public void addPoint(@CmdSender Player player, @CmdParam(value = "name", suggest = "listName") String name) {
         ...
     }
 }
@@ -298,7 +298,7 @@ public static SomeType toSomeType(String s) {
 @CmdMapping(format = "list")
 @RunAsync
 public void listPoint(@CmdSender Player player) {
-  //do query
+    //do query
 }
 ```
 
@@ -310,14 +310,14 @@ public void listPoint(@CmdSender Player player) {
 @CmdMapping(format = "list")
 @RunAsync
 public void listPoint(@CmdSender Player player) {
-  //do query
-  new BukkitRunnable() {
-    @Override
-      public void run() {
-          //call bukkit api
-      }
+    //do query
+    new BukkitRunnable() {
+        @Override
+        public void run() {
+            //call bukkit api
+        }
     }.runTask(PluginMain.getInstance());
-  }
+}
 ```
 
 ::: danger `@RunAsync` 方法体不得直接访问世界、实体、方块或区块状态。 <Badge type="danger" text="v6.3.0+" />

@@ -154,7 +154,6 @@ You can register the config file by override the `getAllConfigs` method in your 
 This path only applies when the plugin class does not enable automatic config registration (`@EnableAutoRegister` or `@UltiToolsModule`, whose `config` attribute defaults to `true`): when it is enabled, `getAllConfigs` is never called even if you override it. `@ConfigEntity` on the config class is required either way; it does not by itself decide which path runs.
 
 ```java
-
 @Override
 public List<AbstractConfigEntity> getAllConfigs() {
     return Collections.singletonList(new SomeConfig("some/path/to/config"));
