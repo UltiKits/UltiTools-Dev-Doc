@@ -346,7 +346,7 @@ public void listPoint(@CmdSender Player player) {
 自 v6.3.0 起，标注了 `@CmdCD`、而其校验链中缺少 `CooldownValidator` 的类或方法——最常见的情形是省略了它的自定义 `ValidatorChain`，见下方[创建自定义验证器](#创建自定义验证器)一节——会在插件加载时被拒绝，并指出问题类与方法。这关闭了此前「看似已声明，实则拦不住任何调用」的缺口。
 :::
 
-#### 绑定到配置项 <Badge type="tip" text="v6.3.0+" />
+#### 配置项绑定的冷却时间 <Badge type="tip" text="v6.3.0+" />
 
 ::: info 自 v6.3.0 起
 `@CmdCD` 可以不写字面量，改为从模块自己的配置文件中读取冷却时间，服主因此可以直接调整它。

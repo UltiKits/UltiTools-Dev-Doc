@@ -78,7 +78,7 @@ YAML 会把 `1800` 这样的整数读成整数类型。自 v6.3.0 起，包装�
 
 `0.5` 这样的小数会被读成 `Double`，目前不支持把它收窄写入 `float` 或 `Float` 字段（[#534](https://github.com/UltiKits/UltiTools-Reborn/issues/534)）。可能包含小数的值请使用 `double` 或 `Double`。
 
-自 v6.3.0 起，`int`、`long`、`Integer` 或 `Long` 类型的字段还可以用来控制任务间隔或命令冷却：`@Scheduled` 见[绑定到配置项的时间](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间)，`@CmdCD` 见[绑定到配置项](/zh/guide/essentials/cmd-executor#绑定到配置项)。该配置类必须为模块恰好注册一次，因此指向目录的 `@ConfigEntity` 不能用于绑定。被绑定的字段不要再加 [`@Range`](/zh/guide/advanced/config-validation)：绑定自带范围检查，而 `/ul reload` 期间违反 `@Range` 会中止该模块其余的重载步骤（[#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509)）。
+自 v6.3.0 起，`int`、`long`、`Integer` 或 `Long` 类型的字段还可以用来控制任务间隔或命令冷却：`@Scheduled` 见[绑定到配置项的时间](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间)，`@CmdCD` 见[配置项绑定的冷却时间](/zh/guide/essentials/cmd-executor#配置项绑定的冷却时间)。该配置类必须为模块恰好注册一次，因此指向目录的 `@ConfigEntity` 不能用于绑定。被绑定的字段不要再加 [`@Range`](/zh/guide/advanced/config-validation)：绑定自带范围检查，而 `/ul reload` 期间违反 `@Range` 会中止该模块其余的重载步骤（[#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509)）。
 
 #### @Getter 和 @Setter
 

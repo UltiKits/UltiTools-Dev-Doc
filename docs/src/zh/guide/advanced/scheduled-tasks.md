@@ -108,7 +108,7 @@ public class InterestService {
 - 被绑定字段的类型不是 `int`、`long`、`Integer` 或 `Long`；
 - 值为 `null`、小于 1 秒，或大于 107,374,182 秒（`Integer.MAX_VALUE / 20`，约 3.4 年）。`0` 不表示关闭。
 
-### 重载时生效
+### 重载行为
 
 修改后的值在执行 `/ul reload` 时生效，任务保持它在当前周期中的位置：下一次执行时间为上一次执行时间加上新的间隔；如果任务还没有执行过，则为任务启动时间加上新的延迟。如果这个时间点已经过去，任务会在下一个 tick 执行。重载不会让任务提前执行，也不会因为重新计时而推迟它。
 
@@ -126,7 +126,7 @@ public class InterestService {
 使用绑定的模块必须在 `plugin.yml` 中声明 `api-version: 630`。6.2.x 框架不认识这些属性，会静默忽略它们，被绑定的任务于是只会在加载时执行一次，而不是按间隔重复执行。声明这个下限后，旧框架会直接拒绝加载该模块。6.3.0 自身也会拒绝使用了绑定、却声明了更低 `api-version` 的模块。为什么只提高 `pom.xml` 中的 pin 不够，见[模块版本规范](/zh/guide/advanced/module-versioning#新增的注解属性)。
 
 ::: tip 绑定命令冷却
-`@CmdCD` 也支持同样的绑定方式，见[命令冷却](/zh/guide/essentials/cmd-executor#绑定到配置项)。
+`@CmdCD` 也支持同样的绑定方式，见[命令冷却](/zh/guide/essentials/cmd-executor#配置项绑定的冷却时间)。
 :::
 
 ## 自动生命周期管理
