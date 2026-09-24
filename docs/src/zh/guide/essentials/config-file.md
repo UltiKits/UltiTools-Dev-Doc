@@ -72,6 +72,14 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 <<< @/../examples/src/main/java/com/ultikits/docs/config/StringHashMapParser.java
 :::
 
+#### 数值字段
+
+YAML 会把 `1800` 这样的整数读成整数类型。自 v6.3.0 起，包装类型 `Long`、`Float`、`Double` 的字段也能载入这样的值，与基本类型 `long`、`float`、`double` 的字段一致。在此之前，整数无法直接写入其他数值类型的包装类字段，因此这类字段只在首次启动（写入默认值时）能正常载入，之后每次启动和重载都会失败。框架只做拓宽转换，所以包装类型字段能接受的值与其对应的基本类型完全相同。
+
+`0.5` 这样的小数会被读成 `Double`，目前不支持把它收窄写入 `float` 或 `Float` 字段（[#534](https://github.com/UltiKits/UltiTools-Reborn/issues/534)）。可能包含小数的值请使用 `double` 或 `Double`。
+
+自 v6.3.0 起，`int`、`long`、`Integer` 或 `Long` 类型的字段还可以用来控制任务间隔或命令冷却：`@Scheduled` 见[绑定到配置项的时间](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间)，`@CmdCD` 见[配置项绑定的冷却时间](/zh/guide/essentials/cmd-executor#配置项绑定的冷却时间)。该配置类必须为模块恰好注册一次，因此指向目录的 `@ConfigEntity` 不能用于绑定。被绑定的字段不要再加 [`@Range`](/zh/guide/advanced/config-validation)：绑定自带范围检查，而 `/ul reload` 期间违反 `@Range` 会中止该模块其余的重载步骤（[#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509)）。
+
 #### @Getter 和 @Setter
 
 `@Getter` 和 `@Setter` 则为Lombok注解，用于自动生成 `getter` 和 `setter` 方法。

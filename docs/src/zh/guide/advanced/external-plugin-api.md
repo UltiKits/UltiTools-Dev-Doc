@@ -124,9 +124,10 @@ public void onCustomEvent(MyCustomEvent event) {
 | 注册方式 | `@UltiToolsModule` + `registerSelf()` | `UltiToolsAPI.connect(this)` |
 | 国际化 | `plugin.i18n("key")` 可用 | 不可用——使用纯字符串 |
 | 配置实体 | 完整支持（`@ConfigEntity`） | **不可用** — 请使用 Bukkit `getConfig()` |
+| 绑定到配置项的 `@Scheduled` / `@CmdCD`（v6.3.0+） | 支持，见[绑定到配置项的时间](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间) | 会被拒绝，请使用字面量 `period` / `delay` / `value` |
 | 数据存储 | `plugin.getDataOperator(Class)` | `UltiToolsAPI.getDataOperator(plugin, Class)` |
 | 热重载 | 支持 `ul reload` | 不支持——需要重启服务器 |
-| plugin.yml | `api-version: 620` | `depend: [UltiTools]` |
+| plugin.yml | `api-version: 620`；使用了绑定到配置项的 `@Scheduled` / `@CmdCD` 时为 `630` | `depend: [UltiTools]` |
 
 ## 完整示例项目
 
