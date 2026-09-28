@@ -57,6 +57,11 @@ Before you start writing code, you need to create a `plugin.yml` file in the `re
 
 UltiTools will read this file before loading the module to confirm the main class of the module.
 
+::: tip Since v6.3.0
+A jar with no readable `plugin.yml`, no `main:` entry, or a `main:` that does not resolve to
+a concrete `UltiToolsPlugin` subclass is refused at load, naming the exact reason.
+:::
+
 ```yaml
 # Module name
 name: TestPlugin
