@@ -54,6 +54,11 @@ dependencies {
 
 UltiTools 在加载该模块之前会先读取该文件，以便确认该模块的主类等信息。
 
+::: tip 自 v6.3.0 起
+没有可读的 `plugin.yml`、没有 `main:` 声明，或 `main:` 指向的类不是具体的 `UltiToolsPlugin`
+子类的模块 jar，会在加载时被拒绝，并给出具体原因。
+:::
+
 ```yaml
 # 模块名称
 name: TestPlugin
