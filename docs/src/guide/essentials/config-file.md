@@ -75,6 +75,8 @@ configuration item in the configuration file.
 
 The `comment` attribute is used to specify the comment of this configuration item.
 
+As of v6.3.0, a `comment` that is exactly one language key, such as `comment = "{config.limit}"`, is resolved from your module's language catalogue (`lang/en.json`, `lang/zh.json`, or the `.yml` equivalents) in the server's current `language`, so one entry can ship its comment in every language the module supports. The framework writes that text on every write of the file, keys the operator already has included: the first-boot defaults write, a save, the shutdown save, a panel write, and the first start after an upgrade or a `language` switch. Only those comment lines change; an operator's hand-written comment on such an entry is replaced, and a start whose comments already match writes nothing. A catalogue text with line breaks becomes several comment lines. A key missing from the catalogue is written as the token itself, with one warning naming the module, file, entry and key. Any other comment, including one that only contains a placeholder such as `{player}` inside other text, is written as it is, and only when the key is first added.
+
 The `parser` attribute is used to specify the parser of this configuration item. The parser is used to convert the
 object in the configuration file to the type of the configuration item. The default parser is `DefaultConfigParser`
 , it can handle most of the case but not all. If you need to parse a more complex object, you can create a class that 
@@ -91,6 +93,14 @@ The snippet below only illustrates its logic, import the framework class shown a
 YAML stores a whole number such as `1800` as an integer. As of v6.3.0, a boxed `Long`, `Float` or `Double` field loads such a value, the same way a primitive `long`, `float` or `double` field does. Earlier versions could not set an integer into a boxed field of another numeric type, so such a field loaded on the first boot, when its default was written, and failed on every later boot and reload. Only widening conversions are applied, so a boxed field accepts exactly what its primitive type accepts.
 
 A decimal such as `0.5` is read as a `Double`, and narrowing it into a `float` or `Float` field is not supported ([#534](https://github.com/UltiKits/UltiTools-Reborn/issues/534)). Use `double` or `Double` for a value that may contain a decimal point.
+
+#### Collections, maps and wrongly shaped values
+
+As of v6.3.0, a value is bound to the type its field declares. A `List<Integer>` receives `Integer`s, and a `Set`, `Long`, `Double`, `Boolean` or enum element type converts the same way; map keys and values are converted to the map's declared types, and a map whose values are your own class still receives the raw maps, as before. A quoted number that an earlier version wrote into the file, such as `'30'`, loads as the number. An element that cannot be converted, such as `abc` in a `List<Integer>`, is skipped with one warning naming the file, the key with the element's position, the value and the declared type, and the rest of the configuration loads. Earlier versions bound every list element as its text, so a typed lookup such as `contains(30)` never matched.
+
+A value whose shape does not fit its field, such as a list or a plain value where a `Map` is declared, or text in a number field, leaves the field at its declared default and logs one warning naming the file, the key, the declared type and what the file holds. The module still loads, and the operator's file is not rewritten. Earlier versions threw from the configuration load and the module did not start. A warning never prints the value of a key whose name suggests a secret, such as `password` or `token`.
+
+A map key that contains a dot, such as `my.rule`, is saved and read back as one key. Earlier versions saved it as the nested path `my: {rule: ...}` and read it back as `my`. Paths you read through `getConfig()` resolve as before.
 
 As of v6.3.0, an `int`, `long`, `Integer` or `Long` field can also drive a task interval or a command cooldown: see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing) for `@Scheduled` and [Binding the cooldown to a config key](/guide/essentials/cmd-executor#binding-the-cooldown-to-a-config-key) for `@CmdCD`. The config class must be registered exactly once for the module, so a directory `@ConfigEntity` cannot be bound. Do not also put a [`@Range`](/guide/advanced/config-validation) on a bound field: the binding enforces its own range, and a `@Range` violation during `/ul reload` aborts the rest of the module's reload ([#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509)).
 
@@ -174,7 +184,7 @@ You don't need to worry about the loading and saving of configuration files, Ult
 automatically.
 
 ::: info Comments, as of v6.3.0
-Bukkit preserves existing comments across a save, and UltiTools sets `options().parseComments(true)` explicitly rather than relying on the default. A key added for the first time also gets its `@ConfigEntry(comment)` written alongside it; a key the operator already has is left untouched.
+Bukkit preserves existing comments across a save, and UltiTools sets `options().parseComments(true)` explicitly rather than relying on the default. A key added for the first time also gets its `@ConfigEntry(comment)` written alongside it; a key the operator already has keeps its own comment unless that comment is a language key (see `@ConfigEntry` above).
 :::
 
 One cosmetic side effect: SnakeYAML re-emits a double-quoted string value as single-quoted on save. The value itself does not change, only its quoting style. As of v6.3.0 this happens only when a file is actually saved: a configuration nothing changed is not rewritten on disable.

@@ -64,6 +64,8 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 
 `comment` 属性用于指定该配置项的注释；
 
+自 v6.3.0 起，如果 `comment` 恰好是一个语言键，例如 `comment = "{config.limit}"`，框架会按服务器当前的 `language` 从模块的语言文件（`lang/en.json`、`lang/zh.json` 或对应的 `.yml`）中取出文字作为注释，这样同一个配置项就能以模块支持的每种语言提供注释。框架每次写这个配置文件时都会写入这段文字，包括服主文件里已有的键：首次启动写入默认值、保存、关服保存、面板写入，以及升级后或切换 `language` 后的第一次启动。只有这些注释行会变；服主在这类配置项上手写的注释会被替换，注释已经一致时启动不会写文件。语言文件里带换行的文字会写成多行注释。语言文件里没有这个键时，写入的就是这个键本身，并记一条警告，写明模块、文件、配置项和键名。其他注释（包括只是在文字中含有 `{player}` 这类占位符的注释）按原样写入，并且只在该键首次加入文件时写入。
+
 `parser` 属性用于指定该配置项的解析器。解析器用于将配置文件中的对象转换为配置项的类型。默认的解析器是 `DefaultConfigParser` ，
 它可以处理大多数情况，但并不是所有情况。如果你需要解析一个更复杂的对象，你可以创建一个继承 `ConfigParser` 类的类，并在 `parser` 属性中指定它。
 
@@ -77,6 +79,14 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 YAML 会把 `1800` 这样的整数读成整数类型。自 v6.3.0 起，包装类型 `Long`、`Float`、`Double` 的字段也能载入这样的值，与基本类型 `long`、`float`、`double` 的字段一致。在此之前，整数无法直接写入其他数值类型的包装类字段，因此这类字段只在首次启动（写入默认值时）能正常载入，之后每次启动和重载都会失败。框架只做拓宽转换，所以包装类型字段能接受的值与其对应的基本类型完全相同。
 
 `0.5` 这样的小数会被读成 `Double`，目前不支持把它收窄写入 `float` 或 `Float` 字段（[#534](https://github.com/UltiKits/UltiTools-Reborn/issues/534)）。可能包含小数的值请使用 `double` 或 `Double`。
+
+#### 集合、映射与形状不对的值
+
+自 v6.3.0 起，配置值按字段声明的类型绑定。`List<Integer>` 拿到的是 `Integer`，元素类型为 `Set`、`Long`、`Double`、`Boolean` 或枚举时同样会转换；映射的键和值会转换成映射声明的类型，值类型是你自己的类时仍然拿到原始的映射，与以前一致。旧版本写进文件的带引号数字（例如 `'30'`）会作为数字载入。无法转换的元素（例如 `List<Integer>` 里的 `abc`）会被跳过，并记一条警告，写明文件、带元素位置的键、原值和声明类型，其余配置照常加载。在此之前，列表的每个元素都按文字绑定，因此 `contains(30)` 这类按类型查找永远匹配不上。
+
+值的形状与字段不符时（例如声明为 `Map` 的地方写成了列表或单个值，或数字字段里写了文字），字段保持声明的默认值，并记一条警告，写明文件、键、声明类型和文件里实际的内容。模块照常加载，服主的文件也不会被改写。在此之前，配置加载会抛出异常，模块无法启动。键名像密钥时（例如 `password`、`token`），警告不会打印原值。
+
+含点的映射键（例如 `my.rule`）保存后会作为一个键原样读回。在此之前，它会被保存成嵌套路径 `my: {rule: ...}`，读回时变成 `my`。通过 `getConfig()` 读取的路径与以前一致。
 
 自 v6.3.0 起，`int`、`long`、`Integer` 或 `Long` 类型的字段还可以用来控制任务间隔或命令冷却：`@Scheduled` 见[绑定到配置项的时间](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间)，`@CmdCD` 见[配置项绑定的冷却时间](/zh/guide/essentials/cmd-executor#配置项绑定的冷却时间)。该配置类必须为模块恰好注册一次，因此指向目录的 `@ConfigEntity` 不能用于绑定。被绑定的字段不要再加 [`@Range`](/zh/guide/advanced/config-validation)：绑定自带范围检查，而 `/ul reload` 期间违反 `@Range` 会中止该模块其余的重载步骤（[#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509)）。
 
@@ -158,7 +168,7 @@ public List<AbstractConfigEntity> getAllConfigs() {
 你无需担心配置文件的加载与保存等问题，UltiTools会自动为你做好一切。
 
 ::: info 注释（v6.3.0 起）
-Bukkit 在保存时会保留已有注释，UltiTools 显式设置了 `options().parseComments(true)`，不依赖默认值。首次新增的键也会连同其 `@ConfigEntry(comment)` 一并写入；服主已有的键则不会被改动。
+Bukkit 在保存时会保留已有注释，UltiTools 显式设置了 `options().parseComments(true)`，不依赖默认值。首次新增的键也会连同其 `@ConfigEntry(comment)` 一并写入；服主已有的键保留自己的注释，除非该注释是一个语言键（见上文 `@ConfigEntry`）。
 :::
 
 一个纯粹外观上的副作用：SnakeYAML 保存时会把双引号字符串值重新写成单引号，值本身不变，只是引号风格变化。自 v6.3.0 起，这只在文件确实被保存时发生：没有任何改动的配置在插件关闭时不会被重写。
