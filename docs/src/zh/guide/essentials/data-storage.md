@@ -226,6 +226,16 @@ try {
 
 自 v6.3.0 起，`update(T)`、`update(column, value, id)`、`delById` 与 `updateAll` 在 id 为 `null` 时抛出 `DataAccessException`，因为没有任何一行能用它定位；`updateAll` 会在写入之前检查全部实体。UltiTools-API 6.2.0 在 SQLite 上写入的无 id 行，会在初始化数据表时补上 id：优先使用实体通过 `getId()` 给出的值，实体给不出时使用新的 UUID，前提是实体随后确实给出这个值。控制台输出一行，给出表名与行数；任何 id 都无法使其可定位的行保持原样，并在一条警告中计数。每次写入都把 `getId()` 存入 `id` 列，因此把 `getId()` 覆写到其他字段上的实体，可以用它给出的值定位。
 
+自 v6.3.0 起，按一个没有任何行具有的 id 更新时，各个后端都不写入任何内容，输出一条给出表名与 id 的警告，并正常返回。需要知道更新是否写入时，调用 `updateCounted(entity)`：写入了一行时返回 `1`，没有任何行具有该 id 时返回 `0`：
+
+```java
+if (dataOperator.updateCounted(entity) == 0) {
+    // 这一行已被其他写入方删除：没有写入任何内容。
+}
+```
+
+框架之外的 `DataOperator` 实现如果没有覆写 `updateCounted`，按更新之前是否存在具有该 id 的行计数。
+
 ### 条件更新 <Badge type="tip" text="v6.3.0+" />
 
 `updateIf(entity, expected...)` 只在储存的行仍然满足全部预期条件时写入实体，并返回是否写入。需要基于之前读到的值做更新、又不能覆盖其间其他写入方的修改时，使用它：

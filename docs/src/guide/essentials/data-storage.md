@@ -228,6 +228,16 @@ As of v6.3.0, every entity a read returns (`getById`, `getAll`, `page`, `getLike
 
 As of v6.3.0, `update(T)`, `update(column, value, id)`, `delById` and `updateAll` throw `DataAccessException` when the id is `null`, because no row can be addressed by it; `updateAll` checks every entity before it writes any. Rows that UltiTools-API 6.2.0 stored on SQLite without an id are given one when the table is initialised: the id the entity reports through `getId()`, or a new UUID when it reports none, as long as the entity then reports that id. One console line names the table and the count; a row that no id would make addressable is left as it is and counted in a warning. Every write stores `getId()` in the `id` column, so an entity that overrides `getId()` onto another field is addressable by the value it reports.
 
+As of v6.3.0, an update by an id that no row has writes nothing and logs one warning naming the table and the id, on every backend, and returns normally. To learn whether the update wrote, call `updateCounted(entity)`, which returns `1` for a written row and `0` when no row has the id:
+
+```java
+if (dataOperator.updateCounted(entity) == 0) {
+    // The row was deleted by another writer: nothing was written.
+}
+```
+
+A `DataOperator` implementation outside the framework that does not override `updateCounted` is counted by whether a row with the id exists before its `update`.
+
 ### Conditional Update <Badge type="tip" text="v6.3.0+" />
 
 `updateIf(entity, expected...)` writes the entity only while the stored row still matches every expected condition, and returns whether it wrote. Use it to update a value you read earlier without overwriting a change another writer made in between:
