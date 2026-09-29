@@ -36,11 +36,16 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 | `isNew()` | 实体无 ID 时返回 `true` |
 | `copyWithoutId()` | 创建不含 ID 的实体副本，前提是实体类自行实现 `Cloneable` |
 
-::: warning 生命周期钩子由你的代码调用，而不是由操作器调用
-`onCreate()`、`onUpdate()`、`onDelete()` 与 `onLoad()` 声明在 `BaseDataEntity` 上，但 JSON、MySQL 与 SQLite 三个操作器的读写路径都不调用它们，因此重写这些方法的实体落库结果与不重写完全一致。
-在操作前后自己调一次，写入前 `entity.onCreate(); op.insert(entity);`，读取则在返回的实体上调 `entity.onLoad();`：这四个方法都是 public。
-让操作器调用这些钩子的修法跟踪于 [issue #194](https://github.com/UltiKits/UltiTools-Reborn/issues/194)。
-:::
+自 v6.3.0 起，数据操作器自行调用这些钩子，JSON、MySQL 与 SQLite 后端一致：
+
+| 钩子 | 调用方 |
+|------|--------|
+| `onCreate()` | `insert` 与 `insertAll`，对每个实体，在写入其字段之前 |
+| `onUpdate()` | `update(entity)`、`updateAll`、`updateCounted` 与 `updateIf`，对传入的实体，在写入其字段之前，无论随后是否写入了行 |
+| `onDelete()` | `delById` 与查询 DSL 的 `delete()`，对已储存的实体，在删除之前；没有任何行具有该 id 时不调用 |
+| `onLoad()` | `getById`、`getAll`、`page`、`getLike` 以及基于它们的查询 DSL 读取，对返回的每个实体调用一次 |
+
+`update(column, value, id)`、`del(conditions)` 与 `exist(...)` 不读取实体，不调用任何钩子。v6.3.0 之前，操作器不调用这四个钩子中的任何一个。
 
 ### AuditableDataEntity <Badge type="tip" text="v6.2.0+" />
 
@@ -59,11 +64,7 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 
 所有这四个字段都已预配置 `@Column` 注解，子类中无需声明。
 
-::: warning 四个审计列在插入后仍为 NULL
-由于操作器不调用生命周期钩子，`onCreate()` 与 `onUpdate()` 不会执行，`created_at`、`updated_at`、`created_by`、`updated_by` 四列因此不被写入，`wasModified()` 恒返回 `false`，`getAge()` 与 `getTimeSinceUpdate()` 恒返回 `null`。
-先用 `AuditableDataEntity.setCurrentUser(uuid)` 设置线程上下文，在写入前调用 `entity.onCreate()` 或 `entity.onUpdate()`，并在 `finally` 中清除上下文：不设置上下文时，即使钩子执行，两个 `by` 字段仍为 null。
-让操作器调用这些钩子的修法跟踪于 [issue #194](https://github.com/UltiKits/UltiTools-Reborn/issues/194)。
-:::
+自 v6.3.0 起，操作器通过这些钩子填写四个审计列：`insert` 设置 `created_at` 与 `updated_at`，设置了当前用户时再设置 `created_by` 与 `updated_by`；更新时设置 `updated_at`，设置了当前用户时再设置 `updated_by`，不改动 `created_at` 与 `created_by`。由 `BaseCommandExecutor` 为玩家处理的命令，在命令主体运行期间把该玩家设为当前用户，因此在其中进行的写入会记录该玩家。在其他地方，请按下文自行设置上下文。v6.3.0 之前，操作器不调用这些钩子，四列始终为 NULL。
 
 #### 用户上下文管理
 
