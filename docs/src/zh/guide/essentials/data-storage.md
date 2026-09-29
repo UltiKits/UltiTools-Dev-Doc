@@ -222,6 +222,29 @@ try {
 
 该重载声明了受检异常 `IllegalAccessException`，调用方需要声明或捕获它。
 
+自 v6.3.0 起，读取返回的每个实体（`getById`、`getAll`、`page`、`getLike` 以及查询 DSL）都是副本，`insert` 存下的也是传入实体的副本。修改实体后，只有把它交给 `update(...)`，储存的数据才会改变，各个后端都是如此。v6.3.0 之前，JSON 后端返回的是它缓存在内存中的实例，因此在 JSON 后端上不调用 `update(...)` 的修改也会在下一次落盘时保存，而 MySQL 与 SQLite 从来不会保存这样的修改。
+
+自 v6.3.0 起，`update(T)`、`update(column, value, id)`、`delById` 与 `updateAll` 在 id 为 `null` 时抛出 `DataAccessException`，因为没有任何一行能用它定位；`updateAll` 会在写入之前检查全部实体。UltiTools-API 6.2.0 在 SQLite 上写入的无 id 行，会在初始化数据表时补上 id，并在控制台输出一行，给出表名与行数。
+
+### 条件更新 <Badge type="tip" text="v6.3.0+" />
+
+`updateIf(entity, expected...)` 只在储存的行仍然满足全部预期条件时写入实体，并返回是否写入。需要基于之前读到的值做更新、又不能覆盖其间其他写入方的修改时，使用它：
+
+```java
+Account read = dataOperator.getById(accountId);
+double seen = read.getBalance();
+read.setBalance(seen + amount);
+boolean written = dataOperator.updateIf(read,
+    WhereCondition.builder().column("balance").value(seen).build());
+if (!written) {
+    // 其他写入方先修改了这一行：重新读取，再做决定。
+}
+```
+
+在 MySQL 与 SQLite 上，检查与写入是同一条 `UPDATE ... WHERE id = ? AND <条件>` 语句，因此对共用同一个数据库的多台服务器同样成立。在 JSON 后端上，检查与写入在数据操作器的锁内完成；JSON 储存只属于一台服务器。条件的含义与 `getAll(WhereCondition...)` 中相同。
+
+没有任何一行同时具有该实体的 id 并满足全部条件时，`updateIf` 返回 `false`，不写入任何内容；id 为 `null` 时抛出 `DataAccessException`。框架之外的 `DataOperator` 实现如果没有实现它，会抛出 `UnsupportedOperationException`。
+
 ### 删除
 
 按 ID 删除：

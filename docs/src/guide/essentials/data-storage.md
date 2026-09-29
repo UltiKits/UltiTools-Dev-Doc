@@ -224,6 +224,29 @@ try {
 
 This overload declares `throws IllegalAccessException`, so the calling method must declare or catch it.
 
+As of v6.3.0, every entity a read returns (`getById`, `getAll`, `page`, `getLike` and the Query DSL) is a copy, and `insert` stores a copy of the entity you pass. Changing an entity has no effect on the stored data until you pass it to `update(...)`, on every backend. Before v6.3.0 the JSON backend returned the instances it kept in memory, so there a change without `update(...)` was saved at the next flush, while MySQL and SQLite never saved it.
+
+As of v6.3.0, `update(T)`, `update(column, value, id)`, `delById` and `updateAll` throw `DataAccessException` when the id is `null`, because no row can be addressed by it; `updateAll` checks every entity before it writes any. Rows that UltiTools-API 6.2.0 stored on SQLite without an id are given one when the table is initialised, and one console line names the table and the count.
+
+### Conditional Update <Badge type="tip" text="v6.3.0+" />
+
+`updateIf(entity, expected...)` writes the entity only while the stored row still matches every expected condition, and returns whether it wrote. Use it to update a value you read earlier without overwriting a change another writer made in between:
+
+```java
+Account read = dataOperator.getById(accountId);
+double seen = read.getBalance();
+read.setBalance(seen + amount);
+boolean written = dataOperator.updateIf(read,
+    WhereCondition.builder().column("balance").value(seen).build());
+if (!written) {
+    // Another writer changed the row first: read it again and decide again.
+}
+```
+
+On MySQL and SQLite the check and the write are one `UPDATE ... WHERE id = ? AND <conditions>` statement, so the result holds across servers that share one database. On the JSON backend the check and the write run under the operator's lock; a JSON store belongs to one server. The conditions mean what they mean in `getAll(WhereCondition...)`.
+
+`updateIf` returns `false`, and writes nothing, when no row with the entity's id matches every condition. It throws `DataAccessException` when the id is `null`. A `DataOperator` implementation outside the framework that does not implement it throws `UnsupportedOperationException`.
+
 ### Delete
 
 Delete by ID:
