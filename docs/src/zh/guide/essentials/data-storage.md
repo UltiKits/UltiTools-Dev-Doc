@@ -224,7 +224,7 @@ try {
 
 自 v6.3.0 起，读取返回的每个实体（`getById`、`getAll`、`page`、`getLike` 以及查询 DSL）都是副本，`insert` 存下的也是传入实体的副本。修改实体后，只有把它交给 `update(...)`，储存的数据才会改变，各个后端都是如此。v6.3.0 之前，JSON 后端返回的是它缓存在内存中的实例，因此在 JSON 后端上不调用 `update(...)` 的修改也会在下一次落盘时保存，而 MySQL 与 SQLite 从来不会保存这样的修改。
 
-自 v6.3.0 起，`update(T)`、`update(column, value, id)`、`delById` 与 `updateAll` 在 id 为 `null` 时抛出 `DataAccessException`，因为没有任何一行能用它定位；`updateAll` 会在写入之前检查全部实体。UltiTools-API 6.2.0 在 SQLite 上写入的无 id 行，会在初始化数据表时补上 id：优先使用实体通过 `getId()` 给出的值，实体给不出时使用新的 UUID，并在控制台输出一行，给出表名与行数。每次写入都把 `getId()` 存入 `id` 列，因此把 `getId()` 覆写到其他字段上的实体，可以用它给出的值定位。
+自 v6.3.0 起，`update(T)`、`update(column, value, id)`、`delById` 与 `updateAll` 在 id 为 `null` 时抛出 `DataAccessException`，因为没有任何一行能用它定位；`updateAll` 会在写入之前检查全部实体。UltiTools-API 6.2.0 在 SQLite 上写入的无 id 行，会在初始化数据表时补上 id：优先使用实体通过 `getId()` 给出的值，实体给不出时使用新的 UUID，前提是实体随后确实给出这个值。控制台输出一行，给出表名与行数；任何 id 都无法使其可定位的行保持原样，并在一条警告中计数。每次写入都把 `getId()` 存入 `id` 列，因此把 `getId()` 覆写到其他字段上的实体，可以用它给出的值定位。
 
 ### 条件更新 <Badge type="tip" text="v6.3.0+" />
 
