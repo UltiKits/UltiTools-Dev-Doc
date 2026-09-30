@@ -245,6 +245,8 @@ The version numbers play no part here. In the example the older `1.0.0` keeps ru
 
 `/upm uninstall` removes every copy. As of v6.3.0 it deletes each JAR whose `plugin.yml` `main:` names the module's main class, whatever `name:` that JAR declares, and names each deleted file in its reply.
 
+`/upm update` refuses to update a module while such a copy would win. As of v6.3.0, before it downloads anything, it looks in the modules folder for another JAR that declares the module's `main:` and whose file name sorts before the new JAR's name. If it finds one, the new version could never load there: the copy would keep supplying the classes and the update would be rolled back at every start. So the command stages nothing, and its reply names the new JAR and every such copy. Remove them and run `/upm update` again; no restart is needed in between. A copy that sorts after the new JAR does not stop the update, and the start-up warning above still names it.
+
 ## Updating and uninstalling on a server
 
 As of v6.3.0, `/upm update <module>` no longer replaces the JAR while the server runs. It downloads the new version into `.ultikits/upm-transactions/` under the server root and records it, and nothing in the modules folder changes until the next start. At that start, before any module loads, the old JAR is moved aside and kept and the new JAR is moved in. After the modules load, the update is kept only if your module is loaded from the new JAR at the new version; otherwise the new JAR is removed, the old JAR is put back, and the start-up log names both versions and says the restored version loads at the next start.
