@@ -271,17 +271,13 @@ ultipanel:
       - "warning"
       - "error"
     excluded-loggers:
-      - "com.mojang.authlib"
-      - "net.minecraft.network"
-      - "org.apache.http"
-      - "com.zaxxer.hikari"
-      - "org.eclipse.jetty"
+      - "Minecraft"
 ```
 
 | Key | Default | Effect |
 |---|---|---|
 | `levels` | `info`, `warning`, `error` | Levels whose records are sent to the panel. The names that match records are `error` (`SEVERE`), `warning` (`WARNING`), `info` (`INFO`) and `debug` (`CONFIG`, `FINE`, `FINER`, `FINEST`). Any other name is accepted without a warning and matches no record |
-| `excluded-loggers` | The five names in the example above | Logger name prefixes whose records are dropped. A list you set replaces the defaults, so include any default you want to keep |
+| `excluded-loggers` | Empty (as of v6.3.0) | Logger name prefixes whose records are dropped. The example above drops everything logged through `Bukkit.getLogger()` |
 
 The framework reads both keys at the same point as the batch keys, each time the panel connection
 opens, so restart the server to apply a changed value here too. A few entries the framework sends to
@@ -301,6 +297,14 @@ entry of `MinecraftServer` matches none of the records labelled `MinecraftServer
 framework gives that label to server loggers such as `Minecraft` and `net.minecraft.*`, not to a
 logger with that name.
 
+Only `java.util.logging` records reach the handler, and their logger names take three shapes:
+`Minecraft` (everything logged through `Bukkit.getLogger()`, including the framework's own
+`[UltiTools-API] ...` lines), a plugin's own name, and `com.ultikits.ultitools.*` class loggers.
+Libraries that log through Log4j or SLF4J, such as authlib, Netty, HikariCP and Jetty, never reach it,
+so naming them has no effect. Before v6.3.0 the default list named five such libraries, which filtered
+nothing; as of v6.3.0 the default is empty
+([#485](https://github.com/UltiKits/UltiTools-Reborn/issues/485)).
+
 As of v6.3.0, adding `debug` to `levels` sends debug records to the panel. Before v6.3.0 the handler
 kept its own threshold at `INFO`, so it discarded `CONFIG`, `FINE`, `FINER` and `FINEST` records
 before checking `levels`, and `debug` had no effect. The framework now lowers that threshold while
@@ -315,6 +319,23 @@ attached while the `logs` capability is off, so these reports also depend on tha
 Exclusion comes before both steps: a record from an excluded logger is neither sent to the panel nor
 reported as an error. Error reports raised elsewhere, such as an exception thrown by a command, do
 not pass through the handler, and neither key applies to them.
+
+### Start-up lines and failed sends
+
+As of v6.3.0 the records logged from the moment the framework loads until the panel connection opens,
+such as module loading and dependency resolution, reach the stream too. The framework keeps them in a
+start-up buffer and sends them first, oldest first, when the stream starts
+([#487](https://github.com/UltiKits/UltiTools-Reborn/issues/487)). The buffer keeps records at `INFO`
+and above that `excluded-loggers` does not exclude, holds at most 2000 records, and is released
+without sending anything when the server has no cloud login, when the `logs` capability is off, or
+when the stream has not started within five minutes.
+
+Also as of v6.3.0, a batch of log records whose send fails, because the connection closed around it,
+is kept and sent before anything newer on the next attempt, so records still arrive in order
+([#486](https://github.com/UltiKits/UltiTools-Reborn/issues/486)). Delivery stays best effort: a batch
+whose connection drops just after it was written may arrive twice. When more records arrive than the
+stream can send, the queue keeps the newest 1000, and the framework reports how many it discarded in
+one warning in the server log at most once a minute.
 
 On a running server, the `log_stream` request with the action `config` described above can also
 carry a `levels` array. As of v6.3.0 the framework applies it; before v6.3.0 the field was ignored.

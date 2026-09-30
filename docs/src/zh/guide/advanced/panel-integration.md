@@ -226,25 +226,29 @@ ultipanel:
       - "warning"
       - "error"
     excluded-loggers:
-      - "com.mojang.authlib"
-      - "net.minecraft.network"
-      - "org.apache.http"
-      - "com.zaxxer.hikari"
-      - "org.eclipse.jetty"
+      - "Minecraft"
 ```
 
 | 键 | 默认值 | 作用 |
 |---|---|---|
 | `levels` | `info`、`warning`、`error` | 发送给面板的日志级别。能匹配到日志记录的名称是 `error`（`SEVERE`）、`warning`（`WARNING`）、`info`（`INFO`）与 `debug`（`CONFIG`、`FINE`、`FINER`、`FINEST`）。其他名称会被接受，不产生警告，也不匹配任何记录 |
-| `excluded-loggers` | 上面示例中的五个名称 | 记录器名称前缀，来自这些记录器的日志记录会被丢弃。你设置的列表会整体替换默认值，需要保留的默认项请一并写上 |
+| `excluded-loggers` | 空（自 v6.3.0 起） | 记录器名称前缀，来自这些记录器的日志记录会被丢弃。上面的示例会丢弃通过 `Bukkit.getLogger()` 输出的一切 |
 
 与批量发送的键一样，框架在每次面板连接建立时读取这两个键，因此修改后的值同样需要重启服务器来应用。框架直接发送给面板的少数条目，例如玩家进入、离开服务器和聊天的日志行，不经过日志处理器，这两个键对它们不起作用。聊天日志行在 `player-events` 能力开启时发送，即使 `levels` 中没有 `debug`，它们也以 `debug` 级别到达面板。
 
 每个 `excluded-loggers` 条目都会与发出该记录的 `java.util.logging` 记录器名称的开头比较，区分大小写，因此 `org.apache` 这样的条目也会排除 `org.apache.http` 以及其他所有以它开头的名称。发送给面板的条目中不包含这个名称。条目的 `logger` 字段是框架根据自己对记录的分类得出的标签：`com.ultikits.ultitools` 下的记录器为 `UltiTools`，名称中含有 `plugin` 的其他记录器为从记录器名称中取出的一个名称，服务器记录器为 `MinecraftServer`，其余为 `database`、`network` 或 `system`。把这个标签抄进 `excluded-loggers`，只会匹配到名称恰好以它开头的记录器。例如，`MinecraftServer` 这个条目不会匹配任何标签为 `MinecraftServer` 的记录，因为框架把这个标签给了 `Minecraft`、`net.minecraft.*` 这类服务器记录器，而不是名为 `MinecraftServer` 的记录器。
 
+只有 `java.util.logging` 记录会到达日志处理器，它们的记录器名称有三种：`Minecraft`（通过 `Bukkit.getLogger()` 输出的一切，包括框架自己的 `[UltiTools-API] ...` 行）、插件自己的名称，以及 `com.ultikits.ultitools.*` 类记录器。通过 Log4j 或 SLF4J 输出日志的库，例如 authlib、Netty、HikariCP 与 Jetty，永远不会到达这里，写上它们的名称没有任何效果。v6.3.0 之前的默认列表写的正是五个这样的库，什么也没有过滤；自 v6.3.0 起默认列表为空（[#485](https://github.com/UltiKits/UltiTools-Reborn/issues/485)）。
+
 自 v6.3.0 起，在 `levels` 中加入 `debug` 会把调试记录发送给面板。v6.3.0 之前，日志处理器自身的级别阈值固定为 `INFO`，`CONFIG`、`FINE`、`FINER` 与 `FINEST` 记录在检查 `levels` 之前就被丢弃，`debug` 因此不起作用。现在只要 `debug` 在列表中，框架就会降低这个阈值。框架不会修改任何记录器的级别，所以只有当发出调试记录的记录器本身的级别允许该记录通过时，它才会到达面板。
 
 自 v6.3.0 起，`levels` 不再影响错误自动上报。日志处理器会把每一条携带异常的 `SEVERE` 记录交给错误上报（`ultipanel.logging.error-reporting`），无论 `error` 是否在 `levels` 中。v6.3.0 之前，级别不在 `levels` 中的记录会在这一步之前被丢弃，因此从 `levels` 中移除 `error` 也会停止这部分上报。`logs` 能力关闭时日志处理器不会挂上，因此这部分上报也依赖该能力。排除在这两步之前进行：来自被排除记录器的记录既不会发送给面板，也不会作为错误上报。在其他位置产生的错误上报，例如命令执行时抛出的异常，不经过日志处理器，这两个键对它们不起作用。
+
+### 启动阶段的日志与发送失败
+
+自 v6.3.0 起，从框架加载到面板连接建立之间输出的日志记录（例如模块加载与依赖解析），也会进入日志流。框架把它们保存在启动缓冲区中，在日志流开始时最先发送、从最早的一条开始（[#487](https://github.com/UltiKits/UltiTools-Reborn/issues/487)）。缓冲区只保存 `INFO` 及以上、且未被 `excluded-loggers` 排除的记录，最多 2000 条；服务器没有云端登录、`logs` 能力关闭，或日志流在五分钟内没有开始时，缓冲区会被释放，不发送任何内容。
+
+同样自 v6.3.0 起，一批日志记录如果因为连接恰在发送时关闭而发送失败，会被保留下来，在下一次发送时先于任何更新的记录发出，因此记录仍按顺序到达（[#486](https://github.com/UltiKits/UltiTools-Reborn/issues/486)）。投递仍是尽力而为：连接恰在一批记录写出之后断开时，这批记录可能到达两次。到达的记录多于日志流能发送的数量时，队列保留最新的 1000 条，框架最多每分钟一次在服务器日志中用一条警告报告丢弃了多少条。
 
 服务器运行期间，上文所述动作为 `config` 的 `log_stream` 请求也可以携带 `levels` 数组。自 v6.3.0 起框架会应用它；v6.3.0 之前该字段会被忽略。只要有一个名称不属于上述四个，整个请求都会被拒绝；空数组会让所有级别都不启用。以这种方式设置的级别会保持到下一次面板连接建立，届时框架会按 `config.yml` 重新创建日志处理器，`config.yml` 中没有 `levels` 时则使用默认值。这个请求没有用于排除记录器的字段。
 
