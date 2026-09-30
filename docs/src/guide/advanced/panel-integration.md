@@ -195,6 +195,9 @@ There is deliberately no key to disable this log entirely.
 
 When the `logs` capability is on, the framework attaches its log handler each time the panel
 connection opens, and sends console log records to the panel for as long as the connection stays up.
+As of v6.3.0, the lines the framework itself writes or streams here (player join, quit and chat, plugin
+actions, the online-player count, server status and file operation messages) follow the `language` key
+of the main plugin config; see [Internationalization](/guide/essentials/i18n). Before v6.3.0 they were always Chinese.
 
 As of v6.3.0, a `log_stream` or `log_stream_control` request whose action is `start`, `stop`,
 `pause` or `resume` receives an error response stating that the action is not supported, and
