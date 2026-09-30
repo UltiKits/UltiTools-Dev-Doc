@@ -44,7 +44,7 @@ A module's version is also read by machines, but only to order two versions, nev
 | Consumer | What it does |
 |---|---|
 | `PluginManager.hasNewerVersionLoaded` | Two JARs of the same module are present, so it compares versions and refuses to load the older one |
-| `PluginManager.unregisterSupersededVersions` | Unloads the version that the newly loaded one supersedes |
+| `PluginManager.unregisterSupersededVersions` | Unloads the version that the newly loaded one supersedes. As of v6.3.0 it goes through the full unload path, and an unload failure is logged against the old version without stopping the new one |
 | `UpdateManager.checkModuleUpdates` | Compares the loaded version against the published one to report that an update is available |
 
 All three go through `VersionComparatorUtil.compare` and ask whether A is greater than B. None of them looks at whether the difference is MAJOR, MINOR or PATCH.

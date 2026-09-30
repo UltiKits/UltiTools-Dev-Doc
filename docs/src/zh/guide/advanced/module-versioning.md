@@ -44,7 +44,7 @@ CI 会对 `src/main` 的注释与 javadoc、workflow 文件与一个测试包强
 | 使用方 | 用途 |
 |---|---|
 | `PluginManager.hasNewerVersionLoaded` | 同一模块存在两个 JAR 时比较版本，拒绝加载较旧的那个 |
-| `PluginManager.unregisterSupersededVersions` | 卸载被新加载的版本取代的那个版本 |
+| `PluginManager.unregisterSupersededVersions` | 卸载被新加载的版本取代的那个版本。自 v6.3.0 起走完整的卸载流程，卸载失败会记在旧版本名下，不影响新版本继续加载 |
 | `UpdateManager.checkModuleUpdates` | 比较已加载版本与已发布版本，提示有更新可用 |
 
 三者都通过 `VersionComparatorUtil.compare` 判断 A 是否大于 B，都不关心这个差异属于 MAJOR、MINOR 还是 PATCH。
