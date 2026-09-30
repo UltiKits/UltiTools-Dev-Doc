@@ -115,6 +115,7 @@ public void onCustomEvent(MyCustomEvent event) {
 - **自动断开**：如果你的插件被禁用（服务器停止、`/reload`），UltiTools 会通过 `PluginDisableEvent` 监听器自动断开连接。你不一定需要在 `onDisable()` 中调用 `disconnect()`，但这是个好习惯。
 - **UltiTools 关闭**：当 UltiTools 自身关闭时，所有外部插件会通过 `disconnectAll()` 自动断开。
 - **清理**：断开连接时，你的插件注册的所有命令、监听器、定时任务、事件总线订阅和玩家缓存 Bean 都会被移除。
+- **连接被拒绝**（v6.3.0 起）：如果框架在构建容器之后拒绝了你的插件、`connect()` 因此抛出异常——例如某个命令执行器声明的注解无法被执行，或使用了绑定配置的 `@Scheduled`/`@CmdCD`——框架为你的插件登记的内容不会残留，修正后的版本可以在同一次服务器运行中再次连接（[issue #537](https://github.com/UltiKits/UltiTools-Reborn/issues/537)）。
 
 ## 与 UltiTools 模块的区别
 

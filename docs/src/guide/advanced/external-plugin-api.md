@@ -115,6 +115,7 @@ public void onCustomEvent(MyCustomEvent event) {
 - **Auto-disconnect**: If your plugin is disabled (server stop, `/reload`), UltiTools automatically disconnects it via a `PluginDisableEvent` listener. You don't strictly need `disconnect()` in `onDisable()`, but it's good practice.
 - **UltiTools shutdown**: When UltiTools itself shuts down, all external plugins are disconnected automatically via `disconnectAll()`.
 - **Cleanup**: On disconnect, all commands, listeners, scheduled tasks, EventBus subscriptions, and PlayerCache beans registered by your plugin are removed.
+- **Refused connection** (as of v6.3.0): if `connect()` throws because the framework refused your plugin after building its container — a command executor whose declared annotations it cannot enforce, or a config-bound `@Scheduled`/`@CmdCD` — nothing it registered for your plugin is left behind, so a fixed build can connect again in the same server session ([issue #537](https://github.com/UltiKits/UltiTools-Reborn/issues/537)).
 
 ## Differences from UltiTools Modules
 

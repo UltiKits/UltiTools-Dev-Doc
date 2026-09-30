@@ -41,6 +41,18 @@ if (EconomyUtils.isAvailable()) {
 不是 UltiTools 或该模块的缺陷，并给出安装建议。模块开发者不需要做任何事去获得这条行为，现有的
 每一处 `EconomyUtils` 调用点都已经具备它。
 
+发起请求的一方从调用栈中识别。v6.3.0 起，这条警告可以指出：
+
+- 已加载的模块：按其 `@UltiToolsModule` 扫描的包，另外加上其主类所在的包
+  （[issue #489](https://github.com/UltiKits/UltiTools-Reborn/issues/489)）；
+- 仍在注册过程中的模块：来自其构造函数、`@PostConstruct` 方法或 `registerSelf()` 的请求
+  （[issue #483](https://github.com/UltiKits/UltiTools-Reborn/issues/483)）；
+- 通过[外部插件 API](./external-plugin-api.md) 连接的普通 Bukkit 插件，按插件名，直到它断开连接
+  （[issue #462](https://github.com/UltiKits/UltiTools-Reborn/issues/462)）。
+
+匹配到的最具体的包优先；同一个包被两个不同的一方声明时，两者都不指出。以上都覆盖不到的请求记为
+`an unknown caller`，按发起请求的包各记一次，而不是所有这类请求共用一次，所以第二个无法识别的调用方不会被吞掉。
+
 ## 本页不涉及的变化
 
 Vault 仍然是 UltiTools 的可选软依赖：`plugin.yml` 依然声明 `softdepend: [Vault]`，对 Vault API

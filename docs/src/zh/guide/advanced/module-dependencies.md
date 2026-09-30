@@ -45,6 +45,10 @@ loadAfter:
 
 自 v6.3.0 起，一个模块同时声明了多个缺失的 `depends` 目标时，控制台会在一行里把它们全部列出，而不是只报告第一个——不再需要修一个、重启、再发现下一个。
 
+## 缺少必需的服务器插件
+
+v6.3.0 起，如果模块的 `plugin.yml` 在 `depend:` 中列出的某个服务器插件没有安装或没有启用、模块的类因此加载不了，该模块会被拒载，控制台只输出一行、不打印堆栈——例如 `[UltiTools-API] Module 'UltiTools-Economy' requires Vault, which is not installed or not enabled; the module is not loaded.`（中文环境下为对应的中文译文）。其他任何加载失败，包括 `depend:` 中的插件都在时发生的失败，仍然输出 `Cannot initialize plugin for …` 那一行及其堆栈（[issue #554](https://github.com/UltiKits/UltiTools-Reborn/issues/554)）。
+
 ## 重复的 `plugin.yml` 名称
 
 自 v6.3.0 起：依赖解析既可以按模块的简单类名查找，也可以按其 `plugin.yml` `name:` 值查找。如果两个已安装的模块声明了相同的 `name:`，依赖图里只能有一个模块占用这个名字——发现顺序在前的那个胜出，控制台会记录一条 WARNING，指出两个模块和这个共用的名字，因此这不是静默发生的。哪个模块胜出取决于加载顺序（目前是文件系统相关的，不受本页排序规则控制），所以应把这条 WARNING 当作"该给某个模块的 `plugin.yml` `name:` 改名了"的信号，而不要指望它每次重启都解析成同一个结果。

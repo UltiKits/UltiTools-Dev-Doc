@@ -47,6 +47,19 @@ environment rather than a defect in UltiTools or in the calling module, and give
 instruction. A module author does nothing to opt into this — every existing `EconomyUtils` call
 site already receives it.
 
+The caller is found from the call stack. As of v6.3.0 the warning can name:
+
+- a loaded module, through the packages its `@UltiToolsModule` scans and, in addition, its main
+  class's own package ([issue #489](https://github.com/UltiKits/UltiTools-Reborn/issues/489));
+- a module that is still being registered — a request from its constructor, a `@PostConstruct`
+  method or `registerSelf()` ([issue #483](https://github.com/UltiKits/UltiTools-Reborn/issues/483));
+- a plain Bukkit plugin connected through the [External Plugin API](./external-plugin-api.md), by its
+  plugin name, until it disconnects ([issue #462](https://github.com/UltiKits/UltiTools-Reborn/issues/462)).
+
+The most specific matching package wins; a package claimed by two different callers names neither.
+A request none of these covers is reported as `an unknown caller`, once per calling package rather
+than once for all of them, so a second unknown caller is not silenced.
+
 ## What this does not change
 
 Vault stays an optional, soft dependency of UltiTools: `plugin.yml` still declares
