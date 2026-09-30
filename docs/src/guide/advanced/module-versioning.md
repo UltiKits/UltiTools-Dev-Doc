@@ -258,6 +258,8 @@ This has two consequences for a module author:
 
 A move that fails, such as a read-only folder or a file held open, leaves the modules folder unchanged and the current version loads. The start-up log reports it, and the next `/upm update` of that module reports it again. When `plugins/` and the server root are on different file systems the move is refused, with one error line naming both folders.
 
+As of v6.3.0, an update only ever moves, replaces or deletes a file whose SHA-256 matches its record: the downloaded JAR, or the old JAR it kept aside. If something else has changed one of those files, or put a file where the update needs a free place (for example a copy under the new JAR's name), the update does nothing to any file. It keeps its record in a state that means "on hold for the operator", and the start-up log names each unexpected file with the hash it expected and the one it found. Later starts repeat that line and do nothing else, and `/upm update` and `/upm uninstall` of that module refuse until you resolve it. To resolve it, check the named files, take back any JAR you need from `.ultikits/upm-transactions/`, then delete the update record named in the line and the folder of the same name.
+
 `/upm uninstall <module>` unloads every loaded instance through the framework's full unload path, deletes the module's JARs, and cancels any update of it still waiting for the next start, whichever of the module's names it was given. A JAR it cannot delete now, for example on Windows where the running server keeps every module JAR open, is recorded and deleted at the next start before any module loads.
 
 ## Current state of the modules
