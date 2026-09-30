@@ -330,8 +330,8 @@ such as module loading and dependency resolution, reach the stream too. The fram
 start-up buffer and sends them first, oldest first, when the stream starts
 ([#487](https://github.com/UltiKits/UltiTools-Reborn/issues/487)). The buffer keeps records at `INFO`
 and above that `excluded-loggers` does not exclude, holds at most 2000 records, and is released
-without sending anything when the server has no cloud login, when the `logs` capability is off, or
-when the stream has not started within five minutes.
+without sending anything when the server has no cloud login or when the stream has not started
+within five minutes. With the `logs` capability off, the buffer is not created and nothing is kept.
 
 Also as of v6.3.0, a batch of log records whose send fails, because the connection closed around it,
 is kept and sent before anything newer on the next attempt, so records still arrive in order
