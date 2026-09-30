@@ -120,7 +120,7 @@ protected void onReload(ReloadReport report) {
 
 ### 已加载模块列表
 
-自 v6.3.0 起，`getPluginManager().getPluginList()` 返回已加载模块的不可修改快照，取自调用那一刻。在任何线程遍历它都是安全的，对它添加或删除元素会抛出 `UnsupportedOperationException`。`PluginManager.unregister(...)` 会自行把卸载的模块移出列表并释放其配置，因此正常关服时不再写入已卸载模块的配置文件。
+自 v6.3.0 起，`getPluginManager().getPluginList()` 返回已加载模块的不可修改快照，取自调用那一刻。在任何线程遍历它都是安全的，对它添加或删除元素会抛出 `UnsupportedOperationException`。`PluginManager.unregister(...)` 会自行把卸载的模块移出列表。
 
 ## 使用UltiTools-API
 

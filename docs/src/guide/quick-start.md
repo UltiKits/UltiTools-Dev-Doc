@@ -125,7 +125,7 @@ The `language` setting in the framework's `config.yml` is one value for the whol
 
 ### Loaded-module list
 
-As of v6.3.0, `getPluginManager().getPluginList()` returns an unmodifiable snapshot of the loaded modules, taken when you call it. Iterating it is safe from any thread, and adding to or removing from it throws `UnsupportedOperationException`. `PluginManager.unregister(...)` removes an unloaded module from the list itself and releases its configuration, so a clean stop no longer writes an unloaded module's configuration files.
+As of v6.3.0, `getPluginManager().getPluginList()` returns an unmodifiable snapshot of the loaded modules, taken when you call it. Iterating it is safe from any thread, and adding to or removing from it throws `UnsupportedOperationException`. `PluginManager.unregister(...)` removes an unloaded module from the list itself.
 
 ## Use UltiTools-API
 
