@@ -61,7 +61,7 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 
 字面 `comment` 在键首次加入时写入。恰好是一个去除首尾空白后的语言 token（例如 `comment = "{config.limit}"`）时，每次加载和写入按框架当前 `language` 从模块语言目录解析。该项块注释归框架所有，服主在这里的文字会被替换；字面项已有的服主注释保持。目录缺键时保留 token 并警告一次，写 YAML 注释前清理换行和控制字符。
 
-自 v6.3.0 起，`parser` 保持默认即使用声明类型转换器注册表。显式非默认旧解析器通过适配器保留冻结的旧行为，包括配置节拆分点号键。六项相关声明在 6.3.0 首次带 `forRemoval`，公告删除版本为 6.4.0。新代码使用[配置转换器](/zh/guide/advanced/config-converters)，不再继承 `DefaultConfigParser`。
+自 v6.3.0 起，`parser` 保持默认即使用声明类型转换器注册表。显式非默认旧解析器通过全新的 Bukkit `YamlConfiguration#get` 接收隔离的输入，保留 6.2 配置节拆分点号键的行为，并在根值、列表和映射内部反序列化 `==` 别名；显式使用旧解析器的 `Object` 字段也一样。这条输入路径不使用注册表转换器，输出仍经过普通数据边界并保留包装数值拓宽。Bukkit 自身的别名限制不变：Vector 坐标为整数时反序列化为 null，带小数部分时正常反序列化。六项相关声明在 6.3.0 首次带 `forRemoval`，公告删除版本为 6.4.0。新代码使用[配置转换器](/zh/guide/advanced/config-converters)，不再继承 `DefaultConfigParser`。
 
 #### 数值字段
 
@@ -73,7 +73,7 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 
 自 v6.3.0 起，完整继承泛型参与列表、集合、队列、映射、数组和枚举转换。无效集合/映射元素跳过并警告，整个字段形状无效时使用最初声明默认值。警告定位文件、键、位置、类型，并隐藏密钥形状的值。未知声明类型在读写任何配置文件前拒绝模块加载；登记转换器，不把原始映射偷偷传入自定义类。
 
-整个 null 字段和映射中的 null 值仍可往返，基本类型 null 无效。类型化集合（包括 `List<Object>`）和引用数组（包括 `Object[]`）写入时省略 null 元素，每个字段记录一条定位警告。既有读取行为不变，声明为 `Object` 的普通数据槽保持普通数据。UUID 和枚举使用普通文字，注册的 Bukkit `ConfigurationSerializable` 使用别名映射。读进 `Object` 槽的 Bukkit 对象仍是普通映射。未知运行时 Java 对象拒绝保存，不触碰文件。
+整个 null 字段和映射中的 null 值仍可往返，基本类型 null 无效。类型化集合（包括 `List<Object>`）和引用数组（包括 `Object[]`）写入时省略 null 元素，每个字段记录一条定位警告。既有读取行为不变，声明为 `Object` 的普通数据槽保持普通数据。UUID 和枚举使用普通文字，注册的 Bukkit `ConfigurationSerializable` 使用别名映射。未显式使用旧解析器时，读进 `Object` 槽的 Bukkit 对象仍是普通映射。未知运行时 Java 对象拒绝保存，不触碰文件。
 
 #### @Getter 和 @Setter
 
@@ -102,7 +102,7 @@ boolean something = someConfig.getSomething();
 
 :::
 
-自 v6.3.0 起，关闭在释放模块前只保存已登记的脏配置。服主只改磁盘文件不会使干净运行实体变脏。待保存代码修改可能覆盖服主值，成功覆盖后警告一次，只列文件和真正覆盖的键，不列值。面板只确认触及字段，无关待保存字段仍脏。
+自 v6.3.0 起，关闭先在卸载任何模块前保存已登记的脏配置。每个模块的卸载钩子和容器 `@PreDestroy` 回调运行后，在释放该所有者前再次保存它的脏配置；清理抛错时也执行。文件保护和逐实体保存错误隔离不变，运行时卸载、注册失败和旧副本替换清理不增加保存。服主只改磁盘文件不会使干净运行实体变脏。待保存代码修改可能覆盖服主值，成功覆盖后警告一次，只列文件和真正覆盖的键，不列值。面板只确认触及字段，无关待保存字段仍脏。
 
 服务器运行时，初始化、重载和 ConfigManager 注册表操作限主线程。异步 void 操作警告且不执行；注册表 getter、JSON 读写警告并抛 `IllegalStateException`。面板更新、上传、重连回调整体排到主线程，执行后回复。实体监视器串行化持久化，但不保护模块自己异步修改字段；请安排在主线程修改和重载。
 
