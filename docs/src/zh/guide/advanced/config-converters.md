@@ -23,14 +23,20 @@ public interface ConfigConverter<T> {
 
 自 v6.3.0 起，普通数据是 null、`String`、`Boolean`、`Integer`、`Long`、`BigInteger`、`Double`、这些数据组成的列表和字符串键映射。不能返回 Bukkit `MemorySection` 或任意 Java bean。UUID、枚举、`BigDecimal` 由内置转换器用文字表示。注册的 Bukkit `ConfigurationSerializable` 使用序列化别名和普通映射；读入 `Object` 字段的值保持普通数据，不自动构造 Bukkit 对象。
 
-转换器对接受的值必须满足两条等式：
+转换器对声明 Java 类型的每个值 `x` 都必须满足正向相等。反向相等适用于转换器输出的规范普通值 `p`（`p = toPlain(x)`）：
 
 ```text
 fromPlain(toPlain(x)) equals x
 toPlain(fromPlain(p)) equals p
 ```
 
-比较的是语义值，不是对象身份；普通数值按值比较。接受额外字段再悄悄丢掉违反第二条；读时加十、写时不减十违反互逆要求。面板映射叶编辑和三方重载依靠它保持未改兄弟项。双向测试 null、嵌套值和代表输入。
+转换器可以接受非规范输入 `q`。其规范形式为 `toPlain(fromPlain(q))`，规范化必须稳定：
+
+```text
+fromPlain(toPlain(fromPlain(q))) equals fromPlain(q)
+```
+
+已批准的转换行为不变：数值转 String、数字文字转 int/float、`"false"` 转 boolean、重复元素转 Set。无需保留原始非规范表示。比较的是语义值，不是对象身份；普通数值按值比较。读时加十、写时不减十违反正向相等。面板映射叶编辑和三方重载依靠正向相等保持未改兄弟项。测试 null、嵌套值、转换器输出的普通值及接受的非规范输入。
 
 ## 注册与查找
 

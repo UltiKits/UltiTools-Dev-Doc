@@ -23,14 +23,20 @@ public interface ConfigConverter<T> {
 
 As of v6.3.0, plain data is null, `String`, `Boolean`, `Integer`, `Long`, `BigInteger`, `Double`, lists and string-keyed maps of plain data. Return neither Bukkit `MemorySection` nor an arbitrary Java bean. UUIDs, enums and `BigDecimal` use text through their built-in converters. A registered Bukkit `ConfigurationSerializable` uses its serialization alias and plain map; a value read into an `Object` field stays plain, rather than automatically constructing a Bukkit object.
 
-Your converter must satisfy both equations for values it accepts:
+Your converter must satisfy forward equality for every value `x` of its declared Java type. Reverse equality applies to canonical plain values `p` emitted by the converter (`p = toPlain(x)`):
 
 ```text
 fromPlain(toPlain(x)) equals x
 toPlain(fromPlain(p)) equals p
 ```
 
-Equality is semantic, not object identity; numeric plain values compare by value. Accepting extra input fields and silently dropping them violates the second equation. Adding ten on read without subtracting ten on write violates both. Panel map leaf edits and three-way reload depend on this contract to preserve unchanged siblings. Test null, nested values and representative inputs in both directions.
+A converter may accept noncanonical input `q`. Its canonical form is `toPlain(fromPlain(q))`, and normalization must be stable:
+
+```text
+fromPlain(toPlain(fromPlain(q))) equals fromPlain(q)
+```
+
+The approved coercions remain unchanged: number to String, numeric text to int/float, `"false"` to boolean and duplicate elements to a Set. They need not preserve the original noncanonical representation. Equality is semantic, not object identity; numeric plain values compare by value. Adding ten on read without subtracting ten on write violates forward equality. Panel map leaf edits and three-way reload depend on that equality to preserve unchanged siblings. Test null, nested values, converter-emitted plain values and accepted noncanonical inputs.
 
 ## Registration and lookup
 
