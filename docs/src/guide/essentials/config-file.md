@@ -156,6 +156,8 @@ Available validation annotations: `@Range`, `@NotEmpty`, `@Size`, `@Pattern` (fr
 
 As of v6.3.0, an edited save emits the full document through SnakeYAML. Content, comment text, key order and supported quote/list/line-ending/BOM/final-newline styles are preserved; operator layout may normalize. Aligned comment spacing, flow spacing, mixed indentation, document markers and trailing spaces are not byte guarantees. A semantic no-op does not write, preserving exact bytes and modification time. An explicit save compares against current disk content and may overwrite an operator change even if the entity was clean.
 
+Comments on individual list items are kept only while the list keeps its length — the same as Bukkit, which keeps none.
+
 Writes first force a same-directory temporary, then replace atomically. Only unsupported atomic move, EBUSY/cross-device or permitted temporary-creation refusal allows backed in-place fallback. `<file>.bak` is forced before the target is opened; an existing backup is refreshed from current raw target bytes through a forced temporary and atomic backup replacement. A backup refusal leaves target and previous backup untouched. A later in-place failure may leave a partial target with complete backup retained. Only a successful strict current-file load removes it; there is no automatic restoration.
 
 Unreadable, malformed or non-UTF-8 files are protected on every entity write route. Initial failure uses defaults; failed reload keeps running fields. One SEVERE names the file and safe cause, without source snippets. Only a later successful load clears protection. Validation precedes default/comment and panel persistence.
