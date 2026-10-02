@@ -65,7 +65,7 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 
 #### 数值字段
 
-自 v6.3.0 起，基本类型和包装类型使用相同数值转换规则。整数收窄必须值精确且在范围内，`'30'` 等数值文字可以绑定整数。小数绑定 `float`/`Float` 时，读出的 float 最短可打印十进制必须与原十进制数值相同：`0.03`、`1.50` 可用，`0.100000001` 不可用。无效字段使用声明默认值并记录定位警告；更多十进制精度使用 `double`，float 接受不表示二进制精确。
+自 v6.3.0 起，基本类型和包装类型使用相同数值转换规则。面板 JSON 中 long 范围内的整数使用 `Long`，超出 long 范围的整数以 `BigInteger` 精确保留；小数仍使用既有 `Double` 路径。整数收窄必须值精确且在范围内，`'30'` 等数值文字可以绑定整数。小数绑定 `float`/`Float` 时，读出的 float 最短可打印十进制必须与原十进制数值相同：`0.03`、`1.50` 可用，`0.100000001` 不可用。无效字段使用声明默认值并记录定位警告；更多十进制精度使用 `double`，float 接受不表示二进制精确。
 
 `int`、`long`、`Integer`、`Long` 还可以驱动任务间隔和命令冷却，见[配置绑定时间](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间)与[配置绑定冷却](/zh/guide/essentials/cmd-executor#配置项绑定的冷却时间)。配置必须恰好注册一次，目录实体不能绑定。避免同时使用 [`@Range`](/zh/guide/advanced/config-validation)，绑定已有范围检查。
 
@@ -73,7 +73,7 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 
 自 v6.3.0 起，完整继承泛型参与列表、集合、队列、映射、数组和枚举转换。无效集合/映射元素跳过并警告，整个字段形状无效时使用最初声明默认值。警告定位文件、键、位置、类型，并隐藏密钥形状的值。未知声明类型在读写任何配置文件前拒绝模块加载；登记转换器，不把原始映射偷偷传入自定义类。
 
-允许的引用类型可往返显式 null，基本类型 null 无效。UUID 和枚举使用普通文字，注册的 Bukkit `ConfigurationSerializable` 使用别名映射。读进 `Object` 槽的 Bukkit 对象仍是普通映射。未知运行时 Java 对象拒绝保存，不触碰文件。
+整个 null 字段和映射中的 null 值仍可往返，基本类型 null 无效。类型化集合（包括 `List<Object>`）和引用数组（包括 `Object[]`）写入时省略 null 元素，每个字段记录一条定位警告。既有读取行为不变，声明为 `Object` 的普通数据槽保持普通数据。UUID 和枚举使用普通文字，注册的 Bukkit `ConfigurationSerializable` 使用别名映射。读进 `Object` 槽的 Bukkit 对象仍是普通映射。未知运行时 Java 对象拒绝保存，不触碰文件。
 
 #### @Getter 和 @Setter
 

@@ -74,7 +74,7 @@ As of v6.3.0, leave `parser` at its default to use the declared-type converter r
 
 #### Numeric fields
 
-As of v6.3.0, primitives and boxed numeric fields use the same conversion rules. Integral narrowing must be exact and within range; numeric text such as `'30'` can bind to an integer. A decimal binds to `float`/`Float` only when the parsed float's shortest printable decimal has the same numeric value: `0.03` and `1.50` pass, `0.100000001` does not. Invalid fields keep their declared defaults with a located warning. Use `double` when more decimal precision is required; float acceptance is not exact binary representation.
+As of v6.3.0, primitives and boxed numeric fields use the same conversion rules. Panel JSON integers within the long range use `Long`; integers beyond the long range are kept exactly as `BigInteger`. Fractional panel numbers keep the existing `Double` route. Integral narrowing must be exact and within range; numeric text such as `'30'` can bind to an integer. A decimal binds to `float`/`Float` only when the parsed float's shortest printable decimal has the same numeric value: `0.03` and `1.50` pass, `0.100000001` does not. Invalid fields keep their declared defaults with a located warning. Use `double` when more decimal precision is required; float acceptance is not exact binary representation.
 
 An `int`, `long`, `Integer` or `Long` field can also drive a task interval or command cooldown: see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing) and [Config-bound cooldowns](/guide/essentials/cmd-executor#binding-the-cooldown-to-a-config-key). The configuration must be registered exactly once; directory entities cannot be bound. Avoid combining a bound field with [`@Range`](/guide/advanced/config-validation), because binding has its own range check.
 
@@ -82,7 +82,7 @@ An `int`, `long`, `Integer` or `Long` field can also drive a task interval or co
 
 As of v6.3.0, full inherited generic types drive lists, sets, queues, maps, arrays and enums. Invalid collection/map elements are skipped with a warning; a wrongly shaped whole field uses its initially declared default. Warnings identify the file, key, position and type and redact secret-shaped values. An unknown declared type refuses module load before any config file is read or created; register a converter rather than accepting raw maps into a custom class.
 
-Explicit null round-trips where the reference type permits it; primitive null is invalid. UUIDs and enums use plain text, and registered Bukkit `ConfigurationSerializable` values use alias-tagged maps. A Bukkit value read into an `Object` slot stays a plain map. Unknown runtime Java objects refuse a save without touching the file.
+Explicit null whole fields and null map values still round-trip; primitive null is invalid. Typed collections (including `List<Object>`) and reference arrays (including `Object[]`) omit null elements on write with one located warning per field. Their existing read behavior is unchanged; plain data in a declared `Object` slot remains plain. UUIDs and enums use plain text, and registered Bukkit `ConfigurationSerializable` values use alias-tagged maps. A Bukkit value read into an `Object` slot stays a plain map. Unknown runtime Java objects refuse a save without touching the file.
 
 #### @Getter and @Setter
 
