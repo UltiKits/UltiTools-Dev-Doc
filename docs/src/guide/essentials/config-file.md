@@ -18,12 +18,8 @@ the `AbstractConfigEntity` class.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/config/SomeConfig.java
 
-::: warning Constructor must be cheap and side-effect-free (as of v6.3.0)
-
-The framework builds and discards throwaway instances of your class: two on every load, reload and
-panel write attempt, one on every `save()`, and one per configuration when the server stops.
-Keep the constructor to the `super(configFilePath)`-only idiom shown above.
-
+::: warning Constructor requirements, as of v6.3.0
+Keep constructors cheap and side-effect-free: validation and save preparation may construct temporary instances.
 :::
 
 #### @ConfigEntity
@@ -70,29 +66,23 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 
 `@ConfigEntry` is used to mark a configuration item. 
 
-The `path` attribute is used to specify the path of the key of this
-configuration item in the configuration file. 
+As of v6.3.0, `path` still splits at every dot: `chat.aliases` is a nested entry path. Keys inside a bound map are whole keys, so `g.m`, `o.O` and `wave.` are supported. Files already split by 6.2 are read as written, without automatic recombination; a nested value in a `Map<String, String>` is skipped with a warning.
 
-The `comment` attribute is used to specify the comment of this configuration item.
+A literal `comment` is supplied when its key is first added. A comment that is exactly one trimmed language token, such as `comment = "{config.limit}"`, is resolved through the module catalogue in the current framework `language` on every load and write. That entry's block comment is framework-owned: operator text there is replaced, while literal-entry operator comments remain. Missing catalogue keys retain the token and warn once; line breaks/control characters are sanitized before YAML comments are created.
 
-The `parser` attribute is used to specify the parser of this configuration item. The parser is used to convert the
-object in the configuration file to the type of the configuration item. The default parser is `DefaultConfigParser`
-, it can handle most of the case but not all. If you need to parse a more complex object, you can create a class that 
-inherit the `ConfigParser` class and specify it in the `parser` attribute.
-
-::: tip Built-in Parser
-`StringHashMapParser` is a built-in, ready-to-use implementation at `com.ultikits.ultitools.interfaces.impl.pasers.StringHashMapParser`; reference it directly with `@ConfigEntry(parser = StringHashMapParser.class)` instead of writing a new one.
-The snippet below only illustrates its logic, import the framework class shown above, not this file.
-<<< @/../examples/src/main/java/com/ultikits/docs/config/StringHashMapParser.java
-:::
+As of v6.3.0, leave `parser` at its default to use the declared-type converter registry. Explicit non-default legacy parsers keep their frozen old behavior, including section-based dotted-key splitting, through an adapter. Six parser-related declarations first carry `forRemoval` in 6.3.0, with removal announced for 6.4.0. New code uses [Config Converters](/guide/advanced/config-converters), not a `DefaultConfigParser` subclass.
 
 #### Numeric fields
 
-YAML stores a whole number such as `1800` as an integer. As of v6.3.0, a boxed `Long`, `Float` or `Double` field loads such a value, the same way a primitive `long`, `float` or `double` field does. Earlier versions could not set an integer into a boxed field of another numeric type, so such a field loaded on the first boot, when its default was written, and failed on every later boot and reload. Only widening conversions are applied, so a boxed field accepts exactly what its primitive type accepts.
+As of v6.3.0, primitives and boxed numeric fields use the same conversion rules. Integral narrowing must be exact and within range; numeric text such as `'30'` can bind to an integer. A decimal binds to `float`/`Float` only when the parsed float's shortest printable decimal has the same numeric value: `0.03` and `1.50` pass, `0.100000001` does not. Invalid fields keep their declared defaults with a located warning. Use `double` when more decimal precision is required; float acceptance is not exact binary representation.
 
-A decimal such as `0.5` is read as a `Double`, and narrowing it into a `float` or `Float` field is not supported ([#534](https://github.com/UltiKits/UltiTools-Reborn/issues/534)). Use `double` or `Double` for a value that may contain a decimal point.
+An `int`, `long`, `Integer` or `Long` field can also drive a task interval or command cooldown: see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing) and [Config-bound cooldowns](/guide/essentials/cmd-executor#binding-the-cooldown-to-a-config-key). The configuration must be registered exactly once; directory entities cannot be bound. Avoid combining a bound field with [`@Range`](/guide/advanced/config-validation), because binding has its own range check.
 
-As of v6.3.0, an `int`, `long`, `Integer` or `Long` field can also drive a task interval or a command cooldown: see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing) for `@Scheduled` and [Binding the cooldown to a config key](/guide/essentials/cmd-executor#binding-the-cooldown-to-a-config-key) for `@CmdCD`. The config class must be registered exactly once for the module, so a directory `@ConfigEntity` cannot be bound. Do not also put a [`@Range`](/guide/advanced/config-validation) on a bound field: the binding enforces its own range, and a `@Range` violation during `/ul reload` aborts the rest of the module's reload ([#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509)).
+#### Collections and null
+
+As of v6.3.0, full inherited generic types drive lists, sets, queues, maps, arrays and enums. Invalid collection/map elements are skipped with a warning; a wrongly shaped whole field uses its initially declared default. Warnings identify the file, key, position and type and redact secret-shaped values. An unknown declared type refuses module load before any config file is read or created; register a converter rather than accepting raw maps into a custom class.
+
+Explicit null round-trips where the reference type permits it; primitive null is invalid. UUIDs and enums use plain text, and registered Bukkit `ConfigurationSerializable` values use alias-tagged maps. A Bukkit value read into an `Object` slot stays a plain map. Unknown runtime Java objects refuse a save without touching the file.
 
 #### @Getter and @Setter
 
@@ -117,17 +107,11 @@ However, if you want to save it immediately, you can call the `save` method.
 
 :::
 
-::: info Saving on disable, as of v6.3.0
-On disable, UltiTools saves a configuration only if your code changed it since it was last loaded or saved.
-A configuration your module did not change is not rewritten, so edits the server owner made to its file while the server was running survive a restart.
-If your module did change it, the file is still rewritten, and a WARNING is logged when that write overwrites edits made to the file on disk; a file whose YAML the framework could not parse the last time it read it is never rewritten at all, and gets its own WARNING.
-:::
+As of v6.3.0, shutdown saves only dirty registered configurations, before module release. A clean live configuration is not rewritten merely because an operator edited its disk file. Pending code edits may overwrite operator values; a successful replacement warns once naming the file and only the keys actually overwritten, never their values. Panel edits acknowledge only touched fields, so unrelated unsaved fields remain dirty.
 
-::: warning Configuration writes hold a lock, as of v6.3.0
-Loading, saving, a panel write and the shutdown save of one configuration run one at a time, so a panel write arriving on the WebSocket thread and the shutdown save cannot interleave.
-Your own `save()` call waits for any of those already in progress, and the throwaway construction above happens while that lock is held, which is the other reason to keep the constructor cheap.
-Changes your module makes to its own fields, from any thread, are not covered by this lock.
-:::
+Initialization, reload and ConfigManager registry operations are server-thread confined while a server runs. Off-thread void operations warn and do nothing; registry getters, JSON readers/writers warn and throw `IllegalStateException`. Panel update/upload/reconnect callbacks queue their complete operation on the server thread and reply after it runs. Entity monitors serialize persistence, but your own asynchronous field mutation is not protected by those monitors. Schedule module mutations/reloads on the server thread.
+
+The module's `getConfig(Class)` returns an entity and remains available. The entity's old mutable Bukkit `getConfig()` accessor is removed as of v6.3.0 by the maintainer's one-time compatibility carve-out; it worked in 6.2.5, and third-party usage is unknown. Use `isPresentInFile("entry.path")` for presence in the last successful load (null and undeclared keys count); it splits dots and cannot address whole dotted map keys. Change declared fields, then `save()`.
 
 ```java
 boolean something = someConfig.getSomething();
@@ -170,22 +154,26 @@ Available validation annotations: `@Range`, `@NotEmpty`, `@Size`, `@Pattern` (fr
 
 ## Saving configuration files
 
-You don't need to worry about the loading and saving of configuration files, UltiTools will do everything for you
-automatically.
+As of v6.3.0, an edited save emits the full document through SnakeYAML. Content, comment text, key order and supported quote/list/line-ending/BOM/final-newline styles are preserved; operator layout may normalize. Aligned comment spacing, flow spacing, mixed indentation, document markers and trailing spaces are not byte guarantees. A semantic no-op does not write, preserving exact bytes and modification time. An explicit save compares against current disk content and may overwrite an operator change even if the entity was clean.
 
-::: info Comments, as of v6.3.0
-Bukkit preserves existing comments across a save, and UltiTools sets `options().parseComments(true)` explicitly rather than relying on the default. A key added for the first time also gets its `@ConfigEntry(comment)` written alongside it; a key the operator already has is left untouched.
-:::
+Writes first force a same-directory temporary, then replace atomically. Only unsupported atomic move, EBUSY/cross-device or permitted temporary-creation refusal allows backed in-place fallback. `<file>.bak` is forced before the target is opened; an existing backup is refreshed from current raw target bytes through a forced temporary and atomic backup replacement. A backup refusal leaves target and previous backup untouched. A later in-place failure may leave a partial target with complete backup retained. Only a successful strict current-file load removes it; there is no automatic restoration.
 
-One cosmetic side effect: SnakeYAML re-emits a double-quoted string value as single-quoted on save. The value itself does not change, only its quoting style. As of v6.3.0 this happens only when a file is actually saved: a configuration nothing changed is not rewritten on disable.
+Unreadable, malformed or non-UTF-8 files are protected on every entity write route. Initial failure uses defaults; failed reload keeps running fields. One SEVERE names the file and safe cause, without source snippets. Only a later successful load clears protection. Validation precedes default/comment and panel persistence.
+
+Registration batches buffer initialization writes until every selected entity binds and validates; refused batches change no files. Accepted files then persist independently. Multi-file panel updates instead validate and stage all touched files, then commit and acknowledge together, with in-process rollback on ordinary refusal. Persistent storage failure can prevent restoration; crashes between moves are not a crash-safe multi-file transaction.
+
+Panel map leaf edits use actual whole file keys and the full declared field converter. A unique changed leaf persists; ambiguous or missing changed paths refuse the whole payload by name. Unchanged displayed leaves are not edits. Untargeted pending memory values and independently edited disk siblings are preserved. The existing reply format is unchanged.
 
 ## Configuration file reload
-
-`UltiToolsPlugin` provides the `getConfigManager#reloadConfigs` method, you can call it to reload configuration files
-when needed.
 
 ```java
 SomePlugin.getConfigManager().reloadConfigs(SomePlugin.getInstance());
 ```
 
+As of v6.3.0, reload performs a three-way comparison of the last effective baseline, live fields and incoming file. Memory-only edits survive and stay dirty; disk-only edits are adopted; conflicts take disk with a located, redacted warning. Maps merge recursively by whole keys, lists/scalars are atomic, and missing whole fields retain live values. Memory-only map order is preserved when that disk map is unchanged; reload does not write it. This is not a concurrent map-insertion ordering policy.
 
+Before framework construction of an identifiable newer module copy, dirty old configuration is saved in sorted file order. Failure refuses construction and retains the old copy. If identity is unavailable before construction, successful replacement warns with dropped file/key names and does not save the old copy late. Unload releases its registry owners; shutdown saves before release.
+
+## Known limits
+
+As of v6.3.0, [#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578) records special anchored containers, complex symlink paths, Unicode style-offset cost and direct-alias token-comment ownership. Alias comments can affect the source anchor and cause repeated writes. [#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580) records refusal of a valid block anchor with a comment before its first child. Protection preserves those refused file bytes; it does not make their values readable. [#545](https://github.com/UltiKits/UltiTools-Reborn/issues/545) remains the crash-safe multi-file persistence limit.
