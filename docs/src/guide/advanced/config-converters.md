@@ -34,7 +34,7 @@ Equality is semantic, not object identity; numeric plain values compare by value
 
 ## Registration and lookup
 
-As of v6.3.0, a discovered converter needs a public no-argument constructor. It is instantiated before configuration entities and is not an IoC bean; do not use injected dependencies or module initialization side effects. Put it in the packages named by `@UltiToolsModule(scanBasePackages = {...})`. Two registrations for the same target class refuse load and name both classes. `@ConfigConverterFor(value = T.class, exact = true)` serves only that exact class; the default `exact = false` also serves subtypes.
+As of v6.3.0, a discovered converter must be a public top-level class with a public no-argument constructor. The package scanner does not discover nested converters. It is instantiated before configuration entities and is not an IoC bean; do not use injected dependencies or module initialization side effects. Put it in the packages named by `@UltiToolsModule(scanBasePackages = {...})`. Two registrations for the same target class refuse load and name both classes. `@ConfigConverterFor(value = T.class, exact = true)` serves only that exact class; the default `exact = false` also serves subtypes.
 
 Lookup order is:
 
@@ -55,17 +55,11 @@ The actual message names the complete type. During binding, a convertible declar
 
 ## Converter example
 
-Place the following members inside a class `MigrationExample` in a scanned module package. These are inline snippets for the unreleased branch, not references compiled against the released artifact. The text-only map shape is strict so both equations hold, including null text.
+Place the value/field members below inside `MigrationExample` in package `example.config` (imports go before the outer class). Put the converter in its own public top-level `TokenConverter.java` in the same scanned package, as shown in the second block; do not nest it in the outer class. These are inline snippets for the unreleased branch, not references compiled against the released artifact. The text-only map shape is strict so both equations hold, including null text.
 
 ```java
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Objects;
 import com.ultikits.ultitools.annotations.ConfigEntry;
-import com.ultikits.ultitools.config.convert.ConfigConverter;
-import com.ultikits.ultitools.config.convert.ConfigConverterFor;
-import com.ultikits.ultitools.config.convert.ConversionContext;
-import com.ultikits.ultitools.config.convert.ConversionException;
 
 public static class Token {
     public String text;
@@ -78,8 +72,22 @@ public static class Token {
 @ConfigEntry(path = "token")
 private Token token = new Token("hello");
 
+```
+
+```java
+// TokenConverter.java: a separate top-level source file.
+package example.config;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+import example.config.MigrationExample.Token;
+import com.ultikits.ultitools.config.convert.ConfigConverter;
+import com.ultikits.ultitools.config.convert.ConfigConverterFor;
+import com.ultikits.ultitools.config.convert.ConversionContext;
+import com.ultikits.ultitools.config.convert.ConversionException;
+
 @ConfigConverterFor(Token.class)
-public static class TokenConverter implements ConfigConverter<Token> {
+public class TokenConverter implements ConfigConverter<Token> {
     public TokenConverter() { }
     @Override public Object toPlain(Token value, ConversionContext ctx) {
         if (value == null) { return null; }
@@ -112,6 +120,8 @@ As of v6.3.0, these six announcements first carry `@Deprecated(since = "6.3.0", 
 A `DefaultConfigParser` subclass previously used the inherited section reader and reflective writer. For the `Token` above, a legacy declaration could be:
 
 ```java
+import java.util.Map;
+
 public static class TokenParser extends
         com.ultikits.ultitools.interfaces.impl.pasers.DefaultConfigParser {
     @Override public Object parse(Object raw) {

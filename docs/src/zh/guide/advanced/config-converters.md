@@ -34,7 +34,7 @@ toPlain(fromPlain(p)) equals p
 
 ## 注册与查找
 
-自 v6.3.0 起，发现的转换器需要 public 无参构造器，在配置实体前实例化，不是 IoC bean；不能依赖注入或模块初始化副作用。放进 `@UltiToolsModule(scanBasePackages = {...})` 的包。重复目标类型拒绝加载并列两个类。`@ConfigConverterFor(value = T.class, exact = true)` 只服务精确类型，默认 `exact = false` 也服务子类型。
+自 v6.3.0 起，发现的转换器需要是 public 顶层类，带 public 无参构造器；扫描器不发现嵌套转换器。转换器在配置实体前实例化，不是 IoC bean；不能依赖注入或模块初始化副作用。放进 `@UltiToolsModule(scanBasePackages = {...})` 的包。重复目标类型拒绝加载并列两个类。`@ConfigConverterFor(value = T.class, exact = true)` 只服务精确类型，默认 `exact = false` 也服务子类型。
 
 查找顺序为：
 
@@ -55,17 +55,11 @@ Module UltiRecipe, file config/recipes.yml, key "recipes": no config converter f
 
 ## 转换器示例
 
-把以下成员放进扫描包内的 `MigrationExample` 类。这是未发布分支内联片段，不是对已发布构件编译的引用。严格的单文字键映射使两条等式成立，包括 null 文字。
+把以下值/字段成员放进 `example.config` 包的 `MigrationExample` 类（imports 放在外层类前）。转换器单独放进同一扫描包的 public 顶层文件 `TokenConverter.java`，见第二段；不能嵌套在外层类中。这是未发布分支内联片段，不是对已发布构件编译的引用。严格的单文字键映射使两条等式成立，包括 null 文字。
 
 ```java
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Objects;
 import com.ultikits.ultitools.annotations.ConfigEntry;
-import com.ultikits.ultitools.config.convert.ConfigConverter;
-import com.ultikits.ultitools.config.convert.ConfigConverterFor;
-import com.ultikits.ultitools.config.convert.ConversionContext;
-import com.ultikits.ultitools.config.convert.ConversionException;
 
 public static class Token {
     public String text;
@@ -78,8 +72,22 @@ public static class Token {
 @ConfigEntry(path = "token")
 private Token token = new Token("hello");
 
+```
+
+```java
+// TokenConverter.java: a separate top-level source file.
+package example.config;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+import example.config.MigrationExample.Token;
+import com.ultikits.ultitools.config.convert.ConfigConverter;
+import com.ultikits.ultitools.config.convert.ConfigConverterFor;
+import com.ultikits.ultitools.config.convert.ConversionContext;
+import com.ultikits.ultitools.config.convert.ConversionException;
+
 @ConfigConverterFor(Token.class)
-public static class TokenConverter implements ConfigConverter<Token> {
+public class TokenConverter implements ConfigConverter<Token> {
     public TokenConverter() { }
     @Override public Object toPlain(Token value, ConversionContext ctx) {
         if (value == null) { return null; }
@@ -112,6 +120,8 @@ public static class TokenConverter implements ConfigConverter<Token> {
 `DefaultConfigParser` 子类曾使用继承的配置节读取器和反射写入器。上述 `Token` 的旧声明可以是：
 
 ```java
+import java.util.Map;
+
 public static class TokenParser extends
         com.ultikits.ultitools.interfaces.impl.pasers.DefaultConfigParser {
     @Override public Object parse(Object raw) {
