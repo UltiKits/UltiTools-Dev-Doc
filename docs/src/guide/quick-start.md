@@ -62,6 +62,10 @@ A jar with no readable `plugin.yml`, no `main:` entry, or a `main:` that does no
 a concrete `UltiToolsPlugin` subclass is refused at load, naming the exact reason.
 :::
 
+When `main:` names a class that does not exist, the refusal line is followed by the
+`ClassNotFoundException` stack trace. That trace is expected: it is printed on purpose, so you can
+see which class lookup failed. A jar with no `main:` entry at all is refused without a trace.
+
 ```yaml
 # Module name
 name: TestPlugin
