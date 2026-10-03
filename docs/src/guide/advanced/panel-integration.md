@@ -97,6 +97,19 @@ Command-namespace normalization is unaffected by this change: `bukkit:op` and `o
 the same blocklist entry before the check runs, at the single site that has always performed this
 normalization.
 
+### Remote command results
+
+As of v6.3.0 the panel's remote command runs as the server console, as if the command had been typed
+into the console, and modules see their usual console sender. The framework does not capture the
+command's reply: the `command_result` message says the command was dispatched, with the text `Command
+dispatched to the server console. Its output appears in the server log stream.`, or `The server console
+did not accept the command. Any message it printed appears in the server log stream.` when the
+dispatch returned false. The reply itself, together with all other console output, reaches the panel
+through the [live log stream](#live-log-stream), so the `logs` capability has to be on to see it.
+Blocklist refusals, an empty command and dispatch errors are reported as before. Before v6.3.0 the
+result carried the invented text `Command executed successfully` in place of a reply. A panel or tool
+that showed `output` as the command's reply now shows the sentence above.
+
 ## Remote file API boundary
 
 The remote file API (`file-read`/`file-write`/`file-delete`) is confined to an explicit set of
@@ -195,6 +208,7 @@ There is deliberately no key to disable this log entirely.
 
 When the `logs` capability is on, the framework attaches its log handler each time the panel
 connection opens, and sends console log records to the panel for as long as the connection stays up.
+As of v6.3.0 the stream is a full mirror of the server console; see [The stream mirrors the server console](#the-stream-mirrors-the-server-console).
 As of v6.3.0, the lines the framework itself writes or streams here (player join, quit and chat, plugin
 actions, the online-player count, server status and file operation messages) follow the `language` key
 of the main plugin config; see [Internationalization](/guide/essentials/i18n). Before v6.3.0 they were always Chinese.
@@ -300,12 +314,14 @@ entry of `MinecraftServer` matches none of the records labelled `MinecraftServer
 framework gives that label to server loggers such as `Minecraft` and `net.minecraft.*`, not to a
 logger with that name.
 
-Only `java.util.logging` records reach the handler, and their logger names take three shapes:
-`Minecraft` (everything logged through `Bukkit.getLogger()`, including the framework's own
-`[UltiTools-API] ...` lines), a plugin's own name, and `com.ultikits.ultitools.*` class loggers.
-Libraries that log through Log4j or SLF4J, such as authlib, Netty, HikariCP and Jetty, never reach it,
-so naming them has no effect. Before v6.3.0 the default list named five such libraries, which filtered
-nothing; as of v6.3.0 the default is empty
+`java.util.logging` records carry one of three logger names: `Minecraft` (everything logged through
+`Bukkit.getLogger()`, including the framework's own `[UltiTools-API] ...` lines), a plugin's own name,
+or a `com.ultikits.ultitools.*` class logger. Lines that Paper prints through Log4j, and libraries that
+log through Log4j or SLF4J such as authlib, Netty, HikariCP and Jetty, reach the stream through the
+console mirror described below, under their Log4j logger names, and an `excluded-loggers` entry applies
+to them as well. Before v6.3.0 the stream received only `java.util.logging` records and the default
+list named five Log4j or SLF4J libraries, so it filtered nothing; as of v6.3.0 the default is empty,
+which lets the stream show the whole console
 ([#485](https://github.com/UltiKits/UltiTools-Reborn/issues/485)).
 
 As of v6.3.0, adding `debug` to `levels` sends debug records to the panel. Before v6.3.0 the handler
@@ -323,15 +339,39 @@ Exclusion comes before both steps: a record from an excluded logger is neither s
 reported as an error. Error reports raised elsewhere, such as an exception thrown by a command, do
 not pass through the handler, and neither key applies to them.
 
+### The stream mirrors the server console
+
+As of v6.3.0, with the `logs` capability on, the log stream shows what the server console shows. Paper
+prints most of its output through Log4j: command feedback, a module's reply to the console sender,
+player joins and quits, chat, vanilla warnings and errors, and player command lines. Before v6.3.0 none
+of it reached the panel. The framework now installs an appender on Log4j's root logger when it loads
+and removes it when it is disabled. Each line passes the same filters, batching and start-up replay as
+a plugin line, without ANSI colour codes.
+
+The mirror is complete and unredacted. It includes player command lines with their arguments, such as
+`<player> issued server command: /login <password>`. The panel is at the console's trust level, so
+whatever the console shows, the panel may show. Operators who do not want that should leave the `logs`
+capability off.
+
+A plugin line arrives once, although Paper also copies it into Log4j. Lines about the panel connection,
+the log transmitter's own lines and the WebSocket library's (`org.java_websocket.*`) are never sent. If
+the server's Log4j configuration uses asynchronous loggers, the mirror is not installed, a console
+warning says so, and the stream carries plugin lines only. A Log4j `ERROR` line with an exception is
+also reported once to the panel's error collection. `org.apache.logging.log4j:log4j-core` is a
+`provided` dependency of the framework (version 2.24.1); Paper supplies it at runtime, it is not
+shaded, and a module needs nothing new.
+
 ### Start-up lines and failed sends
 
 As of v6.3.0 the records logged from the moment the framework loads until the panel connection opens,
 such as module loading and dependency resolution, reach the stream too. The framework keeps them in a
 start-up buffer and sends them first, oldest first, when the stream starts
 ([#487](https://github.com/UltiKits/UltiTools-Reborn/issues/487)). The buffer keeps records at `INFO`
-and above that `excluded-loggers` does not exclude, holds at most 2000 records, and is released
-without sending anything when the server has no cloud login or when the stream has not started
-within five minutes. With the `logs` capability off, the buffer is not created and nothing is kept.
+and above that `excluded-loggers` does not exclude, holds at most 2000 records (an estimated 512 KiB),
+and is released without sending anything when the server has no cloud login or when the stream has not
+started within five minutes. The replay is sent in messages of at most 64 KiB, the first at once and
+then about one per second, independent of the batch keys above, so a full buffer drains in a few
+seconds. A live record logged meanwhile can arrive before the last replay messages. With the `logs` capability off, the buffer is not created and nothing is kept.
 
 Also as of v6.3.0, a batch of log records whose send fails, because the connection closed around it,
 is kept and sent before anything newer on the next attempt, so records still arrive in order
