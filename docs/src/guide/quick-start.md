@@ -89,13 +89,43 @@ UltiToolsPlugin also defines two lifecycle hooks, `onReload()` and `onUnregister
 instead.
 :::
 
-`onUnregister()` runs before the framework unregisters this module's commands and listeners, so the module's own beans are still alive during cleanup. `onReload()` runs after the framework's own reload steps: configuration reload, language catalogue refresh, and the reload log line described below.
+`onUnregister()` runs before the framework unregisters this module's commands and listeners, so the module's own beans are still alive during cleanup. `onReload()` runs after the framework's own reload steps: configuration reload and language catalogue refresh.
 
-On `/ul reload`, the framework logs one line naming the module before calling `onReload()`. A module whose existing override only logged its own reload no longer needs that log line and can delete the override. A module with real reload or unload work renames its existing `reloadSelf()`/`unregisterSelf()` override to `onReload()`/`onUnregister()`, with the method body unchanged.
+On `/ul reload`, the framework logs one line naming the module after `onReload()` has returned. A module whose existing override only logged its own reload no longer needs that log line and can delete the override. A module with real reload or unload work renames its existing `reloadSelf()`/`unregisterSelf()` override to `onReload()`/`onUnregister()`, with the method body unchanged.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/quickstart/MyPlugin.java
 
 Then you have completed an UltiTools module that does nothing.
+
+### Reload results
+
+As of v6.3.0, `/ul reload` and `/ul reload <name>` report what each module's reload actually did:
+
+- The framework logs the module's reload line only after `onReload()` has returned. If a reload step or `onReload()` throws, it logs one error line naming the module and the cause instead, never the success line.
+- `/ul reload <name>` replies success, or failure with the cause when the reload threw.
+- `/ul reload` reloads every module even when one of them fails, and replies with a summary: all modules reloaded, or which ones failed.
+
+A reload that completes only in part can say so without throwing. Override `onReload(ReloadReport report)` instead of `onReload()`, and record each part that did not reload with `report.partial(...)`:
+
+```java
+@Override
+protected void onReload(ReloadReport report) {
+    try {
+        scoreboardService.restart();
+    } catch (RuntimeException e) {
+        getLogger().error(e, "Scoreboard service did not restart");
+        report.partial("scoreboard service did not restart: " + e.getMessage());
+    }
+}
+```
+
+The framework then logs a warning naming those parts instead of the success line, `/ul reload <name>` replies with them instead of the success reply, and the `/ul reload` summary lists the module with them. The default `onReload(ReloadReport)` calls `onReload()`, so a module that overrides only `onReload()` behaves as before. Throw instead when the reload cannot continue at all. `reloadSelf()` keeps its signature, and `reloadWithReport()` runs the same reload and returns the `ReloadReport`, for a module's own reload command.
+
+The `language` setting in the framework's `config.yml` is one value for the whole server, and `/ul reload <name>` does not apply a changed value to one module. When it has changed on disk, the module keeps the language the framework runs with, and the reload is reported as partial, naming the old and new values and that a full `/ul reload` applies the change.
+
+### Loaded-module list
+
+As of v6.3.0, `getPluginManager().getPluginList()` returns an unmodifiable snapshot of the loaded modules, taken when you call it. Iterating it is safe from any thread, and adding to or removing from it throws `UnsupportedOperationException`. `PluginManager.unregister(...)` removes an unloaded module from the list itself.
 
 ## Use UltiTools-API
 
