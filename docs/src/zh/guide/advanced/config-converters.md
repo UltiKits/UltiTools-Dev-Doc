@@ -17,7 +17,7 @@ public interface ConfigConverter<T> {
 }
 ```
 
-`ConversionContext` 提供 `file()`、完整键不可变列表 `path()` 和包含泛型的 `declaredType()`。用 `ctx.toPlain(nested)` 转换嵌套运行值，`ctx.fromPlain(nested, type)` 转换嵌套声明类型。`ConversionException` 构造参数是原因、文件、完整路径、声明类型，可选底层原因；它提供定位转换失败信息。
+`ConversionContext` 提供 `file()`、完整键不可变列表 `path()` 和包含泛型的 `declaredType()`。用 `ctx.toPlain(nested)` 转换嵌套运行值，`ctx.fromPlain(nested, type)` 转换嵌套声明类型。`ConversionException` 构造参数是原因、文件、完整路径、声明类型，可选底层原因；它提供定位转换失败信息。自 v6.3.0 起，传入的原因会以 `(reason: ...)` 显示在给服主的跳过警告里，键名像密钥时与值一起脱敏，所以原因要写给服主看：说明该设置期望什么。
 
 ## 普通数据与往返
 
