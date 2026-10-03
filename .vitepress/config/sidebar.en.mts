@@ -83,6 +83,10 @@ const sidebarGuideEN: SidebarItemExt[] = [
                 link: 'advanced/config-validation'
             },
             {
+                text: 'Config Converters',
+                link: 'advanced/config-converters'
+            },
+            {
                 text: 'Module Load Ordering',
                 link: 'advanced/module-dependencies'
             },

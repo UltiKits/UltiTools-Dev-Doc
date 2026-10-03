@@ -38,11 +38,16 @@ Starting from v6.2.0, `DataOperator`, `Query`, and `UltiToolsPlugin.getDataOpera
 | `isNew()` | Returns `true` if the entity has no ID |
 | `copyWithoutId()` | Creates a copy of the entity without the ID. The entity class must implement `Cloneable`. |
 
-::: warning Lifecycle hooks are invoked by your code, not by the operator
-`onCreate()`, `onUpdate()`, `onDelete()` and `onLoad()` are declared on `BaseDataEntity`, but no read or write path in the JSON, MySQL or SQLite operators calls them, so an entity that overrides them stores exactly the same data as one that does not.
-Call the hook yourself around the operation, `entity.onCreate(); op.insert(entity);` before a write and `entity.onLoad();` on what a read returns: all four methods are public.
-Having the operators invoke the hooks is tracked in [issue #194](https://github.com/UltiKits/UltiTools-Reborn/issues/194).
-:::
+As of v6.3.0, the data operators call these hooks themselves, on the JSON, MySQL and SQLite backends alike:
+
+| Hook | Called by |
+|------|-----------|
+| `onCreate()` | `insert` and `insertAll`, on each entity, before its fields are written |
+| `onUpdate()` | `update(entity)`, `updateAll`, `updateCounted` and `updateIf`, on the entity passed in, before its fields are written, whether or not a row is then written |
+| `onDelete()` | `delById` and the Query DSL's `delete()`, on the stored entity, before it is removed; not called when no row has the id |
+| `onLoad()` | `getById`, `getAll`, `page`, `getLike` and the Query DSL reads built on them, once per entity returned |
+
+`update(column, value, id)`, `del(conditions)` and `exist(...)` do not read an entity and call no hook. Before v6.3.0 no operator called any of the four hooks.
 
 ### AuditableDataEntity <Badge type="tip" text="v6.2.0+" />
 
@@ -61,11 +66,7 @@ For entities that require audit tracking of creation and modification, use `Audi
 
 All four fields are pre-configured with `@Column` annotations and do not need to be declared in subclasses.
 
-::: warning The four audit columns stay NULL after an insert
-Because the operators do not call the lifecycle hooks, `onCreate()` and `onUpdate()` never run, so `created_at`, `updated_at`, `created_by` and `updated_by` are never written, `wasModified()` always returns `false`, and `getAge()` and `getTimeSinceUpdate()` always return `null`.
-Set the thread context with `AuditableDataEntity.setCurrentUser(uuid)`, call `entity.onCreate()` or `entity.onUpdate()` before the write, and clear the context in a `finally` block: without the context the two `by` fields stay null even when the hook runs.
-Having the operators invoke the hooks is tracked in [issue #194](https://github.com/UltiKits/UltiTools-Reborn/issues/194).
-:::
+As of v6.3.0 the operators fill the four columns through these hooks: `insert` sets `created_at` and `updated_at`, and `created_by` and `updated_by` when a current user is set; an update sets `updated_at`, and `updated_by` when a current user is set, and leaves `created_at` and `created_by` unchanged. A command handled by `BaseCommandExecutor` for a player sets that player as the current user while the command body runs, so writes made there record the player. Elsewhere, set the context yourself as shown below. Before v6.3.0 the operators did not call the hooks, and all four columns stayed NULL.
 
 #### User Context Management
 
@@ -223,6 +224,39 @@ try {
 ```
 
 This overload declares `throws IllegalAccessException`, so the calling method must declare or catch it.
+
+As of v6.3.0, every entity a read returns (`getById`, `getAll`, `page`, `getLike` and the Query DSL) is a copy, and `insert` stores a copy of the entity you pass. Changing an entity has no effect on the stored data until you pass it to `update(...)`, on every backend. Before v6.3.0 the JSON backend returned the instances it kept in memory, so there a change without `update(...)` was saved at the next flush, while MySQL and SQLite never saved it.
+
+As of v6.3.0, `update(T)`, `update(column, value, id)`, `delById` and `updateAll` throw `DataAccessException` when the id is `null`, because no row can be addressed by it; `updateAll` checks every entity before it writes any. Rows that UltiTools-API 6.2.0 stored on SQLite without an id are given one when the table is initialised: the id the entity reports through `getId()`, or a new UUID when it reports none, as long as the entity then reports that id. One console line names the table and the count; a row that no id would make addressable is left as it is and counted in a warning. Every write stores `getId()` in the `id` column, so an entity that overrides `getId()` onto another field is addressable by the value it reports.
+
+As of v6.3.0, an update by an id that no row has writes nothing and logs one warning naming the table and the id, on every backend, and returns normally. To learn whether the update wrote, call `updateCounted(entity)`, which returns `1` for a written row and `0` when no row has the id:
+
+```java
+if (dataOperator.updateCounted(entity) == 0) {
+    // The row was deleted by another writer: nothing was written.
+}
+```
+
+A `DataOperator` implementation outside the framework that does not override `updateCounted` is counted by whether a row with the id exists before its `update`.
+
+### Conditional Update <Badge type="tip" text="v6.3.0+" />
+
+`updateIf(entity, expected...)` writes the entity only while the stored row still matches every expected condition, and returns whether it wrote. Use it to update a value you read earlier without overwriting a change another writer made in between:
+
+```java
+Account read = dataOperator.getById(accountId);
+double seen = read.getBalance();
+read.setBalance(seen + amount);
+boolean written = dataOperator.updateIf(read,
+    WhereCondition.builder().column("balance").value(seen).build());
+if (!written) {
+    // Another writer changed the row first: read it again and decide again.
+}
+```
+
+On MySQL and SQLite the check and the write are one `UPDATE ... WHERE id = ? AND <conditions>` statement, so the result holds across servers that share one database. On the JSON backend the check and the write run under the operator's lock; a JSON store belongs to one server. The conditions mean what they mean in `getAll(WhereCondition...)`.
+
+`updateIf` returns `false`, and writes nothing, when no row with the entity's id matches every condition. It throws `DataAccessException` when the id is `null`, when a condition names a column the entity does not map with `@Column`, or when a condition's value is `null`, on every backend. A `DataOperator` implementation outside the framework that does not implement it throws `UnsupportedOperationException`.
 
 ### Delete
 
