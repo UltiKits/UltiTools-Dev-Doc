@@ -352,7 +352,27 @@ public void listPoint(@CmdSender Player player) {
 Asynchrony here is reserved for pure-CPU or I/O work. Any world, entity, block or chunk access an async body needs must be scheduled back onto the main thread as a synchronous task, `BukkitRunnable#runTask(...)` as in the example above or any other synchronous scheduler method such as `runTaskLater(...)`; the annotation never grants safe access to those APIs by itself. A handler whose body consists only of such state access has no reason to carry the annotation at all.
 :::
 
-An unannotated command body is not executed inline on the calling thread: the framework already defers it by one tick through `runTask()`. That deferral only changes when the body starts, not whether it can block the server: once the tick arrives, the whole body (including any expensive CPU or I/O work inside it) still runs synchronously on the main thread. Removing `@RunAsync` restores safe dispatch only for a handler that was never doing expensive work in the first place; a handler that mixes expensive work with Bukkit access keeps the expensive part off-thread and schedules only the Bukkit-touching part back onto the main thread through `runTask(...)`, the pattern shown above, rather than simply removing the annotation. Paper also does not guard every world, entity, block or chunk access from an async body: its asynchronous-operation checks cover a limited set of unsafe operations, so breaking the rule above can leave a handler running on unsafe or inconsistent state instead of crashing outright, and the absence of an exception is not evidence the code is safe. `@RunAsync` remains the right tool for a body that genuinely belongs off-thread and needs nothing more; when that body also needs a processing message, a timeout, or configurable behaviour around the boundary, use `@AsyncCommand` instead.
+An unannotated command body runs on the main thread. As of v6.3.0 it runs at the moment the command is dispatched when that happens on the main thread, and is deferred through `runTask()` only when the dispatch comes from another thread (before v6.3.0 every such body was deferred by one tick; see [When a command body runs](#when-a-command-body-runs) below). Either way the timing only changes when the body starts, not whether it can block the server: the whole body (including any expensive CPU or I/O work inside it) still runs synchronously on the main thread. Removing `@RunAsync` restores safe dispatch only for a handler that was never doing expensive work in the first place; a handler that mixes expensive work with Bukkit access keeps the expensive part off-thread and schedules only the Bukkit-touching part back onto the main thread through `runTask(...)`, the pattern shown above, rather than simply removing the annotation. Paper also does not guard every world, entity, block or chunk access from an async body: its asynchronous-operation checks cover a limited set of unsafe operations, so breaking the rule above can leave a handler running on unsafe or inconsistent state instead of crashing outright, and the absence of an exception is not evidence the code is safe. `@RunAsync` remains the right tool for a body that genuinely belongs off-thread and needs nothing more; when that body also needs a processing message, a timeout, or configurable behaviour around the boundary, use `@AsyncCommand` instead.
+
+### When a command body runs <Badge type="tip" text="v6.3.0+" />
+
+As of v6.3.0, a command body without `@RunAsync` or `@AsyncCommand` runs at the moment the command is dispatched, inside the dispatch, whenever that happens on the server's main thread. That is where Bukkit dispatches every command a player, the console, a command block, a command minecart, RCON or the panel's remote command sends. The body is deferred to the main thread with `runTask()` only when `onCommand` is called from another thread, as Bukkit's own commands behave. Before v6.3.0 every such body ran one tick after the dispatch, so its replies to a command block, a command minecart and RCON were lost: those senders read their output when the dispatch returns. The panel's remote command is not one of them: it runs as the server console, so its replies reach the panel through the log stream (see [Panel Integration](/guide/advanced/panel-integration#remote-command-results)). This applies to every module, including third-party ones.
+
+What to check in your module:
+
+- **Code that relied on the one-tick delay** must schedule that work itself with `runTask()`.
+- **An `InventoryClickEvent` handler**, including a GUI library's click callback, must not open or close an inventory directly, and must not call `performCommand` or `Bukkit.dispatchCommand` directly either. A module command dispatched there now runs its body, which may open or close an inventory, inside the click event, which Paper does not allow. Defer the call:
+
+```java
+icon.onClick(event -> {
+    event.setCancelled(true);
+    Bukkit.getScheduler().runTask(plugin, () -> player.performCommand("menu open shop"));
+});
+```
+
+- **A body that dispatches another command** runs the nested body on the same thread before its own has finished. The audit user that `AuditableDataEntity` writes into `created_by` and `updated_by` is saved before each body and restored after it: the nested body sees its own sender (none for a sender that is not a player), and the outer body sees its own sender again afterwards.
+- **A body that dispatches its own command** while it holds its `@UsageLimit` lock gets the nested dispatch refused; see [Execution lock](#execution-lock).
+- **Two dispatches of a `@CmdCD` command in the same tick** meet the cooldown: the second is refused, because the cooldown is recorded before the first dispatch returns.
 
 ### Command cooldown
 
@@ -374,6 +394,11 @@ method that throws still starts the cooldown, exactly as if it had returned norm
 does not distinguish success from failure. This is intentional: a command that errors out is still a
 server-resource cost, and a caller retrying an erroring command in a tight loop is exactly the pattern
 the cooldown exists to prevent.
+
+As of v6.3.0 an active cooldown is kept per executor instance as well as per mapping. One
+`CooldownValidator` shared by two executors of the same class, which happens when module code passes
+one `ValidatorChain` to both, no longer makes a player wait on executor B after using executor A. A
+dispatch refused before the method runs, for example by a wrong argument count, starts no cooldown.
 
 ::: tip A `@CmdCD` your validator chain cannot enforce now refuses to load <Badge type="tip" text="v6.3.0+" />
 As of v6.3.0, a class or method carrying `@CmdCD` whose validator chain has no `CooldownValidator` — most commonly a custom `ValidatorChain` that omits it, see [Creating Custom Validators](#creating-custom-validators) below — is refused at plugin load, naming the offending class and method. This closes the gap where the annotation looked declared but enforced nothing.
@@ -436,6 +461,15 @@ Under the `LimitType.SENDER` strategy, the player will receive a prompt: `Please
 
 Under the `LimitType.ALL` strategy, the player will receive a
 prompt: `Please wait for last Command Processing which sent by other players!`
+
+As of v6.3.0 a command body runs at dispatch on the main thread, so a body that dispatches its own
+command while holding its lock gets the nested dispatch refused with the message above (`SENDER`: from
+the same sender; `ALL`: from any sender). Acquiring the lock never waits, so nothing blocks, and the
+outer body's lock is released when it returns, normally or by throwing. Schedule the nested call with
+`runTask()` if it must run. Also as of v6.3.0, a lock taken during validation is released when the
+dispatch is then refused before the method runs: by the cooldown, which is checked after the lock, by
+a wrong argument count, or by a parameter that does not parse. Before v6.3.0 the lock stayed held until
+the player quit, and every later call of that mapping was refused.
 
 ::: tip @UsageLimit now genuinely serialises <Badge type="tip" text="v6.3.0+" />
 As of v6.3.0, acquisition is the gate: the lock is taken inside validation itself, so a blocked sender's invocation is rejected before the method runs, and an `ALL`-scope lock is released only by the sender who acquired it — a different sender's completion can no longer free it. Like `@CmdCD` above, a `@UsageLimit(SENDER|ALL)` whose chain has no `UsageLockValidator` refuses to load, naming the offending class and method; `LimitType.NONE` is exempt.
@@ -530,7 +564,7 @@ public void checkCooldown(UUID playerId, String methodKey) {
 }
 ```
 
-The cooldown validator is obtained through `getCooldownValidator()`, an instance field on `BaseCommandExecutor`. Each command executor holds its own instance, so this call only reports cooldown state for the current executor.
+The cooldown validator is obtained through `getCooldownValidator()`, an instance field on `BaseCommandExecutor`. Each command executor holds its own instance, so this call only reports cooldown state for the current executor. `methodKey` is `method.toString()` of the mapping method. When you pass one validator to several executors through a custom `ValidatorChain`, the string-keyed `getRemainingCooldown(UUID, String)` and `clearCooldown(UUID, String)` span all of them; as of v6.3.0 the overloads `getRemainingCooldown(UUID, Object executor, String methodKey)` and `clearCooldown(UUID, Object executor, String methodKey)` address one executor.
 
 #### UsageLockValidator
 

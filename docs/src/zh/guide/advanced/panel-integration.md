@@ -85,6 +85,10 @@ plugins/UltiTools/config.yml to change this.
 命令命名空间归一化不受本次变化影响：`bukkit:op` 与 `op` 在检查前会解析为同一个黑名单条
 目，检查点仍是原来唯一执行该归一化的位置。
 
+### 远程命令的结果
+
+自 v6.3.0 起，面板的远程命令以服务器控制台的身份运行，等同于在控制台中输入该命令，模块看到的仍是通常的控制台发送者。框架不捕获命令的回复：`command_result` 消息只说明命令已分派，文本为 `Command dispatched to the server console. Its output appears in the server log stream.`；分派返回 false 时为 `The server console did not accept the command. Any message it printed appears in the server log stream.`。回复本身与其他所有控制台输出一起，通过[实时日志流](#实时日志流)到达面板，因此需要开启 `logs` 能力才能看到。黑名单拒绝、空命令与分派错误的报告方式不变。v6.3.0 之前，结果里携带的是编造的 `Command executed successfully`，而不是回复。把 `output` 当作命令回复来显示的面板或工具，现在显示的是上面这句话。
+
 ## 远程文件 API 边界
 
 远程文件 API（`file-read`/`file-write`/`file-delete`）被限定在一组显式的可编辑根目录内，
@@ -171,7 +175,7 @@ ultipanel:
 
 ## 实时日志流
 
-`logs` 能力开启时，框架会在每次面板连接建立时挂上自己的日志处理器，并在连接保持期间持续把控制台日志记录发送给面板。
+`logs` 能力开启时，框架会在每次面板连接建立时挂上自己的日志处理器，并在连接保持期间持续把控制台日志记录发送给面板。自 v6.3.0 起，日志流完整镜像服务器控制台，见[日志流镜像服务器控制台](#日志流镜像服务器控制台)。自 v6.3.0 起，框架自己在这里写出或推送的行（玩家加入、退出与聊天，插件操作，在线玩家数，服务器状态与文件操作消息）遵循主插件配置中的 `language` 键，见 [I18n 多语言](/zh/guide/essentials/i18n)；v6.3.0 之前它们始终是中文。
 
 自 v6.3.0 起，动作为 `start`、`stop`、`pause` 或 `resume` 的 `log_stream` 或 `log_stream_control` 请求会收到一条说明该动作不受支持的错误响应，日志发送照常进行。v6.3.0 之前框架接受这四个动作，但在任何已发布版本上，它们都没有改变面板实际收到的内容。框架与面板中继之间只有一条连接，也无法识别连接背后的各个查看者，因此无法针对单个查看者暂停或停止日志流。暂停或隐藏实时日志视图由面板视图自己完成，例如不再渲染新的日志行。
 
@@ -226,25 +230,37 @@ ultipanel:
       - "warning"
       - "error"
     excluded-loggers:
-      - "com.mojang.authlib"
-      - "net.minecraft.network"
-      - "org.apache.http"
-      - "com.zaxxer.hikari"
-      - "org.eclipse.jetty"
+      - "Minecraft"
 ```
 
 | 键 | 默认值 | 作用 |
 |---|---|---|
 | `levels` | `info`、`warning`、`error` | 发送给面板的日志级别。能匹配到日志记录的名称是 `error`（`SEVERE`）、`warning`（`WARNING`）、`info`（`INFO`）与 `debug`（`CONFIG`、`FINE`、`FINER`、`FINEST`）。其他名称会被接受，不产生警告，也不匹配任何记录 |
-| `excluded-loggers` | 上面示例中的五个名称 | 记录器名称前缀，来自这些记录器的日志记录会被丢弃。你设置的列表会整体替换默认值，需要保留的默认项请一并写上 |
+| `excluded-loggers` | 空（自 v6.3.0 起） | 记录器名称前缀，来自这些记录器的日志记录会被丢弃。上面的示例会丢弃通过 `Bukkit.getLogger()` 输出的一切 |
 
 与批量发送的键一样，框架在每次面板连接建立时读取这两个键，因此修改后的值同样需要重启服务器来应用。框架直接发送给面板的少数条目，例如玩家进入、离开服务器和聊天的日志行，不经过日志处理器，这两个键对它们不起作用。聊天日志行在 `player-events` 能力开启时发送，即使 `levels` 中没有 `debug`，它们也以 `debug` 级别到达面板。
 
 每个 `excluded-loggers` 条目都会与发出该记录的 `java.util.logging` 记录器名称的开头比较，区分大小写，因此 `org.apache` 这样的条目也会排除 `org.apache.http` 以及其他所有以它开头的名称。发送给面板的条目中不包含这个名称。条目的 `logger` 字段是框架根据自己对记录的分类得出的标签：`com.ultikits.ultitools` 下的记录器为 `UltiTools`，名称中含有 `plugin` 的其他记录器为从记录器名称中取出的一个名称，服务器记录器为 `MinecraftServer`，其余为 `database`、`network` 或 `system`。把这个标签抄进 `excluded-loggers`，只会匹配到名称恰好以它开头的记录器。例如，`MinecraftServer` 这个条目不会匹配任何标签为 `MinecraftServer` 的记录，因为框架把这个标签给了 `Minecraft`、`net.minecraft.*` 这类服务器记录器，而不是名为 `MinecraftServer` 的记录器。
 
+`java.util.logging` 记录的记录器名称有三种：`Minecraft`（通过 `Bukkit.getLogger()` 输出的一切，包括框架自己的 `[UltiTools-API] ...` 行）、插件自己的名称，以及 `com.ultikits.ultitools.*` 类记录器。Paper 通过 Log4j 输出的行，以及通过 Log4j 或 SLF4J 输出日志的库（例如 authlib、Netty、HikariCP 与 Jetty），经由下文的控制台镜像到达日志流，使用它们在 Log4j 中的记录器名称，`excluded-loggers` 条目对它们同样适用。v6.3.0 之前日志流只接收 `java.util.logging` 记录，默认列表写的是五个 Log4j 或 SLF4J 库，什么也没有过滤；自 v6.3.0 起默认列表为空，日志流因此显示整个控制台（[#485](https://github.com/UltiKits/UltiTools-Reborn/issues/485)）。
+
 自 v6.3.0 起，在 `levels` 中加入 `debug` 会把调试记录发送给面板。v6.3.0 之前，日志处理器自身的级别阈值固定为 `INFO`，`CONFIG`、`FINE`、`FINER` 与 `FINEST` 记录在检查 `levels` 之前就被丢弃，`debug` 因此不起作用。现在只要 `debug` 在列表中，框架就会降低这个阈值。框架不会修改任何记录器的级别，所以只有当发出调试记录的记录器本身的级别允许该记录通过时，它才会到达面板。
 
 自 v6.3.0 起，`levels` 不再影响错误自动上报。日志处理器会把每一条携带异常的 `SEVERE` 记录交给错误上报（`ultipanel.logging.error-reporting`），无论 `error` 是否在 `levels` 中。v6.3.0 之前，级别不在 `levels` 中的记录会在这一步之前被丢弃，因此从 `levels` 中移除 `error` 也会停止这部分上报。`logs` 能力关闭时日志处理器不会挂上，因此这部分上报也依赖该能力。排除在这两步之前进行：来自被排除记录器的记录既不会发送给面板，也不会作为错误上报。在其他位置产生的错误上报，例如命令执行时抛出的异常，不经过日志处理器，这两个键对它们不起作用。
+
+### 日志流镜像服务器控制台
+
+自 v6.3.0 起，`logs` 能力开启时，日志流显示的就是服务器控制台显示的内容。Paper 的大部分输出通过 Log4j 打印：命令反馈、模块对控制台发送者的回复、玩家加入与退出、聊天、原版的警告与错误，以及玩家的命令行。v6.3.0 之前这些都不会到达面板。框架现在在加载时于 Log4j 的根记录器上安装一个 appender，在禁用时移除它。每一行都与插件日志行一样经过相同的过滤、批量发送与启动回放，并去掉 ANSI 颜色码。
+
+这个镜像是完整且未脱敏的，包含带参数的玩家命令行，例如 `<player> issued server command: /login <password>`。面板与控制台处于同一信任级别，控制台显示什么，面板就可以显示什么。不希望如此的运营者应保持 `logs` 能力关闭。
+
+插件日志行只会到达一次，尽管 Paper 也会把它复制进 Log4j。与面板连接有关的行、日志发送器自己的行以及 WebSocket 库（`org.java_websocket.*`）的行永远不会被发送。服务器的 Log4j 配置使用异步记录器时，镜像不会安装，控制台会输出一条警告说明这一点，日志流只包含插件日志行。携带异常的 Log4j `ERROR` 行还会向面板的错误收集上报一次。`org.apache.logging.log4j:log4j-core`（2.24.1）是框架的 `provided` 依赖，由 Paper 在运行时提供，不会被打包，模块无需做任何改动。
+
+### 启动阶段的日志与发送失败
+
+自 v6.3.0 起，从框架加载到面板连接建立之间输出的日志记录（例如模块加载与依赖解析），也会进入日志流。框架把它们保存在启动缓冲区中，在日志流开始时最先发送、从最早的一条开始（[#487](https://github.com/UltiKits/UltiTools-Reborn/issues/487)）。缓冲区只保存 `INFO` 及以上、且未被 `excluded-loggers` 排除的记录，最多 2000 条（估计约 512 KiB）；服务器没有云端登录，或日志流在五分钟内没有开始时，缓冲区会被释放，不发送任何内容。回放按每条不超过 64 KiB 的消息发送，第一条立即发出，之后大约每秒一条，与上文的批量发送键无关，因此装满的缓冲区几秒内即可发完。回放期间新产生的实时记录可能先于最后几条回放消息到达。`logs` 能力关闭时不会创建缓冲区，也不保存任何记录。
+
+同样自 v6.3.0 起，一批日志记录如果因为连接恰在发送时关闭而发送失败，会被保留下来，在下一次发送时先于任何更新的记录发出，因此记录仍按顺序到达（[#486](https://github.com/UltiKits/UltiTools-Reborn/issues/486)）。投递仍是尽力而为：连接恰在一批记录写出之后断开时，这批记录可能到达两次。到达的记录多于日志流能发送的数量时，队列保留最新的 1000 条，框架最多每分钟一次在服务器日志中用一条警告报告丢弃了多少条。
 
 服务器运行期间，上文所述动作为 `config` 的 `log_stream` 请求也可以携带 `levels` 数组。自 v6.3.0 起框架会应用它；v6.3.0 之前该字段会被忽略。只要有一个名称不属于上述四个，整个请求都会被拒绝；空数组会让所有级别都不启用。以这种方式设置的级别会保持到下一次面板连接建立，届时框架会按 `config.yml` 重新创建日志处理器，`config.yml` 中没有 `levels` 时则使用默认值。这个请求没有用于排除记录器的字段。
 

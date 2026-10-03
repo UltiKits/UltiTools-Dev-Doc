@@ -26,6 +26,10 @@ Minecraft runs at 20 ticks per second: 1 second is 20 ticks, 1 minute is 1,200 t
 
 As of v6.3.0, `period` and `delay` can instead be read from a config key through `config`, `periodKey` and `delayKey`; see [Config-Bound Timing](#config-bound-timing).
 
+## Inherited Methods
+
+As of v6.3.0 the framework looks for `@Scheduled` methods on the bean class and on its superclasses, so a method an abstract base service declares is scheduled for every bean that extends it. An overridden method is scheduled once, with the annotation on the most derived declaration. An override that does not carry `@Scheduled` itself is not scheduled, because Java does not inherit annotations on methods. Before v6.3.0 only the bean class's own declared methods were scanned, and a `@Scheduled` method inherited from a superclass never ran ([#532](https://github.com/UltiKits/UltiTools-Reborn/issues/532)).
+
 ## One-Time Delayed Task
 
 Set only `delay` (leave `period` at default `-1`) to run a task once after a delay:
@@ -117,7 +121,7 @@ A task whose value did not change is not touched. An invalid value on reload is 
 ### Binding restrictions
 
 - Sync only. A bound method cannot be `async = true`; that combination is refused at load. Bind a sync task and hand the heavy work to `Bukkit.getScheduler().runTaskAsynchronously(...)` from its body. Literal `async` tasks are unaffected. Issue [#535](https://github.com/UltiKits/UltiTools-Reborn/issues/535) tracks allowing async bindings.
-- Declared methods only. The binding is found on the bean class's own declared methods, the same as an unbound `@Scheduled`. A method inherited from a superclass is neither scheduled nor checked, so declare the bound method on the bean class itself ([#532](https://github.com/UltiKits/UltiTools-Reborn/issues/532)).
+- Inherited methods included. As of v6.3.0 the binding is found on the same methods as an unbound `@Scheduled`, including one inherited from a superclass, which is scheduled and checked at load like one the bean class declares. (Before v6.3.0 only the bean class's own declared methods were scanned, and a method inherited from a superclass was neither scheduled nor checked, [#532](https://github.com/UltiKits/UltiTools-Reborn/issues/532).)
 - No `@Range` on a bound field. The binding's range above is the field's range. A module `@Range` on the same field would make an out-of-range reload throw from the config reload itself, which aborts the rest of that module's reload ([#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509)) instead of keeping the running value. If the field already had a `@Range` before you bound it, remove it.
 - Modules only. A binding on a bean of an [External Plugin API](/guide/advanced/external-plugin-api) plugin is refused.
 

@@ -26,6 +26,10 @@ Minecraft 以每秒 20 tick 的速率运行：1 秒等于 20 tick，1 分钟等�
 
 自 v6.3.0 起，`period` 和 `delay` 也可以通过 `config`、`periodKey`、`delayKey` 从配置项读取，见[绑定到配置项的时间](#绑定到配置项的时间)。
 
+## 继承的方法
+
+自 v6.3.0 起，框架会在 Bean 类及其父类上查找 `@Scheduled` 方法，因此抽象基础服务声明的方法，会为每一个继承它的 Bean 调度。被重写的方法只调度一次，使用最末一级声明上的注解。自身没有标注 `@Scheduled` 的重写方法不会被调度，因为 Java 不会继承方法上的注解。v6.3.0 之前只扫描 Bean 类自身声明的方法，从父类继承的 `@Scheduled` 方法从不执行（[#532](https://github.com/UltiKits/UltiTools-Reborn/issues/532)）。
+
 ## 一次性延迟任务
 
 只设置 `delay`（`period` 保持默认 `-1`）即可在延迟后执行一次：
@@ -117,7 +121,7 @@ public class InterestService {
 ### 绑定的限制
 
 - 只支持同步任务。 被绑定的方法不能设置 `async = true`，这种组合会在加载时被拒绝。请绑定一个同步任务，再在方法体中通过 `Bukkit.getScheduler().runTaskAsynchronously(...)` 执行耗时工作。使用字面量的 `async` 任务不受影响。允许异步绑定的工作由 issue [#535](https://github.com/UltiKits/UltiTools-Reborn/issues/535) 跟踪。
-- 只查找本类声明的方法。 与未绑定的 `@Scheduled` 一样，绑定只在 Bean 类自身声明的方法上查找。从父类继承的方法既不会被调度，也不会被检查，因此请把被绑定的方法声明在 Bean 类本身（[#532](https://github.com/UltiKits/UltiTools-Reborn/issues/532)）。
+- 包括继承的方法。 自 v6.3.0 起，绑定与未绑定的 `@Scheduled` 在同样的方法上查找，包括从父类继承的方法，它会像 Bean 类自身声明的方法一样被调度、在加载时被检查。（v6.3.0 之前只查找 Bean 类自身声明的方法，从父类继承的方法既不会被调度，也不会被检查，[#532](https://github.com/UltiKits/UltiTools-Reborn/issues/532)。）
 - 被绑定的字段不要加 `@Range`。上述绑定范围就是该字段的范围。如果同一字段上还有模块自己的 `@Range`，重载时超出范围的值会让配置重载本身抛出异常，进而中止该模块其余的重载步骤（[#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509)），而不是保留当前正在使用的值。如果字段在绑定之前已经带有 `@Range`，请将其删除。
 - 只支持 UltiTools 模块。 [外部插件 API](/zh/guide/advanced/external-plugin-api) 插件的 Bean 上的绑定会被拒绝。
 
