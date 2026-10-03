@@ -23,7 +23,7 @@ public interface ConfigConverter<T> {
 
 As of v6.3.0, plain data is null, `String`, `Boolean`, `Integer`, `Long`, `BigInteger`, `Double`, lists and string-keyed maps of plain data. Return neither Bukkit `MemorySection` nor an arbitrary Java bean. UUIDs, enums and `BigDecimal` use text through their built-in converters. A registered Bukkit `ConfigurationSerializable` uses its serialization alias and plain map; a value read into an `Object` field stays plain, rather than automatically constructing a Bukkit object.
 
-Your converter must satisfy forward equality for every value `x` of the declared type whose collections and arrays contain no null element. Typed collections (including `List<Object>`) and reference arrays (including `Object[]`) omit null elements on write with one located warning per field; reading keeps its existing behavior. Null map values and null whole fields still round-trip. Plain data in a declared `Object` slot is unchanged. Reverse equality applies to canonical plain values `p` emitted by the converter (`p = toPlain(x)`):
+Your converter must satisfy forward equality for every value `x` of the declared type whose collections and arrays contain no null element. Typed collections (including `List<Object>`) and reference arrays (including `Object[]`) omit null elements on write with one located warning per field; a null element of a typed collection read from the file is skipped with a located warning, as in 6.2. Null map values and null whole fields still round-trip. Plain data in a declared `Object` slot is unchanged. Reverse equality applies to canonical plain values `p` emitted by the converter (`p = toPlain(x)`):
 
 ```text
 fromPlain(toPlain(x)) equals x
