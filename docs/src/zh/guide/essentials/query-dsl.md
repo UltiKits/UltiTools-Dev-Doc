@@ -102,7 +102,7 @@ List<PlayerEntity> pageResults = dataOperator.query()
 | `first()` | `T`（可为null） | 返回第一个匹配结果，无匹配则返回 `null` |
 | `exists()` | `boolean` | 存在匹配结果则返回 `true` |
 | `count()` | `long` | 统计匹配结果数量 |
-| `delete()` | `int` | 删除匹配结果，返回删除数量 |
+| `delete()` | `int` | 删除匹配结果，返回实际删除的行数 |
 
 ```java
 // 检查玩家是否有家
@@ -120,6 +120,8 @@ int deleted = dataOperator.query()
     .where("world").eq("old_world")
     .delete();
 ```
+
+自 v6.3.0 起，`delete()` 返回后端实际删除的行数，其他写入方先删掉的匹配行不计入。匹配到的行中有 id 为 `null` 的行时，`delete()` 在删除任何内容之前抛出 `DataAccessException`，因为没有任何删除操作能定位这一行。
 
 ## 完整示例
 
