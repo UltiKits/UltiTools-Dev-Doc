@@ -47,7 +47,9 @@ As of v6.3.0, a module declaring several missing `depends` targets at once is na
 
 ## A required server plugin is missing
 
-As of v6.3.0, a module whose `plugin.yml` lists a server plugin under `depend:` that is not installed or not enabled, and whose classes therefore cannot load, is refused with one console line and no stack trace — for example `[UltiTools-API] Module 'UltiTools-Economy' requires Vault, which is not installed or not enabled; the module is not loaded.` Any other load failure, including one while every `depend:` plugin is present, still prints the `Cannot initialize plugin for …` line with its trace ([issue #554](https://github.com/UltiKits/UltiTools-Reborn/issues/554)).
+As of v6.3.0, a module whose `plugin.yml` lists a server plugin under `depend:` that is not installed is refused before it is constructed, with one console line and no stack trace, for example `[UltiTools-API] Module 'UltiTools-Economy' requires Vault, which is not installed or not enabled; the module is not loaded.` Nothing of the module runs: it is not constructed, no resource is extracted and no class is scanned. This also refuses a module that lists an uninstalled plugin under `depend:` but never used that plugin's classes while loading, which used to load anyway; Bukkit itself refuses a plugin whose `depend:` is missing.
+
+A required plugin that is installed but not enabled yet is not refused early, because it may still be enabled after UltiTools. In that case the module is refused only if loading fails because that plugin's classes are missing, with the same single line. Any other load failure, including one while every `depend:` plugin is present, still prints the `Cannot initialize plugin for …` line with its trace ([issue #554](https://github.com/UltiKits/UltiTools-Reborn/issues/554)).
 
 ## Duplicate `plugin.yml` names
 

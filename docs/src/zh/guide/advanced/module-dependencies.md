@@ -47,7 +47,9 @@ loadAfter:
 
 ## 缺少必需的服务器插件
 
-v6.3.0 起，如果模块的 `plugin.yml` 在 `depend:` 中列出的某个服务器插件没有安装或没有启用、模块的类因此加载不了，该模块会被拒载，控制台只输出一行、不打印堆栈——例如 `[UltiTools-API] Module 'UltiTools-Economy' requires Vault, which is not installed or not enabled; the module is not loaded.`（中文环境下为对应的中文译文）。其他任何加载失败，包括 `depend:` 中的插件都在时发生的失败，仍然输出 `Cannot initialize plugin for …` 那一行及其堆栈（[issue #554](https://github.com/UltiKits/UltiTools-Reborn/issues/554)）。
+v6.3.0 起，如果模块的 `plugin.yml` 在 `depend:` 中列出的某个服务器插件没有安装，该模块会在构造之前被拒载，控制台只输出一行、不打印堆栈——例如 `[UltiTools-API] Module 'UltiTools-Economy' requires Vault, which is not installed or not enabled; the module is not loaded.`（中文环境下为对应的中文译文）。模块的任何部分都不会运行：不构造、不释放资源、不扫描类。这也会拒载那些在 `depend:` 中列出了未安装插件、但加载时从未用到该插件的类的模块，它们以前照常加载；Bukkit 自己也会拒绝 `depend:` 缺失的插件。
+
+所需插件已安装但尚未启用时不会被提前拒载，因为它仍可能在 UltiTools 之后启用。这种情况下，只有当加载因该插件的类缺失而失败时，模块才会被拒载，输出同样的一行。其他任何加载失败，包括 `depend:` 中的插件都在时发生的失败，仍然输出 `Cannot initialize plugin for …` 那一行及其堆栈（[issue #554](https://github.com/UltiKits/UltiTools-Reborn/issues/554)）。
 
 ## 重复的 `plugin.yml` 名称
 
