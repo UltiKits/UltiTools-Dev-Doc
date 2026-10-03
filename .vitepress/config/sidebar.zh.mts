@@ -81,6 +81,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
                 link: 'advanced/config-validation'
             },
             {
+                text: '配置转换器',
+                link: 'advanced/config-converters'
+            },
+            {
                 text: '模块加载顺序',
                 link: 'advanced/module-dependencies'
             },
