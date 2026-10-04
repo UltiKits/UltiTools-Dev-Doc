@@ -59,7 +59,7 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 
 自 v6.3.0 起，`path` 中的点仍表示嵌套路径，例如 `chat.aliases`。绑定映射里的键则完整保留，支持 `g.m`、`o.O`、`wave.`。6.2 已经拆开的文件原样读取，不自动合并；`Map<String, String>` 中形状为嵌套映射的值跳过并警告。
 
-字面 `comment` 在键首次加入时写入。恰好是一个去除首尾空白后的语言 token（例如 `comment = "{config.limit}"`）时，每次加载和写入按框架当前 `language` 从模块语言目录解析。自 v6.3.0 起，`/ul reload` 重建模块语言之后还会再解析一次，因此切换 `language` 后执行 `/ul reload` 即可改写这些注释，无需重启。这次刷新只改注释行：值、服主写入的无效值以及为恢复默认而删除的键都保持原样，无法读取或解析的文件、以及使用了 YAML 锚点、别名或合并键的文件（改写会把它们展开）不会被改动（[#594](https://github.com/UltiKits/UltiTools-Reborn/issues/594)）。该项块注释归框架所有，服主在这里的文字会被替换；字面项已有的服主注释保持。目录缺键时保留 token 并警告一次，写 YAML 注释前清理换行和控制字符。
+字面 `comment` 在键首次加入时写入。恰好是一个去除首尾空白后的语言 token（例如 `comment = "{config.limit}"`）时，每次加载和写入按框架当前 `language` 从模块语言目录解析。该项块注释归框架所有，服主在这里的文字会被替换；字面项已有的服主注释保持。目录缺键时保留 token 并警告一次，写 YAML 注释前清理换行和控制字符。
 
 自 v6.3.0 起，`parser` 保持默认即使用声明类型转换器注册表。显式非默认旧解析器收到的恰好是 6.2 给它们的输入：通过全新的 Bukkit `YamlConfiguration#get` 得到的隔离输入，保留 6.2 配置节拆分点号键的行为，并在根值、列表和映射内部反序列化 `==` 别名；显式使用旧解析器的 `Object` 字段也一样。这条输入路径不使用注册表转换器，输出仍经过普通数据边界并保留包装数值拓宽。Bukkit 自身的别名限制不变：Vector 坐标为整数时反序列化为 null，带小数部分时正常反序列化。六项相关声明在 6.3.0 首次带 `forRemoval`，公告删除版本为 6.4.0。新代码使用[配置转换器](/zh/guide/advanced/config-converters)，不再继承 `DefaultConfigParser`。
 
