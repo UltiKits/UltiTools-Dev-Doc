@@ -68,7 +68,15 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 
 As of v6.3.0, `path` still splits at every dot: `chat.aliases` is a nested entry path. Keys inside a bound map are whole keys, so `g.m`, `o.O` and `wave.` are supported. Files already split by 6.2 are read as written, without automatic recombination; a nested value in a `Map<String, String>` is skipped with a warning.
 
-A literal `comment` is supplied when its key is first added. A comment that is exactly one trimmed language token, such as `comment = "{config.limit}"`, is resolved through the module catalogue in the current framework `language` on every load and write. That entry's block comment is framework-owned: operator text there is replaced, while literal-entry operator comments remain. Missing catalogue keys retain the token and warn once; line breaks/control characters are sanitized before YAML comments are created.
+A literal `comment` is written when its key is inserted. A comment that is exactly one trimmed language token, such as `comment = "{config.limit}"`, is resolved through the module catalogue in the current framework `language`. As of v6.3.0 the framework rewrites only the comment lines it can identify as its own: the entry's comment, or its trailing run of lines, equal byte for byte (the entry's column, `# ` and the text) to its rendering of the token in a catalogue the module's jar ships, of the text the module resolves now, of the bare token, or of an older shipped text listed in `previousComments`. An operator's note above the entry, a framework comment the operator edited and every literal comment are kept byte for byte. Start-up and `/ul reload` refresh the framework's lines in the current language; a save, an operator change and a panel edit rewrite no comment. Missing catalogue keys retain the token and warn once; line breaks/control characters are sanitized before YAML comments are created.
+
+When a module changes the catalogue wording of a token comment, servers that upgraded still hold the old text. List that text so it keeps following the language:
+
+```java
+@ConfigEntry(path = "lock.timeout", comment = "{config.lock.timeout}",
+        previousComments = {"Lock timeout in seconds"})
+private int lockTimeout = 30;
+```
 
 As of v6.3.0, leave `parser` at its default to use the declared-type converter registry. Explicit non-default legacy parsers receive exactly the input 6.2 gave them: detached input through a fresh Bukkit `YamlConfiguration#get`, preserving 6.2 section-based dotted-key splitting and `==` alias deserialization at the root and inside lists/maps, even for explicitly parsed `Object` fields. This input does not use registry converters; output still crosses the plain-data boundary and retains boxed widening. Bukkit's own alias restrictions remain: integral Vector coordinates deserialize to null, whereas fractional coordinates deserialize normally. Six parser-related declarations first carry `forRemoval` in 6.3.0, with removal announced for 6.4.0. New code uses [Config Converters](/guide/advanced/config-converters), not a `DefaultConfigParser` subclass.
 
@@ -101,13 +109,10 @@ SomeConfig someConfig = SomePlugin.getInstance().getConfig(SomeConfig.class);
 Now you can use the `getter` and `setter` methods to operate the configuration file.
 
 ::: tip Set and Save
-
-After you set a value of a configuration you don't need to save it, UltiTools will automatically save it when disabling.
-However, if you want to save it immediately, you can call the `save` method.
-
+As of v6.3.0 nothing is saved when the server stops. Call `save()` when your code makes a change that should reach the file.
 :::
 
-As of v6.3.0, shutdown first saves dirty registered configurations before any module unload. It saves each same owner's dirty configurations again after the unload hook and container `@PreDestroy` callbacks, before owner release, even when cleanup throws. Protected-file refusal and per-entity save failure isolation remain; runtime unload, failed registration and superseded-owner teardown add no save. A clean live configuration is not rewritten merely because an operator edited its disk file. Pending code edits may overwrite operator values; a successful replacement warns once naming the file and only the keys actually overwritten, never their values. Panel edits acknowledge only touched fields, so unrelated unsaved fields remain dirty.
+As of v6.3.0, nothing writes configuration at server stop, module unload or module replacement. A module change that was never saved is named in one WARNING, listing the file and the keys but never values, and is dropped; `ConfigManager#saveAll()` writes nothing and is deprecated. An edit an operator makes to the file while the server runs is never touched by a stop. A file that could not be read or parsed at its last load is named once instead. Panel edits acknowledge only touched fields, so unrelated unsaved fields stay unsaved.
 
 Initialization, reload and ConfigManager registry operations are server-thread confined while a server runs. Off-thread void operations warn and do nothing; registry getters, JSON readers/writers warn and throw `IllegalStateException`. Panel update/upload/reconnect callbacks queue their complete operation on the server thread and reply after it runs. Entity monitors serialize persistence, but your own asynchronous field mutation is not protected by those monitors. Schedule module mutations/reloads on the server thread.
 
@@ -117,9 +122,8 @@ The module's `getConfig(Class)` returns an entity and remains available. The ent
 boolean something = someConfig.getSomething();
 ```
 
-::: tip
-Although UltiTools lets you modify and save the configuration file from code, doing so is discouraged: it produces unexpected changes for users and, once your code has changed a configuration, can overwrite edits they made to its file while the server was running.
-Configuration exists for the user to read and edit, so whether to apply a change is the user's call and your code should only write in response to an explicit user action.
+::: tip Who writes configuration
+Configuration is the operator's to read and edit. Write to it only for a change the operator asked for, preferably with `saveOperatorChange` or `saveOperatorMapEntry` (see [Saving configuration files](#saving-configuration-files)).
 For data your own plugin needs to persist, use [Data Storage](/guide/essentials/data-storage) instead.
 :::
 
@@ -154,19 +158,85 @@ Available validation annotations: `@Range`, `@NotEmpty`, `@Size`, `@Pattern` (fr
 
 ## Saving configuration files
 
-As of v6.3.0, an edited save emits the full document through SnakeYAML. Content, comment text, key order and supported quote/list/line-ending/BOM/final-newline styles are preserved; operator layout may normalize. Aligned comment spacing, flow spacing, mixed indentation, document markers and trailing spaces are not byte guarantees. A semantic no-op does not write, preserving exact bytes and modification time. An explicit save compares against current disk content and may overwrite an operator change even if the entity was clean.
+### Write contract
+
+As of v6.3.0 the framework never overwrites configuration an operator wrote, unless the operator asked for that change. What code may write depends on who owns the file:
+
+| File | Code may write |
+|---|---|
+| A configuration file the module ships (`config.yml`, `spawn.yml`) | the file, the first time, when it does not exist; a declared key the file lacks and the framework's own comments, inserted only; exactly the setting an operator asked to change through a command, the panel or a GUI; a value that still equals the shipped text, re-rendered after a language switch |
+| A file the operator creates (a kit, a menu) | the file, on the operator's create action; on an edit, only the edited part |
+
+Nothing else is written: no save at stop, unload or replacement, no repair of an invalid value, no layout normalization and no cleanup of map keys that 6.2 split at their dots.
+
+Every write goes through one write gate. A write declares the keys it owns; after rendering, every byte outside them must equal the file as read, and the file must still hold the bytes it was read from. Otherwise nothing is written: one WARNING names the file, the keys and the reason, never a value, and the values in memory are used.
+
+Official language files are the one exception. They are framework-owned and may be replaced on upgrade; to customise text, copy an official file under a new name, edit the copy and select it in the main configuration (see [Internationalization](/guide/essentials/i18n)).
+
+### `save()`
+
+As of v6.3.0, `save()` writes only the settings the module changed since the last load or save, and only where the file still holds the value it was read with. A setting declared as a `Map` is written entry by entry; a list, or a Bukkit value such as a `Location` or `Vector`, is written whole or not at all. A save never inserts a key the file lacks, never rewrites a comment and never removes a map entry the module did not remove.
+
+A value the operator edited on disk, a key the operator deleted and a value the framework could not use (`interval: 3O0`) are therefore never written over. The module's change stays in memory and one WARNING names the key. The comparison uses the text last read: after an operator edits a setting on disk without `/ul reload`, even one that keeps its value such as `64` to `64.0`, the module's next change of that setting is not written until a reload reads the file again. A save with nothing to write leaves the bytes and the modification time unchanged.
+
+### Operator commands
+
+A command that changes exactly one thing at the operator's request uses one of two methods added in v6.3.0. The operator's request is the consent: the module's value replaces what the file holds at the named keys, and nothing else is written.
+
+```java
+// /setspawn: write exactly the six location settings
+config.setSpawn(player.getLocation());
+config.saveOperatorChange("spawn.location.world", "spawn.location.x", "spawn.location.y",
+        "spawn.location.z", "spawn.location.yaw", "spawn.location.pitch");
+
+// /autoreply add <name>: write exactly one map entry; entries the operator added by hand stay
+config.getRules().put(name, rule);
+try {
+    config.saveOperatorMapEntry("autoreply.rules", name);
+} catch (ConfigWriteRefusedException refused) {
+    config.getRules().remove(name); // keep memory equal to the file
+    sender.sendMessage("Not saved: " + refused.getReason());
+}
+```
+
+Naming a map setting in `saveOperatorChange` writes the whole map and drops entries the operator added by hand; use `saveOperatorMapEntry` for a command that changes one entry. A refusal throws `com.ultikits.ultitools.config.ConfigWriteRefusedException`, an `IOException` whose `getReason()` names the reason without a value: reply that nothing was saved and why, and roll back the in-memory change so the running state matches the file. A path that is not a declared entry throws `IllegalArgumentException`. Both methods run on the server thread.
+
+### Refused writes
+
+A write is refused when the file cannot be read or parsed, uses YAML anchors, aliases or merge keys, changed since it was read, or has a layout the renderer cannot write back byte for byte. A layout refusal names the line to fix, for example `the file's layout outside the keys this write owns would change (line 16)`.
+
+Layouts that refuse every write to the file include a line of only spaces, a trailing space after a value, an inline comment aligned with several spaces, more than one space after a colon, spaces inside flow brackets (`[ a ]`), a `---` or `...` marker, a block scalar followed by a blank line, a comment indented deeper than the key below it, two indentation widths in one file and mixed line endings. None of the files the framework and its modules ship has such a layout. The operator fixes the named line, or runs `/ul reload` after "the file changed since it was read", and repeats the change.
+
+A 0-byte file, a file of blank lines and a file of comments at the start of their lines count as empty: start-up inserts the declared keys. A file of spaces, a comment-only file with an indented comment and a file holding only a byte-order mark are refused as layouts.
+
+### Operator files a module manages
+
+As of v6.3.0, `com.ultikits.ultitools.config.OperatorFiles` writes a YAML file a module manages for the operator, such as a kit file, on an explicit operator edit. It writes only the named keys, through the same gate, and only while the file still holds the bytes it was read with:
+
+```java
+OperatorFiles.Snapshot snapshot = OperatorFiles.read(kitFile);
+Map<List<String>, Object> edit = new LinkedHashMap<>();
+edit.put(Arrays.asList(kitName, "items"), serializedItems); // plain data only
+OperatorFiles.WriteResult result = OperatorFiles.write(snapshot, edit);
+```
+
+The result is `WRITTEN`, `UNCHANGED`, `FILE_CHANGED` (the file changed since `read`) or `REFUSED` (a layout or anchors, with the gate's WARNING). Each key in the list is one whole key, so a name containing `.` stays one key. `OperatorFiles` never creates, deletes or renames a file and is not for `@ConfigEntity` files.
+
+### Atomic replacement
 
 Comments on individual list items are kept only while the list keeps its length — the same as Bukkit, which keeps none.
 
-Writes first force a same-directory temporary, then replace atomically. Only unsupported atomic move, EBUSY/cross-device or permitted temporary-creation refusal allows backed in-place fallback. `<file>.bak` is forced before the target is opened; an existing backup is refreshed from current raw target bytes through a forced temporary and atomic backup replacement. A backup refusal leaves target and previous backup untouched. A later in-place failure may leave a partial target with complete backup retained. Only a successful strict current-file load removes it; there is no automatic restoration.
+Writes first force a same-directory temporary, then replace atomically. Only unsupported atomic move, EBUSY/cross-device or permitted temporary-creation refusal allows backed in-place fallback. As of v6.3.0 the backup is named `<file>.ultitools-backup-<16 hex>` and is forced before the target is opened; a backup this server run wrote for the same file, still holding what it wrote, is refreshed from the current target through a forced temporary and atomic replacement. An operator's own `<file>.bak` is never read, written or deleted. A backup refusal leaves target and previous backup untouched. A later in-place failure may leave a partial target with complete backup retained. Only a successful strict current-file load removes it, and only while its bytes still match what was written; there is no automatic restoration.
 
 Unreadable, malformed or non-UTF-8 files are protected on every entity write route. Initial failure uses defaults; failed reload keeps running fields. One SEVERE names the file and safe cause, without source snippets. Only a later successful load clears protection. Validation precedes default/comment and panel persistence.
 
-Registration batches buffer initialization writes until every selected entity binds and validates; refused batches change no files. Accepted files then persist independently. Multi-file panel updates instead validate and stage all touched files, then commit and acknowledge together, with in-process rollback on ordinary refusal. Persistent storage failure can prevent restoration; crashes between moves are not a crash-safe multi-file transaction.
+Registration batches buffer initialization writes until every selected entity binds and validates; refused batches change no files. Accepted files then persist independently, through the write gate and only while each file still holds the bytes read at registration. Multi-file panel updates instead validate and stage all touched files, then commit and acknowledge together, with in-process rollback on ordinary refusal. Persistent storage failure can prevent restoration; crashes between moves are not a crash-safe multi-file transaction.
 
 A panel edit is all-or-nothing too. If validation rejects a value or the file write fails, the touched fields return to their previous values, the file keeps its bytes, the panel receives the failure, and a retry persists the edit.
 
 Panel map leaf edits use actual whole file keys and the full declared field converter. A unique changed leaf persists; ambiguous or missing changed paths refuse the whole payload by name. Unchanged displayed leaves are not edits. Untargeted pending memory values and independently edited disk siblings are preserved. The existing reply format is unchanged.
+
+As of v6.3.0 a panel edit writes only the keys it names, through the write gate: it replaces an operator-edited value at exactly those keys, which is the operator's consent, and every other byte of the file stays. A file the gate refuses gets an error reply naming the reason. An edit of one field of a Bukkit value such as a `Location` writes that value as the file holds it with the one field changed, so the other fields keep the operator's text (`y: 64` stays), and only while the file still holds the value it was read with; otherwise the reply asks for a reload first.
 
 ## Configuration file reload
 
@@ -174,9 +244,11 @@ Panel map leaf edits use actual whole file keys and the full declared field conv
 SomePlugin.getConfigManager().reloadConfigs(SomePlugin.getInstance());
 ```
 
-As of v6.3.0, reload performs a three-way comparison of the last effective baseline, live fields and incoming file. Memory-only edits survive and stay dirty; disk-only edits are adopted; conflicts take disk with a located, redacted warning. Maps merge recursively by whole keys, lists/scalars are atomic, and missing whole fields retain live values. A failed reload is all-or-nothing: if it fails, for example because validation rejects a value, memory is exactly as it was before the call and the exception is rethrown. A rejected value therefore cannot stay in a field and be kept by the next reload as an unsaved edit over the corrected file; fix the file and reload again. Memory-only map order is preserved when that disk map is unchanged; reload does not write it. This is not a concurrent map-insertion ordering policy.
+As of v6.3.0, reload performs a three-way comparison of the last effective baseline, live fields and incoming file. Memory-only edits survive and stay dirty; disk-only edits are adopted; conflicts take disk with a located, redacted warning. Maps merge recursively by whole keys and lists/scalars are atomic. A whole field the operator deleted from the file binds its declared default, with one warning naming the key, unless the module changed it since the last load or save; the file is not written either way. A failed reload is all-or-nothing: if it fails, for example because validation rejects a value, memory is exactly as it was before the call and the exception is rethrown. A rejected value therefore cannot stay in a field and be kept by the next reload as an unsaved edit over the corrected file; fix the file and reload again. Memory-only map order is preserved when that disk map is unchanged; reload does not write it. This is not a concurrent map-insertion ordering policy.
 
-Before framework construction of an identifiable newer module copy, dirty old configuration is saved in sorted file order. Failure refuses construction and retains the old copy. If identity is unavailable before construction, successful replacement warns with dropped file/key names and does not save the old copy late. Unload releases its registry owners; shutdown saves before release.
+After the module's language is rebuilt by `/ul reload`, and before its own reload hook, the framework rewrites the comment lines it identifies as its own in the new language, through the write gate over a fresh read of each file. No value, key or other comment line is written.
+
+As of v6.3.0 no configuration of an older module copy is saved when a newer copy replaces it. The newer copy reads the files as they are; once it is active, one warning names the old copy's dropped file and keys. Unload releases its registry owners and writes nothing.
 
 ## Known limits
 
