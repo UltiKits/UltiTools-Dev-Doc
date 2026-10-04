@@ -123,7 +123,7 @@ protected void onReload(ReloadReport report) {
 }
 ```
 
-The framework then logs a warning naming those parts instead of the success line, `/ul reload <name>` replies with them instead of the success reply, and the `/ul reload` summary lists the module with them. The default `onReload(ReloadReport)` calls `onReload()`, so a module that overrides only `onReload()` behaves as before. Throw instead when the reload cannot continue at all. `reloadSelf()` keeps its signature, and `reloadWithReport()` runs the same reload and returns the `ReloadReport`, for a module's own reload command.
+The framework then logs a warning naming those parts instead of the success line, `/ul reload <name>` replies with them instead of the success reply, and the `/ul reload` summary lists the module with them. The framework records parts of its own reload steps in the same report: as of v6.3.0 a config-bound `@Scheduled` or `@CmdCD` value it refused and kept is listed there too ([#595](https://github.com/UltiKits/UltiTools-Reborn/issues/595)). The default `onReload(ReloadReport)` calls `onReload()`, so a module that overrides only `onReload()` behaves as before. Throw instead when the reload cannot continue at all. `reloadSelf()` keeps its signature, and `reloadWithReport()` runs the same reload and returns the `ReloadReport`, for a module's own reload command.
 
 The `language` setting in the framework's `config.yml` is one value for the whole server, and `/ul reload <name>` does not apply a changed value to one module. When it has changed on disk, the module keeps the language the framework runs with, and the reload is reported as partial, naming the old and new values and that a full `/ul reload` applies the change.
 
