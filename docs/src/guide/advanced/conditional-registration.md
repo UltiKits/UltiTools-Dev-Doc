@@ -46,7 +46,7 @@ The message used to advise "a restart is required" unconditionally, even when no
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `value` | `String` | (required) | Config file path relative to the plugin data folder |
-| `path` | `String` | (required) | Dot-separated or slash-separated YAML key path |
+| `path` | `String` | (required) | Dot-separated YAML key path; as of v6.3.0 it is read with the module config entity's rule, so a flat dotted key such as `features.chat: false` matches too, and a path written in both forms refuses the module |
 | `negate` | `boolean` | `false` | If `true`, register when config value is `false` (inverted logic) |
 
 ## Examples
