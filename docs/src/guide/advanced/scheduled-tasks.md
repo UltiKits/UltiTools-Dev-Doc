@@ -116,7 +116,7 @@ A binding is checked when the module loads. If any check fails, that module alon
 
 A changed value is applied at `/ul reload`, and the task keeps its place in its cycle. The next run is the last run plus the new period. Before the first run it is the time the task was armed plus the new delay. If that moment has already passed, the task runs on the next tick. A reload never runs a task early and never postpones it by restarting its clock.
 
-A task whose value did not change is not touched. An invalid value on reload is not applied: the running value is kept and a WARNING names the key. An edit made from the panel takes effect at the next `/ul reload`. A panel write that sets a bound key outside the range above, such as `0`, is refused like a `@Range` violation, and nothing is written.
+A task whose value did not change is not touched. An invalid value on reload is not applied: the running value is kept and a WARNING names the key. As of v6.3.0 the reload is also reported as partial, naming the key, the refused value and the value kept, so `/ul reload <name>`, the `/ul reload` summary and a module's own reload command built on `reloadWithReport()` do not reply plain success ([#595](https://github.com/UltiKits/UltiTools-Reborn/issues/595)). An edit made from the panel takes effect at the next `/ul reload`. A panel write that sets a bound key outside the range above, such as `0`, is refused like a `@Range` violation, and nothing is written.
 
 ### Binding restrictions
 

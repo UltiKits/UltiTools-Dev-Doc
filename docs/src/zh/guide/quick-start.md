@@ -117,7 +117,7 @@ protected void onReload(ReloadReport report) {
 }
 ```
 
-框架随后会记录一条警告日志列出这些部分，代替成功日志行；`/ul reload <模块名>` 回复这些部分，代替成功回复；`/ul reload` 的汇总也会列出该模块及这些部分。`onReload(ReloadReport)` 的默认实现调用 `onReload()`，因此只重写 `onReload()` 的模块行为不变。重载完全无法继续时，应当抛出异常。`reloadSelf()` 的签名不变；`reloadWithReport()` 执行同样的重载并返回 `ReloadReport`，供模块自己的重载命令使用。
+框架随后会记录一条警告日志列出这些部分，代替成功日志行；`/ul reload <模块名>` 回复这些部分，代替成功回复；`/ul reload` 的汇总也会列出该模块及这些部分。框架自身重载步骤中未生效的部分也记在同一份报告里：自 v6.3.0 起，被拒绝并保留旧值的配置绑定 `@Scheduled` 或 `@CmdCD` 值也会列在其中（[#595](https://github.com/UltiKits/UltiTools-Reborn/issues/595)）。`onReload(ReloadReport)` 的默认实现调用 `onReload()`，因此只重写 `onReload()` 的模块行为不变。重载完全无法继续时，应当抛出异常。`reloadSelf()` 的签名不变；`reloadWithReport()` 执行同样的重载并返回 `ReloadReport`，供模块自己的重载命令使用。
 
 框架 `config.yml` 中的 `language` 设置对整个服务器只有一个值，`/ul reload <模块名>` 不会把改动后的值只应用到一个模块上。磁盘上的值改变后，该模块继续使用框架当前运行的语言，重载被报告为部分完成，写明新旧两个值，并说明执行完整的 `/ul reload` 才会生效。
 
