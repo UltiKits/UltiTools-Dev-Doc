@@ -17,7 +17,7 @@ public interface ConfigConverter<T> {
 }
 ```
 
-`ConversionContext` supplies `file()`, `path()` (an immutable list of whole keys), and `declaredType()` including generic arguments. Use `ctx.toPlain(nested)` for a nested runtime value and `ctx.fromPlain(nested, type)` for a nested declared type. A `ConversionException` takes a reason, file, whole path and declared type, optionally a cause; it provides located conversion failure information.
+`ConversionContext` supplies `file()`, `path()` (an immutable list of whole keys), and `declaredType()` including generic arguments. Use `ctx.toPlain(nested)` for a nested runtime value and `ctx.fromPlain(nested, type)` for a nested declared type. A `ConversionException` takes a reason, file, whole path and declared type, optionally a cause; it provides located conversion failure information. As of v6.3.0, the reason you pass is shown to the operator in the skip warning as `(reason: ...)`, redacted together with the value under a secret-shaped key, so write it for the operator: say what the setting expects.
 
 ## Plain data and round trips
 
