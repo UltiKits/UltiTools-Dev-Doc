@@ -154,6 +154,12 @@ sets it to `false`, or sets it to anything other than a real JSON boolean is ref
 filesystem access, naming the missing field. An older panel build that does not yet send this field
 has every directory-delete request refused with a clear reason.
 
+## Panel configuration edits <Badge type="tip" text="v6.3.0+" />
+
+As of v6.3.0 a panel edit writes only what it names. An edit of a module configuration goes through the configuration write gate: it replaces the value at the named keys and keeps every other byte of the file, and a file the gate cannot write that way gets an error reply naming the reason (see [Saving configuration files](/guide/essentials/config-file#saving-configuration-files)).
+
+A `server.properties` edit replaces only the value text of the line that defines the key. Comments, key order, separators and other values keep their bytes, including a UTF-8 `motd`; the file is decoded and encoded as the server reads it and written atomically. A key defined on more than one line, or continued onto the next line, is refused with a reason naming the lines and no value: the `set` reply carries it as `reason`, and a `set_all` reply lists the key under `failed` and its reason under `failureReasons`. The server log names each refused key once. The server itself still rewrites the whole file when it next starts, as every Paper version does.
+
 ## Credential file location <Badge type="tip" text="v6.3.0+" />
 
 The framework's own UltiCloud credential file — the panel-connection token, not anything a module
