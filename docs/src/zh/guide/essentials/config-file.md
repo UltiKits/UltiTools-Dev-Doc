@@ -59,6 +59,8 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 
 自 v6.3.0 起，`path` 中的点仍表示嵌套路径，例如 `chat.aliases`。绑定映射里的键则完整保留，支持 `g.m`、`o.O`、`wave.`。6.2 已经拆开的文件原样读取，不自动合并；`Map<String, String>` 中形状为嵌套映射的值跳过并警告。
 
+自 v6.3.0 起，服主把设置写成带点的扁平键时就是该设置：对 `path = "features.chat"`，`features.chat: false` 这一行读作 `false`，与 6.2 经 Bukkit 读取时相同；点以任何方式拆分都算（`a.b.c` 写成 `a.b:` / `c: 1` 也可以）。框架不会再补一份嵌套写法：启动补键、`save()`、`saveOperatorChange`、`saveOperatorMapEntry` 和面板编辑都只写这一行。`@ConditionalOnConfig` 和 `isPresentInFile` 按同样规则读取。同一文件里一个设置写了两种形式（`features.chat: false` 和 `features:` / `chat: true`）时，即使值相同，也在模块代码运行前拒绝加载该模块，提示只写文件和设置，不写值。此规则只针对设置路径，绑定映射里的键仍完整保留。
+
 字面 `comment` 在插入该键时写入。恰好是一个去除首尾空白后的语言 token（例如 `comment = "{config.limit}"`）时，按框架当前 `language` 从模块语言目录解析。自 v6.3.0 起，框架只改写它能认出是自己写的注释行：该项的注释整体或末尾连续几行，与框架对模块 jar 自带任一语言目录中的文字、模块当前解析出的文字、原样 token，或 `previousComments` 中登记的旧版出厂文字写出的形式逐字节相同（该项的缩进、`# ` 加文字）。服主在该项上方写的注释、改过的框架注释和所有字面注释逐字节保留。启动和 `/ul reload` 会把框架自己的注释行刷新为当前语言；保存、服主操作写入和面板编辑不改写任何注释。目录缺键时保留 token 并警告一次，写 YAML 注释前清理换行和控制字符。
 
 模块修改了某个 token 注释在语言目录中的文字后，已升级的服务器上仍是旧文字。把旧文字登记下来，它就会继续随语言切换：
