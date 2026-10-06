@@ -221,7 +221,7 @@ try {
 
 文件无法读取或解析、使用了 YAML 锚点、别名或合并键、读取后被改动，或者排版无法被渲染器逐字节写回时，写入会被拒绝。排版引起的拒绝会给出要修改的行号，例如 `the file's layout outside the keys this write owns would change (line 16)`。
 
-自 v6.3.0 起，YAML 库在应用、渲染或校验一次写入时抛出的运行时异常也按拒绝处理。把映射写入一个值为 `null` 且带行内注释的条目（`foo: ~  # placeholder`）就是这样的排版。原因会给出键和异常类名，例如 `the file cannot be written at autoreply.rules.foo: the YAML library failed on its layout there (EmitterException)`。此前该异常会直接传到调用方，只在 `IOException` 时回滚的模块会保留内存中的改动。
+自 v6.3.0 起，YAML 库在应用、渲染或校验一次写入时抛出的运行时异常也按拒绝处理。把映射写入一个值为 `null` 且带行内注释的条目（`foo: ~  # placeholder`）就是这样的排版。原因会给出键、失败的步骤和异常类名，例如 `the file cannot be written at autoreply.rules.foo: rendering the document failed (EmitterException)`。此前该异常会直接传到调用方，只在 `IOException` 时回滚的模块会保留内存中的改动。
 
 会使该文件所有写入都被拒绝的排版包括：只含空格的行、值后面的行尾空格、用多个空格对齐的行内注释、冒号后多于一个空格、流式方括号内侧的空格（`[ a ]`）、`---` 或 `...` 标记、后面跟空行的块标量、缩进比下面的键更深的注释、同一文件中的两种缩进宽度，以及混用的换行符。框架和各模块自带的文件都没有这类排版。服主改掉警告指出的那一行（如果原因是“文件在读取后已被改动”，则先执行 `/ul reload`），再重做一次改动即可。
 
