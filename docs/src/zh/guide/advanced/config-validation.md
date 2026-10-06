@@ -130,7 +130,7 @@ private Map<String, OutputItem> recipes = new HashMap<>();
 
 `OutputItem` 由转换器从文件构造，框架只校验设置 `recipes` 本身，从不校验其中各个值的字段。请在模块的转换器中校验这些字段，在那里可以跳过或拒绝单个条目，然后删除注解。UltiRecipe 的 `RecipeConfig.OutputItem` 就是这种形态：6.3.0 之前发布的 UltiRecipe 构建会被这项检查拒绝，它面向 6.3.0 的构建删除了这两个注解。
 
-该检查沿设置的类型参数、数组元素类型，以及这些类型中非静态、非 transient 的字段逐层深入。它不进入平台类（`java.*`、Bukkit、Paper、Adventure 等），也不进入另一个配置类，后者由它自己的实体校验。作为静态检查，它有两个局限：字段无法加载的值类型（例如引用了运行时缺少的软依赖）会被跳过；声明为接口或抽象类型的字段只能看到该类型自身的字段，看不到具体实现的字段。
+该检查使用配置绑定器自身的类型解析，到达的正是绑定器实际绑定的元素类型：集合元素、映射的键和值、数组元素，通配符和类型变量按绑定器的方式解析。`List<? super OutputItem>`、`List<T extends OutputItem>` 和 `class OutputList extends ArrayList<OutputItem>` 都会到达 `OutputItem`。之后再逐层深入这些类型中非静态、非 transient 的字段。它不进入平台类（`java.*`、Bukkit、Paper、Adventure 等），也不进入另一个配置类，后者由它自己的实体校验。作为静态检查，它有三个局限：无法解析或加载的类型（例如引用了运行时缺少的软依赖）会被跳过；声明为接口或抽象类型的字段只能看到该类型自身的字段，看不到具体实现的字段；同一个泛型值类型最多按八种不同的类型参数深入，以保证递归泛型能结束。
 
 ## 组合使用
 
