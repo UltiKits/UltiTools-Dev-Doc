@@ -116,7 +116,7 @@ Each annotation checks the value kinds it can measure. As of v6.3.0 the outcome 
 
 ### Unsupported Declarations
 
-A declaration error refuses the module at load, before its configuration file is read or created. One console message names every such field, the annotation and the reason. The same applies to a constraint on a field of a config class that is not a `@ConfigEntry`. Each field is judged by its own declared type: `@Range` on a `List<Integer>` is an error, because it does not apply to the list itself.
+A declaration error refuses the module at load, before its configuration file is read or created. One console message names every such field, the annotation and the reason. The same applies to a constraint on a field of a config class that is not a `@ConfigEntry`. Each field is judged by its own declared type: `@Range` on a `List<Integer>` is an error, because it does not apply to the list itself. A declared type that can hold a value the annotation checks, such as `Object`, `Serializable`, `Comparable`, `CharSequence` or `Number`, is not an error: the value bound at load is checked, as it was before 6.3.0. Only a type that can never hold a checkable value is refused.
 
 The constraint annotations take effect only on fields that are themselves `@ConfigEntry` settings of a config class. An annotation on a field of a value type, a nested class or anything a converter produces is never checked and not reported:
 
