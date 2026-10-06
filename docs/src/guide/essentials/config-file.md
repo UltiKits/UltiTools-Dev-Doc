@@ -211,6 +211,16 @@ Layouts that refuse every write to the file include a line of only spaces, a tra
 
 A 0-byte file, a file of blank lines and a file of comments at the start of their lines count as empty: start-up inserts the declared keys. A file of spaces, a comment-only file with an indented comment and a file holding only a byte-order mark are refused as layouts.
 
+### Deleted keys, emptied sections and blank settings
+
+Deleting a key is how an operator resets a setting: the next start inserts the declared key the file lacks, with its default and comment. To leave a setting blank, an operator writes an empty string (`key: ''`); an empty string is read as blank and is never rewritten by a start, a reload or a save of another setting. If your module documents how to reset or clear a setting, say exactly that.
+
+As of v6.3.0, a key whose section the operator emptied is put back too ([#620](https://github.com/UltiKits/UltiTools-Reborn/issues/620)). When the deleted key was the last one of its section, the section key is left alone with nothing after the colon (`messages:`), which reads as no value at all; deleting every child is most likely accidental, so the insert expands that line instead of being refused at every start. That one line is the only byte outside the inserted keys the write may touch: it keeps its key text, its comment (only the spacing before the comment may change) and its line ending, the section's value becomes exactly the inserted keys, and a child the operator commented out under the line stays where it is, below the restored keys. The same holds for `saveOperatorChange`, `saveOperatorMapEntry` and a panel edit, so a command that adds the first rule to an emptied `rules:` is written, not refused.
+
+A section written with an explicit empty value, `messages: {}`, `messages: ~` or `messages: null`, is the operator's own value and is never changed. An insert below it is refused with `the section messages (line 3) is written as an explicit empty value, which the framework does not change; to have keys added below it, delete that value so the line ends after the colon, or add the keys by hand` ([#610](https://github.com/UltiKits/UltiTools-Reborn/issues/610)); `saveOperatorMapEntry` throws `ConfigWriteRefusedException` with that reason.
+
+As of v6.3.0, a missing setting is inserted below the section the file already holds it in, never into a second form of that section ([#614](https://github.com/UltiKits/UltiTools-Reborn/issues/614)). With `a.b:` holding `c: 3` and a declared `a.b.d`, the start writes `d:` under `a.b:`, not a nested `a:` / `b:` copy that Bukkit's `YamlConfiguration` would read as replacing the flat section. When the file holds that section in several forms, the setting goes below the one form holding another declared setting of the section; when none or more than one does, the insert is refused, naming the file and the setting, and the declared default runs in memory.
+
 ### Operator files a module manages
 
 As of v6.3.0, `com.ultikits.ultitools.config.OperatorFiles` writes a YAML file a module manages for the operator, such as a kit file, on an explicit operator edit. It writes only the named keys, through the same gate, and only while the file still holds the bytes it was read with:

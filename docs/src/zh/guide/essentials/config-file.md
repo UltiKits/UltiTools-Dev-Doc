@@ -201,6 +201,16 @@ try {
 
 0 字节文件、只有空行的文件和只含行首注释的文件视为空文件：启动时补入声明的键。只含空格的文件、含缩进注释的纯注释文件和只含 BOM 的文件按排版拒绝。
 
+### 删除的键、被清空的节与留空的设置
+
+删除一个键就是服主重置设置的方法：下次启动时，框架会把文件缺少的声明键连同默认值和注释补回。要让设置留空，服主写空字符串（`key: ''`）；空字符串读作“留空”，启动、重载或保存其他设置时都不会改写它。如果你的模块文档说明如何重置或清空某个设置，请照此说明。
+
+自 v6.3.0 起，所在的节被服主清空的键也会补回（[#620](https://github.com/UltiKits/UltiTools-Reborn/issues/620)）。如果删除的是节里的最后一个键，节的键名会单独留在一行、冒号后什么都没有（`messages:`），读作“没有值”；删光所有子键多半是误删，所以补键会展开这一行，而不是每次启动都被拒绝。这一行是写入在补入的键之外唯一可以改动的地方：它保留键名、注释（只有注释前的空格可能变化）和换行符，节的值变成恰好是补入的那些键，服主在这一行下面注释掉的子键行留在原处、位于补回的键下面。`saveOperatorChange`、`saveOperatorMapEntry` 和面板编辑同样如此，所以向被清空的 `rules:` 添加第一条规则的命令会被写入，而不是被拒绝。
+
+写成显式空值的节（`messages: {}`、`messages: ~` 或 `messages: null`）是服主自己写的值，绝不会被改动。在它下面插入会被拒绝，原因为 `the section messages (line 3) is written as an explicit empty value, which the framework does not change; to have keys added below it, delete that value so the line ends after the colon, or add the keys by hand`（[#610](https://github.com/UltiKits/UltiTools-Reborn/issues/610)）；`saveOperatorMapEntry` 会以这个原因抛出 `ConfigWriteRefusedException`。
+
+自 v6.3.0 起，缺少的设置插入到文件已有的那个节下面，绝不写成该节的第二种形式（[#614](https://github.com/UltiKits/UltiTools-Reborn/issues/614)）。文件中 `a.b:` 下有 `c: 3`、模块声明了 `a.b.d` 时，启动会把 `d:` 写在 `a.b:` 下面，而不是另加一份嵌套的 `a:` / `b:`——Bukkit 的 `YamlConfiguration` 会把后者当作替换了扁平的节。如果文件把这个节写了几种形式，设置会插入到其中唯一一个还持有该节其他声明设置的形式下；没有或不止一个形式持有时拒绝插入，写明文件和设置，内存中使用声明默认值。
+
 ### 模块代管的服主文件
 
 自 v6.3.0 起，`com.ultikits.ultitools.config.OperatorFiles` 用于在服主明确编辑时，写入模块代服主管理的 YAML 文件，例如礼包文件。它只写指定的键，经过同一个写入闸门，并且只在文件仍是读取时的字节时写入：
