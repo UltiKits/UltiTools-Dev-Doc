@@ -116,11 +116,13 @@ Each annotation checks the value kinds it can measure. As of v6.3.0 the outcome 
 
 ### Unsupported Declarations
 
-A declaration error refuses the module at load, before its configuration file is read or created. One console message names every such field, the annotation and the reason. The same applies to a constraint on a field that is not a `@ConfigEntry`, and to a constraint on a field inside a setting's value type:
+A declaration error refuses the module at load, before its configuration file is read or created. One console message names every such field, the annotation and the reason. The same applies to a constraint on a field of a config class that is not a `@ConfigEntry`. Each field is judged by its own declared type: `@Range` on a `List<Integer>` is an error, because it does not apply to the list itself.
+
+The constraint annotations take effect only on fields that are themselves `@ConfigEntry` settings of a config class. An annotation on a field of a value type, a nested class or anything a converter produces is never checked and not reported:
 
 ```java
 public static class OutputItem {
-    @NotEmpty                    // refused at load: nothing checks this field
+    @NotEmpty                    // not checked and not reported
     private String material;
 }
 
@@ -128,9 +130,7 @@ public static class OutputItem {
 private Map<String, OutputItem> recipes = new HashMap<>();
 ```
 
-A converter builds `OutputItem` from the file, and the framework validates only the setting `recipes` itself, never the fields of the values inside it. Validate such fields in your module's converter, where you can skip or refuse the one entry, and remove the annotation. This is the shape of UltiRecipe's `RecipeConfig.OutputItem`: UltiRecipe builds released before 6.3.0 are refused by this check, and its 6.3.0 build removes the two annotations.
-
-The check reaches at least every type the config binder can bind, including what a module converter binds for a wrapper or a container, and refuses any type it cannot walk with certainty. It follows the setting's own class, every type argument and array component, with wildcards and type variables resolved the way the binder resolves them, so `List<? super OutputItem>` and `List<T extends OutputItem>` reach `OutputItem`. For each class it reaches, it follows the non-static, non-transient fields, the superclass and the interfaces, level by level: `Optional<OutputItem>`, `Multimap<String, OutputItem>` and the fields a list subclass declares itself are all checked. It does not enter platform classes (`java.*`, Bukkit, Paper, Adventure, Guava and the like) beyond their type arguments, another config class, which its own entity validates, or a type already on the current path. Two cases are refused rather than skipped: a type that cannot be resolved or loaded, such as one referring to a soft dependency that is absent; and a class that nests itself more than eight times on one path, with different type arguments each time, as a recursive generic that grows without end does. The count is per path, so one class used with many different type arguments side by side is always followed in full. A type it reaches that is an interface or abstract class is also checked against its implementations in your module's own jar: if any of them carries a constraint the framework cannot check, directly or through its own fields, the module is refused, naming the field and the implementing classes; if none does, it loads. One limit remains: an implementation provided by another plugin is not in your module's jar, so the check cannot see it.
+A converter builds `OutputItem` from the file, and the framework validates only the setting `recipes` itself, never the fields of the values inside it. Validate such fields in your module's converter, where you can skip or refuse the one entry. UltiRecipe's `RecipeConfig.OutputItem` has this shape: the module checks those fields itself, and its 6.3.0 build removes the two annotations, which never took effect.
 
 ## Combining Annotations
 
