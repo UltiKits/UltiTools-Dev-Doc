@@ -41,7 +41,7 @@ private String serverName = "My Server";
 
 A blank or missing value refuses the owning module at load; see [Behavior](#behavior) below.
 
-As of v6.3.0, `@NotEmpty` also applies to lists, sets, maps and arrays, with a different outcome. When a load or reload finds the value empty (empty or `null` in the file, or a list whose every entry failed to bind), the module runs on the field's declared default in memory and logs one warning naming the file, the key, the value kind, the value as written and the default. The module loads, and the file is not written.
+As of v6.3.0, `@NotEmpty` also applies to lists, sets, maps and arrays, with a different outcome. When a load or reload finds the value empty (empty or `null` in the file, or a list whose every entry failed to bind), the module runs on the field's declared default in memory and logs one warning naming the file, the key, the value kind, the value as written and the default. Both values are redacted when the field name, a key segment, or a map key inside the value or the default looks like a secret. The module loads, and the file is not written.
 
 ```java
 @NotEmpty
@@ -57,6 +57,8 @@ File config/sidebar.yml, key 'lines': the list is empty (found []) but the setti
 ```
 
 The declared default has to satisfy the field's constraints itself: it must not be empty, and it must lie inside the field's `@Size` if there is one. A class whose default does not is refused at load, whatever the file holds. A panel edit that would empty the value is refused like any other violation.
+
+While the default runs, the panel still shows the file's value (`[]`). An operator command that writes this setting through `saveOperatorChange` writes the running value, the default plus the operator's change, in place of `[]`, because the operator asked for that key to change.
 
 ### @Size
 
@@ -126,7 +128,9 @@ public static class OutputItem {
 private Map<String, OutputItem> recipes = new HashMap<>();
 ```
 
-A converter builds `OutputItem` from the file, and the framework validates only the setting `recipes` itself, never the fields of the values inside it. Validate such fields in your module's converter, where you can skip or refuse the one entry, and remove the annotation.
+A converter builds `OutputItem` from the file, and the framework validates only the setting `recipes` itself, never the fields of the values inside it. Validate such fields in your module's converter, where you can skip or refuse the one entry, and remove the annotation. This is the shape of UltiRecipe's `RecipeConfig.OutputItem`: UltiRecipe builds released before 6.3.0 are refused by this check, and its 6.3.0 build removes the two annotations.
+
+The check follows the setting's type arguments, array components, and the non-static, non-transient fields of those types, level by level. It does not enter platform classes (`java.*`, Bukkit, Paper, Adventure and the like) or another config class, which its own entity validates. Being a static check, it has two limits: a value type whose fields cannot be loaded, such as one referring to a soft dependency that is absent, is skipped; and a field declared as an interface or abstract type shows only that type's own fields, never those of an implementation.
 
 ## Combining Annotations
 
