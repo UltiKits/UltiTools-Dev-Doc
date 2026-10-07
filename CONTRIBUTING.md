@@ -50,17 +50,18 @@
 
 ## 发版归档
 
-发版时把上一个正式版的文档切成 `docs/archive/<版本>/`。**用脚本，不要手工 `cp -r`：**
+发版时把上一个正式版的文档切成 `docs/archive/<版本>/`。**用脚本，不要手工 `cp -r`**，也不要从 `alpha` 的工作区切：`alpha` 已经带着下一个版本的页面和示例，从那里切出来的 v6.2.5 归档会含有 6.3.0 才有的页面。
 
-```bash
-bash scripts/archive-version.sh v6.2.5   # 例：6.3.0 发版时归档 v6.2.5
-```
+脚本从**同一个提交**读取页面和示例（`git archive`），复制到 `docs/archive/<版本>/`，把页面引用的每个示例冻结到 `examples-archive/<版本>/`（不是 Maven 模块，不编译），并把归档页面里的 `<<< @/../examples/` 改写为 `<<< @/../examples-archive/<版本>/`。原因：`examples/` 随每次发版变化，归档页面如果继续引用它，就会在归档之后被改写。v6.2.4 的归档实测有 78 个示例文件，其中 11 个在切出之后已经变了。
 
-脚本复制 `docs/src` 到 `docs/archive/<版本>/`，同时把页面引用的每个示例冻结到 `examples-archive/<版本>/`（不是 Maven 模块，不编译），并把归档页面里的 `<<< @/../examples/` 改写为 `<<< @/../examples-archive/<版本>/`。原因：`examples/` 随每次发版变化，归档页面如果继续引用它，就会在归档之后被改写。v6.2.4 的归档实测有 78 个示例文件，其中 11 个在切出之后已经变了。
+按下面四步依次执行，没有第二条路径：
 
-先执行脚本，再推进版本三元等式（`versionsConfig.current`、`examples/pom.xml`、示例源码）。必须晚于升级执行时，用 `EXAMPLES_REF=<归档提交> bash scripts/archive-version.sh <版本>` 从那个提交读取示例。
+1. 在发版的 `alpha` → `master` 合并**之前**记下提交：`REF=$(git rev-parse origin/master)`。合并之后 `master` 已经带着新版本的页面，再取就晚了。
+2. 在从 `alpha` 切出的分支上，用这个提交切归档：`ARCHIVE_REF=$REF bash scripts/archive-version.sh v6.2.5`。没有设置 `ARCHIVE_REF` 以退出码 2 拒绝；不在 `origin/master` 上的提交、`examples/pom.xml` 或 `versionsConfig.current` 与归档版本不一致的提交，都会被拒绝；中途失败会清掉已写入的部分，可以直接重试。
+3. 从**同一个提交**取 sidebar 快照：`sidebarGuide*_v625` 的字面量来自 `git show $REF:.vitepress/config/sidebar.en.mts` 和 `sidebar.zh.mts`，不要从 `alpha` 的 sidebar 复制。同时手工更新两处版本清单：`scripts/javadoc-io-index.sh` 的 `BACKFILL_VERSIONS`，以及 `scripts/check-sidebar-links.sh` 里各个 sidebar 常量的版本参数。
+4. 最后才推进版本三元等式：`versionsConfig.current`、`examples/pom.xml` 的 `<ultitools.version>`、示例源码。
 
-脚本不改 `.vitepress/config*`、sidebar 常量和 `examples/pom.xml`，这些仍是发版步骤里的手工部分。`docs-ci.yml` 的 `archive-examples` job 运行 `scripts/check-archive-examples.sh`：`docs/archive/` 下出现任何 `<<< @/../examples/` 引用，或 `examples-archive/` 引用指向不存在的文件，都会变红。
+脚本不改 `.vitepress/config*`、sidebar 常量、两处版本清单和 `examples/pom.xml`，这些是第 3、4 步的手工部分。`docs-ci.yml` 的 `archive-examples` job 运行 `scripts/check-archive-examples.sh`：`docs/archive/` 下出现任何 `<<< @/../examples/` 引用，或 `examples-archive/` 引用指向不存在的文件，都会变红。这个 job 只检查引用，检查不出归档页面的内容是否来自正确的提交，所以第 1、2 步的顺序靠本节保证。
 
 ## 构建
 

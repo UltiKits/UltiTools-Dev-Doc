@@ -30,6 +30,8 @@
 
 <<< @/../examples/src/main/java/com/ultikits/docs/cache/PlaySessionService.java
 
+服务器停止时仍在线的玩家不会触发 `savePlayerData`，因此由 `@PreDestroy` 方法写入尚未结束的会话。
+
 当玩家退出时，框架会：
 1. 调用 `savePlayerData(playerUuid)`（因为 `saveBeforeRemove = true`）
 2. 从 Map 中移除该条目

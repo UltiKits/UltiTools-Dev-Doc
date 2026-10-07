@@ -4,6 +4,7 @@ import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
 import com.ultikits.ultitools.annotations.Autowired;
 import com.ultikits.ultitools.annotations.PlayerCache;
 import com.ultikits.ultitools.annotations.PlayerCacheSaver;
+import com.ultikits.ultitools.annotations.PreDestroy;
 import com.ultikits.ultitools.annotations.Service;
 
 import java.util.Map;
@@ -38,5 +39,15 @@ public class PlaySessionService implements PlayerCacheSaver {
             .playerId(playerId.toString())
             .durationMillis(System.currentTimeMillis() - start)
             .build());
+    }
+
+    // The framework does not call savePlayerData when the server stops (players are disconnected
+    // after plugins are disabled), so write the sessions that are still open.
+    @PreDestroy
+    public void saveOpenSessions() {
+        for (UUID playerId : joinedAt.keySet()) {
+            savePlayerData(playerId);
+        }
+        joinedAt.clear();
     }
 }

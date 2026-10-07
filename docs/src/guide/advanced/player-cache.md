@@ -30,6 +30,8 @@ The time a player joined this server is such state: no stored row holds it. The 
 
 <<< @/../examples/src/main/java/com/ultikits/docs/cache/PlaySessionService.java
 
+The framework does not call `savePlayerData` for players who are still online when the server stops, so the `@PreDestroy` method writes their open sessions.
+
 When a player quits, the framework:
 1. Calls `savePlayerData(playerUuid)` (because `saveBeforeRemove = true`)
 2. Removes the entry from the map
