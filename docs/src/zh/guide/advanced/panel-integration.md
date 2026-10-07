@@ -332,8 +332,9 @@ UltiTools.getInstance().getPanelResponderRegistry()
 - **responder 属于某一个模块实例（自 v6.3.0 起）。** 框架加载模块期间（容器刷新或 `registerSelf()`
   中）注册的 responder 属于该实例。加载之后用三参数 `registerResponder(type, responder, ownerModule)`
   注册的，属于框架以 `ownerModule` 列为已加载的那个实例；新实例正在替换旧实例时，属于旧实例。实例卸载
-  或被替换时，只注销它自己的 responder。如果你手上有模块实例，优先使用四参数的
-  `registerResponder(type, responder, ownerModule, ownerInstance)`，直接记下实例。
+  或被替换时，只注销它自己的 responder。在模块构造器中（加载开始之前）按名称注册的 responder，属于此时以该名称列出的
+  实例：首次加载时没有这样的实例，新实例构造期间则是旧实例。请在 `registerSelf()` 中注册 responder；如果你手上有模块实例，
+  也可以使用四参数的 `registerResponder(type, responder, ownerModule, ownerInstance)`，直接记下实例。
 - **新实例接管旧实例的类型（自 v6.3.0 起）。** 代码注册一个已加载模块的新实例时，旧实例的 responder
   在新实例的 `registerSelf()` 运行之前被释放，所以在其中注册同一类型会成功。新实例加载失败时，它的
   responder 被注销，旧实例的 responder 原样恢复。

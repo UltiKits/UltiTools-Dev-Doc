@@ -463,7 +463,10 @@ UltiTools.getInstance().getPanelResponderRegistry()
   registered later with the three-argument `registerResponder(type, responder, ownerModule)` belongs
   to the instance the framework lists as loaded under `ownerModule`, and to the older one while a
   newer instance of your module is replacing it. When an instance unloads or is replaced, exactly its
-  own responders go. If you hold your module instance, prefer the four-argument
+  own responders go. A responder registered by name in your module's constructor, before its load
+  begins, belongs to the instance listed under that name at that moment: none at the first load,
+  and the older instance while a newer one is being constructed. Register responders in
+  `registerSelf()`, or, if you hold your module instance, use the four-argument
   `registerResponder(type, responder, ownerModule, ownerInstance)`, which records it directly.
 - **A newer instance takes over its older instance's types (as of v6.3.0).** When code registers a
   newer instance of a loaded module, the older instance's responders are released before the newer
