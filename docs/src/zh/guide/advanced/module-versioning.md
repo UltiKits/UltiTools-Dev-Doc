@@ -44,7 +44,7 @@ CI 会对 `src/main` 的注释与 javadoc、workflow 文件与一个测试包强
 | 使用方 | 用途 |
 |---|---|
 | `PluginManager.hasNewerVersionLoaded` | 代码通过 `PluginManager#register(...)` 再注册一个已加载模块（同一个主类）的实例时，比较两个版本，拒绝较旧的那个 |
-| `PluginManager.unregisterSupersededVersions` | 同样是这种情况下，正在注册的实例更新时，卸载被它取代的已加载版本。自 v6.3.0 起走完整的卸载流程，卸载失败会记在旧版本名下，不影响新版本继续加载 |
+| `PluginManager.unregisterSupersededVersions` | 同样是这种情况下，正在注册的实例更新时，卸载被它取代的已加载版本。自 v6.3.0 起走完整的卸载流程，卸载失败会记在旧版本名下，不影响新版本继续加载。同样自 v6.3.0 起，旧版本的面板 responder、EventBus 处理器和补全器在新实例刷新容器、运行 `registerSelf()` 之前就被释放，所以新实例可以注册旧版本占用的面板消息类型；新实例随后加载失败时，这些登记会还给旧版本，旧版本照常运行 |
 | `UpdateManager.checkModuleUpdates` | 比较已加载版本与已发布版本，提示有更新可用 |
 
 三者都通过 `VersionComparatorUtil.compare` 判断 A 是否大于 B，都不关心这个差异属于 MAJOR、MINOR 还是 PATCH。

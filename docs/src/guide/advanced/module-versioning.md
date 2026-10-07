@@ -44,7 +44,7 @@ A module's version is also read by machines, but only to order two versions, nev
 | Consumer | What it does |
 |---|---|
 | `PluginManager.hasNewerVersionLoaded` | Code calls `PluginManager#register(...)` with another instance of a module that is already loaded (the same main class), so it compares the two versions and refuses the older one |
-| `PluginManager.unregisterSupersededVersions` | In that same case, when the instance being registered is the newer one, unloads the loaded version it supersedes. As of v6.3.0 it goes through the full unload path, and an unload failure is logged against the old version without stopping the new one |
+| `PluginManager.unregisterSupersededVersions` | In that same case, when the instance being registered is the newer one, unloads the loaded version it supersedes. As of v6.3.0 it goes through the full unload path, and an unload failure is logged against the old version without stopping the new one. Also as of v6.3.0, the old version's panel responders, EventBus handlers and tab completers are released before the new instance's container refresh and `registerSelf()`, so the new instance can claim the panel message types the old one held; if the new instance then fails to load, they are given back and the old version keeps running |
 | `UpdateManager.checkModuleUpdates` | Compares the loaded version against the published one to report that an update is available |
 
 All three go through `VersionComparatorUtil.compare` and ask whether A is greater than B. None of them looks at whether the difference is MAJOR, MINOR or PATCH.

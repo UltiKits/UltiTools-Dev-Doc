@@ -149,6 +149,10 @@ If a handler throws an exception, it is logged and other handlers continue to ex
 - **Registration**: `@ModuleEventHandler` methods in `@Service` beans are discovered and registered when the plugin module loads
 - **Cleanup**: All handlers owned by a module are automatically unregistered when the module is unloaded
 
+As of v6.3.0 every handler belongs to one module instance, and unloading or replacing an instance releases exactly its own handlers. `@ModuleEventHandler` methods and programmatic subscriptions made while the framework loads your module (its container refresh, where `@PostConstruct` runs, and `registerSelf()`) belong to that instance. A programmatic subscription made later with the `ownerModule` overload belongs to the instance the framework lists as loaded under that name, and to the older one while a newer instance is replacing it. A subscription made by name in your module's constructor, or in `@PostConstruct` code that runs while the framework registers your main class as a bean (the main class's own, and that of beans it injects), belongs to the instance listed under that name at that moment: none at the first load, and the older instance while a newer one is being loaded. Subscribe in `registerSelf()`, or, if you hold your module instance, use `subscribe(eventType, priority, ignoreCancelled, ownerModule, ownerInstance, consumer)`, which records it directly. A subscription made after load without an owner name belongs to no module and is never released automatically; unsubscribe it yourself.
+
+When code registers a newer instance of a loaded module, the older instance's handlers are released before the newer instance's container refresh, so events published while it loads do not reach the older instance. If the newer instance fails to load, its handlers are released and the older instance's come back at their place, unchanged.
+
 You do not need to manage handler lifecycle manually for annotation-based handlers.
 
 ## Complete Example
