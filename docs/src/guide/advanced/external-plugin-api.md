@@ -29,7 +29,7 @@ main: com.example.myplugin.MyExternalPlugin
 depend: [UltiTools]
 ```
 
-::: warning
+::: warning UltiTools must be declared as a dependency
 `depend: [UltiTools]` is **required**. UltiTools must be loaded before your plugin so the framework is ready when `connect()` is called.
 :::
 
@@ -64,7 +64,7 @@ Use `@CmdExecutor` and `@CmdMapping` just like a UltiTools module:
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/GreetCommand.java
 
-::: tip
+::: tip Command descriptions are plain strings
 Command descriptions use the raw `description` attribute from `@CmdExecutor`. The `i18n()` method is not available for external plugins — use plain strings.
 :::
 
@@ -80,7 +80,7 @@ Use `UltiToolsAPI.getDataOperator()` to get a `DataOperator` for your data entit
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/StatsService.java
 
-::: tip
+::: tip The server configuration selects the storage backend
 The storage backend (JSON, SQLite, or MySQL) is determined by the UltiTools server configuration, not your plugin. Your code works the same regardless. Query column names must still match the entity's @Column value, not the Java field name.
 :::
 
@@ -134,6 +134,6 @@ public void onCustomEvent(MyCustomEvent event) {
 
 Check out the [UltiTools-External-Example](https://github.com/UltiKits/UltiTools-External-Example) repository for a fully working example that demonstrates `@Service`, `@CmdExecutor`, `@EventListener`, `@Autowired`, and `DataOperator` CRUD in a standard Bukkit plugin.
 
-::: tip
+::: tip Related pages
 See also: [IoC Container](/guide/advanced/ioc-container) | [Command Executor](/guide/essentials/cmd-executor) | [Scheduled Tasks](/guide/advanced/scheduled-tasks) | [Module EventBus](/guide/advanced/module-eventbus)
 :::

@@ -112,7 +112,7 @@ You can also specify a target directory:
 ultikits create my-plugin-dir
 ```
 
-::: tip
+::: tip Annotated classes are discovered through scanBasePackages
 After scaffolding, add commands in a `commands/` package, services in a `service/` package, and configs in a `config/` package. The framework auto-discovers annotated classes via `@UltiToolsModule(scanBasePackages)`.
 :::
 
@@ -251,7 +251,7 @@ Output:
 ultikits modules delete myplugin
 ```
 
-::: danger
+::: danger Deleting a module cannot be undone
 
 This permanently deletes the module and all its versions. This cannot be undone.
 
@@ -351,7 +351,7 @@ jobs:
    - Builds the JAR with `mvn clean package`
    - Publishes to UltiCloud with the release body as changelog
 
-::: tip
+::: tip Only a GitHub release triggers publishing
 
 Pushing commits to `master` does **not** trigger publishing. Only creating a GitHub release does.
 
