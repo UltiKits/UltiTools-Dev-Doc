@@ -201,6 +201,15 @@ try {
 
 0 字节文件、只有空行的文件和只含行首注释的文件视为空文件：启动时补入声明的键。只含空格的文件、含缩进注释的纯注释文件和只含 BOM 的文件按排版拒绝。
 
+自 v6.3.0 起，紧跟在某个“冒号后没有值”的键（如 `c:`）之后的插入同样会在每次启动时被拒绝，原因为 `a key this write owns shares line N with a key it does not own`（[#628](https://github.com/UltiKits/UltiTools-Reborn/issues/628)，未修复）。要把文字设置留空，请写 `key: ''`，这种写法会保留且不会被拒绝。
+
+### 读取器无法读取的排版
+
+自 v6.3.0 起，有两种合法的 YAML 排版无法被框架保留注释的读取器（Paper 自带的 SnakeYAML 2.2）读取。这样的文件按无法解析处理：永不写入，启动时模块使用声明的默认值（重载则保留运行中的值），并由 SEVERE 日志 `Cannot load <file>: <parser location>; file will not be overwritten` 指出该文件。文件的每个字节都保持不变，改正排版后其中的值才会生效。
+
+- 块锚点的第一个子键之前有注释，例如 `defaults: &defaults`，下一行是 `  # note`，再下一行是 `  setting: inherited`（[#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580)）。把注释移到锚点键上方，或移到第一个子键下方。
+- 块标量（`content: |-` 或 `>`）后面依次是缩进大于 0 列的注释、空行、另一条注释（[#617](https://github.com/UltiKits/UltiTools-Reborn/issues/617)）。删掉两条注释之间的空行，或删掉其中一条注释。
+
 ### 模块代管的服主文件
 
 自 v6.3.0 起，`com.ultikits.ultitools.config.OperatorFiles` 用于在服主明确编辑时，写入模块代服主管理的 YAML 文件，例如礼包文件。它只写指定的键，经过同一个写入闸门，并且只在文件仍是读取时的字节时写入：
@@ -244,4 +253,4 @@ SomePlugin.getConfigManager().reloadConfigs(SomePlugin.getInstance());
 
 ## 已知限制
 
-自 v6.3.0 起，[#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578) 记录特殊锚定容器、复杂符号链接路径、Unicode 风格定位成本和直接别名 token 注释所有权。别名注释可能影响源锚并重复写入。[#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580) 记录首子键前有注释的有效块锚被拒绝；保护保留字节，不表示值可以读取。[#545](https://github.com/UltiKits/UltiTools-Reborn/issues/545) 仍是多文件崩溃持久化限制。
+自 v6.3.0 起，[#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578) 记录特殊锚定容器、复杂符号链接路径、Unicode 风格定位成本和直接别名 token 注释所有权。别名注释可能影响源锚并重复写入。[#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580) 与 [#617](https://github.com/UltiKits/UltiTools-Reborn/issues/617) 是读取器无法读取的两种排版（见[读取器无法读取的排版](#读取器无法读取的排版)）；保护保留文件字节，不表示其中的值可以读取。[#545](https://github.com/UltiKits/UltiTools-Reborn/issues/545) 仍是多文件崩溃持久化限制。

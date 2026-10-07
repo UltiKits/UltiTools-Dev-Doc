@@ -256,7 +256,7 @@ if (!written) {
 
 On MySQL and SQLite the check and the write are one `UPDATE ... WHERE id = ? AND <conditions>` statement, so the result holds across servers that share one database. On the JSON backend the check and the write run under the operator's lock; a JSON store belongs to one server. The conditions mean what they mean in `getAll(WhereCondition...)`.
 
-`updateIf` returns `false`, and writes nothing, when no row with the entity's id matches every condition. It throws `DataAccessException` when the id is `null`, when a condition names a column the entity does not map with `@Column`, or when a condition's value is `null`, on every backend. A `DataOperator` implementation outside the framework that does not implement it throws `UnsupportedOperationException`.
+`updateIf` returns `false`, and writes nothing, when no row with the entity's id matches every condition. It throws `DataAccessException` when the id is `null`, when a condition is `null`, when a condition names a column the entity does not map with `@Column`, or when a condition's value is `null` under a comparison other than the default `EQUAL`, on every backend. As of v6.3.0 a `null` expected value under the default comparison means `IS NULL` (JSON: the field is absent or JSON null), so a compare-and-set against a column that was still unset when you read it misses when another writer has filled it in the meantime; this meaning belongs to `updateIf` alone ([#640](https://github.com/UltiKits/UltiTools-Reborn/issues/640)). A `DataOperator` implementation outside the framework that does not implement it throws `UnsupportedOperationException`.
 
 ### Delete
 
@@ -291,10 +291,9 @@ WhereCondition.builder().column("somecol").value(someval).build();
 
 For operations that need to succeed or fail together, see the [Transactions](/guide/advanced/transactions) guide.
 
-::: warning Only the JSON backend rolls this block back
-The MySQL and SQLite operators are constructed without a transaction manager, and `transaction(...)` runs the callable directly when none is set, so the connection stays in autocommit and each `insert` below is committed on its own.
-Use the JSON backend when this block has to be atomic, or take your own JDBC connection, turn off autocommit and commit or roll back yourself: the Transactions guide describes both.
-Wiring the transaction manager into the relational operators is tracked in [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307).
+::: tip MySQL and SQLite run this block in one JDBC transaction
+As of v6.3.0 the MySQL and SQLite stores give every operator they hand out a transaction manager ([#307](https://github.com/UltiKits/UltiTools-Reborn/issues/307)), so `transaction(...)` runs in a JDBC transaction and the two inserts below are committed or rolled back together.
+The JSON backend restores a snapshot of its entries instead.
 :::
 
 ```java
@@ -304,3 +303,5 @@ dataOperator.transaction(() -> {
     // Both inserted or none
 });
 ```
+
+As of v6.3.0 a transaction whose own failure path fails never ends in an implicit commit ([#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)): when its rollback or its commit fails, the connection is discarded (a HikariCP pool evicts it) instead of being switched back to auto-commit, which would commit it, so nothing of the transaction is stored and the caller still gets the original exception. An `Error` thrown inside `transaction(...)` rolls the transaction back, or restores the JSON snapshot, and is rethrown as the same instance.

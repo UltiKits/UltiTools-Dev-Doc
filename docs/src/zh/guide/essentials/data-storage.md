@@ -254,7 +254,7 @@ if (!written) {
 
 在 MySQL 与 SQLite 上，检查与写入是同一条 `UPDATE ... WHERE id = ? AND <条件>` 语句，因此对共用同一个数据库的多台服务器同样成立。在 JSON 后端上，检查与写入在数据操作器的锁内完成；JSON 储存只属于一台服务器。条件的含义与 `getAll(WhereCondition...)` 中相同。
 
-没有任何一行同时具有该实体的 id 并满足全部条件时，`updateIf` 返回 `false`，不写入任何内容；id 为 `null`、条件使用了实体没有用 `@Column` 映射的列，或条件的值为 `null` 时，各个后端都抛出 `DataAccessException`。框架之外的 `DataOperator` 实现如果没有实现它，会抛出 `UnsupportedOperationException`。
+没有任何一行同时具有该实体的 id 并满足全部条件时，`updateIf` 返回 `false`，不写入任何内容；id 为 `null`、条件为 `null`、条件使用了实体没有用 `@Column` 映射的列，或在默认 `EQUAL` 以外的比较下条件的值为 `null` 时，各个后端都抛出 `DataAccessException`。自 v6.3.0 起，默认比较下的 `null` 期望值表示 `IS NULL`（JSON：字段不存在或为 JSON null），因此对读取时仍未设置的列做比较后写入时，若其间另一个写入方已写入该列，本次写入不生效；这一含义只属于 `updateIf`（[#640](https://github.com/UltiKits/UltiTools-Reborn/issues/640)）。框架之外的 `DataOperator` 实现如果没有实现它，会抛出 `UnsupportedOperationException`。
 
 ### 删除
 
@@ -289,10 +289,9 @@ WhereCondition.builder().column("somecol").value(someval).build();
 
 对于需要同时成功或同时失败的操作，请参阅[事务](/zh/guide/advanced/transactions)指南。
 
-::: warning 只有 JSON 后端会回滚这段代码
-MySQL 与 SQLite 的操作器在构造时不注入事务管理器，而 `transaction(...)` 在管理器为 null 时直接执行回调，连接始终处于 autocommit 状态，下面每一条 `insert` 各自独立提交。
-需要这段代码原子时，改用 JSON 后端，或自取 JDBC 连接、关闭 autocommit 并自行提交或回滚：事务指南对两种做法都有说明。
-把事务管理器接进关系型操作器的修法跟踪于 [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307)。
+::: tip MySQL 与 SQLite 在一个 JDBC 事务中执行这段代码
+自 v6.3.0 起，MySQL 与 SQLite 储存为其交出的每个操作器注入事务管理器（[#307](https://github.com/UltiKits/UltiTools-Reborn/issues/307)），因此 `transaction(...)` 在 JDBC 事务中执行，下面两条插入一起提交或一起回滚。
+JSON 后端则恢复其条目的快照。
 :::
 
 ```java
@@ -302,3 +301,5 @@ dataOperator.transaction(() -> {
     // 全部插入或全部不插入
 });
 ```
+
+自 v6.3.0 起，事务自身的失败路径再失败时不会隐式提交（[#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)）：回滚或提交失败时，连接被丢弃（HikariCP 连接池会将其剔除），而不是重新打开自动提交（那样会提交该事务），因此事务中的内容不会被保存，调用方仍收到原来的异常。`transaction(...)` 中抛出的 `Error` 会使事务回滚（JSON 则恢复快照），并原样抛出同一个实例。

@@ -211,6 +211,15 @@ Layouts that refuse every write to the file include a line of only spaces, a tra
 
 A 0-byte file, a file of blank lines and a file of comments at the start of their lines count as empty: start-up inserts the declared keys. A file of spaces, a comment-only file with an indented comment and a file holding only a byte-order mark are refused as layouts.
 
+As of v6.3.0 an insert directly after a key left with no value (`c:` with nothing after the colon) is also refused, at every start, with `a key this write owns shares line N with a key it does not own` ([#628](https://github.com/UltiKits/UltiTools-Reborn/issues/628), open). To leave a text setting blank, write `key: ''`; that shape is kept and does not refuse.
+
+### Layouts the reader cannot read
+
+As of v6.3.0 two valid YAML layouts cannot be read by the framework's comment-preserving reader (SnakeYAML 2.2, the version Paper ships). The file is treated as unparseable: it is never written, the module runs on its declared defaults at start-up (a reload keeps the running values), and the SEVERE line `Cannot load <file>: <parser location>; file will not be overwritten` names it. The file keeps every byte; its values are used once the layout is changed.
+
+- A block anchor with a comment before its first child, such as `defaults: &defaults`, then `  # note`, then `  setting: inherited` ([#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580)). Move the comment above the anchored key, or below the first child.
+- A block scalar (`content: |-` or `>`) followed by a comment indented above column 0, a blank line and another comment ([#617](https://github.com/UltiKits/UltiTools-Reborn/issues/617)). Remove the blank line between the two comments, or one of the comments.
+
 ### Operator files a module manages
 
 As of v6.3.0, `com.ultikits.ultitools.config.OperatorFiles` writes a YAML file a module manages for the operator, such as a kit file, on an explicit operator edit. It writes only the named keys, through the same gate, and only while the file still holds the bytes it was read with:
@@ -254,4 +263,4 @@ As of v6.3.0 no configuration of an older module copy is saved when a newer copy
 
 ## Known limits
 
-As of v6.3.0, [#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578) records special anchored containers, complex symlink paths, Unicode style-offset cost and direct-alias token-comment ownership. Alias comments can affect the source anchor and cause repeated writes. [#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580) records refusal of a valid block anchor with a comment before its first child. Protection preserves those refused file bytes; it does not make their values readable. [#545](https://github.com/UltiKits/UltiTools-Reborn/issues/545) remains the crash-safe multi-file persistence limit.
+As of v6.3.0, [#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578) records special anchored containers, complex symlink paths, Unicode style-offset cost and direct-alias token-comment ownership. Alias comments can affect the source anchor and cause repeated writes. [#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580) and [#617](https://github.com/UltiKits/UltiTools-Reborn/issues/617) are the two layouts the reader cannot read (see [Layouts the reader cannot read](#layouts-the-reader-cannot-read)). Protection preserves those file bytes; it does not make their values readable. [#545](https://github.com/UltiKits/UltiTools-Reborn/issues/545) remains the crash-safe multi-file persistence limit.

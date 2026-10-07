@@ -362,7 +362,11 @@ capability off.
 A plugin line arrives once, although Paper also copies it into Log4j. Lines about the panel connection,
 the log transmitter's own lines and the WebSocket library's (`org.java_websocket.*`) are never sent. If
 the server's Log4j configuration uses asynchronous loggers, the mirror is not installed, a console
-warning says so, and the stream carries plugin lines only. A Log4j `ERROR` line with an exception is
+warning says so, and the stream carries plugin lines only. The same holds, as of v6.3.0, when Paper's log
+forwarder (`org.bukkit.craftbukkit.util.ForwardLogHandler`) is not on the `java.util.logging` root logger,
+as on a fork or a build that relocates CraftBukkit: without it the mirror cannot tell a forwarded plugin line
+from a console line and would send every plugin line twice, so it is not installed and one console warning
+per server run says so ([#583](https://github.com/UltiKits/UltiTools-Reborn/issues/583)). A Log4j `ERROR` line with an exception is
 also reported once to the panel's error collection. `org.apache.logging.log4j:log4j-core` is a
 `provided` dependency of the framework (version 2.24.1); Paper supplies it at runtime, it is not
 shaded, and a module needs nothing new.
@@ -385,6 +389,15 @@ is kept and sent before anything newer on the next attempt, so records still arr
 whose connection drops just after it was written may arrive twice. When more records arrive than the
 stream can send, the queue keeps the newest 1000, and the framework reports how many it discarded in
 one warning in the server log at most once a minute.
+
+As of v6.3.0 the stream is a best-effort convenience copy of the console, and the server's
+`logs/latest.log` is authoritative ([#583](https://github.com/UltiKits/UltiTools-Reborn/issues/583),
+[#571](https://github.com/UltiKits/UltiTools-Reborn/issues/571)). Two known gaps: if the panel connection
+drops while the start-up replay is still sending, the replay records not yet sent move to the new
+connection's live queue, which keeps the newest 1000 and counts the rest in the warning above, and they are
+then sent like live records, without the replay's pacing; and a record another thread logs in the
+microseconds while the stream first takes over from the start-up buffer can be missed, and is not counted.
+Read anything that must not be missed, such as an audit trail or an incident, from `logs/latest.log`.
 
 On a running server, the `log_stream` request with the action `config` described above can also
 carry a `levels` array. As of v6.3.0 the framework applies it; before v6.3.0 the field was ignored.
