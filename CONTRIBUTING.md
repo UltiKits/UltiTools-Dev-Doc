@@ -48,6 +48,20 @@
 - 新增指向未发布 API 的 `<<< @/../examples/...` 引用。`examples/` 编译的是 Maven Central 上的正式版，这类引用在 `alpha` 上就会让 `examples-ci.yml` 变红。
 - 改动 `versionsConfig.current` 或 `examples/pom.xml` 的 `<ultitools.version>`。这两个值与 Maven Central 的最新正式版构成三元等式，由 `scripts/check-version-consistency.sh` 守着，只在发版归档时一起推进。
 
+## 发版归档
+
+发版时把上一个正式版的文档切成 `docs/archive/<版本>/`。**用脚本，不要手工 `cp -r`：**
+
+```bash
+bash scripts/archive-version.sh v6.2.5   # 例：6.3.0 发版时归档 v6.2.5
+```
+
+脚本复制 `docs/src` 到 `docs/archive/<版本>/`，同时把页面引用的每个示例冻结到 `examples-archive/<版本>/`（不是 Maven 模块，不编译），并把归档页面里的 `<<< @/../examples/` 改写为 `<<< @/../examples-archive/<版本>/`。原因：`examples/` 随每次发版变化，归档页面如果继续引用它，就会在归档之后被改写。v6.2.4 的归档实测有 78 个示例文件，其中 11 个在切出之后已经变了。
+
+先执行脚本，再推进版本三元等式（`versionsConfig.current`、`examples/pom.xml`、示例源码）。必须晚于升级执行时，用 `EXAMPLES_REF=<归档提交> bash scripts/archive-version.sh <版本>` 从那个提交读取示例。
+
+脚本不改 `.vitepress/config*`、sidebar 常量和 `examples/pom.xml`，这些仍是发版步骤里的手工部分。`docs-ci.yml` 的 `archive-examples` job 运行 `scripts/check-archive-examples.sh`：`docs/archive/` 下出现任何 `<<< @/../examples/` 引用，或 `examples-archive/` 引用指向不存在的文件，都会变红。
+
 ## 构建
 
 ```bash
@@ -63,5 +77,5 @@ npm run dev
 ## 边界
 
 - 不改 `node_modules/`、`.vitepress/dist/`、`.vitepress/cache/`、`dev-dist/`。
-- 不手改 `docs/archive/`。那是发版时由版本化机制切分的历史快照，内容冻结；仅当它使全站门禁无法通过时才做最小修复，且不改动描述 API 行为的文字。
+- 不手改 `docs/archive/`。那是发版时由版本化机制切分的历史快照，内容冻结；仅当它使全站门禁无法通过时才做最小修复，且不改动描述 API 行为的文字。归档页面引用的示例由 `scripts/archive-version.sh` 冻结在 `examples-archive/<版本>/`，不再引用 `examples/`。
 - 本仓库是 public 的。不提交本地绝对路径、token、凭证。
