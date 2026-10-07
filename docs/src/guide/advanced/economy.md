@@ -60,6 +60,14 @@ The most specific matching package wins; a package claimed by two different call
 A request none of these covers is reported as `an unknown caller`, once per calling package rather
 than once for all of them, so a second unknown caller is not silenced.
 
+A known limitation, documented rather than changed
+([issue #567](https://github.com/UltiKits/UltiTools-Reborn/issues/567)): the main class's own package
+counts together with its sub-packages, like a scanned package. A module whose main class sits in a
+broad package shared with other code -- `com.example`, while other plugins or libraries also live under
+`com.example` -- may be named as the caller for code there that is not its own, and that request uses
+up the module's one warning for the session. Put the main class in a package of its own, such as
+`com.example.myplugin`, as every first-party module does.
+
 ## What this does not change
 
 Vault stays an optional, soft dependency of UltiTools: `plugin.yml` still declares
