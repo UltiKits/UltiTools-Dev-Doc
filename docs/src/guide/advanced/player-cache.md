@@ -57,6 +57,6 @@ A single bean can have multiple `@PlayerCache` fields. Each is cleaned up indepe
 
 <<< @/../examples/src/main/java/com/ultikits/docs/cache/TeleportRequestService.java
 
-::: tip
+::: tip Use @PlayerCache on every per-player map
 `@PlayerCache` eliminates the most common source of memory leaks in Minecraft plugins. Use it on every `Map<UUID, ?>` field that stores per-player state.
 :::

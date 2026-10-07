@@ -117,7 +117,7 @@ It matters specifically for `Propagation.REQUIRES_NEW` and `NOT_SUPPORTED` (cove
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/EconomyService.java
 
-::: tip
+::: tip Single-entity operations need no transaction
 For simple single-entity operations, you don't need transactions. Transactions are most useful when you need to ensure multiple operations succeed or fail together.
 :::
 

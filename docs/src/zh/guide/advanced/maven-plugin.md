@@ -45,7 +45,7 @@ mvn clean package ultitools:install
 
 这条命令会将你的插件打包并复制到服务器文件夹中。
 
-::: warning
+::: warning 复制前需要先关闭服务器
 
 如果你的服务器正在运行，请先关闭服务器，否则复制会失败！
 

@@ -29,7 +29,7 @@ main: com.example.myplugin.MyExternalPlugin
 depend: [UltiTools]
 ```
 
-::: warning
+::: warning 必须声明对 UltiTools 的依赖
 `depend: [UltiTools]` 是**必须的**。UltiTools 必须在你的插件之前加载，这样调用 `connect()` 时框架才可用。
 :::
 
@@ -64,7 +64,7 @@ depend: [UltiTools]
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/GreetCommand.java
 
-::: tip
+::: tip 命令描述使用纯字符串
 命令描述使用 `@CmdExecutor` 的原始 `description` 属性。外部插件不支持 `i18n()` 方法——请使用纯字符串。
 :::
 
@@ -80,7 +80,7 @@ depend: [UltiTools]
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/StatsService.java
 
-::: tip
+::: tip 存储后端由服务端配置决定
 存储后端（JSON、SQLite 或 MySQL）由 UltiTools 服务端配置决定，而非你的插件。你的代码无论使用哪种后端都一样。查询列名必须使用实体的 @Column 值，而不是 Java 字段名。
 :::
 
@@ -134,6 +134,6 @@ public void onCustomEvent(MyCustomEvent event) {
 
 查看 [UltiTools-External-Example](https://github.com/UltiKits/UltiTools-External-Example) 仓库，获取一个完整的示例项目，演示了在标准 Bukkit 插件中使用 `@Service`、`@CmdExecutor`、`@EventListener`、`@Autowired` 和 `DataOperator` CRUD。
 
-::: tip
+::: tip 相关页面
 另见：[IoC 容器](/zh/guide/advanced/ioc-container) | [命令执行器](/zh/guide/essentials/cmd-executor) | [定时任务](/zh/guide/advanced/scheduled-tasks) | [模块事件总线](/zh/guide/advanced/module-eventbus)
 :::

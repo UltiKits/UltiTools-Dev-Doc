@@ -112,7 +112,7 @@ mvn compile
 ultikits create my-plugin-dir
 ```
 
-::: tip
+::: tip 框架通过 scanBasePackages 发现带注解的类
 创建完成后，在 `commands/` 包中添加命令类，`service/` 包中添加服务类，`config/` 包中添加配置类。框架通过 `@UltiToolsModule(scanBasePackages)` 自动发现带注解的类。
 :::
 
@@ -251,7 +251,7 @@ ultikits modules info myplugin
 ultikits modules delete myplugin
 ```
 
-::: danger
+::: danger 删除模块无法撤销
 
 此操作会永久删除模块及其所有版本，无法撤销。
 
@@ -351,7 +351,7 @@ jobs:
    - 使用 `mvn clean package` 构建 JAR
    - 将 Release 正文作为更新日志发布到 UltiCloud
 
-::: tip
+::: tip 只有 GitHub Release 会触发发布
 
 推送代码到 `master` **不会**触发发布，只有创建 GitHub Release 才会。
 
