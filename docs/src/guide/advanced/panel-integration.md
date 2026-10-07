@@ -458,6 +458,17 @@ UltiTools.getInstance().getPanelResponderRegistry()
   error rather than leaving the panel's request hanging indefinitely.
 - **Responders are unregistered automatically** when your module unloads, at the same point the
   framework already unregisters your `EventBus` subscriptions.
+- **A responder belongs to one module instance (as of v6.3.0).** One registered while the framework
+  loads your module (during its container refresh or `registerSelf()`) belongs to that instance. One
+  registered later with the three-argument `registerResponder(type, responder, ownerModule)` belongs
+  to the instance the framework lists as loaded under `ownerModule`, and to the older one while a
+  newer instance of your module is replacing it. When an instance unloads or is replaced, exactly its
+  own responders go. If you hold your module instance, prefer the four-argument
+  `registerResponder(type, responder, ownerModule, ownerInstance)`, which records it directly.
+- **A newer instance takes over its older instance's types (as of v6.3.0).** When code registers a
+  newer instance of a loaded module, the older instance's responders are released before the newer
+  one's `registerSelf()` runs, so registering the same type there succeeds. If the newer instance
+  fails to load, its responders are released and the older instance's come back unchanged.
 
 There is no `<module>:<type>` namespace requirement enforced by the framework — that would be a
 cross-repository protocol convention the panel side would also have to honour, not something this
