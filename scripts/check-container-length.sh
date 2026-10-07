@@ -29,6 +29,21 @@
 #      由框架仓库的 doc-sync 驱动，不在本项目范围内，且把四个 tab 拍平成
 #      四张堆叠的表反而会让页面更难读。
 #
+#   7. 标题校验（UltiTools-Dev-Doc#46）—— tip/info/warning/danger 的开启行在类型之后
+#      必须还有非空内容，否则按 TITLE 报告 文件:行号 并以 1 退出。
+#      Title check (UltiTools-Dev-Doc#46): a tip/info/warning/danger opening line with
+#      nothing after the type is reported as `file:line  TITLE` and exits 1.
+#
+#      能力边界（也写在 AGENTS.md「自检的能力边界」之后的「容器块检查的能力边界」一节）：
+#      Capability boundary (also recorded in AGENTS.md, "Container check boundary"):
+#        - 只判断「有没有标题」，不判断标题措辞；是否为结论式名词短语、中英是否互为译文，
+#          由人工评审负责。 It checks that a title exists, not its wording.
+#        - 只覆盖 tip/info/warning/danger；details、tabs、code-group 等类型不要求标题。
+#        - 只认行首的 `:::`；缩进的容器（例如嵌在列表项里）不会被识别，也不会被检查。
+#        - 围栏代码块之外的 ::: 行一律按容器开启行处理；写在围栏里的示例不在容器内时
+#          会被当成真容器（目前全站为 0 处）。
+#        - 标题规则与 API 页的长度豁免互相独立：被豁免长度的容器仍需要标题。
+#
 # 沿用 Phase 7 的三处既有修正：
 #   1. 先 tr -d '\r' —— 原脚本的 /^:::$/ 在 CRLF 文件上永不匹配，失效表现为零输出（= 通过）
 #   2. 跳过容器体内的 ``` 代码块 —— 原脚本在含代码的容器上误报
@@ -56,6 +71,19 @@ for f in "$@"; do
       sub(/^:::[ ]?/, "", ctype)
       sub(/[ \t].*/, "", ctype)
       skip = (IS_API=="1" && (ctype=="tabs" || ctype=="info")) ? 1 : 0
+      # 标题规则：tip/info/warning/danger 的开启行在类型之后必须还有非空内容。
+      # 与上面的 skip 无关：skip 只豁免长度，API 页的 ::: info 也需要标题。
+      # Title rule: the opening line of a tip/info/warning/danger container must
+      # carry text after the type. Independent of `skip`, which exempts length only.
+      if (ctype=="tip" || ctype=="info" || ctype=="warning" || ctype=="danger") {
+        rest = kind
+        sub(/^:::[ ]?/, "", rest)
+        sub(/^[^ \t]+/, "", rest)
+        if (rest ~ /^[ \t]*$/) {
+          printf "%s:%d  TITLE  缺少标题 / missing title  %s\n", F, NR, kind
+          found=1
+        }
+      }
       next
     }
     inb && /^```/ { fence = !fence; next }
