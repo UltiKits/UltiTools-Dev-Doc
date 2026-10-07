@@ -26,6 +26,10 @@
 
 设置 `saveBeforeRemove = true` 并实现 `PlayerCacheSaver` 接口，框架会在移除条目之前调用 `savePlayerData(playerUuid)`。它适用于只存在于本服务器内存中、需要在玩家离开时写入一次的状态。它不适用于已存储的行的缓存副本，因为副本可能比数据库里的行更旧。
 
+玩家加入本服务器的时间就是这类状态：没有任何已存储的行保存它。下面的服务在玩家退出时为已结束的会话追加一行新记录，不读取也不覆盖任何已存储的行：
+
+<<< @/../examples/src/main/java/com/ultikits/docs/cache/PlaySessionService.java
+
 当玩家退出时，框架会：
 1. 调用 `savePlayerData(playerUuid)`（因为 `saveBeforeRemove = true`）
 2. 从 Map 中移除该条目

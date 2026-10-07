@@ -26,6 +26,10 @@ A `@PlayerCache` map works best as a read cache for data that is stored elsewher
 
 Set `saveBeforeRemove = true` and implement the `PlayerCacheSaver` interface to have the framework call `savePlayerData(playerUuid)` just before it removes the entry. This suits state that exists only in this server's memory and must be written once when the player leaves. It does not suit a cached copy of a stored row, because the copy can be older than the row.
 
+The time a player joined this server is such state: no stored row holds it. The service below appends one new row for the finished session when the player quits, and reads or overwrites no stored row:
+
+<<< @/../examples/src/main/java/com/ultikits/docs/cache/PlaySessionService.java
+
 When a player quits, the framework:
 1. Calls `savePlayerData(playerUuid)` (because `saveBeforeRemove = true`)
 2. Removes the entry from the map
