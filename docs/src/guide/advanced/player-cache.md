@@ -72,6 +72,8 @@ public boolean addCoins(UUID playerId, int amount) {
 
 A change that does not depend on the value read, such as switching a setting to the value the player chose, can write just that column by id with `update(column, value, id)`, as `PlayerSettingsService` does. On the JSON and SQLite backends the data belongs to one server, and the same code works unchanged.
 
+The examples on this page insert a player's row the first time the player changes a setting. Give the table a unique index on the player column (`player_id`), so that two servers making a player's first-ever change at the same moment cannot both store a row: the second insert fails instead of storing a second row, and the caller can read the stored row and write its change to that.
+
 ## Annotation Reference
 
 | Attribute | Type | Default | Description |

@@ -72,6 +72,8 @@ public boolean addCoins(UUID playerId, int amount) {
 
 不依赖读到的值的修改，例如把设置切换为玩家选择的值，可以用 `update(column, value, id)` 只写那一列，`PlayerSettingsService` 就是这样做的。在 JSON 和 SQLite 后端上，数据属于一台服务器，同样的代码无需改动。
 
+本页的示例在玩家第一次修改设置时为该玩家插入一行。请给表的玩家列（`player_id`）建立唯一索引，这样两台服务器在同一时刻为同一玩家做首次修改时，不会各存一行：第二次插入会失败而不是再存一行，调用方可以读取已存储的行，把修改写到那一行上。
+
 ## 注解属性
 
 | 属性 | 类型 | 默认值 | 说明 |
