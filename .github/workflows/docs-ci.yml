@@ -140,6 +140,53 @@ jobs:
         # 因此会以非零码退出；加了 -r 就变成静默通过，正是这道门禁要消灭的失效方式。
         run: find docs/src -name '*.md' -print0 | xargs -0 bash scripts/check-container-length.sh
 
+  archive-examples:
+    name: Archived pages include frozen examples only
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Only reads local scripts and files, no persisted credentials needed
+          persist-credentials: false
+
+      # Rehearsal first, for the same reason as the container title check: a
+      # guard that prints "no violations" looks the same whether the archive is
+      # clean or the guard read nothing. The planted fixtures must each fail
+      # with their own label (exit exactly 1; exit 2 means the guard read no
+      # page), and the clean one must pass, before the guard is trusted on
+      # docs/archive. The live fixture's page has CRLF line endings, like 34 of
+      # the archive's real pages. Exit codes are captured explicitly because
+      # GitHub's default shell runs with -e.
+      - name: Rehearse the archive example guard on fixtures
+        run: |
+          set +e
+          live_out=$(bash scripts/check-archive-examples.sh scripts/fixtures/archive-examples/live 2>&1)
+          live_exit=$?
+          unresolved_out=$(bash scripts/check-archive-examples.sh scripts/fixtures/archive-examples/unresolved 2>&1)
+          unresolved_exit=$?
+          clean_out=$(bash scripts/check-archive-examples.sh scripts/fixtures/archive-examples/clean 2>&1)
+          clean_exit=$?
+          set -e
+          echo "$live_out"
+          echo "$unresolved_out"
+          echo "$clean_out"
+          if [ "$live_exit" != "1" ] || ! printf '%s\n' "$live_out" | grep -q 'page.md:3  LIVE '; then
+            echo "::error::live fixture exited $live_exit, expected exactly 1 with a LIVE line at page.md:3: the guard does not fail a live examples/ reference"
+            exit 1
+          fi
+          if [ "$unresolved_exit" != "1" ] || ! printf '%s\n' "$unresolved_out" | grep -q 'page.md:3  UNRESOLVED '; then
+            echo "::error::unresolved fixture exited $unresolved_exit, expected exactly 1 with an UNRESOLVED line at page.md:3: the guard does not fail a missing frozen file"
+            exit 1
+          fi
+          if [ "$clean_exit" != "0" ]; then
+            echo "::error::clean fixture exited $clean_exit, expected 0: the guard rejects a frozen reference that resolves"
+            exit 1
+          fi
+
+      - name: Check docs/archive includes no live examples/ file and every frozen reference resolves
+        run: bash scripts/check-archive-examples.sh
+
   palette-contrast:
     # 检查对象：functions/api/_shared/palette.js 的 OVERRIDE_BLOCK —— 追加进
     # javadoc stylesheet.css 尾部、覆盖 33 个自定义属性的浅深两色表（D-19 至
