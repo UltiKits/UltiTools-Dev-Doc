@@ -38,11 +38,15 @@
 #      Capability boundary (also recorded in AGENTS.md, "Container check boundary"):
 #        - 只判断「有没有标题」，不判断标题措辞；是否为结论式名词短语、中英是否互为译文，
 #          由人工评审负责。 It checks that a title exists, not its wording.
-#        - 只覆盖 tip/info/warning/danger；details、tabs、code-group 等类型不要求标题。
-#        - 只认行首的 `:::`；缩进的容器（例如嵌在列表项里）不会被识别，也不会被检查。
+#        - 只覆盖 tip/info/warning/danger；details、tabs、code-group 等类型不要求标题
+#          （API 页的 tabs 也不在标题规则内）。
+#        - 只认行首、恰好三个冒号的 `:::`；缩进的容器（例如嵌在列表项里）和四个及以上
+#          冒号的开启行（`:::: warning` 这类嵌套写法）不会被识别，也不会被检查
+#          （目前全站为 0 处）。
 #        - 围栏代码块之外的 ::: 行一律按容器开启行处理；写在围栏里的示例不在容器内时
 #          会被当成真容器（目前全站为 0 处）。
-#        - 标题规则与 API 页的长度豁免互相独立：被豁免长度的容器仍需要标题。
+#        - 标题规则与 API 页的长度豁免互相独立：被豁免长度的 info 仍需要标题
+#          （tabs 不在标题规则内）。
 #
 # 沿用 Phase 7 的三处既有修正：
 #   1. 先 tr -d '\r' —— 原脚本的 /^:::$/ 在 CRLF 文件上永不匹配，失效表现为零输出（= 通过）

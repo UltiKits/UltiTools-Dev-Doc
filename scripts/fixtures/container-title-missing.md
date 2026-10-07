@@ -1,10 +1,22 @@
-# Fixture: a container opened without a title
+# Fixture: containers opened without a title
 
-The block below is short enough to pass the length rule, so only the title rule can fail it.
+Each block below is short enough to pass the length rule, so only the title rule can fail it.
 A check that reports "zero violations" on this file is not reading its input.
 
 ::: tip
-This container has no title after the type.
+This tip has no title after the type.
+:::
+
+::: info
+This info block has no title after the type.
+:::
+
+::: warning
+This warning has no title after the type.
+:::
+
+::: danger
+This danger block has no title after the type.
 :::
 
 ::: warning Titled control block in the same file

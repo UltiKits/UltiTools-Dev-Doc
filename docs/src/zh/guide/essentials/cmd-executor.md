@@ -137,7 +137,7 @@ public void tp(@CmdSender Player player, @CmdParam(value = "target", suggest = "
 
 `@` 不是合法的 Java 标识符起始字符，因此这种记法永远不会与方法名值冲突——本页其他用普通方法名的示例都不需要改动。**未知**的 `@key` 会拒绝声明它的模块加载，并指明类、方法与键；它不会退回到下面介绍的纯字符串提示行为。
 
-::: tip 固定的提示字符串
+::: tip suggest 可以直接填写固定字符串
 
 如果你仅仅只是想返回一个简单的提示字符串，那么你只需要在 `suggest` 字段中写上你想要的字符串即可。这里的字符串也支持i18n国际化。
 
@@ -151,7 +151,7 @@ public void addPoint(@CmdSender Player player,
 ```
 :::
 
-::: tip 自定义补全列表
+::: tip 重写 suggest 方法可自行生成补全列表
 
 如果你对UltiTools生成的补全列表不满意，你可以重写 `suggest` 方法，自己生成补全列表。
 

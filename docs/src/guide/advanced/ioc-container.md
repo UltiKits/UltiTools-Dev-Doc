@@ -5,7 +5,7 @@ IOC stands for Inversion of Control, which means that the creation and managemen
 UltiTools has its own IOC container built on `SimpleContainer`, which uses a three-level cache for circular dependency resolution. If you have used Spring before, you will find the concepts familiar.
 
 
-::: warning Limitations
+::: warning A class that cannot be found is not registered as a bean
 
 Despite UltiTools attempting to scan the involved classes as comprehensively as possible, there may still be issues with Bean registration if the class cannot be found.
 

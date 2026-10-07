@@ -91,14 +91,13 @@ jobs:
           # 只读本地脚本，不需要持久化凭据
           persist-credentials: false
 
-      # 这里的引号是必需的：YAML 的 plain scalar 不允许出现「冒号 + 空格」，
-      # 而步骤名里那三个冒号后面正是空格。去掉引号 GitHub 会把整个文件判为
-      # invalid workflow file，本文件三个 job 全部不运行，而 PR 上不会显示为红。
       # Title rule rehearsal (UltiTools-Dev-Doc#46). A check that reports zero
       # violations looks the same whether the docs are clean or the check read
       # nothing, so the two fixtures prove it both ways before it is trusted on
-      # docs/src: the untitled fixture must exit exactly 1 and name its line
-      # (exit 2 is a usage error, which "non-zero" would not tell apart), the
+      # docs/src: the untitled fixture plants one untitled block of each of the
+      # four types and must exit exactly 1 with four TITLE lines at lines 6, 10,
+      # 14 and 18 (exit 2 is a usage error, which "non-zero" would not tell
+      # apart; a rule narrowed to one type would report fewer than four), the
       # titled fixture must exit 0. Exit codes are captured explicitly because
       # GitHub's default shell runs with -e.
       - name: Rehearse the container title check on fixtures
@@ -119,11 +118,21 @@ jobs:
             echo "::error::untitled fixture exited $missing_exit, expected exactly 1: the title check does not fail an untitled container"
             exit 1
           fi
-          if ! printf '%s\n' "$missing_out" | grep -q 'container-title-missing.md:6 .*TITLE'; then
-            echo "::error::untitled fixture failed without naming file:line 6 and TITLE: the failure is not the title rule"
+          title_lines=$(printf '%s\n' "$missing_out" | grep -c ' TITLE ' || true)
+          if [ "$title_lines" != "4" ]; then
+            echo "::error::untitled fixture produced $title_lines TITLE lines, expected 4 (tip, info, warning, danger): the title rule does not cover every type"
             exit 1
           fi
+          for n in 6 10 14 18; do
+            if ! printf '%s\n' "$missing_out" | grep -q "container-title-missing.md:$n .*TITLE"; then
+              echo "::error::untitled fixture did not name line $n with TITLE: the failure is not the title rule for that block"
+              exit 1
+            fi
+          done
 
+      # 这里的引号是必需的：YAML 的 plain scalar 不允许出现「冒号 + 空格」，
+      # 而步骤名里那三个冒号后面正是空格。去掉引号 GitHub 会把整个文件判为
+      # invalid workflow file，本文件三个 job 全部不运行，而 PR 上不会显示为红。
       - name: "Check ::: container prose length against AGENTS.md"
         # -print0/-0 而不是 $(find ...)：后者按空白分词，文件名含空格时会被拆成多个参数，
         # 检查器于是对不存在的路径报错，而不是检查那个文件（shellcheck SC2046）。

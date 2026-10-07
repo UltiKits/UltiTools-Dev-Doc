@@ -112,7 +112,7 @@ You can also specify a target directory:
 ultikits create my-plugin-dir
 ```
 
-::: tip Package layout after scaffolding
+::: tip Annotated classes are discovered through scanBasePackages
 After scaffolding, add commands in a `commands/` package, services in a `service/` package, and configs in a `config/` package. The framework auto-discovers annotated classes via `@UltiToolsModule(scanBasePackages)`.
 :::
 

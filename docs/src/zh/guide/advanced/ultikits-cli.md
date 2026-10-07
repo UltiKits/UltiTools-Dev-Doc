@@ -112,7 +112,7 @@ mvn compile
 ultikits create my-plugin-dir
 ```
 
-::: tip 创建后的包结构
+::: tip 框架通过 scanBasePackages 发现带注解的类
 创建完成后，在 `commands/` 包中添加命令类，`service/` 包中添加服务类，`config/` 包中添加配置类。框架通过 `@UltiToolsModule(scanBasePackages)` 自动发现带注解的类。
 :::
 

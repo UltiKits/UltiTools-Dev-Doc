@@ -164,7 +164,7 @@ t=$(wc -l < "$f"); cr=$(grep -c $'\r' "$f" || echo 0)
 
 ## 容器块检查的能力边界
 
-`scripts/check-container-length.sh` 在 `docs-ci.yml` 的 `container-length` job 中对 `docs/src` 下的每个页面运行。红绿演练用 `scripts/fixtures/container-title-missing.md`（必须以 1 退出并报出 `TITLE` 与行号）和 `scripts/fixtures/container-title-present.md`（必须以 0 退出），同一个 job 先跑这两份样例，再跑全站。
+`scripts/check-container-length.sh` 在 `docs-ci.yml` 的 `container-length` job 中对 `docs/src` 下的每个页面运行。红绿演练用 `scripts/fixtures/container-title-missing.md`（四种类型各有一个无标题块，必须以 1 退出并在第 6、10、14、18 行报出四条 `TITLE`）和 `scripts/fixtures/container-title-present.md`（必须以 0 退出），同一个 job 先跑这两份样例，再跑全站。
 
 它检查：
 
@@ -180,12 +180,13 @@ t=$(wc -l < "$f"); cr=$(grep -c $'\r' "$f" || echo 0)
 | 标题措辞 | 只判断有没有标题。标题是否为结论式名词短语、中英两侧是否互为译文，由评审判断 |
 | 其他容器类型 | `details`、`tabs`、`code-group` 不要求标题 |
 | 缩进的容器 | 只识别行首的 `:::`；嵌在列表项里的容器不会被识别，也不会被检查 |
+| 四个及以上冒号的容器 | 只识别恰好三个冒号开头的 `:::`；`:::: warning` 这类嵌套写法不会被识别，也不会被检查（目前全站为 0 处） |
 | 写在围栏代码块里的示例 | 容器之外的围栏内如果出现 `::: tip` 这样的行，会被当成真正的容器（目前全站为 0 处） |
 | 正文的行文问题 | 比喻、元评论、破折号和粗体密度不在这个脚本里，见上文「提交前自检」 |
 
-API 页（`docs/src/api/`、`docs/src/zh/api/` 以及 `ulti-tools-plugin.md` 的两个页面）的 `tabs` 与 `info` 容器豁免的只是长度，标题规则对它们同样适用。
+API 页（`docs/src/api/`、`docs/src/zh/api/` 以及 `ulti-tools-plugin.md` 的两个页面）的 `info` 容器只豁免长度，仍然需要标题；`tabs` 只豁免长度，本来就不在标题规则内。
 
-脚本通过只说明上表第一栏的两项没有违规。
+脚本通过只说明「它检查」表中的标题和长度两项没有违规。
 
 ## 本规范的由来
 

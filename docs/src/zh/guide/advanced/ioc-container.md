@@ -4,7 +4,7 @@ IOC 的全称为 Inversion of Control （反转控制），意在将对象的创
 
 UltiTools 拥有自己的 IOC 容器，基于 `SimpleContainer` 构建，使用三级缓存来解决循环依赖问题。如果你接触过 Spring 开发，你将会对下面的概念感到十分熟悉。
 
-::: warning 局限性
+::: warning 找不到的类无法注册为 Bean
 尽管 UltiTools 尽可能地对涉及的class进行扫描，但仍然可能存在因找不到类使 Bean 注册失败的问题。
 :::
 
