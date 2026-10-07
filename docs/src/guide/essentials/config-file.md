@@ -173,6 +173,8 @@ Nothing else is written: no save at stop, unload or replacement, no repair of an
 
 Every write goes through one write gate. A write declares the keys it owns; after rendering, every byte outside them must equal the file as read, and the file must still hold the bytes it was read from. Otherwise nothing is written: one WARNING names the file, the keys and the reason, never a value, and the values in memory are used.
 
+For an explicit write, an `IOException` always means the file kept its bytes. A refusal is a `ConfigWriteRefusedException`. A failure to publish the file is a plain `IOException`; as of v6.3.0 the framework puts the file back before throwing it (see [Atomic replacement](#atomic-replacement)). A module that rolls its in-memory change back on the `IOException` therefore stays in step with the file.
+
 Official language files are the one exception. They are framework-owned and may be replaced on upgrade; to customise text, copy an official file under a new name, edit the copy and select it in the main configuration (see [Internationalization](/guide/essentials/i18n)).
 
 ### `save()`
@@ -203,9 +205,33 @@ try {
 
 Naming a map setting in `saveOperatorChange` writes the whole map and drops entries the operator added by hand; use `saveOperatorMapEntry` for a command that changes one entry. A refusal throws `com.ultikits.ultitools.config.ConfigWriteRefusedException`, an `IOException` whose `getReason()` names the reason without a value: reply that nothing was saved and why, and roll back the in-memory change so the running state matches the file. A path that is not a declared entry throws `IllegalArgumentException`. Both methods run on the server thread.
 
+### Presence conditions
+
+As of v6.3.0, a map-entry write can also depend on whether the entry is already in the file. Pass an `EntryPresence` as the first argument of `saveOperatorMapEntry`. Use `MUST_BE_ABSENT` for a command that creates an entry, so it never replaces one the operator added by hand since the last reload. Use `MUST_BE_PRESENT` for a command that changes an existing entry, so it never writes back one the operator deleted. The module does not need to read the file itself:
+
+```java
+// /autoreply add <name>: create the rule only if the file does not hold one of that name
+config.getRules().put(name, rule);
+try {
+    config.saveOperatorMapEntry(EntryPresence.MUST_BE_ABSENT, "autoreply.rules", name);
+} catch (ConfigEntryPresenceException exists) {
+    config.getRules().remove(name);
+    sender.sendMessage("A rule named " + name + " is already in the file; run /ul reload to see it.");
+} catch (ConfigWriteRefusedException refused) {
+    config.getRules().remove(name);
+    sender.sendMessage("Not saved: " + refused.getReason());
+}
+```
+
+The condition is checked on the same read of the file that the write gate verifies the write against. An edit saved after that read makes the gate refuse the write, because the file changed. An entry is present when its whole key path exists where the framework reads the setting: its nested keys, or the flat dotted form, followed by the map keys, each one whole key. An entry holding `null` (`name: ~`) is present. An entry under a missing, `null`, empty (`{}`) or non-map key is absent, and so is every entry of a missing or comment-only file.
+
+When the condition does not hold, nothing is written and the call throws `com.ultikits.ultitools.config.ConfigEntryPresenceException`. It is a `ConfigWriteRefusedException`: `getRequired()` names the condition that failed, and `getReason()` names the entry's key path. The framework logs nothing above FINE for it, because your command reports it. A `null` condition throws `IllegalArgumentException`. The two-argument `saveOperatorMapEntry` is unchanged.
+
 ### Refused writes
 
 A write is refused when the file cannot be read or parsed, uses YAML anchors, aliases or merge keys, changed since it was read, or has a layout the renderer cannot write back byte for byte. A layout refusal names the line to fix, for example `the file's layout outside the keys this write owns would change (line 16)`.
+
+As of v6.3.0, a runtime failure of the YAML library while a write is applied, rendered or checked is a refusal too. Writing a map into an entry that holds `null` with an inline comment (`foo: ~  # placeholder`) is one such layout. The reason names the keys, the step that failed and the failure's class, for example `the file cannot be written at autoreply.rules.foo: rendering the document failed (EmitterException)`. Before this change the library's exception reached the caller, so a module that rolled back only on `IOException` kept its in-memory change.
 
 Layouts that refuse every write to the file include a line of only spaces, a trailing space after a value, an inline comment aligned with several spaces, more than one space after a colon, spaces inside flow brackets (`[ a ]`), a `---` or `...` marker, a block scalar followed by a blank line, a comment indented deeper than the key below it, two indentation widths in one file and mixed line endings. None of the files the framework and its modules ship has such a layout. The operator fixes the named line, or runs `/ul reload` after "the file changed since it was read", and repeats the change.
 
@@ -228,7 +254,9 @@ The result is `WRITTEN`, `UNCHANGED`, `FILE_CHANGED` (the file changed since `re
 
 Comments on individual list items are kept only while the list keeps its length — the same as Bukkit, which keeps none.
 
-Writes first force a same-directory temporary, then replace atomically. Only unsupported atomic move, EBUSY/cross-device or permitted temporary-creation refusal allows backed in-place fallback. As of v6.3.0 the backup is named `<file>.ultitools-backup-<16 hex>` and is forced before the target is opened; a backup this server run wrote for the same file, still holding what it wrote, is refreshed from the current target through a forced temporary and atomic replacement. An operator's own `<file>.bak` is never read, written or deleted. A backup refusal leaves target and previous backup untouched. A later in-place failure may leave a partial target with complete backup retained. Only a successful strict current-file load removes it, and only while its bytes still match what was written; there is no automatic restoration.
+Writes first force a same-directory temporary, then replace atomically. Only unsupported atomic move, EBUSY/cross-device or permitted temporary-creation refusal allows backed in-place fallback. As of v6.3.0 the backup is named `<file>.ultitools-backup-<16 hex>` and is forced before the target is opened; a backup this server run wrote for the same file, still holding what it wrote, is refreshed from the current target through a forced temporary and atomic replacement. An operator's own `<file>.bak` is never read, written or deleted. A backup refusal leaves target and previous backup untouched. As of v6.3.0, if the in-place write then fails after the target was opened (a write that stops part-way, or a failed force), the framework first writes the target's previous bytes back from the backup and removes the backup. Only then does the `IOException` reach the caller, so the file holds what it held before the write. A panel batch puts back every file it opened the same way and fails.
+
+If putting the file back fails too, one SEVERE names the file and the backup, never content, and the backup is kept. The configuration then treats the file as changed since it was read until a reload: an operator change or a panel edit is refused with "the file changed since it was read", and `save()` writes nothing. The operator compares the file with the backup, copies the backup over it if needed, and reloads. A backup that served a successful in-place write is removed by the next successful strict load of the file, and only while its bytes still match what was written.
 
 Unreadable, malformed or non-UTF-8 files are protected on every entity write route. Initial failure uses defaults and logs one SEVERE naming the file and safe cause, without source snippets. As of v6.3.0, a reload of such a file keeps running fields and the file unchanged and throws `ConfigurationException` naming the file and the same safe cause; `/ul reload <module>` then replies that the module failed to reload with that cause. Only a later successful load clears protection. Validation precedes default/comment and panel persistence.
 
