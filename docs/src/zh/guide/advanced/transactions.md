@@ -122,7 +122,7 @@ JSON 后端的回滚是基于快照的：事务内第一次触碰某个操作器
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/EconomyService.java
 
-::: tip
+::: tip 单实体操作不需要事务
 对于简单的单实体操作，你不需要事务。事务在需要确保多个操作同时成功或同时失败时最为有用。
 :::
 

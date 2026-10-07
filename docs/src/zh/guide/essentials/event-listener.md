@@ -99,7 +99,7 @@ TempListener.common(AsyncPlayerChatEvent.class)
     });
 ```
 
-::: info
+::: info TempEventHandler 的返回值
 `TempEventHandler<E>` 是一个函数式接口，接收事件并返回布尔值：
 - 返回 `true` 自动注销监听器。
 - 返回 `false` 保持监听器活跃，继续处理后续事件。

@@ -98,7 +98,7 @@ TempListener.common(AsyncPlayerChatEvent.class)
     });
 ```
 
-::: info
+::: info The return value of TempEventHandler
 The `TempEventHandler<E>` is a functional interface that receives the event and returns a boolean:
 - Return `true` to automatically unregister the listener after handling.
 - Return `false` to keep the listener active for subsequent events.

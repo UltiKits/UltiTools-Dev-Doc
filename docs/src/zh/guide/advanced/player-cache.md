@@ -57,6 +57,6 @@ public interface PlayerCacheSaver {
 
 <<< @/../examples/src/main/java/com/ultikits/docs/cache/TeleportRequestService.java
 
-::: tip
+::: tip 每个按玩家存储的 Map 都应使用 @PlayerCache
 `@PlayerCache` 可以消除 Minecraft 插件中最常见的内存泄漏来源。建议在每个存储玩家状态的 `Map<UUID, ?>` 字段上使用它。
 :::

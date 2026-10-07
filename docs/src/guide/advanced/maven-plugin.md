@@ -49,7 +49,7 @@ mvn clean package ultitools:install
 
 This command will package your plugin and copy it to the server folder.
 
-::: warning
+::: warning Stop the server before copying
 
 If your server is running, please shut down the server first, otherwise the copy will fail!
 

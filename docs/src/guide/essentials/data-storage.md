@@ -143,7 +143,7 @@ You need to get the instance of the module main class, and then call the `getDat
 
 <<< @/../examples/src/main/java/com/ultikits/docs/data/UserDataService.java
 
-::: warning
+::: warning Obtain DataOperator when it is needed
 `DataOperator` is not thread-safe. Please get `DataOperator` when you need it, and do not try to save `DataOperator` object.
 :::
 

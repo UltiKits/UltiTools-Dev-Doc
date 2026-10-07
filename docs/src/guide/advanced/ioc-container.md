@@ -5,7 +5,7 @@ IOC stands for Inversion of Control, which means that the creation and managemen
 UltiTools has its own IOC container built on `SimpleContainer`, which uses a three-level cache for circular dependency resolution. If you have used Spring before, you will find the concepts familiar.
 
 
-::: warning
+::: warning Limitations
 
 Despite UltiTools attempting to scan the involved classes as comprehensively as possible, there may still be issues with Bean registration if the class cannot be found.
 
@@ -97,7 +97,7 @@ public MyClass(PluginMain pluginMain) {
 }
 ```
 
-::: tip
+::: tip The main class is obtained by field injection
 If the class is an event listener class or a command executor class, you can use field injection to get the main class.
 :::
 

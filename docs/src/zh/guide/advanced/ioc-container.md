@@ -94,7 +94,7 @@ public MyClass(PluginMain pluginMain) {
 }
 ```
 
-::: tip
+::: tip 通过字段注入获取主类
 如果该类为事件监听器类或命令执行器类，那么可以使用字段注入的方式来实现主类的获取。
 :::
 
