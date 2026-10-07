@@ -207,7 +207,7 @@ try {
 
 自 v6.3.0 起，有两种合法的 YAML 排版无法被框架保留注释的读取器（Paper 自带的 SnakeYAML 2.2）读取。这样的文件按无法解析处理：永不写入，启动时模块使用声明的默认值（重载则保留运行中的值），并由 SEVERE 日志 `Cannot load <file>: <parser location>; file will not be overwritten` 指出该文件。文件的每个字节都保持不变，改正排版后其中的值才会生效。
 
-- 块锚点的第一个子键之前有注释，例如 `defaults: &defaults`，下一行是 `  # note`，再下一行是 `  setting: inherited`（[#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580)）。把注释移到锚点键上方，或移到第一个子键下方。
+- 块锚点的第一个子键之前有注释，例如 `defaults: &defaults` 之后是 `# note` 和 `setting: inherited`，两行都缩进两个空格（[#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580)）。把注释移到锚点键上方，或移到第一个子键下方。
 - 块标量（`content: |-` 或 `>`）后面依次是缩进大于 0 列的注释、空行、另一条注释（[#617](https://github.com/UltiKits/UltiTools-Reborn/issues/617)）。删掉两条注释之间的空行，或删掉其中一条注释。
 
 ### 模块代管的服主文件
