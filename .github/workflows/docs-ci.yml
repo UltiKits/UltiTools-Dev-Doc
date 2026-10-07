@@ -94,6 +94,36 @@ jobs:
       # 这里的引号是必需的：YAML 的 plain scalar 不允许出现「冒号 + 空格」，
       # 而步骤名里那三个冒号后面正是空格。去掉引号 GitHub 会把整个文件判为
       # invalid workflow file，本文件三个 job 全部不运行，而 PR 上不会显示为红。
+      # Title rule rehearsal (UltiTools-Dev-Doc#46). A check that reports zero
+      # violations looks the same whether the docs are clean or the check read
+      # nothing, so the two fixtures prove it both ways before it is trusted on
+      # docs/src: the untitled fixture must exit exactly 1 and name its line
+      # (exit 2 is a usage error, which "non-zero" would not tell apart), the
+      # titled fixture must exit 0. Exit codes are captured explicitly because
+      # GitHub's default shell runs with -e.
+      - name: Rehearse the container title check on fixtures
+        run: |
+          set +e
+          present_out=$(bash scripts/check-container-length.sh scripts/fixtures/container-title-present.md 2>&1)
+          present_exit=$?
+          missing_out=$(bash scripts/check-container-length.sh scripts/fixtures/container-title-missing.md 2>&1)
+          missing_exit=$?
+          set -e
+          echo "$present_out"
+          echo "$missing_out"
+          if [ "$present_exit" != "0" ]; then
+            echo "::error::titled fixture exited $present_exit, expected 0: the title check rejects a titled container"
+            exit 1
+          fi
+          if [ "$missing_exit" != "1" ]; then
+            echo "::error::untitled fixture exited $missing_exit, expected exactly 1: the title check does not fail an untitled container"
+            exit 1
+          fi
+          if ! printf '%s\n' "$missing_out" | grep -q 'container-title-missing.md:6 .*TITLE'; then
+            echo "::error::untitled fixture failed without naming file:line 6 and TITLE: the failure is not the title rule"
+            exit 1
+          fi
+
       - name: "Check ::: container prose length against AGENTS.md"
         # -print0/-0 而不是 $(find ...)：后者按空白分词，文件名含空格时会被拆成多个参数，
         # 检查器于是对不存在的路径报错，而不是检查那个文件（shellcheck SC2046）。
