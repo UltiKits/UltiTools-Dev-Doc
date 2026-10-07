@@ -110,6 +110,12 @@ Blocklist refusals, an empty command and dispatch errors are reported as before.
 result carried the invented text `Command executed successfully` in place of a reply. A panel or tool
 that showed `output` as the command's reply now shows the sentence above.
 
+As of v6.3.0, from the moment UltiTools starts disabling, panel requests get no reply
+([#621](https://github.com/UltiKits/UltiTools-Reborn/issues/621)): an inbound message is dropped with one
+`FINE` line instead of scheduling work for a disabled plugin, so a panel action sent while the server stops
+waits for the panel's own timeout. A remote command caught in the moment the stop begins can be logged in
+the console and in the remote action log as allowed and still never run, with no result reply.
+
 ## Remote file API boundary
 
 The remote file API (`file-read`/`file-write`/`file-delete`) is confined to an explicit set of

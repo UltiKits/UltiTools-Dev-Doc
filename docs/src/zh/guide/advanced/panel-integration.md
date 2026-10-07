@@ -89,6 +89,8 @@ plugins/UltiTools/config.yml to change this.
 
 自 v6.3.0 起，面板的远程命令以服务器控制台的身份运行，等同于在控制台中输入该命令，模块看到的仍是通常的控制台发送者。框架不捕获命令的回复：`command_result` 消息只说明命令已分派，文本为 `Command dispatched to the server console. Its output appears in the server log stream.`；分派返回 false 时为 `The server console did not accept the command. Any message it printed appears in the server log stream.`。回复本身与其他所有控制台输出一起，通过[实时日志流](#实时日志流)到达面板，因此需要开启 `logs` 能力才能看到。黑名单拒绝、空命令与分派错误的报告方式不变。v6.3.0 之前，结果里携带的是编造的 `Command executed successfully`，而不是回复。把 `output` 当作命令回复来显示的面板或工具，现在显示的是上面这句话。
 
+自 v6.3.0 起，从 UltiTools 开始禁用的那一刻起，面板请求不再得到回复（[#621](https://github.com/UltiKits/UltiTools-Reborn/issues/621)）：入站消息只记一条 `FINE` 日志后丢弃，而不是为已禁用的插件调度任务，因此服务器停止期间发出的面板操作要等到面板自身的超时。恰在停服开始那一刻到达的远程命令，可能已在控制台和远程操作日志中记为允许，却不会执行，也没有结果回复。
+
 ## 远程文件 API 边界
 
 远程文件 API（`file-read`/`file-write`/`file-delete`）被限定在一组显式的可编辑根目录内，
