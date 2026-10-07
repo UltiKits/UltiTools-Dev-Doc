@@ -16,7 +16,7 @@ Since the API is still under development, there may be problems when dealing wit
 
 Create a class that extends `BaseDataEntity<String>`, and use the `@Table` and `@Column` annotations to mark your entity class.
 
-<<< @/../examples/src/main/java/com/ultikits/docs/data/UserData.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/data/UserData.java
 
 `@Table` is used to mark the data set corresponding to the class, and `@Column` is used to mark the field corresponding to the field of the data set of the class.
 
@@ -42,7 +42,7 @@ Starting from v6.2.0, `DataOperator`, `Query`, and `UltiToolsPlugin.getDataOpera
 
 For entities that require audit tracking of creation and modification, use `AuditableDataEntity`:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/data/AuditEntry.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/data/AuditEntry.java
 
 `AuditableDataEntity<String>` extends `BaseDataEntity<String>` and automatically manages:
 
@@ -128,7 +128,7 @@ In the main class that inherits `UltiToolsPlugin`, there is a `getDataOperator` 
 
 You need to get the instance of the module main class, and then call the `getDataOperator` method.
 
-<<< @/../examples/src/main/java/com/ultikits/docs/data/UserDataService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/data/UserDataService.java
 
 ::: warning
 `DataOperator` is not thread-safe. Please get `DataOperator` when you need it, and do not try to save `DataOperator` object.

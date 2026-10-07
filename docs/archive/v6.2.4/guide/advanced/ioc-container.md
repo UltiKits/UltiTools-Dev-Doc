@@ -132,7 +132,7 @@ Methods in managed beans can be automatically called at specific lifecycle point
 
 The `@PostConstruct` annotation marks a method to be called **after all dependencies have been injected** and the bean is fully initialized.
 
-<<< @/../examples/src/main/java/com/ultikits/docs/ioc/DatabaseConnection.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/ioc/DatabaseConnection.java
 
 **Rules:**
 - Method must have `void` return type
@@ -144,7 +144,7 @@ The `@PostConstruct` annotation marks a method to be called **after all dependen
 
 The `@PreDestroy` annotation marks a method to be called **before the bean is destroyed** (when the plugin is disabled or the container shuts down).
 
-<<< @/../examples/src/main/java/com/ultikits/docs/ioc/ResourceManager.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/ioc/ResourceManager.java
 
 **Rules:**
 - Method must have `void` return type
@@ -156,7 +156,7 @@ The `@PreDestroy` annotation marks a method to be called **before the bean is de
 
 For complex bean initialization or creating beans from third-party classes, use the `@Configuration` annotation with `@Bean` factory methods.
 
-<<< @/../examples/src/main/java/com/ultikits/docs/ioc/HttpClientConfiguration.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/ioc/HttpClientConfiguration.java
 
 **When to use:**
 - Creating beans from external libraries (Gson, HTTP clients, database connection pools)
@@ -206,7 +206,7 @@ public class MyService {
 
 ### Constructor Injection Example
 
-<<< @/../examples/src/main/java/com/ultikits/docs/ioc/PlayerDataService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/ioc/PlayerDataService.java
 
 ### How It Works
 
@@ -278,6 +278,6 @@ List<PaymentProcessor> allProcessors = context.getOrderedBeansOfType(PaymentProc
 
 Starting from v6.2.0, you can conditionally register components based on YAML configuration values using the `@ConditionalOnConfig` annotation.
 
-<<< @/../examples/src/main/java/com/ultikits/docs/ioc/EconomyService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/ioc/EconomyService.java
 
 This eliminates the need for manual `if` checks in `registerSelf()`. See the [Conditional Registration](/guide/advanced/conditional-registration) guide for full details.

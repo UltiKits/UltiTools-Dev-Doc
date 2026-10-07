@@ -37,7 +37,7 @@ Widget 是用户界面的不可变描述。它们是轻量级的配置对象。
 ### 3.1 创建一个简单的 GUI
 所有的声明式 GUI 都继承自 `DeclarativeGui` 类。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/declarative/MyFirstGui.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/declarative/MyFirstGui.java
 
 ```java
 // 打开 GUI
@@ -110,9 +110,9 @@ GridView.<ShopItem>builder()
 
 ### 示例：简单的计数器
 
-<<< @/../examples/src/main/java/com/ultikits/docs/declarative/CounterWidget.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/declarative/CounterWidget.java
 
-<<< @/../examples/src/main/java/com/ultikits/docs/declarative/CounterState.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/declarative/CounterState.java
 
 **原理解析**:
 1.  用户点击按钮。
@@ -161,4 +161,4 @@ Navigator.of(context).push("settings");
 3.  **单选**: 使用 `selectedSlot` 状态控制高亮显示。
 4.  **交互**: 购买按钮根据选中状态动态显示/隐藏。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/declarative/ExampleShopPage.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/declarative/ExampleShopPage.java

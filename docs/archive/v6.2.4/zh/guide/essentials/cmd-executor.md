@@ -18,7 +18,7 @@ UltiTools-API 对原生的 `CommandExecutor` 接口进行了封装，提供了�
 `AbstractCommandExecutor` 从 v6.2.0 开始已弃用。请使用 `BaseCommandExecutor`，它提供了相同的注解驱动功能，同时支持可插拔的验证链、改进的上下文管理和自定义类型解析器支持。
 :::
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/ExampleCommand.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/ExampleCommand.java
 
 这样你就完成了一个空的什么都不做的命令执行器。这里的 `@CmdTarget` 和 `@CmdExecutor` 注解是代表了该命令的发送者类型和执行器信息。我们将在下一节详细介绍这两个注解。
 
@@ -28,7 +28,7 @@ UltiTools-API 对原生的 `CommandExecutor` 接口进行了封装，提供了�
 
 如果你的模块存在大量的命令执行器而不想手动注册，也可以使用 UltiTools 提供的自动注册功能，详情可以查看[这篇文章](/zh/guide/advanced/auto-register)。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/UltiToolsConnector.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/UltiToolsConnector.java
 
 ## 基于映射的命令执行器
 
@@ -377,7 +377,7 @@ long timestamp = context.getTimestamp();
 
 验证命令发送者是否与预期的目标类型匹配（玩家、控制台或两者）：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerOnlyCommand.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/PlayerOnlyCommand.java
 
 #### PermissionValidator
 
@@ -444,15 +444,15 @@ public void download(@CmdSender Player player) {
 
 实现 `CommandValidator` 来创建自定义验证逻辑：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/WorldRestrictionValidator.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/WorldRestrictionValidator.java
 
 在你的命令执行器中注册验证器：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/ValidatorCommand.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/ValidatorCommand.java
 
 或使用自定义验证链：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/ChainCommand.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/ChainCommand.java
 
 ### 验证器执行顺序
 
@@ -514,7 +514,7 @@ public void backupWorld(@CmdSender Player player) {
 
 实现 `TypeParser<T>`：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/ColorParser.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/ColorParser.java
 
 注册解析器：
 
@@ -539,7 +539,7 @@ public void setColor(@CmdSender Player player, @CmdParam("color") Color color) {
 
 支持数组的高级解析器：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/RangeParser.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/RangeParser.java
 
 ```java
 // 使用方式
@@ -557,7 +557,7 @@ public void randomNumber(@CmdSender Player player,
 
 如果你希望一个指令只能在游戏内使用（由玩家执行），那么可以继承 `AbstractPlayerCommandExecutor` 类，并重写 `onPlayerCommand` 方法。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerCommandExample.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/PlayerCommandExample.java
 
 除 `Player` 类型的参数外，该方法与 `CommandExecutor#onCommand` 方法相同。
 
@@ -589,7 +589,7 @@ protected List<String> onPlayerTabComplete(Command command, String[] strings, Pl
 
 如果你希望一个指令只能在控制台使用，那么可以继承 `AbstractConsoleCommandExecutor` 类，并重写 `onConsoleCommand` 方法。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/ConsoleCommandExample.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/ConsoleCommandExample.java
 
 该方法与 `CommandExecutor#onCommand` 方法相同。
 

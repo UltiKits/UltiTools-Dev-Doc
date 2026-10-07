@@ -76,7 +76,7 @@ Create a new class that extends `UltiToolsPlugin`, similar to traditional Paper 
 UltiTools modules also need to override the startup and shutdown methods.
 But UltiToolsPlugin adds an optional `UltiToolsPlugin#reloadSelf()` method for execution when the module is reloaded.
 
-<<< @/../examples/src/main/java/com/ultikits/docs/quickstart/MyPlugin.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/quickstart/MyPlugin.java
 
 Then you have completed an UltiTools module that does nothing.
 
@@ -92,7 +92,7 @@ The following section describes the legacy connector approach, which is still su
 
 Create a new class that extends `UltiToolsPlugin`, this class will be the connector class of your plugin.
 
-<<< @/../examples/src/main/java/com/ultikits/docs/quickstart/UltiToolsConnector.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/quickstart/UltiToolsConnector.java
 
 ### Register your connector class (Legacy)
 

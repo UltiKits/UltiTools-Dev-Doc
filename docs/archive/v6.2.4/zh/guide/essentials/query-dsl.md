@@ -125,7 +125,7 @@ int deleted = dataOperator.query()
 
 以下是使用查询 DSL 的完整服务示例：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/query/HomeServiceImpl.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/query/HomeServiceImpl.java
 
 ::: tip 旧版 API
 `WhereCondition` API 仍然可用且未被弃用。查询 DSL 是一个更高级的替代方案，对于复杂查询可读性更好。你可以自由混合使用两种方式。

@@ -12,7 +12,7 @@ UltiTools 为配置字段提供了声明式的校验注解。当配置值校验�
 
 校验数值是否在指定范围内（包含边界）。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/validation/MyConfig.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/validation/MyConfig.java
 
 如果服主设置了 `maxHomes: 999`，该值会被重置为 `5`（默认值），并在控制台显示警告。
 
@@ -90,7 +90,7 @@ private String displayName = "Default Name";
 
 ## 完整示例
 
-<<< @/../examples/src/main/java/com/ultikits/docs/validation/PluginConfig.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/validation/PluginConfig.java
 
 ## 行为说明
 

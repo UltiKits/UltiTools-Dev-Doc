@@ -12,7 +12,7 @@ UltiTools provides declarative validation annotations for configuration fields. 
 
 Validates that a numeric value falls within a specified range (inclusive).
 
-<<< @/../examples/src/main/java/com/ultikits/docs/validation/MyConfig.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/validation/MyConfig.java
 
 If a server admin sets `maxHomes: 999`, it will be reset to `5` (the default) and a warning will appear in the console.
 
@@ -90,7 +90,7 @@ private String displayName = "Default Name";
 
 ## Complete Example
 
-<<< @/../examples/src/main/java/com/ultikits/docs/validation/PluginConfig.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/validation/PluginConfig.java
 
 ## Behavior
 

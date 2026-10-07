@@ -52,11 +52,11 @@ When a player opens a GUI, the following sequence occurs:
 
 ### Creating a Simple Information Panel
 
-<<< @/../examples/src/main/java/com/ultikits/docs/gui/InfoGui.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/gui/InfoGui.java
 
 ### Opening a GUI
 
-<<< @/../examples/src/main/java/com/ultikits/docs/gui/InfoCommand.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/gui/InfoCommand.java
 
 ### Bottom Toolbar
 
@@ -170,7 +170,7 @@ protected static final int NEXT_BUTTON_COLUMN = 8;  // Far right
 
 ### Creating a Paginated Player List
 
-<<< @/../examples/src/main/java/com/ultikits/docs/gui/PlayerListGui.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/gui/PlayerListGui.java
 
 ### Pagination Methods
 
@@ -212,7 +212,7 @@ public abstract class BaseConfirmationPage extends BaseInventoryPage {
 
 ### Creating a Confirmation Dialog (Subclass Approach)
 
-<<< @/../examples/src/main/java/com/ultikits/docs/gui/DeleteConfirmation.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/gui/DeleteConfirmation.java
 
 ### Creating a Confirmation Dialog (Builder Pattern)
 
@@ -266,13 +266,13 @@ ItemStack glass = XVersionUtils.getColoredPlaneGlass(Colors.CYAN);
 
 Here's a full example combining pagination with custom actions:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/gui/WarpListGui.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/gui/WarpListGui.java
 
 ## Advanced: Custom Button Styles
 
 Override button creation methods to customize appearance:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/gui/CustomPaginationGui.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/gui/CustomPaginationGui.java
 
 ## Deprecated API
 
