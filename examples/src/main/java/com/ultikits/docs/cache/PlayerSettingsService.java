@@ -1,59 +1,55 @@
 package com.ultikits.docs.cache;
 
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
-import com.ultikits.ultitools.annotations.*;
-import com.ultikits.ultitools.aop.ExceptionHandler;
+import com.ultikits.ultitools.annotations.Autowired;
+import com.ultikits.ultitools.annotations.PlayerCache;
+import com.ultikits.ultitools.annotations.Service;
+import com.ultikits.ultitools.entities.WhereCondition;
 import com.ultikits.ultitools.interfaces.DataOperator;
-import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.lang.reflect.Method;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
-public class PlayerSettingsService implements PlayerCacheSaver {
+public class PlayerSettingsService {
 
     @Autowired
     private UltiToolsPlugin plugin;
 
-    @PlayerCache(saveBeforeRemove = true)
+    // A read cache only. Nothing is ever written from it: the framework drops the entry when the
+    // player quits, and a change is written at the moment it is made.
+    @PlayerCache
     private final Map<UUID, PlayerSettings> settingsCache = new ConcurrentHashMap<>();
 
     public PlayerSettings getSettings(UUID playerId) {
-        return settingsCache.computeIfAbsent(playerId, this::loadFromDatabase);
+        return settingsCache.computeIfAbsent(playerId, id -> {
+            PlayerSettingsEntity stored = readStored(id);
+            return stored != null ? PlayerSettings.fromEntity(stored) : new PlayerSettings();
+        });
     }
 
-    public void updateSetting(UUID playerId, String key, Object value) {
-        PlayerSettings settings = getSettings(playerId);
-        settings.set(key, value);
-        // Changes stay in memory until player quits or explicit save
-    }
-
-    @Override
-    public void savePlayerData(UUID playerId) {
-        PlayerSettings settings = settingsCache.get(playerId);
-        if (settings != null && settings.isDirty()) {
-            try {
-                plugin.getDataOperator(PlayerSettingsEntity.class).update(settings.toEntity());
-            } catch (IllegalAccessException e) {
-                plugin.getLogger().warn("Failed to save settings for " + playerId);
-            }
+    public void setShowScoreboard(UUID playerId, boolean show) {
+        DataOperator<PlayerSettingsEntity> operator = plugin.getDataOperator(PlayerSettingsEntity.class);
+        // Read the stored row now, not the cache: another server may have created or changed it.
+        PlayerSettingsEntity stored = readStored(playerId);
+        if (stored == null) {
+            operator.insert(PlayerSettingsEntity.builder()
+                .playerId(playerId.toString())
+                .showScoreboard(show)
+                .build());
+        } else {
+            // Write only the column that changed, so nothing else in the row is touched.
+            operator.update("show_scoreboard", show, stored.getId());
         }
+        // Drop the cached copy; the next read loads what is stored.
+        settingsCache.remove(playerId);
     }
 
-    private PlayerSettings loadFromDatabase(UUID playerId) {
-        PlayerSettingsEntity entity = plugin.getDataOperator(PlayerSettingsEntity.class).query()
-            .where("playerId").eq(playerId.toString())
-            .first();
-        return entity != null ? PlayerSettings.fromEntity(entity) : new PlayerSettings();
+    private PlayerSettingsEntity readStored(UUID playerId) {
+        List<PlayerSettingsEntity> rows = plugin.getDataOperator(PlayerSettingsEntity.class)
+            .getAll(WhereCondition.builder().column("player_id").value(playerId.toString()).build());
+        return rows.isEmpty() ? null : rows.get(0);
     }
 }

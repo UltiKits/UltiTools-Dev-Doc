@@ -49,7 +49,7 @@ When `connect()` is called, the framework scans your plugin's base package and r
 | `@CmdExecutor` | Command class auto-registered with Bukkit |
 | `@EventListener` | Listener auto-registered with Bukkit |
 | `@Scheduled` | Methods scheduled as Bukkit tasks |
-| `@PlayerCache` | Fields tracked per-player with auto save/load |
+| `@PlayerCache` | Per-player entries removed when the player quits (`Map<UUID, ?>`; as of v6.3.0 also `Set<UUID>` and `Map<?, UUID>`), with an optional save hook (`saveBeforeRemove`) |
 | `@ModuleEventHandler` | Subscribed to the UltiTools EventBus |
 
 ## Writing Services
