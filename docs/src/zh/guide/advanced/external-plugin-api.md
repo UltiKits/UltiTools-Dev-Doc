@@ -49,7 +49,7 @@ depend: [UltiTools]
 | `@CmdExecutor` | 命令类自动注册到 Bukkit |
 | `@EventListener` | 监听器自动注册到 Bukkit |
 | `@Scheduled` | 方法注册为 Bukkit 定时任务 |
-| `@PlayerCache` | 玩家退出时移除该玩家在 Map 和 Set 字段中的条目，可选保存回调（`saveBeforeRemove`） |
+| `@PlayerCache` | 玩家退出时移除该玩家的条目（`Map<UUID, ?>`；自 v6.3.0 起也支持 `Set<UUID>` 与 `Map<?, UUID>`），可选保存回调（`saveBeforeRemove`） |
 | `@ModuleEventHandler` | 订阅 UltiTools 事件总线 |
 
 ## 编写服务

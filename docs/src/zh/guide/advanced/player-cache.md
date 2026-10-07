@@ -42,7 +42,7 @@
 4. 新值取决于读到的旧值时（例如计数器或开关），用 `updateIf` 写入，条件为你读到的各列的值。返回 `false` 说明其他写入方先修改了这一行：重新读取并重新判断。尝试几次后仍然失败就放弃（UltiEconomy 最多尝试三次）。
 5. 增量也按这种比较并设置的循环来写，不要写成缓存值加增量。
 
-自 v6.3.0 起，`DataOperator#updateIf` 只在已存储的行仍然满足所有条件时才写入实体，详见[条件更新](/zh/guide/essentials/data-storage#条件更新)。它会写入实体的每个已映射字段，所以读了几列就要加几个条件。下面的示意给一行数据增加金币。它需要 UltiTools-API v6.3.0 或更高版本，不属于编译检查的示例：
+自 v6.3.0 起，`DataOperator#updateIf` 只在已存储的行仍然满足所有条件时才写入实体，详见[条件更新](/zh/guide/essentials/data-storage#条件更新)。它会写入实体的每个已映射字段，所以条件必须覆盖实体映射的每一列，而不只是你的代码读取或修改的那几列：漏掉的列如果在此期间被其他服务器修改，会被你读到的旧值覆盖。下面的示意假定 `PlayerStats` 除 id 外只映射 `coins` 和 `kills` 两列。下面的示意给一行数据增加金币。它需要 UltiTools-API v6.3.0 或更高版本，不属于编译检查的示例：
 
 ```java
 // 需要 UltiTools-API v6.3.0 或更高版本（DataOperator#updateIf）。
@@ -96,7 +96,7 @@ public interface PlayerCacheSaver {
 
 ## 使用要求
 
-- 字段必须是以 `UUID` 为键的 `Map`
+- 字段必须是以 `UUID` 为键的 `Map`（自 v6.3.0 起也可以是 `Set<UUID>`，或值为 `UUID` 的 `Map`）
 - 字段必须在容器管理的 Bean 中（`@Service`、`@CmdExecutor`、`@EventListener`）
 - 使用 `saveBeforeRemove = true` 时，Bean 必须实现 `PlayerCacheSaver`
 - 如果 Map 会被异步线程访问，请使用 `ConcurrentHashMap`

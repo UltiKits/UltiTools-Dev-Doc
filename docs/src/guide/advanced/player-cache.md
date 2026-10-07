@@ -42,7 +42,7 @@ For data that is stored in a database, follow these rules:
 4. When the new value depends on the value that was read, such as a counter or a toggle, write with `updateIf` conditioned on the values you read. A `false` result means another writer changed the row first: read it again and decide again. Give up after a few attempts (UltiEconomy uses three).
 5. Write an increment as a compare-and-set loop of this kind, never as the cached value plus the amount.
 
-As of v6.3.0, `DataOperator#updateIf` writes the entity only while the stored row still has every value in the conditions; see [Conditional Update](/guide/essentials/data-storage#conditional-update). It writes every mapped field of the entity, so add one condition for each column you read. The sketch below adds coins to a stored row. It needs UltiTools-API v6.3.0 or later and is not part of the compiled examples:
+As of v6.3.0, `DataOperator#updateIf` writes the entity only while the stored row still has every value in the conditions; see [Conditional Update](/guide/essentials/data-storage#conditional-update). It writes every mapped field of the entity, so the conditions must cover every column the entity maps, not only the ones your code read or changed: a column left out is overwritten with the value you read if another server changed it in between. The sketch assumes `PlayerStats` maps just `coins` and `kills` besides its id. The sketch below adds coins to a stored row. It needs UltiTools-API v6.3.0 or later and is not part of the compiled examples:
 
 ```java
 // Requires UltiTools-API v6.3.0 or later (DataOperator#updateIf).
@@ -96,7 +96,7 @@ A single bean can have multiple `@PlayerCache` fields. Each is cleaned up indepe
 
 ## Requirements
 
-- The field must be a `Map` with `UUID` keys
+- The field must be a `Map` with `UUID` keys (as of v6.3.0 also a `Set<UUID>`, or a `Map` whose values are `UUID`s)
 - The field must be in a bean managed by the container (`@Service`, `@CmdExecutor`, `@EventListener`)
 - For `saveBeforeRemove = true`, the bean must implement `PlayerCacheSaver`
 - Use `ConcurrentHashMap` if the map is accessed from async threads
