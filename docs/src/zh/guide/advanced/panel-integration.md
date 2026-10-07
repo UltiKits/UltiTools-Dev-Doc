@@ -333,6 +333,15 @@ UltiTools.getInstance().getPanelResponderRegistry()
   responder 完成回复，附带一条明确的超时错误，而不会让面板的请求无限期挂起。
 - **模块卸载时，responder 会自动注销**，与框架自动注销该模块 `EventBus` 订阅的同一时机
   一致。
+- **responder 属于某一个模块实例（自 v6.3.0 起）。** 框架加载模块期间（容器刷新或 `registerSelf()`
+  中）注册的 responder 属于该实例。加载之后用三参数 `registerResponder(type, responder, ownerModule)`
+  注册的，属于框架以 `ownerModule` 列为已加载的那个实例；新实例正在替换旧实例时，属于旧实例。实例卸载
+  或被替换时，只注销它自己的 responder。在模块构造器中，或在框架把主类注册为 Bean 时运行的 `@PostConstruct` 代码中（主类自身及其注入的 Bean 的）
+  按名称注册的 responder，属于此时以该名称列出的实例：首次加载时没有这样的实例，新实例加载期间则是旧实例。请在 `registerSelf()` 中注册 responder；如果你手上有模块实例，
+  也可以使用四参数的 `registerResponder(type, responder, ownerModule, ownerInstance)`，直接记下实例。
+- **新实例接管旧实例的类型（自 v6.3.0 起）。** 代码注册一个已加载模块的新实例时，旧实例的 responder
+  在新实例的 `registerSelf()` 运行之前被释放，所以在其中注册同一类型会成功。新实例加载失败时，它的
+  responder 被注销，旧实例的 responder 原样恢复。
 
 框架不强制要求 `<模块>:<类型>` 这样的命名空间前缀——那将是面板一侧也需要遵守的跨仓库协议
 约定，而不是框架单方面能强制的东西。不过采用带命名空间的类型字符串（如上例）仍是值得遵循

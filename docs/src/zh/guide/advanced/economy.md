@@ -53,6 +53,11 @@ if (EconomyUtils.isAvailable()) {
 匹配到的最具体的包优先；同一个包被两个不同的一方声明时，两者都不指出。以上都覆盖不到的请求记为
 `an unknown caller`，按发起请求的包各记一次，而不是所有这类请求共用一次，所以第二个无法识别的调用方不会被吞掉。
 
+已知限制，只写入文档、不改代码（[issue #567](https://github.com/UltiKits/UltiTools-Reborn/issues/567)）：主类所在的包连同其子包都算在内，
+与扫描的包相同。主类放在与其他代码共用的宽泛包里（例如 `com.example`，而其他插件或库也在 `com.example` 下）时，
+该包里不属于这个模块的代码可能被记到它名下，并用掉该模块本次运行唯一的一次警告。请把主类放在自己专用的包里
+（如 `com.example.myplugin`），官方模块都是这样做的。
+
 ## 本页不涉及的变化
 
 Vault 仍然是 UltiTools 的可选软依赖：`plugin.yml` 依然声明 `softdepend: [Vault]`，对 Vault API

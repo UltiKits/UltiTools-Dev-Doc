@@ -163,6 +163,8 @@ public List<AbstractConfigEntity> getAllConfigs() {
 
 所有写入都经过同一个写入闸门。每次写入声明自己拥有的键；渲染后，这些键之外的每个字节必须与读取时相同，且文件仍须是读取时的内容。否则不写入：一条 WARNING 列出文件、键和原因，不列值，程序继续使用内存中的值。
 
+对显式写入来说，`IOException` 总是表示文件保持原来的字节。被拒绝时是 `ConfigWriteRefusedException`；发布文件失败时是普通 `IOException`，自 v6.3.0 起框架会先把文件放回原样再抛出（见[原子替换](#原子替换)）。因此，在 `IOException` 时撤回内存改动的模块会与文件保持一致。
+
 官方语言文件是唯一的例外。它们归框架所有，升级时可能被替换；要定制文字，请复制官方文件并改名，编辑副本，再在主配置中选择它（见[国际化](/zh/guide/essentials/i18n)）。
 
 ### `save()`
@@ -193,9 +195,33 @@ try {
 
 用 `saveOperatorChange` 指定整个映射设置会整体写入，并丢掉服主手加的条目；只改一个条目的命令应使用 `saveOperatorMapEntry`。被拒绝时抛出 `com.ultikits.ultitools.config.ConfigWriteRefusedException`，它是 `IOException`，`getReason()` 说明原因、不含任何值：请回复服主未保存及原因，并撤回内存中的改动，使运行状态与文件一致。路径不是已声明的配置项时抛 `IllegalArgumentException`。两个方法都在服务器主线程执行。
 
+### 存在性条件
+
+自 v6.3.0 起，映射条目的写入还可以取决于该条目是否已在文件中。把 `EntryPresence` 作为 `saveOperatorMapEntry` 的第一个参数传入：新建条目的命令用 `MUST_BE_ABSENT`，这样不会替换服主在上次重载之后手动添加的同名条目；修改已有条目的命令用 `MUST_BE_PRESENT`，这样不会把服主删掉的条目写回去。模块不必自己读取文件：
+
+```java
+// /autoreply add <name>：仅当文件里还没有同名规则时才新建
+config.getRules().put(name, rule);
+try {
+    config.saveOperatorMapEntry(EntryPresence.MUST_BE_ABSENT, "autoreply.rules", name);
+} catch (ConfigEntryPresenceException exists) {
+    config.getRules().remove(name);
+    sender.sendMessage("文件里已有名为 " + name + " 的规则；执行 /ul reload 后即可看到。");
+} catch (ConfigWriteRefusedException refused) {
+    config.getRules().remove(name);
+    sender.sendMessage("未保存：" + refused.getReason());
+}
+```
+
+条件在写入闸门据以校验这次写入的同一次读取上判断；此后保存的改动会让闸门以文件已被改动为由拒绝写入。条目存在，指它的完整键路径在框架读取该设置的位置上存在：嵌套键或扁平的带点键，再接映射键，每个都是一个完整的键。值为 `null` 的条目（`name: ~`）算存在；上级键缺失、为 `null`、为空映射（`{}`）或不是映射时，条目算不存在；缺失或只有注释的文件不含任何条目。
+
+条件不成立时不写入，并抛出 `com.ultikits.ultitools.config.ConfigEntryPresenceException`。它是 `ConfigWriteRefusedException`：`getRequired()` 给出不成立的条件，`getReason()` 给出条目的键路径。框架对此只记 FINE 级日志，由你的命令告诉服主。条件为 `null` 时抛 `IllegalArgumentException`。原来的两参数 `saveOperatorMapEntry` 不变。
+
 ### 被拒绝的写入
 
 文件无法读取或解析、使用了 YAML 锚点、别名或合并键、读取后被改动，或者排版无法被渲染器逐字节写回时，写入会被拒绝。排版引起的拒绝会给出要修改的行号，例如 `the file's layout outside the keys this write owns would change (line 16)`。
+
+自 v6.3.0 起，YAML 库在应用、渲染或校验一次写入时抛出的运行时异常也按拒绝处理。把映射写入一个值为 `null` 且带行内注释的条目（`foo: ~  # placeholder`）就是这样的排版。原因会给出键、失败的步骤和异常类名，例如 `the file cannot be written at autoreply.rules.foo: rendering the document failed (EmitterException)`。此前该异常会直接传到调用方，只在 `IOException` 时回滚的模块会保留内存中的改动。
 
 会使该文件所有写入都被拒绝的排版包括：只含空格的行、值后面的行尾空格、用多个空格对齐的行内注释、冒号后多于一个空格、流式方括号内侧的空格（`[ a ]`）、`---` 或 `...` 标记、后面跟空行的块标量、缩进比下面的键更深的注释、同一文件中的两种缩进宽度，以及混用的换行符。框架和各模块自带的文件都没有这类排版。服主改掉警告指出的那一行（如果原因是“文件在读取后已被改动”，则先执行 `/ul reload`），再重做一次改动即可。
 
@@ -209,6 +235,16 @@ try {
 
 - 块锚点的第一个子键之前有注释，例如 `defaults: &defaults` 之后是 `# note` 和 `setting: inherited`，两行都缩进两个空格（[#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580)）。把注释移到锚点键上方，或移到第一个子键下方。
 - 块标量（`content: |-` 或 `>`）后面依次是缩进大于 0 列的注释、空行、另一条注释（[#617](https://github.com/UltiKits/UltiTools-Reborn/issues/617)）。删掉两条注释之间的空行，或删掉其中一条注释。
+
+### 删除的键、被清空的节与留空的设置
+
+删除一个键就是服主重置设置的方法：下次启动时，框架会把文件缺少的声明键连同默认值和注释补回。要让文本设置留空，服主写空字符串（`key: ''`）；对文本设置，空字符串读作“留空”，启动、重载或保存其他设置时都不会改写它。数字、true/false 等非文本设置没有“留空”的值：在那里写 `''` 会以一条 WARNING 报告，内存中使用声明默认值，文件里的 `''` 保持不变。如果你的模块文档说明如何重置或清空某个设置，请照此说明。
+
+自 v6.3.0 起，所在的节被服主清空的键也会补回（[#620](https://github.com/UltiKits/UltiTools-Reborn/issues/620)）。如果删除的是节里的最后一个键，节的键名会单独留在一行、冒号后什么都没有（`messages:`），读作“没有值”；删光所有子键多半是误删，所以补键会展开这一行，而不是每次启动都被拒绝。这一行是写入在补入的键之外唯一可以改动的行：它按原样保留键、注释文字和换行符，只有空白可能被规整（冒号前的空格、注释前的空格、行尾空格），所以 `messages :   # reset  ` 会变成 `messages: # reset`。节的值变成恰好是补入的那些键。服主在这一行下面注释掉的子键行留在原处、位于补回的键下面，前提是这些注释行紧跟节所在行、连成一段，并位于文件的缩进处；若前面有空行、两段注释被空行隔开，或注释比文件缩进更深，则每次启动都会拒绝补键，文件不变。`saveOperatorChange`、`saveOperatorMapEntry` 和面板编辑同样如此，所以向被清空的 `rules:` 添加第一条规则的命令会被写入，而不是被拒绝。
+
+写成显式空值的节（`messages: {}`、`messages: ~` 或 `messages: null`）是服主自己写的值，绝不会被改动。在它下面插入会被拒绝，原因为 `the section messages (line 3) is written as an explicit empty value, which the framework does not change; to have keys added below it, delete that value so the line ends after the colon, or add the keys by hand`（[#610](https://github.com/UltiKits/UltiTools-Reborn/issues/610)）；`saveOperatorMapEntry` 会以这个原因抛出 `ConfigWriteRefusedException`。
+
+自 v6.3.0 起，缺少的设置插入到文件已有的那个节下面，绝不写成该节的第二种形式（[#614](https://github.com/UltiKits/UltiTools-Reborn/issues/614)）。文件中 `a.b:` 下有 `c: 3`、模块声明了 `a.b.d` 时，启动会把 `d:` 写在 `a.b:` 下面，而不是另加一份嵌套的 `a:` / `b:`——Bukkit 的 `YamlConfiguration` 会把后者当作替换了扁平的节。如果该节的另一个设置把路径的剩余部分写成一个带点键（`a:` / `  b.c: 3`），缺少的设置会以同样的形式写在它旁边（`  b.d: 2`）；兄弟设置拆分方式不同时无法决定，拒绝插入。如果文件把这个节写了几种形式，设置会插入到其中唯一一个还持有该节其他声明设置的形式下；没有或不止一个形式持有时拒绝插入，写明文件和设置，内存中使用声明默认值。
 
 ### 模块代管的服主文件
 
@@ -227,7 +263,9 @@ OperatorFiles.WriteResult result = OperatorFiles.write(snapshot, edit);
 
 单个列表项的注释仅在列表长度不变时保留；Bukkit 则完全不保留列表项注释。
 
-先强制同步同目录临时文件，再原子替换。仅不支持原子移动、EBUSY/跨设备或允许的临时创建拒绝走备份后原地写。自 v6.3.0 起，备份文件名为 `<file>.ultitools-backup-<16 位十六进制>`，在打开目标前同步；本次运行已为同一文件写过、且内容未变的备份，先从当前目标通过同步临时文件和原子替换刷新。服主自己的 `<file>.bak` 不会被读取、写入或删除。备份失败保持目标和旧备份；之后原地写失败可能留下部分目标，但完整备份保留。只有成功严格加载当前文件、且备份内容仍与写入时一致，才删除备份，不自动还原。
+先强制同步同目录临时文件，再原子替换。仅不支持原子移动、EBUSY/跨设备或允许的临时创建拒绝走备份后原地写。自 v6.3.0 起，备份文件名为 `<file>.ultitools-backup-<16 位十六进制>`，在打开目标前同步；本次运行已为同一文件写过、且内容未变的备份，先从当前目标通过同步临时文件和原子替换刷新。服主自己的 `<file>.bak` 不会被读取、写入或删除。备份失败保持目标和旧备份。自 v6.3.0 起，如果之后的原地写在打开目标后失败（写到一半中断，或 force 失败），框架先从备份写回目标原来的字节并删除备份，然后才把 `IOException` 交给调用方，因此文件保持写入前的内容。面板批次以同样方式放回它打开过的每个文件，并报告失败。
+
+如果放回本身也失败，一条 SEVERE 列出文件和备份（从不含内容），备份保留。此后在重载之前，该配置把文件视为读取后已被改动：服主操作写入和面板编辑会以 “the file changed since it was read” 被拒绝，`save()` 不写入。服主对比文件与备份，必要时用备份覆盖文件，然后重载。成功的原地写入所用的备份，在下一次成功严格加载该文件、且备份内容仍与写入时一致时删除。
 
 不能读取、不能解析或非 UTF-8 文件在所有实体写入路径受保护。初次失败用默认值，并以一条 SEVERE 列出文件和安全原因，不泄漏源码片段。自 v6.3.0 起，重载这样的文件会保留运行字段、不改动文件，并抛出列出文件和同一安全原因的 `ConfigurationException`；`/ul reload <模块>` 随之回复该模块重载失败及原因。成功加载才解除保护。验证在默认值、注释和面板持久化前执行。
 
