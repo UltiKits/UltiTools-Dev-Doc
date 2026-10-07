@@ -71,7 +71,7 @@ authors: [ yourname ]
 新建一个主类继承 `UltiToolsPlugin` ，类似传统的Paper插件，UltiTools模块也需要重写启动和关闭方法。
 但是UltiToolsPlugin增加了一个可选的 `UltiToolsPlugin#reloadSelf()` 方法，用于模块重载时执行。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/quickstart/MyPlugin.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/quickstart/MyPlugin.java
 
 这样就已经完成了一个什么功能都没有的UltiTools模块。
 
@@ -87,7 +87,7 @@ authors: [ yourname ]
 
 新建一个类继承 `UltiToolsPlugin` ，这个类将会作为你的插件的入口类。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/quickstart/UltiToolsConnector.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/quickstart/UltiToolsConnector.java
 
 ### 将入口类注册到UltiTools插件管理器（旧版）
 

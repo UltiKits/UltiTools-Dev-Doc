@@ -35,7 +35,7 @@ depend: [UltiTools]
 
 ### 3. Connect and Disconnect
 
-<<< @/../examples/src/main/java/com/ultikits/docs/external/MyExternalPlugin.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/external/MyExternalPlugin.java
 
 That's it. The framework automatically scans `com.example.myplugin` (derived from your main class) for annotated classes.
 
@@ -56,13 +56,13 @@ When `connect()` is called, the framework scans your plugin's base package and r
 
 Services work exactly like in UltiTools modules — use `@Service` and `@Autowired`:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/external/GreetingService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/external/GreetingService.java
 
 ## Writing Commands
 
 Use `@CmdExecutor` and `@CmdMapping` just like a UltiTools module:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/external/GreetCommand.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/external/GreetCommand.java
 
 ::: tip
 Command descriptions use the raw `description` attribute from `@CmdExecutor`. The `i18n()` method is not available for external plugins — use plain strings.
@@ -70,15 +70,15 @@ Command descriptions use the raw `description` attribute from `@CmdExecutor`. Th
 
 ## Writing Event Listeners
 
-<<< @/../examples/src/main/java/com/ultikits/docs/external/JoinListener.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/external/JoinListener.java
 
 ## Data Storage
 
 Use `UltiToolsAPI.getDataOperator()` to get a `DataOperator` for your data entities. Data is stored in **your plugin's own data folder**, not UltiTools' folder.
 
-<<< @/../examples/src/main/java/com/ultikits/docs/external/StatsEntity.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/external/StatsEntity.java
 
-<<< @/../examples/src/main/java/com/ultikits/docs/external/StatsService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/external/StatsService.java
 
 ::: tip
 The storage backend (JSON, SQLite, or MySQL) is determined by the UltiTools server configuration, not your plugin. Your code works the same regardless.

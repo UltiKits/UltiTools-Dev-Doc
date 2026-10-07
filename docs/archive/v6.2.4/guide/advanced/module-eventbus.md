@@ -10,7 +10,7 @@ UltiTools provides a decoupled publish/subscribe event system for inter-module c
 
 Create a custom event by extending `ModuleEvent`:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/eventbus/BalanceChangeEvent.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/eventbus/BalanceChangeEvent.java
 
 Every `ModuleEvent` automatically carries:
 - `sourceModule` — the name of the module that published the event (set via `setSourceModule()`)
@@ -20,7 +20,7 @@ Every `ModuleEvent` automatically carries:
 
 Mark a method with `@ModuleEventHandler` in any managed bean. The framework discovers and registers it automatically:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/eventbus/AuditService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/eventbus/AuditService.java
 
 The method must have **exactly one parameter** that extends `ModuleEvent`.
 
@@ -111,7 +111,7 @@ eventBus.publishAsync(event);
 
 Implement `Cancellable` to allow handlers to prevent further processing:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/eventbus/PlayerTradeEvent.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/eventbus/PlayerTradeEvent.java
 
 A handler can cancel the event:
 
@@ -187,7 +187,7 @@ public class EconomyService {
 
 **Separate audit module** receives it without depending on the economy module:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/eventbus/complete/AuditLogService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/eventbus/complete/AuditLogService.java
 
 ::: tip Cross-Module Communication
 The EventBus is ideal for scenarios where modules need to react to each other's actions without tight coupling. Examples:

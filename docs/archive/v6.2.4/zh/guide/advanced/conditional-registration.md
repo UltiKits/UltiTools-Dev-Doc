@@ -10,7 +10,7 @@ UltiTools 允许你根据 YAML 配置值来条件性地注册组件。这让服�
 
 在任意组件类（`@Service`、`@CmdExecutor`、`@EventListener`）上添加 `@ConditionalOnConfig`：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/conditional/WarpCommands.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/conditional/WarpCommands.java
 
 对应的 YAML 配置：
 
@@ -33,11 +33,11 @@ enableWarp: true
 
 ### 条件服务
 
-<<< @/../examples/src/main/java/com/ultikits/docs/conditional/EconomyService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/conditional/EconomyService.java
 
 ### 条件事件监听器
 
-<<< @/../examples/src/main/java/com/ultikits/docs/conditional/WelcomeListener.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/conditional/WelcomeListener.java
 
 ### 嵌套配置键
 
@@ -52,13 +52,13 @@ features:
     enabled: false
 ```
 
-<<< @/../examples/src/main/java/com/ultikits/docs/conditional/TeleportCommands.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/conditional/TeleportCommands.java
 
 ### 反转逻辑（negate）
 
 使用 `negate = true` 在配置值为 `false` 时注册组件：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/conditional/NormalModeService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/conditional/NormalModeService.java
 
 ## 完整示例
 
@@ -73,7 +73,7 @@ features:
   welcome: true
 ```
 
-<<< @/../examples/src/main/java/com/ultikits/docs/conditional/MyPlugin.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/conditional/MyPlugin.java
 
 ```java
 @CmdExecutor(alias = {"home"}, permission = "myplugin.home")

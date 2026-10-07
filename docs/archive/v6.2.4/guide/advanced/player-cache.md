@@ -10,7 +10,7 @@ Plugins often store per-player data in `Map<UUID, ?>` fields (cooldowns, setting
 
 Annotate any `Map<UUID, ?>` field in a managed bean with `@PlayerCache`:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/cache/CooldownService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/cache/CooldownService.java
 
 When a player quits, the framework automatically calls `cooldowns.remove(playerUuid)`. No manual cleanup needed.
 
@@ -18,7 +18,7 @@ When a player quits, the framework automatically calls `cooldowns.remove(playerU
 
 If you need to persist cached data before it is evicted, set `saveBeforeRemove = true` and implement the `PlayerCacheSaver` interface:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/cache/PlayerSettingsService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/cache/PlayerSettingsService.java
 
 When a player quits, the framework:
 1. Calls `savePlayerData(playerUuid)` (because `saveBeforeRemove = true`)
@@ -44,7 +44,7 @@ This interface is optional. Only implement it when you use `saveBeforeRemove = t
 
 A single bean can have multiple `@PlayerCache` fields. Each is cleaned up independently:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/cache/GameService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/cache/GameService.java
 
 ## Requirements
 
@@ -55,7 +55,7 @@ A single bean can have multiple `@PlayerCache` fields. Each is cleaned up indepe
 
 ## Complete Example
 
-<<< @/../examples/src/main/java/com/ultikits/docs/cache/TeleportRequestService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/cache/TeleportRequestService.java
 
 ::: tip
 `@PlayerCache` eliminates the most common source of memory leaks in Minecraft plugins. Use it on every `Map<UUID, ?>` field that stores per-player state.

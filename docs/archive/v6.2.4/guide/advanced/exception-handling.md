@@ -10,7 +10,7 @@ UltiTools provides declarative exception handling through the `@ExceptionCatch` 
 
 Add `@ExceptionCatch` to any method inside a managed bean (such as a `@Service`):
 
-<<< @/../examples/src/main/java/com/ultikits/docs/exception/FileService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/exception/FileService.java
 
 By default:
 - All `Exception` types are caught
@@ -30,7 +30,7 @@ By default:
 
 Specify which exception types should be caught:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/exception/DataService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/exception/DataService.java
 
 ::: tip Exception Hierarchy
 When you specify an exception type, the framework also catches its subclasses. For example, `@ExceptionCatch(IOException.class)` will catch `FileNotFoundException`, `EOFException`, and other subclasses of `IOException`.
@@ -40,7 +40,7 @@ When you specify an exception type, the framework also catches its subclasses. F
 
 Suppress logging for expected or non-critical exceptions:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/exception/ConfigService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/exception/ConfigService.java
 
 Use `silent = true` for:
 - Non-critical operations (e.g., optional backups)
@@ -51,7 +51,7 @@ Use `silent = true` for:
 
 Control what value is returned when an exception is caught:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/exception/MoneyService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/exception/MoneyService.java
 
 Supported default value expressions:
 - `"null"` — returns null (default for objects)
@@ -74,11 +74,11 @@ The `defaultValue` expression is parsed according to the method's return type. I
 
 Implement custom logic for exception handling by creating an `ExceptionHandler` bean:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/exception/LoggingExceptionHandler.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/exception/LoggingExceptionHandler.java
 
 Register the handler and reference it by name:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/exception/MyService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/exception/MyService.java
 
 ::: tip Handler Interface
 Custom handlers implement the `ExceptionHandler` interface with:
@@ -117,7 +117,7 @@ Supported bean types:
 
 ## Complete Example
 
-<<< @/../examples/src/main/java/com/ultikits/docs/exception/UserDatabaseService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/exception/UserDatabaseService.java
 
 ::: tip Best Practices
 1. **Use for fault tolerance** — Catch exceptions in methods where failures are expected or non-critical

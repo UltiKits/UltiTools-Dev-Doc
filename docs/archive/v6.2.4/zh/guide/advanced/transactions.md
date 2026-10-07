@@ -99,7 +99,7 @@ dataOperator.updateAll(accounts); // 全部更新或全部不更新
 
 ## 完整示例
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/EconomyService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/transactions/EconomyService.java
 
 ::: tip
 对于简单的单实体操作，你不需要事务。事务在需要确保多个操作同时成功或同时失败时最为有用。
@@ -113,13 +113,13 @@ dataOperator.updateAll(accounts); // 全部更新或全部不更新
 
 `@Transactional` 注解仅适用于 `@Service` Bean 中的方法，因为事务通过 CGLIB 代理实现：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/PaymentService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/transactions/PaymentService.java
 
 ### 基本用法
 
 直接在服务方法上添加 `@Transactional` 注解：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/AccountService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/transactions/AccountService.java
 
 方法成功完成时事务提交，抛出异常时自动回滚。
 
@@ -152,7 +152,7 @@ dataOperator.updateAll(accounts); // 全部更新或全部不更新
 
 使用 `REQUIRES_NEW` 的例子：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/AuditService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/transactions/AuditService.java
 
 ### 隔离级别
 
@@ -206,7 +206,7 @@ public void importData(String source) throws WarningException {
 
 在只读查询方法上标记 `readOnly = true`，允许数据库应用优化：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/PlayerRepository.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/transactions/PlayerRepository.java
 
 ### 超时配置
 
@@ -231,11 +231,11 @@ public void bulkProcessing() {
 
 2. **自调用绕过代理**：在同一类中调用 `@Transactional` 方法会绕过代理：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/BadExample.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/transactions/BadExample.java
 
 修复方法是注入服务或通过容器调用：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/GoodExample.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/transactions/GoodExample.java
 
 3. **非 final 类**：类不能是 `final`（CGLIB 限制）。方法也必须是可重写的。
 
@@ -257,4 +257,4 @@ public void bulkProcessing() {
 
 结合两者的例子：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/ComplexService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/transactions/ComplexService.java

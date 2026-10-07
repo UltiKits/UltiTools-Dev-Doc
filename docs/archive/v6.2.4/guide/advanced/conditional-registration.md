@@ -10,7 +10,7 @@ UltiTools allows you to conditionally register components based on YAML configur
 
 Add `@ConditionalOnConfig` to any component class (`@Service`, `@CmdExecutor`, `@EventListener`):
 
-<<< @/../examples/src/main/java/com/ultikits/docs/conditional/WarpCommands.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/conditional/WarpCommands.java
 
 The corresponding YAML:
 
@@ -33,11 +33,11 @@ If `enableWarp` is `false` or missing, the `WarpCommands` class is **not registe
 
 ### Conditional Service
 
-<<< @/../examples/src/main/java/com/ultikits/docs/conditional/EconomyService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/conditional/EconomyService.java
 
 ### Conditional Event Listener
 
-<<< @/../examples/src/main/java/com/ultikits/docs/conditional/WelcomeListener.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/conditional/WelcomeListener.java
 
 ### Nested Config Keys
 
@@ -52,13 +52,13 @@ features:
     enabled: false
 ```
 
-<<< @/../examples/src/main/java/com/ultikits/docs/conditional/TeleportCommands.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/conditional/TeleportCommands.java
 
 ### Inverted Logic with negate
 
 Use `negate = true` to register a component when the config value is `false`:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/conditional/NormalModeService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/conditional/NormalModeService.java
 
 ## Complete Example
 
@@ -73,7 +73,7 @@ features:
   welcome: true
 ```
 
-<<< @/../examples/src/main/java/com/ultikits/docs/conditional/MyPlugin.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/conditional/MyPlugin.java
 
 ```java
 @CmdExecutor(alias = {"home"}, permission = "myplugin.home")

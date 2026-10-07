@@ -129,7 +129,7 @@ public class MyPlugin extends UltiToolsPlugin {
 
 `@PostConstruct` 注解标记一个方法在**所有依赖都被注入后且 Bean 完全初始化后**被调用。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/ioc/DatabaseConnection.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/ioc/DatabaseConnection.java
 
 **规则：**
 - 方法必须返回 `void`
@@ -141,7 +141,7 @@ public class MyPlugin extends UltiToolsPlugin {
 
 `@PreDestroy` 注解标记一个方法在**Bean 销毁前**被调用（当插件被禁用或容器关闭时）。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/ioc/ResourceManager.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/ioc/ResourceManager.java
 
 **规则：**
 - 方法必须返回 `void`
@@ -153,7 +153,7 @@ public class MyPlugin extends UltiToolsPlugin {
 
 对于复杂的 Bean 初始化或从第三方库创建 Bean，使用 `@Configuration` 注解配合 `@Bean` 工厂方法。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/ioc/HttpClientConfiguration.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/ioc/HttpClientConfiguration.java
 
 **何时使用：**
 - 从外部库创建 Bean（Gson、HTTP 客户端、数据库连接池）
@@ -203,7 +203,7 @@ public class MyService {
 
 ### 构造函数注入示例
 
-<<< @/../examples/src/main/java/com/ultikits/docs/ioc/PlayerDataService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/ioc/PlayerDataService.java
 
 ### 工作原理
 
@@ -275,6 +275,6 @@ List<PaymentProcessor> allProcessors = context.getOrderedBeansOfType(PaymentProc
 
 从 v6.2.0 开始，你可以使用 `@ConditionalOnConfig` 注解根据 YAML 配置值来条件性地注册组件。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/ioc/EconomyService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/ioc/EconomyService.java
 
 这消除了在 `registerSelf()` 中手动进行 `if` 判断的需要。详情请参阅[条件注册](/zh/guide/advanced/conditional-registration)指南。

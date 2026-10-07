@@ -99,7 +99,7 @@ You don't need to know which backend is active — the same transaction API work
 
 ## Complete Example
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/EconomyService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/transactions/EconomyService.java
 
 ::: tip
 For simple single-entity operations, you don't need transactions. Transactions are most useful when you need to ensure multiple operations succeed or fail together.
@@ -113,13 +113,13 @@ The `@Transactional` annotation provides declarative transaction management on s
 
 The `@Transactional` annotation only works on methods within `@Service` beans, since transactions are implemented via CGLIB proxies:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/PaymentService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/transactions/PaymentService.java
 
 ### Basic Usage
 
 Simply add `@Transactional` to a service method:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/AccountService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/transactions/AccountService.java
 
 The method executes within a transaction that commits on success or rolls back on exception.
 
@@ -152,7 +152,7 @@ The `propagation` attribute controls how the method behaves when called within a
 
 Example with `REQUIRES_NEW`:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/AuditService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/transactions/AuditService.java
 
 ### Isolation Levels
 
@@ -206,7 +206,7 @@ public void importData(String source) throws WarningException {
 
 Mark read-only query methods with `readOnly = true` to allow the database to apply optimizations:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/PlayerRepository.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/transactions/PlayerRepository.java
 
 ### Timeout Configuration
 
@@ -231,11 +231,11 @@ A value of `-1` (default) means no timeout.
 
 2. **Self-invocation bypass**: Calling a `@Transactional` method from another method in the same class bypasses the proxy:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/BadExample.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/transactions/BadExample.java
 
 To fix, inject the service or call via the container:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/GoodExample.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/transactions/GoodExample.java
 
 3. **Non-final classes**: The class cannot be `final` (CGLIB limitation). The same applies to methods — they must be overridable.
 
@@ -257,4 +257,4 @@ Both approaches achieve the same result. Choose based on your use case:
 
 Example combining both:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/ComplexService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/transactions/ComplexService.java

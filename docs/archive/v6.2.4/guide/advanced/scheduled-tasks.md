@@ -10,7 +10,7 @@ UltiTools provides a declarative way to schedule repeating or delayed tasks usin
 
 Add `@Scheduled` to any `void`, no-argument method inside a managed bean (such as a `@Service`):
 
-<<< @/../examples/src/main/java/com/ultikits/docs/scheduled/AutoSaveService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/scheduled/AutoSaveService.java
 
 ::: tip Tick Conversion
 Minecraft runs at 20 ticks per second:
@@ -32,19 +32,19 @@ Minecraft runs at 20 ticks per second:
 
 Set only `delay` (leave `period` at default `-1`) to run a task once after a delay:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/scheduled/WelcomeService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/scheduled/WelcomeService.java
 
 ## Repeating Task
 
 Set `period` to a positive value to create a repeating task:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/scheduled/ScoreboardService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/scheduled/ScoreboardService.java
 
 ## Async Tasks
 
 Set `async = true` for tasks that don't need to access the Bukkit API directly (e.g., database operations, HTTP requests):
 
-<<< @/../examples/src/main/java/com/ultikits/docs/scheduled/InterestService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/scheduled/InterestService.java
 
 ::: warning Bukkit Thread Safety
 When `async = true`, the task runs off the main server thread. You **must not** call most Bukkit API methods from async threads. If you need to interact with the Bukkit API from an async task, dispatch back to the main thread:
@@ -72,8 +72,8 @@ You do not need to track or cancel tasks manually.
 - The method must be inside a bean managed by the container (e.g., `@Service`)
 - The bean must be in a package scanned by `@UltiToolsModule(scanBasePackages = {...})`
 
-<<< @/../examples/src/main/java/com/ultikits/docs/scheduled/MyPlugin.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/scheduled/MyPlugin.java
 
 ## Complete Example
 
-<<< @/../examples/src/main/java/com/ultikits/docs/scheduled/ServerMonitorService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/scheduled/ServerMonitorService.java
