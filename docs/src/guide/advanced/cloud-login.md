@@ -65,9 +65,9 @@ Each call returns a `UltiCloudRequests.Result`. Its `getOutcome()` is one of fou
 | Outcome | Meaning | Request made |
 |---|---|---|
 | `OK` | An HTTP exchange completed, whatever its status. Read `getStatusCode()` and `getBody()`. | yes |
-| `NOT_CONNECTED` | The server is not logged in to UltiCloud: `/ulticloud login` was never run, or `/ulticloud logout` was. | no |
+| `NOT_CONNECTED` | The server has no valid UltiCloud session: `/ulticloud login` was never run, `/ulticloud logout` was run, or the saved credential has expired. | no |
 | `PATH_NOT_ALLOWED` | The method and path are not one of the two above. | no |
-| `IO_ERROR` | The exchange could not complete (connection refused, timeout, read failure). | attempted |
+| `IO_ERROR` | The exchange could not complete (connection refused, timeout, read failure), or no UltiCloud API address is configured. | attempted, or none when no address is configured |
 
 The path must match exactly. Another path, an allowed path with the other method, or a path that
 contains `..`, `//`, `\`, `%`, `?` or `#` returns `PATH_NOT_ALLOWED`. Query parameters go only through
@@ -81,8 +81,12 @@ Both methods block on network I/O, with a 10-second connect timeout and a 30-sec
 throw `IllegalStateException` when called on the server's primary thread. Call them from an
 asynchronous task and return to the primary thread to act on the result.
 
-The credential stays inside the framework. It is not returned, not logged, not placed in an exception
-message or in `Result.toString()`, and no public member of the helper is typed `TokenEntity`. The
+The credential stays inside the framework. It is not returned, the framework never logs it, and it is not
+placed in an exception message that reaches your module or in `Result.toString()`, and no public member of the helper is typed `TokenEntity`. The
 helper does not follow redirects, so a `Location` header can never make it send the credential to
 another host; a 3xx response comes back as an `OK` result with that status. The helper writes no file
 and no log line.
+
+One limit lies outside the framework: the JDK's own HTTP client logger,
+`sun.net.www.protocol.http.HttpURLConnection`, prints request headers, the credential included, when it
+is set to `FINE` or lower. Its default level does not. Do not enable that logger on a production server.
