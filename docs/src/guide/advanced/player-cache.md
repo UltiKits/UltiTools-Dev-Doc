@@ -36,7 +36,7 @@ When a player quits, the framework:
 1. Calls `savePlayerData(playerUuid)` (because `saveBeforeRemove = true`)
 2. Removes the entry from the map
 
-As of v6.3.0, each `@PlayerCache` field is handled on its own. If `savePlayerData` throws, for example because the database is unavailable, the framework logs one warning that names the bean class, the field and the player, removes the entry anyway, and goes on with every other field of every bean. Before v6.3.0 the first failure stopped the cleanup, and the entries of every later field stayed in memory ([#643](https://github.com/UltiKits/UltiTools-Reborn/issues/643)). Nothing retries a failed save, so data that must not be lost has to be retried or stored by `savePlayerData` itself.
+As of v6.3.0, each `@PlayerCache` field is handled on its own. If `savePlayerData` throws, for example because the database is unavailable, the framework logs one warning that names the bean class, the field and the player, removes the entry anyway, and goes on with every other field of every bean. Before v6.3.0 the first failure stopped the cleanup: that field's entry and the entries of every later field stayed in memory ([#643](https://github.com/UltiKits/UltiTools-Reborn/issues/643)). The framework does not retry a failed save; a module that must not lose the data retries or stores it itself, inside `savePlayerData`.
 
 ## Caching on a Shared MySQL Database
 

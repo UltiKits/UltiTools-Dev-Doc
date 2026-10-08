@@ -8,7 +8,7 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 由于插件还处于开发状态，难免在处理复杂对象时出现问题，所以存储的对象尽量不要超过两层嵌套（尽量不要嵌套对象）。
 :::
 
-::: warning SQLite 与 spark 后台分析器（自 v6.3.0 起）
+::: warning Paper 上的 SQLite 与 spark（适用于所有 UltiTools 版本）
 在 Paper 上，spark 的后台分析器默认开启；使用 SQLite 存储时，它会把服务器线程上的数据库调用等待被锁定的数据库文件的时间从约 3 秒缩短到约 0.4 秒，因此只有当另一个线程或进程持有写锁超过这个时间时，调用才会失败（[#645](https://github.com/UltiKits/UltiTools-Reborn/issues/645)）。
 MySQL 不受影响。
 写入会长时间持有 SQLite 锁的服务器应改用 MySQL。

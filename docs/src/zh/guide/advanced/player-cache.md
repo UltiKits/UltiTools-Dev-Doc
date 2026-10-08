@@ -36,7 +36,7 @@
 1. 调用 `savePlayerData(playerUuid)`（因为 `saveBeforeRemove = true`）
 2. 从 Map 中移除该条目
 
-自 v6.3.0 起，每个 `@PlayerCache` 字段单独处理。如果 `savePlayerData` 抛出异常（例如数据库不可用），框架会记录一条警告，写明 bean 类、字段和玩家，照样移除该条目，并继续处理所有 bean 的其他字段。v6.3.0 之前，第一个失败会中断清理，之后所有字段的条目都会留在内存中（[#643](https://github.com/UltiKits/UltiTools-Reborn/issues/643)）。失败的保存不会被重试，因此不能丢失的数据需要由 `savePlayerData` 自己重试或存储。
+自 v6.3.0 起，每个 `@PlayerCache` 字段单独处理。如果 `savePlayerData` 抛出异常（例如数据库不可用），框架会记录一条警告，写明 bean 类、字段和玩家，照样移除该条目，并继续处理所有 bean 的其他字段。v6.3.0 之前，第一个失败会中断清理：该字段及其后所有字段的条目都会留在内存中（[#643](https://github.com/UltiKits/UltiTools-Reborn/issues/643)）。框架不会重试失败的保存；不能丢失数据的模块需要在 `savePlayerData` 内自行重试或存储。
 
 ## 在共享 MySQL 数据库上使用缓存
 
