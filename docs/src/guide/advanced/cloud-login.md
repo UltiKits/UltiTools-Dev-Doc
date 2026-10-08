@@ -44,3 +44,45 @@ session change is visible from the console.
 `CloudAuthManager`, the class implementing this lifecycle, is internal to the framework
 (`@ApiStatus.Internal`) and was never part of the public API surface module authors write against.
 No module needs to change anything for this release.
+
+## Authenticated requests on a module's behalf (as of v6.3.0)
+
+The framework never gives a module the server's UltiCloud credential. As of v6.3.0 a module that needs
+UltiCloud to recognise a request as coming from this server asks the framework to send it:
+`com.ultikits.ultitools.utils.UltiCloudRequests` attaches the credential to one connection it opens
+itself and returns only the HTTP status and response body. UltiLogin's `/panel` web login link is the
+first module that uses it.
+
+The helper sends exactly two requests:
+
+| Method | Path | Call |
+|---|---|---|
+| `POST` | `/auth/magic-link` | `UltiCloudRequests.post("/auth/magic-link", jsonBody)` |
+| `GET` | `/auth/magic-link/poll` | `UltiCloudRequests.get("/auth/magic-link/poll", query)` |
+
+Each call returns a `UltiCloudRequests.Result`. Its `getOutcome()` is one of four values:
+
+| Outcome | Meaning | Request made |
+|---|---|---|
+| `OK` | An HTTP exchange completed, whatever its status. Read `getStatusCode()` and `getBody()`. | yes |
+| `NOT_CONNECTED` | The server is not logged in to UltiCloud: `/ulticloud login` was never run, or `/ulticloud logout` was. | no |
+| `PATH_NOT_ALLOWED` | The method and path are not one of the two above. | no |
+| `IO_ERROR` | The exchange could not complete (connection refused, timeout, read failure). | attempted |
+
+The path must match exactly. Another path, an allowed path with the other method, or a path that
+contains `..`, `//`, `\`, `%`, `?` or `#` returns `PATH_NOT_ALLOWED`. Query parameters go only through
+the `query` map, which the helper URL-encodes as UTF-8. The list grows only through a documented
+change in a framework release; a module cannot add to it.
+
+Handle `NOT_CONNECTED` as an ordinary state, not an error: an operator may run the server without
+UltiCloud at all. UltiLogin, for example, falls back to its request without a credential in that case.
+
+Both methods block on network I/O, with a 10-second connect timeout and a 30-second read timeout, and
+throw `IllegalStateException` when called on the server's primary thread. Call them from an
+asynchronous task and return to the primary thread to act on the result.
+
+The credential stays inside the framework. It is not returned, not logged, not placed in an exception
+message or in `Result.toString()`, and no public member of the helper is typed `TokenEntity`. The
+helper does not follow redirects, so a `Location` header can never make it send the credential to
+another host; a 3xx response comes back as an `OK` result with that status. The helper writes no file
+and no log line.
