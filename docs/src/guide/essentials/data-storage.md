@@ -10,6 +10,12 @@ All you need is an entity class. CRUD operations will be done automatically by U
 Since the API is still under development, there may be problems when dealing with complex objects, so try not to nest objects.
 :::
 
+::: warning SQLite and spark's background profiler (as of v6.3.0)
+On Paper, spark's background profiler is on by default, and with SQLite storage it shortens how long a server-thread database call waits for a locked database file from about 3 s to about 0.4 s, so the call fails only when another thread or process holds the write lock longer than that ([#645](https://github.com/UltiKits/UltiTools-Reborn/issues/645)).
+MySQL is not affected.
+Servers whose writes hold the SQLite lock for long should use MySQL.
+:::
+
 ## Create Entity Class
 
 ### BaseDataEntity
