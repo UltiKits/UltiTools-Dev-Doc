@@ -223,6 +223,12 @@ python3 scripts/symcheck.py 你的模块.jar UltiTools-API-<你声明的下限>.
 - 是。那么它应当出现在移除清单上。如果不在，请提交一个 issue，这属于流程上的疏漏，不只是你这一侧的问题。
 - 否。尝试上面所说的重新构建流程：提高 pin，重新构建，提高 `api-version`。如果重新构建时**编译不通过**，说明这次变更同时破坏了源码兼容性，需要的是迁移而不是重新构建。
 
+自 v6.3.0 起，加载模块声明的主类时，如果框架 API 链接错误点名了 `com.ultikits.ultitools` 下的类型，日志会输出一行英文 `SEVERE`，包含 JAR 名、`plugin.yml` 中声明的 `version` 和 `api-version`（未声明的项不列出），以及 `Cause:` 后的原始异常消息。看到 `built against an older UltiTools-API version` 时，应将模块升级到为当前框架构建的版本，并参照 `COMPATIBILITY.md`；如果声明的 `api-version` 高于已安装框架的版本，提示会改为 `requires a newer UltiTools-API`，此时应升级框架。完整堆栈只在 `FINE` 级别输出（Paper 默认日志配置下不可见），这类拒载也不会作为错误报告发送到面板。缺少第三方类或 Bukkit 类时，仍输出带堆栈的通用 `SEVERE` 报错。例如，UltiLogin 1.0.0 装在 6.3.0 上时：
+
+```text
+[UltiTools-API] Module 'UltiLogin-1.0.0.jar' (version 1.0.0, api-version 620) declares main: 'com.ultikits.plugins.login.UltiLogin', but it was built against an older UltiTools-API version and is not compatible with this one -- refusing to load. Upgrade it to a release of the module built for the current UltiTools-API version -- see COMPATIBILITY.md for the list of APIs removed or changed in this release. Cause: java.lang.IncompatibleClassChangeError: class com.ultikits.plugins.login.UltiLogin overrides final method com.ultikits.ultitools.abstracts.UltiToolsPlugin.unregisterSelf()V
+```
+
 [jls13]: https://docs.oracle.com/javase/specs/jls/se21/html/jls-13.html
 
 ### 新增的注解属性

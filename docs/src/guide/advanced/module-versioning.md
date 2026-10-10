@@ -223,6 +223,12 @@ If the linkage error you have is neither of the two situations above, it belongs
 - Yes. It should appear on the removal list. If it does not, please open an issue; that is a gap in the process rather than a problem only on your side.
 - No. Try the rebuild path above: raise the pin, rebuild, raise `api-version`. If the rebuild **fails to compile**, the change broke source compatibility as well, and what you need is a migration rather than a rebuild.
 
+As of v6.3.0, a framework API linkage error naming a type under `com.ultikits.ultitools` when loading the module's declared main class produces one English `SEVERE` line with the JAR name, `plugin.yml`'s `version` and `api-version` (when declared), and the original exception message after `Cause:`. `built against an older UltiTools-API version` means you should upgrade the module to a release built for the current framework and consult `COMPATIBILITY.md`; if the declared `api-version` is higher than the installed framework's, the message instead says `requires a newer UltiTools-API`, so upgrade the framework. The full stack trace is logged only at `FINE` (hidden by Paper's default logging), and this refusal is not sent as a panel error report. Missing third-party or Bukkit classes still produce the generic `SEVERE` error with a stack trace. For example, UltiLogin 1.0.0 on 6.3.0:
+
+```text
+[UltiTools-API] Module 'UltiLogin-1.0.0.jar' (version 1.0.0, api-version 620) declares main: 'com.ultikits.plugins.login.UltiLogin', but it was built against an older UltiTools-API version and is not compatible with this one -- refusing to load. Upgrade it to a release of the module built for the current UltiTools-API version -- see COMPATIBILITY.md for the list of APIs removed or changed in this release. Cause: java.lang.IncompatibleClassChangeError: class com.ultikits.plugins.login.UltiLogin overrides final method com.ultikits.ultitools.abstracts.UltiToolsPlugin.unregisterSelf()V
+```
+
 [jls13]: https://docs.oracle.com/javase/specs/jls/se21/html/jls-13.html
 
 ### New annotation attributes
