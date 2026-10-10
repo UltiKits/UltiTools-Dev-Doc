@@ -12,7 +12,7 @@ It is committed to making more server owners build servers easily, reducing the 
 
 ## Features
 
-* High Compatibility: Compatible with Paper 1.21+ (Java 21 required).
+* High Compatibility: As of v6.3.0, the framework supports Paper 1.19.2 build 163 or later, using the Java version required by the chosen Paper line (Java 17 for 1.19.2 to 1.20.4, Java 21 from 1.20.5). Individual modules may require a newer server; UltiKits, UltiLogin, UltiMail, UltiRemoteBag and UltiTrade require Minecraft 1.21+.
 
 * Advanced GUI: Most features have a graphical user interface, making it easy for players to operate.
 
@@ -30,7 +30,11 @@ It is committed to making more server owners build servers easily, reducing the 
 
 UltiTools API is the core of UltiTools, providing a comprehensive set of APIs that enable easy development of feature-rich plugins.
 
-UltiTools API bundles obliviate-invs into its own jar and lets Paper auto-download Adventure, CGLIB, and HikariCP at runtime from the `libraries:` entries in its `plugin.yml`, so your module can declare all four with `provided` scope without bundling any of them itself. It provides a Spring-like IoC container (`SimpleContainer`) with annotation-driven dependency injection.
+As of v6.3.0, UltiTools API bundles obliviate-invs and UniversalScheduler into its own JAR. Paper downloads ByteBuddy, HikariCP, XSeries, Java-WebSocket, commons-dbutils and JavaMail from the `libraries:` entries in `plugin.yml`. Gson, MySQL Connector/J, protobuf, slf4j and native Adventure come from the Paper server itself. Modules can declare these libraries with `provided` scope instead of bundling them.
+
+As of v6.3.0, `adventure-platform-bukkit` and `DependenceManagers#getAdventure()` have been removed. Send Adventure components through Paper's `Player#sendMessage(Component)` instead.
+
+UltiTools API provides a Spring-like IoC container (`SimpleContainer`) with annotation-driven dependency injection.
 
 UltiTools API offers a complete GUI API, allowing you to easily develop GUI plugins without worrying about the intricacies of GUI implementation.
 
