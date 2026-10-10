@@ -262,7 +262,7 @@ ultipanel:
 
 这个镜像是完整且未脱敏的，包含带参数的玩家命令行，例如 `<player> issued server command: /login <password>`。面板与控制台处于同一信任级别，控制台显示什么，面板就可以显示什么。不希望如此的运营者应保持 `logs` 能力关闭。
 
-插件日志行只会到达一次，尽管 Paper 也会把它复制进 Log4j。与面板连接有关的行、日志发送器自己的行以及 WebSocket 库（`org.java_websocket.*`）的行永远不会被发送。服务器的 Log4j 配置使用异步记录器时，镜像不会安装，控制台会输出一条警告说明这一点，日志流只包含插件日志行。自 v6.3.0 起，`java.util.logging` 根记录器上找不到 Paper 的日志转发器（`org.bukkit.craftbukkit.util.ForwardLogHandler`，例如分支服务端或重定位了 CraftBukkit 的构建）时同样如此：没有它，镜像无法区分转发的插件日志行与控制台行，每条插件日志都会被推送两次，因此不安装镜像，每次服务器运行只输出一条控制台警告（[#583](https://github.com/UltiKits/UltiTools-Reborn/issues/583)）。携带异常的 Log4j `ERROR` 行还会向面板的错误收集上报一次。`org.apache.logging.log4j:log4j-core`（2.24.1）是框架的 `provided` 依赖，由 Paper 在运行时提供，不会被打包，模块无需做任何改动。
+插件日志行只会到达一次，尽管 Paper 也会把它复制进 Log4j。与面板连接有关的行、日志发送器自己的行以及 WebSocket 库（`org.java_websocket.*`）的行永远不会被发送。服务器的 Log4j 配置使用异步记录器时，镜像不会安装，控制台会输出一条警告说明这一点，日志流只包含插件日志行。自 v6.3.0 起，`java.util.logging` 根记录器上找不到 Paper 的日志转发器（`org.bukkit.craftbukkit.util.ForwardLogHandler`，例如分支服务端或重定位了 CraftBukkit 的构建）时同样如此：没有它，镜像无法区分转发的插件日志行与控制台行，每条插件日志都会被推送两次，因此不安装镜像，每次服务器运行只输出一条控制台警告（[#583](https://github.com/UltiKits/UltiTools-Reborn/issues/583)）。自 v6.3.0 起，Paper 1.19.2 至 1.20.4 的所有构建都重定位了 CraftBukkit，因此在这些版本上镜像始终不会安装，启动时输出一条警告说明这一点，日志流只包含插件日志行；Paper 1.20.5 及以上不受影响。携带异常的 Log4j `ERROR` 行还会向面板的错误收集上报一次。`org.apache.logging.log4j:log4j-core`（2.24.1）是框架的 `provided` 依赖，由 Paper 在运行时提供，不会被打包，模块无需做任何改动。
 
 ### 启动阶段的日志与发送失败
 

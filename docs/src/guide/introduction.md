@@ -30,9 +30,9 @@ It is committed to making more server owners build servers easily, reducing the 
 
 UltiTools API is the core of UltiTools, providing a comprehensive set of APIs that enable easy development of feature-rich plugins.
 
-As of v6.3.0, UltiTools API bundles obliviate-invs and UniversalScheduler into its own JAR. Paper downloads ByteBuddy, HikariCP, XSeries, Java-WebSocket, commons-dbutils and JavaMail from the `libraries:` entries in `plugin.yml`. Gson, MySQL Connector/J, protobuf, slf4j and native Adventure come from the Paper server itself. Modules can declare these libraries with `provided` scope instead of bundling them.
+As of v6.3.0, UltiTools API bundles obliviate-invs and UniversalScheduler into its own JAR. Paper downloads ByteBuddy, HikariCP, XSeries, Java-WebSocket, commons-dbutils and JavaMail from the `libraries:` entries in `plugin.yml`. Gson, MySQL Connector/J, protobuf, slf4j and native Adventure come from the Paper server itself. Modules can declare these libraries with `provided` scope instead of bundling them. A module that uses XSeries directly should compile against the version the framework declares, 13.7.1.
 
-As of v6.3.0, `adventure-platform-bukkit` and `DependenceManagers#getAdventure()` have been removed. Send Adventure components through Paper's `Player#sendMessage(Component)` instead.
+As of v6.3.0, the `adventure-platform-bukkit` library and the methods `DependenceManagers#getAdventure()`, `#initAdventure(UltiTools)` and `#closeAdventure()` have been removed. Send Adventure components through Paper's `Player#sendMessage(Component)` instead.
 
 UltiTools API provides a Spring-like IoC container (`SimpleContainer`) with annotation-driven dependency injection.
 
