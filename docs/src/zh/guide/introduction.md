@@ -12,7 +12,7 @@ UltiTools是一款发布于2020年6月的MC服务器基础插件，拥有诸多�
 
 ## 特点
 
-* 高兼容：兼容 Paper 1.21+（需要 Java 21）
+* 高兼容：自 v6.3.0 起，框架支持 Paper 1.19.2 build 163 及以上版本，Java 版本按所选 Paper 版本的要求配置（1.19.2 至 1.20.4 使用 Java 17，1.20.5 起使用 Java 21）。各模块可能要求更高版本；UltiKits、UltiLogin、UltiMail、UltiRemoteBag 和 UltiTrade 需要 Minecraft 1.21+。
 
 * 高度GUI：大部分功能都有图形化用户界面，便于玩家操作
 
@@ -30,7 +30,11 @@ UltiTools是一款发布于2020年6月的MC服务器基础插件，拥有诸多�
 
 UltiTools API是UltiTools的核心，UltiTools API提供了一套完整的API，可以让您轻松开发出功能丰富的插件。
 
-UltiTools API 把 obliviate-invs 打进自己的 jar，Adventure、CGLIB 与 HikariCP 则由 Paper 根据 `plugin.yml` 里的 `libraries:` 声明在运行期自动下载，你的模块可以对这四个库都声明 `provided` 作用域，不必自己打包任何一个。UltiTools API 提供了类 Spring 的 IoC 容器（`SimpleContainer`），支持注解驱动的依赖注入。
+自 v6.3.0 起，UltiTools API 将 obliviate-invs 和 UniversalScheduler 打包到自己的 JAR 中。Paper 根据 `plugin.yml` 的 `libraries:` 声明下载 ByteBuddy、HikariCP、XSeries、Java-WebSocket、commons-dbutils 和 JavaMail。Gson、MySQL Connector/J、protobuf、slf4j 和原生 Adventure 由 Paper 服务端自身提供。模块可以对这些库声明 `provided` 作用域，不必自行打包。
+
+自 v6.3.0 起，`adventure-platform-bukkit` 和 `DependenceManagers#getAdventure()` 已移除。发送 Adventure 组件请改用 Paper 的 `Player#sendMessage(Component)`。
+
+UltiTools API 提供了类 Spring 的 IoC 容器（`SimpleContainer`），支持注解驱动的依赖注入。
 
 UltiTools API提供了一套完整的GUI API，您可以轻松地开发出GUI插件，而无需担心GUI的实现细节。
 
