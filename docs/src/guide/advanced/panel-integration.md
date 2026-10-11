@@ -372,7 +372,9 @@ warning says so, and the stream carries plugin lines only. The same holds, as of
 forwarder (`org.bukkit.craftbukkit.util.ForwardLogHandler`) is not on the `java.util.logging` root logger,
 as on a fork or a build that relocates CraftBukkit: without it the mirror cannot tell a forwarded plugin line
 from a console line and would send every plugin line twice, so it is not installed and one console warning
-per server run says so ([#583](https://github.com/UltiKits/UltiTools-Reborn/issues/583)). A Log4j `ERROR` line with an exception is
+per server run says so ([#583](https://github.com/UltiKits/UltiTools-Reborn/issues/583)). As of v6.3.0, every Paper build from 1.19.2
+to 1.20.4 relocates CraftBukkit, so on those versions the mirror is never installed, one start-up warning
+says so, and the stream carries plugin lines only; Paper 1.20.5 and later are not affected. A Log4j `ERROR` line with an exception is
 also reported once to the panel's error collection. `org.apache.logging.log4j:log4j-core` is a
 `provided` dependency of the framework (version 2.24.1); Paper supplies it at runtime, it is not
 shaded, and a module needs nothing new.
