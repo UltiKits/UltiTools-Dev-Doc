@@ -90,7 +90,7 @@ pin 不是模块的运行时下限。这是两个互相独立的数字，其中�
 | 数字 | 决定什么 | 由谁检查 |
 |---|---|---|
 | `pom.xml` 中的 `UltiTools-API` 版本 | 字节码记录的是哪一版的描述符 | 没有。它是 `provided`，不会进入 JAR，框架在运行时也读不到它 |
-| `plugin.yml` 中的 `api-version` | 声明的运行时下限 | `PluginManager.isUltiToolsVersionCompatible`。这是模块被放行前唯一被检查的框架版本 |
+| `plugin.yml` 中的 `api-version` | 声明的运行时下限 | 模块加载时由 `PluginManager.isUltiToolsVersionCompatible` 检查。这是模块被放行前唯一被检查的框架版本。自 v6.3.0 起，`/upm` 安装或更新该模块时也会检查它，见[按 API 级别选择版本](#按-api-级别选择版本) |
 
 提高 pin 不会提高下限。两个数字不一致本身不是问题：只要字节码引用的成员在声明的下限中都已存在，针对更新的 pin 构建出的产物照样可以在该下限上运行。真正会出问题的是字节码引用了 `api-version` 所声明的框架版本没有的符号，这时那个服务器会放行这个 JAR，并在执行到对应调用点时失败。
 
@@ -229,6 +229,8 @@ python3 scripts/symcheck.py 你的模块.jar UltiTools-API-<你声明的下限>.
 [UltiTools-API] Module 'UltiLogin-1.0.0.jar' (version 1.0.0, api-version 620) declares main: 'com.ultikits.plugins.login.UltiLogin', but it was built against an older UltiTools-API version and is not compatible with this one -- refusing to load. Upgrade it to a release of the module built for the current UltiTools-API version -- see COMPATIBILITY.md for the list of APIs removed or changed in this release. Cause: java.lang.IncompatibleClassChangeError: class com.ultikits.plugins.login.UltiLogin overrides final method com.ultikits.ultitools.abstracts.UltiToolsPlugin.unregisterSelf()V
 ```
 
+自 v6.3.0 起，这样被拒绝的模块会计入启动摘要 `[UltiTools-API] Succeeded loaded <s>, Failed <f>.` 中的 `Failed`。本次启动中其它未能加载的模块 JAR 也同样计入：读取主类时被拒绝的、因缺少必需插件或依赖成环而被排除的，以及注册失败的。已加载模块的第二个副本不计入。模块目录中的 JAR 全部被拒绝时，摘要为 `Succeeded loaded 0, Failed <n>.`；`No UltiTools plugin found.` 只在目录中没有任何模块 JAR 时出现。v6.3.0 之前，摘要只统计进入注册阶段的模块，所以一次拒绝了模块的启动仍可能打印 `Failed 0`。
+
 [jls13]: https://docs.oracle.com/javase/specs/jls/se21/html/jls-13.html
 
 ### 新增的注解属性
@@ -252,6 +254,44 @@ python3 scripts/symcheck.py 你的模块.jar UltiTools-API-<你声明的下限>.
 `/upm uninstall` 会删除所有副本。自 v6.3.0 起，它删除每一个 `plugin.yml` 的 `main:` 指向该模块主类的 JAR，不论这个 JAR 声明的 `name:` 是什么，并在回复中列出每一个被删除的文件。
 
 只要这样的副本会胜出，`/upm update` 就拒绝更新该模块。自 v6.3.0 起，它在下载任何东西之前，先在模块目录中查找另一个声明了该模块 `main:`、且文件名排在新 JAR 文件名之前的 JAR。找到时，新版本在这里永远无法加载：那个副本会继续提供模块的类，每次启动都会把更新回滚。所以命令不暂存任何东西，并在回复中列出新 JAR 和每一个这样的副本。移走它们后再次执行 `/upm update` 即可，中间不需要重启。文件名排在新 JAR 之后的副本不会阻止更新，上文的启动警告仍会列出它。
+
+## 按 API 级别选择版本
+
+自 v6.3.0 起，`api-version` 会在两处被检查：启动时由模块加载器检查，见 [pin 与 `api-version`](#pin-与-api-version)；`/upm` 从 UltiCloud 安装或更新模块时也会检查。
+
+UltiCloud 从发布到它上面的每个 JAR 的 `plugin.yml` 中读取 `api-version`，与该版本一起保存。没有整数 `api-version` 的 JAR 在上传时被拒绝，见 [UltiKits CLI](/zh/guide/advanced/ultikits-cli#模块的-api-级别)。UltiCloud 开始读取级别之前发布的版本，记为面向 6.3.0 之前的框架构建。
+
+服务器会被提供、也会安装哪些版本，取决于它运行的框架：
+
+| 服务器运行的框架 | 提供并安装的版本 |
+|---|---|
+| UltiTools-API 6.3.0 及以后 | `api-version` 从 630 到框架自身的 API 级别（6.3.0 为 630） |
+| UltiTools-API 6.3.0 之前 | 只有 `api-version` 低于 630 的版本 |
+
+6.3.0 的服务器在每个目录请求中都带上自己的级别（`apiLevel`，以及 `minApiLevel=630`）。6.3.0 之前的框架不带级别，UltiCloud 把这样的请求视为来自 6.3.0 之前的框架，所以已发布的 6.2.x 服务器不会被提供为 6.3.0 构建的版本。这适用于 `/upm install`、`/upm install <模块> <版本>`、`/upm versions`、`/upm update` 以及启动时的更新检查。更新检查只报告本服务器能安装的版本，从不提及需要更新 UltiTools-API 的版本。`/upm list` 仍列出目录中的全部模块；对没有兼容版本的模块点击安装，会回复原因。
+
+`/upm` 还会检查下载到的文件。`/upm install` 先把 JAR 写入模块目录，文件名是模块加载器永远不读的 `<id>-<version>.jar.part`，然后重新读取其中的 `plugin.yml`；`/upm update` 对它下载到 `.ultikits/upm-transactions/` 的副本做同样的检查。`api-version` 缺失、不是整数、低于 630 或高于框架级别的模块会被拒绝：下载的文件被删除，模块目录不写入任何东西。对 `/upm update` 来说，暂存的下载被丢弃，不记录任何更新。回复会写明模块声明的级别、框架的级别和接受的范围。使用 `language: zh` 时：
+
+```text
+无法安装 ultirecipe：云端没有可以安装在本服务器上的版本。本 UltiTools-API 的 API 级别是 630，只安装声明 api-version 630 到 630 的模块。模块目录没有任何改动。
+已拒绝安装 ultirecipe 1.0.0：下载的 JAR 声明 api-version 620。本 UltiTools-API 的 API 级别是 630，只安装声明 api-version 630 到 630 的模块。下载的文件已删除，模块目录没有任何改动。
+ultirecipe 没有可以安装在本服务器上的版本。本 UltiTools-API 的 API 级别是 630，只安装声明 api-version 630 到 630 的模块。
+```
+
+第一行是 UltiCloud 回答没有兼容版本时安装命令的回复，第二行是下载到的 JAR 声明了其它级别时的回复，第三行是 `/upm versions` 没有兼容版本时的回复。因同样原因被拒绝的更新回复 `<模块> 的更新未能暂存：`，后接原因。
+
+对模块作者来说，这有三点影响：
+
+- 要让模块能在 6.3.0 上通过 `/upm` 安装，应以整数形式声明 `api-version: 630`。为 6.2.x 构建的版本（`api-version: 620`）在 6.3.0 上会被 `/upm` 拒绝，加载器本来也会拒绝它，因为这类构建都覆盖了 6.3.0 改为 final 的 `UltiToolsPlugin.unregisterSelf()`。
+- 把 `api-version` 提高到 630 以上，除了加载器会在级别更低的框架上拒绝它之外，这些服务器也看不到这个版本。
+- 服主手动复制到模块目录的 JAR 只按加载器的规则判断，与 `/upm` 无关。
+
+`PluginInstallUtils.installLatestPlugin`、`installPlugin` 和 `updatePlugin` 签名不变，对这样被拒绝的模块返回 `false`。
+
+::: warning 不过滤的目录
+目录忽略 `apiLevel` 时（例如自建的 `api-url`），`/upm versions` 和更新检查可能列出 `/upm install` 或 `/upm update` 下载后才拒绝的版本。
+这种情况下由下载后的检查保护服务器。
+:::
 
 ## 在服务器上更新和卸载
 

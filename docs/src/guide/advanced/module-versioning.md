@@ -90,7 +90,7 @@ The pin is not the module's runtime floor. These are two independent numbers, an
 | Number | Decides | Checked by |
 |---|---|---|
 | The `UltiTools-API` version in `pom.xml` | Which version's descriptors your bytecode records | Nothing. It is `provided`, does not enter the JAR, and the framework cannot read it at runtime |
-| `api-version` in `plugin.yml` | The declared runtime floor | `PluginManager.isUltiToolsVersionCompatible`. This is the only framework version consulted before a module is admitted |
+| `api-version` in `plugin.yml` | The declared runtime floor | `PluginManager.isUltiToolsVersionCompatible` when the module loads. This is the only framework version consulted before a module is admitted. As of v6.3.0 it is also consulted when `/upm` installs or updates the module, see [Version selection by API level](#version-selection-by-api-level) |
 
 Raising the pin does not raise the floor. A gap between the two numbers is not itself a fault: bytecode built against a newer pin still runs on the declared floor as long as every member it references already exists there. What breaks is a JAR whose bytecode references a symbol the framework version named in `api-version` does not declare, because that server admits it and then fails when the call site is reached.
 
@@ -229,6 +229,8 @@ As of v6.3.0, a framework API linkage error naming a type under `com.ultikits.ul
 [UltiTools-API] Module 'UltiLogin-1.0.0.jar' (version 1.0.0, api-version 620) declares main: 'com.ultikits.plugins.login.UltiLogin', but it was built against an older UltiTools-API version and is not compatible with this one -- refusing to load. Upgrade it to a release of the module built for the current UltiTools-API version -- see COMPATIBILITY.md for the list of APIs removed or changed in this release. Cause: java.lang.IncompatibleClassChangeError: class com.ultikits.plugins.login.UltiLogin overrides final method com.ultikits.ultitools.abstracts.UltiToolsPlugin.unregisterSelf()V
 ```
 
+As of v6.3.0, a module refused this way is counted in the `Failed` number of the start-up summary `[UltiTools-API] Succeeded loaded <s>, Failed <f>.`, as is every other module JAR of that start that did not load: one refused while its main class is read, one excluded for a missing required plugin or a dependency cycle, and one whose registration failed. A second copy of a module that did load is not counted. When every JAR in the modules folder is refused, the summary reads `Succeeded loaded 0, Failed <n>.`; `No UltiTools plugin found.` appears only when the folder holds no module JAR. Before v6.3.0 the summary counted only modules that reached registration, so a start that refused a module could still print `Failed 0`.
+
 [jls13]: https://docs.oracle.com/javase/specs/jls/se21/html/jls-13.html
 
 ### New annotation attributes
@@ -252,6 +254,44 @@ The version numbers play no part here. In the example the older `1.0.0` keeps ru
 `/upm uninstall` removes every copy. As of v6.3.0 it deletes each JAR whose `plugin.yml` `main:` names the module's main class, whatever `name:` that JAR declares, and names each deleted file in its reply.
 
 `/upm update` refuses to update a module while such a copy would win. As of v6.3.0, before it downloads anything, it looks in the modules folder for another JAR that declares the module's `main:` and whose file name sorts before the new JAR's name. If it finds one, the new version could never load there: the copy would keep supplying the classes and the update would be rolled back at every start. So the command stages nothing, and its reply names the new JAR and every such copy. Remove them and run `/upm update` again; no restart is needed in between. A copy that sorts after the new JAR does not stop the update, and the start-up warning above still names it.
+
+## Version selection by API level
+
+As of v6.3.0, `api-version` is consulted twice: by the module loader at start-up, as described in [The pin and `api-version`](#the-pin-and-api-version), and by `/upm` when it installs or updates a module from UltiCloud.
+
+UltiCloud reads `api-version` from the `plugin.yml` of every JAR published to it and stores it with that version. A JAR without an integer `api-version` is refused at upload, as described in [UltiKits CLI](/guide/advanced/ultikits-cli#the-module-s-api-level). Versions published before UltiCloud read the level are recorded as built for a framework before 6.3.0.
+
+Which versions a server is offered and installs depends on the framework it runs:
+
+| Server runs | Versions offered and installed |
+|---|---|
+| UltiTools-API 6.3.0 or later | `api-version` from 630 up to the framework's own API level (630 for 6.3.0) |
+| UltiTools-API before 6.3.0 | `api-version` below 630 only |
+
+A 6.3.0 server sends its level with every catalogue request (`apiLevel`, and `minApiLevel=630`). A framework before 6.3.0 sends none, and UltiCloud treats such a request as coming from a framework before 6.3.0, so released 6.2.x servers are not offered a 6.3.0 build. This applies to `/upm install`, `/upm install <module> <version>`, `/upm versions`, `/upm update` and the update check at start-up. The update check reports only a version this server can install and never mentions one that needs a newer UltiTools-API. `/upm list` still lists every module in the catalogue; Install on a module with no compatible version replies with the reason.
+
+`/upm` also checks what it downloads. `/upm install` writes the JAR into the modules folder as `<id>-<version>.jar.part`, a name the module loader never reads, and reads its `plugin.yml` again; `/upm update` makes the same check on the copy it downloads into `.ultikits/upm-transactions/`. A module whose `api-version` is absent, not an integer, below 630 or above the framework's level is refused: the download is deleted and nothing is written to the modules folder. For `/upm update` the staged download is discarded and no update is recorded. The reply names the declared level, the framework's level and the accepted range. With `language: en`:
+
+```text
+Cannot install ultirecipe: UltiCloud has no version of it that this server can install. This UltiTools-API is at API level 630 and installs only modules declaring api-version 630 to 630. Nothing was written to the modules folder.
+Refused to install ultirecipe 1.0.0: the downloaded JAR declares api-version 620. This UltiTools-API is at API level 630 and installs only modules declaring api-version 630 to 630. The download was deleted; nothing was written to the modules folder.
+No version of ultirecipe can be installed on this server. This UltiTools-API is at API level 630 and installs only modules declaring api-version 630 to 630.
+```
+
+The first line answers an install when UltiCloud reports that no version is compatible, the second an install whose download declares another level, and the third `/upm versions` with no compatible version. An update that is refused for the same reason replies `The update of <module> was not staged:` followed by the reason.
+
+This has three consequences for a module author:
+
+- Declare `api-version: 630` as an integer for the module to be installable through `/upm` on 6.3.0. A build for 6.2.x (`api-version: 620`) is refused by `/upm` on 6.3.0, and the loader would refuse it anyway, because every such build overrides `UltiToolsPlugin.unregisterSelf()`, which 6.3.0 made final.
+- Raising `api-version` above 630 hides the version from servers whose framework level is lower, in addition to the loader refusing it there.
+- A JAR an operator copies into the modules folder by hand is judged only by the loader rule; `/upm` is not involved.
+
+`PluginInstallUtils.installLatestPlugin`, `installPlugin` and `updatePlugin` keep their signatures and return `false` for a module refused this way.
+
+::: warning A catalogue that does not filter
+With a catalogue that ignores `apiLevel`, such as a self-hosted `api-url`, `/upm versions` and the update check can list a version that `/upm install` or `/upm update` then refuses after downloading it.
+The post-download check is what protects the server in that case.
+:::
 
 ## Updating and uninstalling on a server
 
