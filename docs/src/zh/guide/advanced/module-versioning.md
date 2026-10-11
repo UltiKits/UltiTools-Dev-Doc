@@ -270,7 +270,7 @@ UltiCloud 从发布到它上面的每个 JAR 的 `plugin.yml` 中读取 `api-ver
 
 6.3.0 的服务器在每个目录请求中都带上自己的级别（`apiLevel`，以及 `minApiLevel=630`）。6.3.0 之前的框架不带级别，UltiCloud 把这样的请求视为来自 6.3.0 之前的框架，所以已发布的 6.2.x 服务器不会被提供为 6.3.0 构建的版本。这适用于 `/upm install`、`/upm install <模块> <版本>`、`/upm versions`、`/upm update` 以及启动时的更新检查。更新检查只报告本服务器能安装的版本，从不提及需要更新 UltiTools-API 的版本。`/upm list` 仍列出目录中的全部模块；对没有兼容版本的模块点击安装，会回复原因。
 
-`/upm` 还会检查下载到的文件。JAR 先写成模块加载器永远不读的 `<id>-<version>.jar.part`，然后重新读取其中的 `plugin.yml`。`api-version` 缺失、不是整数、低于 630 或高于框架级别的模块会被拒绝：下载的文件被删除，模块目录不写入任何东西。对 `/upm update` 来说，暂存的下载被丢弃，不记录任何更新。回复会写明模块声明的级别、框架的级别和接受的范围。使用 `language: zh` 时：
+`/upm` 还会检查下载到的文件。`/upm install` 先把 JAR 写入模块目录，文件名是模块加载器永远不读的 `<id>-<version>.jar.part`，然后重新读取其中的 `plugin.yml`；`/upm update` 对它下载到 `.ultikits/upm-transactions/` 的副本做同样的检查。`api-version` 缺失、不是整数、低于 630 或高于框架级别的模块会被拒绝：下载的文件被删除，模块目录不写入任何东西。对 `/upm update` 来说，暂存的下载被丢弃，不记录任何更新。回复会写明模块声明的级别、框架的级别和接受的范围。使用 `language: zh` 时：
 
 ```text
 无法安装 ultirecipe：云端没有可以安装在本服务器上的版本。本 UltiTools-API 的 API 级别是 630，只安装声明 api-version 630 到 630 的模块。模块目录没有任何改动。

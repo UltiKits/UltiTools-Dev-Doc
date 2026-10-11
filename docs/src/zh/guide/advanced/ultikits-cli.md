@@ -426,4 +426,4 @@ gh secret list --repo YourOrg/YourPlugin
 Upload failed: Cannot read the module's UltiTools API level: plugin.yml has no top-level api-version. The root plugin.yml must declare the UltiTools API level the module is built for as an integer, for example "api-version: 630". Upload a corrected JAR with the same upload token before it expires.
 ```
 
-其它原因包括：值是 `'1.19'` 这样的 Bukkit 风格、不是整数，值为空，声明了两次，或者 JAR 根目录没有 `plugin.yml`。按[模块的 API 级别](#模块的-api-级别)声明级别，重新构建后再次发布。CLI 不保留上传令牌；被拒绝那次的令牌仍有效期间（15 分钟），再次对该模块执行 `ultikits publish` 会被拒绝，提示 `A version upload is already in progress for this module`。
+其它原因包括：值是 `'1.19'` 这样的 Bukkit 风格、不是整数，值为空，声明了两次，JAR 根目录没有 `plugin.yml`，以及 UltiCloud 无法读取的归档（例如不完整的 JAR）；消息中总会写明原因。按[模块的 API 级别](#模块的-api-级别)声明级别，重新构建后再次发布。CLI 不保留上传令牌；被拒绝那次的令牌仍有效期间（15 分钟），再次对该模块执行 `ultikits publish` 会被拒绝，提示 `A version upload is already in progress for this module`。
