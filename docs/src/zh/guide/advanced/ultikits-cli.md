@@ -212,6 +212,18 @@ CLI 从多个来源解析元数据，优先级如下：
 
 例如，如果你传入 `--module-version 1.2.0`，它会覆盖 `plugin.yml` 中的版本号。
 
+### 模块的 API 级别
+
+自 v6.3.0 起，UltiCloud 从你发布的 JAR 根目录的 `plugin.yml` 中读取 `api-version`，与该版本一起保存。没有任何命令行参数或 `ultikits.json` 字段可以设置它，随文件一起发送的值也会被忽略。请以整数形式声明：
+
+```yaml
+api-version: 630
+```
+
+这个数字决定哪些服务器会被提供这个版本。运行 UltiTools-API 6.3.0 及以后的服务器只会被提供从 630 到其自身 API 级别的版本；运行更早框架的服务器只会被提供低于 630 的版本。见[模块版本规范](/zh/guide/advanced/module-versioning#按-api-级别选择版本)。
+
+根目录 `plugin.yml` 没有声明整数 `api-version` 的 JAR 会在保存任何东西之前被拒绝，该版本不会发布。见[因 API 级别被拒绝上传](#因-api-级别被拒绝上传)。
+
 ## 模块管理
 
 ### 列出模块
@@ -405,3 +417,13 @@ gh secret list --repo YourOrg/YourPlugin
 ```
 
 确保 Token 与开发者门户中的 Access Token 一致。
+
+### 因 API 级别被拒绝上传
+
+自 v6.3.0 起，JAR 根目录的 `plugin.yml` 没有可用的 `api-version` 时，`ultikits publish` 会打印 UltiCloud 给出的原因，例如：
+
+```
+Upload failed: Cannot read the module's UltiTools API level: plugin.yml has no top-level api-version. The root plugin.yml must declare the UltiTools API level the module is built for as an integer, for example "api-version: 630". Upload a corrected JAR with the same upload token before it expires.
+```
+
+其它原因包括：值是 `'1.19'` 这样的 Bukkit 风格、不是整数，值为空，声明了两次，或者 JAR 根目录没有 `plugin.yml`。按[模块的 API 级别](#模块的-api-级别)声明级别，重新构建后再次发布。CLI 不保留上传令牌；被拒绝那次的令牌仍有效期间（15 分钟），再次对该模块执行 `ultikits publish` 会被拒绝，提示 `A version upload is already in progress for this module`。

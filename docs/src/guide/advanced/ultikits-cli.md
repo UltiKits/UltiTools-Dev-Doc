@@ -212,6 +212,18 @@ The CLI resolves metadata from multiple sources in this priority order:
 
 For example, if you pass `--module-version 1.2.0`, it overrides the version in `plugin.yml`.
 
+### The module's API level
+
+As of v6.3.0, UltiCloud reads `api-version` from the root `plugin.yml` of the JAR you publish and stores it with the version. No flag and no `ultikits.json` field sets it, and a value sent beside the file is ignored. Declare it as an integer:
+
+```yaml
+api-version: 630
+```
+
+The number decides which servers are offered the version. A server on UltiTools-API 6.3.0 or later is offered versions from 630 up to its own API level; a server on an older framework is offered only versions below 630. See [Module Versioning](/guide/advanced/module-versioning#version-selection-by-api-level).
+
+A JAR whose root `plugin.yml` does not declare an integer `api-version` is refused before anything is stored, and the version stays unpublished. See [Upload refused for the API level](#upload-refused-for-the-api-level).
+
 ## Managing Modules
 
 ### List Your Modules
@@ -405,3 +417,13 @@ gh secret list --repo YourOrg/YourPlugin
 ```
 
 Make sure the token matches the access token from the developer portal.
+
+### Upload refused for the API level
+
+As of v6.3.0, `ultikits publish` prints UltiCloud's reason when the JAR's root `plugin.yml` has no usable `api-version`, for example:
+
+```
+Upload failed: Cannot read the module's UltiTools API level: plugin.yml has no top-level api-version. The root plugin.yml must declare the UltiTools API level the module is built for as an integer, for example "api-version: 630". Upload a corrected JAR with the same upload token before it expires.
+```
+
+Other reasons name a Bukkit-style value such as `'1.19'` that is not an integer, an empty value, a value declared twice, or a JAR without a root `plugin.yml`. Declare the level as shown in [The module's API level](#the-module-s-api-level), rebuild and publish again. The CLI does not keep the upload token, and while the refused attempt's token is still valid (15 minutes) a new `ultikits publish` of that module is refused with `A version upload is already in progress for this module`.
