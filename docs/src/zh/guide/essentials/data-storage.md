@@ -5,7 +5,7 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 你需要的仅仅只是一个实体类。CRUD 操作将由 UltiTools 自动完成。
 
 ::: warning 尽量不要嵌套对象
-存储 API 把每个 `@Column` 字段对应到一列（JSON 文件中对应一个字段），面向简单值设计，所以不要嵌套对象。
+存储 API 把每个 `@Column` 字段对应到一列（JSON 文件中对应一个字段）。非简单类型的字段会以 JSON 文本存入该列，不能按其内部字段查询，所以尽量使用简单值。
 :::
 
 ::: warning Paper 上的 SQLite 与 spark（适用于所有 UltiTools 版本）
