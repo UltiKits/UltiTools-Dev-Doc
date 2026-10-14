@@ -77,7 +77,7 @@ authors: [ yourname ]
 identify-string: test-plugin
 ```
 
-自 v6.3.0 起，为 UltiTools-API 6.3.0 构建的模块应声明 `api-version: 630`；6.3.0 上的 `/upm` 只安装声明 `630` 或更高的模块（见[模块版本规范](/zh/guide/advanced/module-versioning)）。
+自 v6.3.0 起，为 UltiTools-API 6.3.0 构建的模块应声明 `api-version: 630`；6.3.0 上的 `/upm` 只安装声明 `630`（框架自身 API 级别）的模块（见[模块版本规范](/zh/guide/advanced/module-versioning)）。
 
 ### 编写模块主类
 
