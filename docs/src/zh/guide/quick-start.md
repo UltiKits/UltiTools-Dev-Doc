@@ -69,13 +69,15 @@ name: TestPlugin
 version: '${project.version}'
 # 模块主类
 main: com.test.plugin.MyPlugin
-# 模块用到的UltiTools-API版本，例如6.3.0就是630
-api-version: 630
+# 模块用到的UltiTools-API版本，例如6.2.0就是620
+api-version: 620
 # 模块作者
 authors: [ yourname ]
 # UltiTools 检查更新时使用的唯一标识符
 identify-string: test-plugin
 ```
+
+自 v6.3.0 起，为 UltiTools-API 6.3.0 构建的模块应声明 `api-version: 630`；6.3.0 上的 `/upm` 只安装声明 `630` 或更高的模块（见[模块版本规范](/zh/guide/advanced/module-versioning)）。
 
 ### 编写模块主类
 

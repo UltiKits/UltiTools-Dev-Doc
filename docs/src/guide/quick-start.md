@@ -73,14 +73,16 @@ name: TestPlugin
 version: '${project.version}'
 # Module main class
 main: com.test.plugin.MyPlugin
-# UltiTools API version, for example 6.3.0 is 630
-api-version: 630
+# UltiTools API version, for example 6.2.0 is 620
+api-version: 620
 # Module authors
 authors: 
   - yourname
 # Unique identifier used by UltiTools to check for updates
 identify-string: test-plugin
 ```
+
+As of v6.3.0, a module built for UltiTools-API 6.3.0 declares `api-version: 630`; `/upm` on 6.3.0 installs only modules that declare `630` or higher (see [Module versioning](/guide/advanced/module-versioning)).
 
 ### Create the main class of the module
 
