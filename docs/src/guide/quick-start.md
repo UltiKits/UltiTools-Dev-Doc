@@ -73,8 +73,8 @@ name: TestPlugin
 version: '${project.version}'
 # Module main class
 main: com.test.plugin.MyPlugin
-# UltiTools API version, for example 6.2.0 is 620
-api-version: 620
+# UltiTools API version, for example 6.3.0 is 630
+api-version: 630
 # Module authors
 authors: 
   - yourname

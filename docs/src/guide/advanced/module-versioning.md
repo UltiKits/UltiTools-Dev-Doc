@@ -282,7 +282,7 @@ The first line answers an install when UltiCloud reports that no version is comp
 
 This has three consequences for a module author:
 
-- Declare `api-version: 630` as an integer for the module to be installable through `/upm` on 6.3.0. A build for 6.2.x (`api-version: 620`) is refused by `/upm` on 6.3.0, and the loader would refuse it anyway, because every such build overrides `UltiToolsPlugin.unregisterSelf()`, which 6.3.0 made final.
+- Declare `api-version: 630` as an integer for the module to be installable through `/upm` on 6.3.0. A build for 6.2.x (`api-version: 620`) is refused by `/upm` on 6.3.0. Every first-party module built for 6.2.x overrides `UltiToolsPlugin.unregisterSelf()`, which 6.3.0 made final, so those builds could not load anyway.
 - Raising `api-version` above 630 hides the version from servers whose framework level is lower, in addition to the loader refusing it there.
 - A JAR an operator copies into the modules folder by hand is judged only by the loader rule; `/upm` is not involved.
 

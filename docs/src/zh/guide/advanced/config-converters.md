@@ -141,4 +141,4 @@ private Token oldToken = new Token("hello");
 
 用转换器示例的字段和类替换旧字段/解析器。显式旧覆盖仍收到隔离 Bukkit 配置节（保留点号拆分），序列化输出仍须通过普通数据边界。默认 `DefaultConfigParser.class` 注解值改表示注册表转换，不增加任意自定义类原始透传例外。
 
-完整映射键、文件保护、整份输出、原子/备份保存、重载和实体 accessor 删除见[配置文件](/zh/guide/essentials/config-file)。存储已知限制仍记录在 [#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578) 和 [#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580)。
+完整映射键、文件保护、整份输出、原子/备份保存、重载和实体 accessor 删除见[配置文件](/zh/guide/essentials/config-file)。仍适用的存储限制记录在 [#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578)（具体哪几项见配置文件一页）；[#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580) 是已记录的读取器限制。

@@ -128,7 +128,7 @@ public void onCustomEvent(MyCustomEvent event) {
 | Config-bound `@Scheduled` / `@CmdCD` (v6.3.0+) | Supported, see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing) | Refused, use literal `period` / `delay` / `value` |
 | Data storage | `plugin.getDataOperator(Class)` | `UltiToolsAPI.getDataOperator(plugin, Class)` |
 | Hot reload | Supported via `ul reload` | Not supported — requires server restart |
-| plugin.yml | `api-version: 620`; `630` if it uses a config-bound `@Scheduled` / `@CmdCD` | `depend: [UltiTools]` |
+| plugin.yml | `api-version: 630` for a module built for 6.3.0 (a config-bound `@Scheduled` / `@CmdCD` requires `630`) | `depend: [UltiTools]` |
 
 ## Complete Working Example
 

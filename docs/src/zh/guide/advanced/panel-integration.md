@@ -87,7 +87,7 @@ plugins/UltiTools/config.yml to change this.
 
 ### 远程命令的结果
 
-自 v6.3.0 起，面板的远程命令以服务器控制台的身份运行，等同于在控制台中输入该命令，模块看到的仍是通常的控制台发送者。框架不捕获命令的回复：`command_result` 消息只说明命令已分派，文本为 `Command dispatched to the server console. Its output appears in the server log stream.`；分派返回 false 时为 `The server console did not accept the command. Any message it printed appears in the server log stream.`。回复本身与其他所有控制台输出一起，通过[实时日志流](#实时日志流)到达面板，因此需要开启 `logs` 能力才能看到。黑名单拒绝、空命令与分派错误的报告方式不变。v6.3.0 之前，结果里携带的是编造的 `Command executed successfully`，而不是回复。把 `output` 当作命令回复来显示的面板或工具，现在显示的是上面这句话。
+自 v6.3.0 起，面板的远程命令以服务器控制台的身份运行，等同于在控制台中输入该命令，模块看到的仍是通常的控制台发送者。框架不捕获命令的回复：`command_result` 消息只说明命令已分派，文本为 `Command dispatched to the server console. Its output appears in the server log stream.`；分派返回 false 时为 `The server console did not accept the command. Any message it printed appears in the server log stream.`。回复本身与其他所有控制台输出一起，通过[实时日志流](#实时日志流)到达面板，因此需要开启 `logs` 能力才能看到。黑名单拒绝、空命令与分派错误的报告方式不变。v6.3.0 之前，被接受的命令结果里携带的是编造的 `Command executed successfully`（被拒绝的为 `Command execution failed`），而不是回复。把 `output` 当作命令回复来显示的面板或工具，现在显示的是上面这句话。
 
 自 v6.3.0 起，从 UltiTools 开始禁用的那一刻起，面板请求不再得到回复（[#621](https://github.com/UltiKits/UltiTools-Reborn/issues/621)）：入站消息只记一条 `FINE` 日志后丢弃，而不是为已禁用的插件调度任务，因此服务器停止期间发出的面板操作要等到面板自身的超时。恰在停服开始那一刻到达的远程命令，可能已在控制台和远程操作日志中记为允许，却不会执行，也没有结果回复。
 
@@ -135,7 +135,7 @@ ultipanel:
 
 自 v6.3.0 起，面板编辑只写它指定的内容。编辑模块配置时经过配置写入闸门：在指定的键处替换值，文件的其余每个字节保持不变；闸门无法这样写入的文件会收到注明原因的错误回复（见[保存配置文件](/zh/guide/essentials/config-file#保存配置文件)）。
 
-编辑 `server.properties` 时，只替换定义该键的那一行的值文字。注释、键的顺序、分隔符和其它值保持原有字节，包括 UTF-8 的 `motd`；文件按服务器读取它的方式解码和编码，并原子写入。同一个键定义在多行、或定义续到下一行时会被拒绝，原因注明行号，不含值：`set` 回复以 `reason` 字段给出，`set_all` 回复把该键列在 `failed` 中，并在 `failureReasons` 中给出原因。服务器日志对每个被拒绝的键只记一次。服务器自己下次启动时仍会整份重写该文件，所有 Paper 版本都是如此。
+编辑 `server.properties` 时，只替换定义该键的那一行的值文字。注释、键的顺序、分隔符和其它值保持原有字节，包括 UTF-8 的 `motd`；文件按服务器读取它的方式解码和编码，并原子写入。同一个键定义在多行、或定义续到下一行时会被拒绝，原因注明行号，不含值：`set` 回复以 `reason` 字段给出，`set_all` 回复把该键列在 `failed` 中，并在 `failureReasons` 中给出原因。服务器日志对每个被拒绝的键只记一次。服务器自己下次启动时仍会整份重写该文件（在 Paper 1.21.11 上实测）。
 
 ## 凭据文件位置 <Badge type="tip" text="v6.3.0+" />
 

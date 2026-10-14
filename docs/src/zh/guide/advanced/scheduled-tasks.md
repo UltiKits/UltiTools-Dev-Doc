@@ -122,7 +122,7 @@ public class InterestService {
 
 - 只支持同步任务。 被绑定的方法不能设置 `async = true`，这种组合会在加载时被拒绝。请绑定一个同步任务，再在方法体中通过 `Bukkit.getScheduler().runTaskAsynchronously(...)` 执行耗时工作。使用字面量的 `async` 任务不受影响。允许异步绑定的工作由 issue [#535](https://github.com/UltiKits/UltiTools-Reborn/issues/535) 跟踪。
 - 包括继承的方法。 自 v6.3.0 起，绑定与未绑定的 `@Scheduled` 在同样的方法上查找，包括从父类继承的方法，它会像 Bean 类自身声明的方法一样被调度、在加载时被检查。（v6.3.0 之前只查找 Bean 类自身声明的方法，从父类继承的方法既不会被调度，也不会被检查，[#532](https://github.com/UltiKits/UltiTools-Reborn/issues/532)。）
-- 被绑定的字段不要加 `@Range`。上述绑定范围就是该字段的范围。如果同一字段上还有模块自己的 `@Range`，重载时超出范围的值会让配置重载本身抛出异常，进而中止该模块其余的重载步骤（[#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509)），而不是保留当前正在使用的值。如果字段在绑定之前已经带有 `@Range`，请将其删除。
+- 被绑定的字段不要加 `@Range`。上述绑定范围就是该字段的范围。如果同一字段上还有模块自己的 `@Range`，重载时超出范围的值会让配置重载本身失败，停止该模块其余的重载步骤并报告为失败（[#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509) 已在 6.3.0 修复：完整的 `/ul reload` 仍会继续重载下一个模块），而不是保留当前正在使用的值。如果字段在绑定之前已经带有 `@Range`，请将其删除。
 - 只支持 UltiTools 模块。 [外部插件 API](/zh/guide/advanced/external-plugin-api) 插件的 Bean 上的绑定会被拒绝。
 
 ### 必需的 `api-version`

@@ -69,8 +69,8 @@ name: TestPlugin
 version: '${project.version}'
 # 模块主类
 main: com.test.plugin.MyPlugin
-# 模块用到的UltiTools-API版本，例如6.2.0就是620
-api-version: 620
+# 模块用到的UltiTools-API版本，例如6.3.0就是630
+api-version: 630
 # 模块作者
 authors: [ yourname ]
 # UltiTools 检查更新时使用的唯一标识符

@@ -7,7 +7,7 @@ to use based on the server owner's configuration.
 All you need is an entity class. CRUD operations will be done automatically by UltiTools.
 
 ::: warning Try not to nest objects
-Since the API is still under development, there may be problems when dealing with complex objects, so try not to nest objects.
+The storage API maps each `@Column` field to one column (one field in a JSON file) and is built for simple values, so do not nest objects.
 :::
 
 ::: warning SQLite on Paper with spark (all UltiTools versions)

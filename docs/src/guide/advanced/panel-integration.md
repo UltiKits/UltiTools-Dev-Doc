@@ -106,8 +106,9 @@ dispatched to the server console. Its output appears in the server log stream.`,
 did not accept the command. Any message it printed appears in the server log stream.` when the
 dispatch returned false. The reply itself, together with all other console output, reaches the panel
 through the [live log stream](#live-log-stream), so the `logs` capability has to be on to see it.
-Blocklist refusals, an empty command and dispatch errors are reported as before. Before v6.3.0 the
-result carried the invented text `Command executed successfully` in place of a reply. A panel or tool
+Blocklist refusals, an empty command and dispatch errors are reported as before. Before v6.3.0 an
+accepted command's result carried the invented text `Command executed successfully` (a refused one read
+`Command execution failed`) in place of a reply. A panel or tool
 that showed `output` as the command's reply now shows the sentence above.
 
 As of v6.3.0, from the moment UltiTools starts disabling, panel requests get no reply
@@ -164,7 +165,7 @@ has every directory-delete request refused with a clear reason.
 
 As of v6.3.0 a panel edit writes only what it names. An edit of a module configuration goes through the configuration write gate: it replaces the value at the named keys and keeps every other byte of the file, and a file the gate cannot write that way gets an error reply naming the reason (see [Saving configuration files](/guide/essentials/config-file#saving-configuration-files)).
 
-A `server.properties` edit replaces only the value text of the line that defines the key. Comments, key order, separators and other values keep their bytes, including a UTF-8 `motd`; the file is decoded and encoded as the server reads it and written atomically. A key defined on more than one line, or continued onto the next line, is refused with a reason naming the lines and no value: the `set` reply carries it as `reason`, and a `set_all` reply lists the key under `failed` and its reason under `failureReasons`. The server log names each refused key once. The server itself still rewrites the whole file when it next starts, as every Paper version does.
+A `server.properties` edit replaces only the value text of the line that defines the key. Comments, key order, separators and other values keep their bytes, including a UTF-8 `motd`; the file is decoded and encoded as the server reads it and written atomically. A key defined on more than one line, or continued onto the next line, is refused with a reason naming the lines and no value: the `set` reply carries it as `reason`, and a `set_all` reply lists the key under `failed` and its reason under `failureReasons`. The server log names each refused key once. The server itself still rewrites the whole file when it next starts (measured on Paper 1.21.11).
 
 ## Credential file location <Badge type="tip" text="v6.3.0+" />
 
