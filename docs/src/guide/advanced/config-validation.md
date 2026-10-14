@@ -130,7 +130,7 @@ public static class OutputItem {
 private Map<String, OutputItem> recipes = new HashMap<>();
 ```
 
-A converter builds `OutputItem` from the file, and the framework validates only the setting `recipes` itself, never the fields of the values inside it. Validate such fields in your module's converter, where you can skip or refuse the one entry. UltiRecipe's `RecipeConfig.OutputItem` has this shape: the module checks those fields itself, and its 6.3.0 build removes the two annotations, which never took effect.
+A converter builds `OutputItem` from the file, and the framework validates only the setting `recipes` itself, never the fields of the values inside it. Validate such fields in your module's converter, where you can skip or refuse the one entry. UltiRecipe's `RecipeConfig.OutputItem` has this shape: the module checks those fields itself, and its 6.3.0 build keeps the two annotations; they have no effect there.
 
 ## Combining Annotations
 

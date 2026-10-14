@@ -130,7 +130,7 @@ public static class OutputItem {
 private Map<String, OutputItem> recipes = new HashMap<>();
 ```
 
-`OutputItem` 由转换器从文件构造，框架只校验设置 `recipes` 本身，从不校验其中各个值的字段。请在模块的转换器中校验这些字段，在那里可以跳过或拒绝单个条目。UltiRecipe 的 `RecipeConfig.OutputItem` 就是这种形态：模块自行检查这些字段，它面向 6.3.0 的构建删除了这两个从未生效的注解。
+`OutputItem` 由转换器从文件构造，框架只校验设置 `recipes` 本身，从不校验其中各个值的字段。请在模块的转换器中校验这些字段，在那里可以跳过或拒绝单个条目。UltiRecipe 的 `RecipeConfig.OutputItem` 就是这种形态：模块自行检查这些字段，它面向 6.3.0 的构建保留了这两个注解，但它们在那里不起作用。
 
 ## 组合使用
 

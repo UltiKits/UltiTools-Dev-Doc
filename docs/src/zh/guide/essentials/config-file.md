@@ -113,7 +113,7 @@ boolean something = someConfig.getSomething();
 
 服务器运行时，初始化、重载和 ConfigManager 注册表操作限主线程。异步 void 操作警告且不执行；注册表 getter、JSON 读写警告并抛 `IllegalStateException`。面板更新、上传、重连回调整体排到主线程，执行后回复。实体监视器串行化持久化，但不保护模块自己异步修改字段；请安排在主线程修改和重载。
 
-模块 `getConfig(Class)` 仍返回实体。实体旧的可变 Bukkit `getConfig()` 在 v6.3.0 通过维护者一次性兼容 carve-out 删除；它在 6.2.5 确实可用，第三方用量未知。用 `isPresentInFile("entry.path")` 查上次成功加载的存在性（null 和未声明键也算），它拆分点号，不能定位映射完整点号键。修改声明字段后调用 `save()`。
+模块 `getConfig(Class)` 仍返回实体。实体旧的可变 Bukkit `getConfig()` 在 v6.3.0 通过维护者一次性兼容 carve-out 删除；它在 6.2.5 确实可用，第三方用量未知。用 `isPresentInFile("entry.path")` 查上次成功加载的存在性（null 和未声明键也算），路径按声明设置路径的方式读取（[#612](https://github.com/UltiKits/UltiTools-Reborn/issues/612)）：嵌套键、扁平带点键或两者混合，任一形式都算存在，因此含点的完整映射键也能查到。修改声明字段后调用 `save()`。
 
 ::: tip 由谁写入配置
 配置是给服主读取和编辑的。只在服主要求某项改动时写入，优先使用 `saveOperatorChange` 或 `saveOperatorMapEntry`（见[保存配置文件](#保存配置文件)）。
@@ -291,4 +291,4 @@ SomePlugin.getConfigManager().reloadConfigs(SomePlugin.getInstance());
 
 ## 已知限制
 
-自 v6.3.0 起，[#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578) 记录特殊锚定容器、复杂符号链接路径、Unicode 风格定位成本和直接别名 token 注释所有权。别名注释可能影响源锚并重复写入。[#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580) 与 [#617](https://github.com/UltiKits/UltiTools-Reborn/issues/617) 是读取器无法读取的两种排版（见[读取器无法读取的排版](#读取器无法读取的排版)）；保护保留文件字节，不表示其中的值可以读取。[#545](https://github.com/UltiKits/UltiTools-Reborn/issues/545) 仍是多文件崩溃持久化限制。
+自 v6.3.0 起，[#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578) 记录了威胁模型之外的存储问题，其中仍适用的是符号链接后跟 `..` 的临时文件路径，以及 Unicode 文件的样式检测耗时。锚点容器与别名注释两项不会发生，因为任何写入路径都不写入使用锚点、别名或合并键的文件。[#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580) 与 [#617](https://github.com/UltiKits/UltiTools-Reborn/issues/617) 是读取器无法读取的两种排版（见[读取器无法读取的排版](#读取器无法读取的排版)）；保护保留文件字节，不表示其中的值可以读取。[#545](https://github.com/UltiKits/UltiTools-Reborn/issues/545) 仍是多文件崩溃持久化限制。

@@ -82,6 +82,8 @@ authors:
 identify-string: test-plugin
 ```
 
+As of v6.3.0, a module built for UltiTools-API 6.3.0 declares `api-version: 630`; `/upm` on 6.3.0 installs only modules that declare `630`, the framework's own API level (see [Module versioning](/guide/advanced/module-versioning)).
+
 ### Create the main class of the module
 
 Create a new class that extends `UltiToolsPlugin`, similar to traditional Paper plugins,

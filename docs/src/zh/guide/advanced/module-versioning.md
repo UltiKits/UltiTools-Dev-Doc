@@ -282,7 +282,7 @@ ultirecipe 没有可以安装在本服务器上的版本。本 UltiTools-API 的
 
 对模块作者来说，这有三点影响：
 
-- 要让模块能在 6.3.0 上通过 `/upm` 安装，应以整数形式声明 `api-version: 630`。为 6.2.x 构建的版本（`api-version: 620`）在 6.3.0 上会被 `/upm` 拒绝，加载器本来也会拒绝它，因为这类构建都覆盖了 6.3.0 改为 final 的 `UltiToolsPlugin.unregisterSelf()`。
+- 要让模块能在 6.3.0 上通过 `/upm` 安装，应以整数形式声明 `api-version: 630`。为 6.2.x 构建的版本（`api-version: 620`）在 6.3.0 上会被 `/upm` 拒绝。官方模块的 6.2.x 构建都覆盖了 6.3.0 改为 final 的 `UltiToolsPlugin.unregisterSelf()`，本来也无法加载。
 - 把 `api-version` 提高到 630 以上，除了加载器会在级别更低的框架上拒绝它之外，这些服务器也看不到这个版本。
 - 服主手动复制到模块目录的 JAR 只按加载器的规则判断，与 `/upm` 无关。
 

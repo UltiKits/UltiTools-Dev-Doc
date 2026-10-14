@@ -401,7 +401,7 @@ public void wild(@CmdSender Player player) { ... }
 
 修改后的值在执行 `/ul reload` 时生效。解析出的秒数按执行器缓存，只在配置重载成功后刷新，因此通过面板所做的修改同样要等到下一次 `/ul reload`。重载时读到无效的值会保留当前正在使用的值，输出一条 WARNING，并且自 v6.3.0 起把这次重载报告为部分重载，写明该键、被拒绝的值和继续使用的值（[#595](https://github.com/UltiKits/UltiTools-Reborn/issues/595)）。已经在计时的冷却保持它开始计时时确定的结束时间，与新值无关：重载为 `0` 只是不再开始新的冷却，正在计时的冷却会自然到期。面板写入如果把被绑定的键设为范围之外的值（例如负数），会像违反 `@Range` 一样被拒绝，不会写入任何内容。
 
-被绑定的字段不要加模块自己的 `@Range`，绑定范围就是该字段的范围。如果同一字段上有 `@Range`，重载时超出范围的值会让配置重载本身抛出异常，并中止该模块其余的重载步骤（[#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509)），而不是保留当前正在使用的值。
+被绑定的字段不要加模块自己的 `@Range`，绑定范围就是该字段的范围。如果同一字段上有 `@Range`，重载时超出范围的值会让配置重载本身失败，停止该模块其余的重载步骤并报告为失败（[#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509) 已在 6.3.0 修复：完整的 `/ul reload` 仍会继续重载下一个模块），而不是保留当前正在使用的值。
 
 [外部插件 API](/zh/guide/advanced/external-plugin-api) 执行器中的绑定会被拒绝。使用绑定的模块必须在 `plugin.yml` 中声明 `api-version: 630`：6.2.x 框架会静默忽略这些新属性，完全不会执行冷却；6.3.0 则会拒绝使用了绑定、却声明了更低 `api-version` 的模块。`@Scheduled` 也支持同样的绑定方式，见[绑定到配置项的时间](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间)。
 
