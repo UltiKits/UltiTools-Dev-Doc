@@ -1,0 +1,64 @@
+# 模块加载顺序
+
+::: info 排序自 v6.3.0 起生效
+`@PluginDependency` 自 v6.2.0 起就存在，但一直是没有读取方的声明性元数据。v6.3.0 起，它与 `plugin.yml` 的 `loadAfter` 都会真正参与加载顺序。
+:::
+
+## 声明依赖
+
+在继承 `UltiToolsPlugin` 的类上添加 `@PluginDependency`：
+
+```java
+@UltiToolsModule(scanBasePackages = {"com.example.myplugin"})
+@PluginDependency(
+    depends = {"CorePlugin", "UtilsPlugin"},
+    softDepends = {"OptionalPlugin"}
+)
+public class MyPlugin extends UltiToolsPlugin {
+    // ...
+}
+```
+
+| 属性 | 含义 |
+|---|---|
+| `depends` | 必需依赖。加载时缺失会拒绝本模块。 |
+| `softDepends` | 可选依赖。若存在，本模块会在它们之后加载；缺失不影响本模块加载。 |
+| `loadBefore` | 反向声明：指明哪些模块应在本模块之后加载。 |
+
+## `plugin.yml` 的 `loadAfter`
+
+`plugin.yml` 自身的 `loadAfter:` 列表会被读入与 `@PluginDependency` 相同的依赖图，按模块名解析：
+
+```yaml
+# plugin.yml
+loadAfter:
+  - CorePlugin
+```
+
+`@PluginDependency` 本身没有新增 `loadAfter` 属性。两种机制被有意分开：`plugin.yml` 已经有 `loadAfter`，`@PluginDependency` 已经有 `depends`/`softDepends`/`loadBefore`，声明顺序约束时用两者中已经能表达它的那一个即可。
+
+## 循环依赖与缺失依赖
+
+依赖环，或 `depends` 中声明了一个未安装的模块，只会拒绝受影响的模块：环成员（或声明了缺失依赖的模块）以及所有传递依赖它们的模块。其余模块照常加载。
+
+控制台会把整个环按路径打印出来，形如 `A -> B -> C -> A`，并指出应联系哪个模块的作者。这与 Paper 自身报告插件加载环的方式一致。
+
+自 v6.3.0 起，一个模块同时声明了多个缺失的 `depends` 目标时，控制台会在一行里把它们全部列出，而不是只报告第一个——不再需要修一个、重启、再发现下一个。
+
+## 缺少必需的服务器插件
+
+v6.3.0 起，如果模块的 `plugin.yml` 在 `depend:` 中列出的某个服务器插件没有安装，该模块会在构造之前被拒载，控制台只输出一行、不打印堆栈——例如 `[UltiTools-API] Module 'UltiTools-Economy' requires Vault, which is not installed or not enabled; the module is not loaded.`（中文环境下为对应的中文译文）。模块的任何部分都不会运行：不构造、不释放资源、不扫描类。这也会拒载那些在 `depend:` 中列出了未安装插件、但加载时从未用到该插件的类的模块，它们以前照常加载；Bukkit 自己也会拒绝 `depend:` 缺失的插件。
+
+所需插件已安装但尚未启用时不会被提前拒载，因为它仍可能在 UltiTools 之后启用。这种情况下，只有当加载因该插件的类缺失而失败时，模块才会被拒载，输出同样的一行。其他任何加载失败，包括 `depend:` 中的插件都在时发生的失败，仍然输出 `Cannot initialize plugin for …` 那一行及其堆栈（[issue #554](https://github.com/UltiKits/UltiTools-Reborn/issues/554)）。
+
+## 重复的 `plugin.yml` 名称
+
+自 v6.3.0 起：依赖解析既可以按模块的简单类名查找，也可以按其 `plugin.yml` `name:` 值查找。如果两个已安装的模块声明了相同的 `name:`，依赖图里只能有一个模块占用这个名字——发现顺序在前的那个胜出，控制台会记录一条 WARNING，指出两个模块和这个共用的名字，因此这不是静默发生的。哪个模块胜出取决于加载顺序（目前是文件系统相关的，不受本页排序规则控制），所以应把这条 WARNING 当作"该给某个模块的 `plugin.yml` `name:` 改名了"的信号，而不要指望它每次重启都解析成同一个结果。
+
+## 退回旧版顺序
+
+`-Dultitools.useLegacyPluginLoading=true` 会恢复 6.3.0 之前的行为：所有模块按文件系统顺序加载，完全不做依赖解析，也不检测循环依赖。这是一个 JVM 系统属性，只在服务器启动时读取一次，不是可热重载的配置项，与 Paper 自身的 `-Dpaper.useLegacyPluginLoading=true` 是同一种设计。
+
+::: warning 旧版开关的代价
+依赖解析被完全跳过后，依赖加载顺序的模块可能初始化失败，且是不可预测的，也不会有错误指出原因。这个开关只应作为修复潜在循环依赖或缺失依赖之前的临时手段。
+:::

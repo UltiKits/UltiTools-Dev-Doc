@@ -16,7 +16,7 @@ plugin and displayed to users.
 According to the key-value pair structure of your configuration file, create a class that inherits
 the `AbstractConfigEntity` class.
 
-<<< @/../examples/src/main/java/com/ultikits/docs/config/SomeConfig.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/config/SomeConfig.java
 
 #### @ConfigEntity
 
@@ -73,7 +73,7 @@ object in the configuration file to the type of the configuration item. The defa
 inherit the `ConfigParser` class and specify it in the `parser` attribute.
 
 ::: tip Custom Parser Example
-<<< @/../examples/src/main/java/com/ultikits/docs/config/StringHashMapParser.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/config/StringHashMapParser.java
 :::
 
 #### @Getter and @Setter
@@ -139,7 +139,7 @@ public List<AbstractConfigEntity> getAllConfigs() {
 
 Starting from v6.2.0, UltiTools provides validation annotations to protect against invalid configuration values. See the [Config Validation](/guide/advanced/config-validation) guide for full details.
 
-<<< @/../examples/src/main/java/com/ultikits/docs/config/MyConfig.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/config/MyConfig.java
 
 Available validation annotations: `@Range`, `@NotEmpty`, `@Size`, `@Pattern` (from `com.ultikits.ultitools.annotations.config`).
 

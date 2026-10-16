@@ -125,7 +125,7 @@ int deleted = dataOperator.query()
 
 Here is a complete example of a service using the Query DSL:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/query/HomeServiceImpl.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/query/HomeServiceImpl.java
 
 ::: tip Legacy API
 The `WhereCondition` API still works and is not deprecated. The Query DSL is a higher-level alternative that is more readable for complex queries. You can mix both approaches freely.

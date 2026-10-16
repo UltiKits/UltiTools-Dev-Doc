@@ -45,7 +45,7 @@ A `State` object contains mutable data for a `StatefulWidget`.
 
 All declarative GUIs extend `DeclarativeGui`.
 
-<<< @/../examples/src/main/java/com/ultikits/docs/declarative/MyFirstGui.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/declarative/MyFirstGui.java
 
 ```java
 // Open the GUI
@@ -122,9 +122,9 @@ When a UI needs to change in response to user actions (pagination, selection), u
 
 ### Example: simple counter
 
-<<< @/../examples/src/main/java/com/ultikits/docs/declarative/CounterWidget.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/declarative/CounterWidget.java
 
-<<< @/../examples/src/main/java/com/ultikits/docs/declarative/CounterState.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/declarative/CounterState.java
 
 How it works:
 
@@ -177,4 +177,4 @@ Navigator.of(context).push("settings");
 - Single-select: `selectedSlot` highlights selection
 - Interaction: buy button shows/hides based on selection
 
-<<< @/../examples/src/main/java/com/ultikits/docs/declarative/ExampleShopPage.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/declarative/ExampleShopPage.java

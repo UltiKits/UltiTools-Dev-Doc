@@ -25,7 +25,7 @@ The `@EventListener` annotation has an optional `manualRegister` parameter (defa
 
 Register the listener in `registerSelf` of the class that inherits `UltiToolsPlugin`.
 
-<<< @/../examples/src/main/java/com/ultikits/docs/listener/UltiToolsConnector.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/listener/UltiToolsConnector.java
 
 Sure, you can also use the automatic registration function provided by UltiTools. For details, please refer to [this article](/guide/advanced/auto-register).
 

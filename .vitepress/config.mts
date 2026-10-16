@@ -69,7 +69,17 @@ export default withPwa(
         // anchored to the SNAPSHOT prefix is exactly scoped by construction —
         // it can only ever match a URL this injection step itself produced —
         // and needs no per-URL filesystem lookup or function predicate.
-        ignoreDeadLinks: [/^\/api\/index$/, /^\/(?:[a-z]{2}\/)?v6\.3\.0-SNAPSHOT\//],
+        // /api/version-wrapper is not a page in this repo and never will be: it is
+        // served by functions/api/[[path]].js, which 301s it to the exact
+        // VersionWrapper.html of CURRENT_VERSION (D-13). VitePress's dead-link
+        // checker runs at build time and cannot see the Pages Function layer, so it
+        // reports a link that resolves correctly in production. Ignoring it here is
+        // the same escape hatch /api/index already uses one line down, and it keeps
+        // D-13's deep link rather than downgrading it to the generic Javadoc index --
+        // which matters precisely now, because 6.3.0 is the release that removed
+        // VersionWrapper, and a pin to the last release that had it is the only
+        // target that still resolves at all.
+        ignoreDeadLinks: [/^\/api\/version-wrapper$/, /^\/api\/index$/, /^\/(?:[a-z]{2}\/)?v6\.3\.0-SNAPSHOT\//],
         head: [['link', { rel: 'icon', href: '/favicon.ico' }]],
         // v6.3.0-SNAPSHOT is unreleased content injected at build time
         // (scripts/inject-alpha.mjs) — it may change tomorrow, and a reader

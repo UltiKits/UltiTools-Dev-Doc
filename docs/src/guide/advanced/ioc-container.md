@@ -5,7 +5,7 @@ IOC stands for Inversion of Control, which means that the creation and managemen
 UltiTools has its own IOC container built on `SimpleContainer`, which uses a three-level cache for circular dependency resolution. If you have used Spring before, you will find the concepts familiar.
 
 
-::: warning
+::: warning A class that cannot be found is not registered as a bean
 
 Despite UltiTools attempting to scan the involved classes as comprehensively as possible, there may still be issues with Bean registration if the class cannot be found.
 
@@ -97,7 +97,7 @@ public MyClass(PluginMain pluginMain) {
 }
 ```
 
-::: tip
+::: tip The main class is obtained by field injection
 If the class is an event listener class or a command executor class, you can use field injection to get the main class.
 :::
 
@@ -168,7 +168,7 @@ For complex bean initialization or creating beans from third-party classes, use 
 - Class must be annotated with `@Configuration`
 - Methods must be annotated with `@Bean`
 - Return type becomes the bean type
-- Bean name defaults to method name.
+- Bean name defaults to method name, unless `@Bean(name = ...)` or `@Bean(value = ...)` is set (v6.3.0+) — the first declared element becomes the registered name, and any remaining elements register as aliases resolving to the same instance.
 - Factory methods are invoked with no arguments; they cannot accept `@Autowired` parameters.
 
 ## Plugin Instance Injection <Badge type="tip" text="v6.2.0+" />

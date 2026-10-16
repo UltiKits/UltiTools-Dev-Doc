@@ -83,6 +83,14 @@ const sidebarGuideEN: SidebarItemExt[] = [
                 link: 'advanced/config-validation'
             },
             {
+                text: 'Config Converters',
+                link: 'advanced/config-converters'
+            },
+            {
+                text: 'Module Load Ordering',
+                link: 'advanced/module-dependencies'
+            },
+            {
                 text: 'External Plugin API',
                 link: 'advanced/external-plugin-api'
             },
@@ -107,6 +115,18 @@ const sidebarGuideEN: SidebarItemExt[] = [
             {
                 text: 'Module EventBus',
                 link: 'advanced/module-eventbus'
+            },
+            {
+                text: 'Panel Integration',
+                link: 'advanced/panel-integration'
+            },
+            {
+                text: 'Economy',
+                link: 'advanced/economy'
+            },
+            {
+                text: 'Cloud Login',
+                link: 'advanced/cloud-login'
             }
         ]
     },
@@ -135,10 +155,6 @@ const sidebarGuideEN: SidebarItemExt[] = [
             {
                 text: 'UltiKits CLI',
                 link: 'advanced/ultikits-cli'
-            },
-            {
-                text: 'Test Utilities',
-                link: 'advanced/test-utilities'
             }
         ]
     },

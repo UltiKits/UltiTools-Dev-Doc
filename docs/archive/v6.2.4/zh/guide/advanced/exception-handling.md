@@ -10,7 +10,7 @@ UltiTools 通过 `@ExceptionCatch` 注解提供声明式异常处理。无需在
 
 在任意受容器管理的 Bean（如 `@Service`）的方法上添加 `@ExceptionCatch`：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/exception/FileService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/exception/FileService.java
 
 默认行为：
 - 捕获所有 `Exception` 类型（及其子类）
@@ -30,7 +30,7 @@ UltiTools 通过 `@ExceptionCatch` 注解提供声明式异常处理。无需在
 
 指定应该被捕获的异常类型：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/exception/DataService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/exception/DataService.java
 
 ::: tip 异常继承关系
 当指定异常类型时，框架也会捕获其子类。例如，`@ExceptionCatch(IOException.class)` 会捕获 `FileNotFoundException`、`EOFException` 等 IOException 的子类。
@@ -40,7 +40,7 @@ UltiTools 通过 `@ExceptionCatch` 注解提供声明式异常处理。无需在
 
 对于已预期的或非关键异常，禁用日志记录：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/exception/ConfigService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/exception/ConfigService.java
 
 何时使用 `silent = true`：
 - 非关键操作（如可选备份）
@@ -51,7 +51,7 @@ UltiTools 通过 `@ExceptionCatch` 注解提供声明式异常处理。无需在
 
 控制异常被捕获时返回的值：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/exception/MoneyService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/exception/MoneyService.java
 
 支持的默认值表达式：
 - `"null"` — 返回 null（对象的默认值）
@@ -74,11 +74,11 @@ UltiTools 通过 `@ExceptionCatch` 注解提供声明式异常处理。无需在
 
 通过创建 `ExceptionHandler` Bean 来实现自定义异常处理逻辑：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/exception/LoggingExceptionHandler.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/exception/LoggingExceptionHandler.java
 
 注册并通过名称引用处理器：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/exception/MyService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/exception/MyService.java
 
 ::: tip 处理器接口
 自定义处理器实现 `ExceptionHandler` 接口，包含以下方法：
@@ -117,7 +117,7 @@ public class NonManagedClass {
 
 ## 完整示例
 
-<<< @/../examples/src/main/java/com/ultikits/docs/exception/UserDatabaseService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/exception/UserDatabaseService.java
 
 ::: tip 最佳实践
 1. **用于容错** — 在预期会出现故障或非关键的方法上捕获异常

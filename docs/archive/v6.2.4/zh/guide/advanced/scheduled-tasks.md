@@ -10,7 +10,7 @@ UltiTools 提供了声明式的方式来调度重复或延迟任务。无需手�
 
 在任意受容器管理的 Bean（如 `@Service`）中，给 `void`、无参方法添加 `@Scheduled`：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/scheduled/AutoSaveService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/scheduled/AutoSaveService.java
 
 ::: tip Tick 换算
 Minecraft 以每秒 20 tick 的速率运行：
@@ -32,19 +32,19 @@ Minecraft 以每秒 20 tick 的速率运行：
 
 只设置 `delay`（`period` 保持默认 `-1`）即可在延迟后执行一次：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/scheduled/WelcomeService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/scheduled/WelcomeService.java
 
 ## 重复任务
 
 设置 `period` 为正数即可创建重复任务：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/scheduled/ScoreboardService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/scheduled/ScoreboardService.java
 
 ## 异步任务
 
 对于不需要直接访问 Bukkit API 的任务（如数据库操作、HTTP 请求），设置 `async = true`：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/scheduled/InterestService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/scheduled/InterestService.java
 
 ::: warning Bukkit 线程安全
 当 `async = true` 时，任务在非主线程上运行。你**不能**从异步线程调用大多数 Bukkit API 方法。如果需要在异步任务中与 Bukkit API 交互，请切换回主线程：
@@ -72,8 +72,8 @@ Bukkit.getScheduler().runTask(UltiTools.getInstance(), () -> {
 - 方法必须在受容器管理的 Bean 中（如 `@Service`）
 - Bean 必须在 `@UltiToolsModule(scanBasePackages = {...})` 扫描的包内
 
-<<< @/../examples/src/main/java/com/ultikits/docs/scheduled/MyPlugin.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/scheduled/MyPlugin.java
 
 ## 完整示例
 
-<<< @/../examples/src/main/java/com/ultikits/docs/scheduled/ServerMonitorService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/scheduled/ServerMonitorService.java

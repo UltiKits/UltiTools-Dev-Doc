@@ -10,7 +10,7 @@
 
 在托管 Bean 中的任何 `Map<UUID, ?>` 字段上添加 `@PlayerCache` 注解：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/cache/CooldownService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/cache/CooldownService.java
 
 当玩家退出时，框架会自动调用 `cooldowns.remove(playerUuid)`，无需手动清理。
 
@@ -18,7 +18,7 @@
 
 如果需要在清除缓存前持久化数据，设置 `saveBeforeRemove = true` 并实现 `PlayerCacheSaver` 接口：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/cache/PlayerSettingsService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/cache/PlayerSettingsService.java
 
 当玩家退出时，框架会：
 1. 调用 `savePlayerData(playerUuid)`（因为 `saveBeforeRemove = true`）
@@ -44,7 +44,7 @@ public interface PlayerCacheSaver {
 
 一个 Bean 可以有多个 `@PlayerCache` 字段，每个都会独立清理：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/cache/GameService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/cache/GameService.java
 
 ## 使用要求
 
@@ -55,7 +55,7 @@ public interface PlayerCacheSaver {
 
 ## 完整示例
 
-<<< @/../examples/src/main/java/com/ultikits/docs/cache/TeleportRequestService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/cache/TeleportRequestService.java
 
 ::: tip
 `@PlayerCache` 可以消除 Minecraft 插件中最常见的内存泄漏来源。建议在每个存储玩家状态的 `Map<UUID, ?>` 字段上使用它。

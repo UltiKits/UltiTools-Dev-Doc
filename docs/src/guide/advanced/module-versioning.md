@@ -29,6 +29,12 @@ The fourth item covers a case the first three miss, because nothing about the mo
 
 `UltiTools-API`'s [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/COMPATIBILITY.md) states that its version number is a product-stage signal rather than a strict semver contract, and that a MINOR release of the framework may remove an API.
 
+::: tip Contributing to the framework itself, not just consuming it
+If you plan to open a pull request against `UltiTools-Reborn`, note its contribution language policy differs from this site's: new comments, javadoc, workflow comments, and PR titles/bodies must be English-first with Chinese as a supplement.
+A CI check enforces this over `src/main` comments/javadoc, workflow files, and one test package, against a small named allowlist visible in review.
+This is the framework repository's own policy, not a requirement for this bilingual documentation site.
+:::
+
 This looks inconsistent with the rules above. It is not, and the difference is worth understanding first.
 
 The framework's version is resolved and linked against. Maven uses it to select an artifact, and already compiled downstream plugins link to its classes at runtime. Both are compatibility questions, and a number that has to answer a compatibility question cannot be a free-form signal.
@@ -37,18 +43,20 @@ A module's version is also read by machines, but only to order two versions, nev
 
 | Consumer | What it does |
 |---|---|
-| `PluginManager.hasNewerVersionLoaded` | Two JARs of the same module are present, so it compares versions and refuses to load the older one |
-| `PluginManager.unregisterSupersededVersions` | Unloads the version that the newly loaded one supersedes |
+| `PluginManager.hasNewerVersionLoaded` | Code calls `PluginManager#register(...)` with another instance of a module that is already loaded (the same main class), so it compares the two versions and refuses the older one |
+| `PluginManager.unregisterSupersededVersions` | In that same case, when the instance being registered is the newer one, unloads the loaded version it supersedes. As of v6.3.0 it goes through the full unload path, and an unload failure is logged against the old version without stopping the new one. Also as of v6.3.0, the old version's panel responders, EventBus handlers and tab completers are released before the new instance's container refresh and `registerSelf()`, so the new instance can claim the panel message types the old one held; if the new instance then fails to load, they are given back and the old version keeps running |
 | `UpdateManager.checkModuleUpdates` | Compares the loaded version against the published one to report that an update is available |
 
 All three go through `VersionComparatorUtil.compare` and ask whether A is greater than B. None of them looks at whether the difference is MAJOR, MINOR or PATCH.
+
+Two JARs of one module in the modules folder do not reach the first two. All module JARs share one class loader, so both copies resolve to the same class and are never loaded side by side. Which copy supplies the classes is decided by file name, not by version, as described in [Two copies of one module](#two-copies-of-one-module).
 
 Nor does anything resolve one module from Maven for another module to use. None of the official modules declares a dependency on a sibling module in its pom. A module built as a multi-module project, such as `UltiBot`, depends on its own submodules, which is internal to that build rather than one module depending on another. The linkage argument that constrains the framework's version number therefore does not apply to a module's. If you publish your own module for others to compile and link against, that argument starts applying to yours: your version number now has to answer a compatibility question, so what you need is a stricter contract that preserves compatibility, not the framework's looser one.
 
 So the split is that the order of a module's version is machine-consumed while the meaning of MAJOR, MINOR and PATCH is not. That produces one mandatory rule and leaves the rest to the author's judgement.
 
 ::: tip The one mandatory rule
-Versions must increase monotonically and stay comparable. Going from `1.10.0` back to `1.9.0`, or switching numbering schemes partway through, makes the framework load the wrong JAR when two copies are present, with no clear indication: the losing one is simply refused with a warning in the log.
+Versions must increase monotonically and stay comparable. Going from `1.10.0` back to `1.9.0`, or switching numbering schemes partway through, makes the update check miss a newer release or offer an older one, and makes a second registration of the module keep the wrong instance.
 :::
 
 Beyond that, the shape of the number is a message to the server owner, which is why its rules can differ from the framework's without either being wrong.
@@ -82,11 +90,11 @@ The pin is not the module's runtime floor. These are two independent numbers, an
 | Number | Decides | Checked by |
 |---|---|---|
 | The `UltiTools-API` version in `pom.xml` | Which version's descriptors your bytecode records | Nothing. It is `provided`, does not enter the JAR, and the framework cannot read it at runtime |
-| `api-version` in `plugin.yml` | The declared runtime floor | `PluginManager.isUltiToolsVersionCompatible`. This is the only framework version consulted before a module is admitted |
+| `api-version` in `plugin.yml` | The declared runtime floor | `PluginManager.isUltiToolsVersionCompatible` when the module loads. This is the only framework version consulted before a module is admitted. As of v6.3.0 it is also consulted when `/upm` installs or updates the module, see [Version selection by API level](#version-selection-by-api-level) |
 
 Raising the pin does not raise the floor. A gap between the two numbers is not itself a fault: bytecode built against a newer pin still runs on the declared floor as long as every member it references already exists there. What breaks is a JAR whose bytecode references a symbol the framework version named in `api-version` does not declare, because that server admits it and then fails when the call site is reached.
 
-More than this one number is checked before a module is admitted: the JAR is structurally validated first, and a module is also refused when a newer copy of itself is already loaded. The full test is `passesCompatibilityGates`, which is `!hasNewerVersionLoaded && isUltiToolsVersionCompatible`. Only `api-version` has anything to do with which framework versions the module can run on, which is why this page discusses only that one.
+More than this one number is checked before a module is admitted: the JAR is structurally validated first, and a module is also refused when a newer instance of it is already loaded, which happens only when code registers the same main class a second time through `PluginManager#register`. The full test is `passesCompatibilityGates`, which is `!hasNewerVersionLoaded && isUltiToolsVersionCompatible`. Only `api-version` has anything to do with which framework versions the module can run on, which is why this page discusses only that one.
 
 ## Compatibility breaks caused by the framework
 
@@ -117,6 +125,12 @@ A successful build is not hard to get, because this check only covers what the s
 The cost only arrives if you publish the raised pin: building against a newer framework may record newer descriptors, which means raising `api-version` as well, which leaves behind every server still on the older framework. Raising the pin is therefore useful as a check and poor as a fix. Raise it in a throwaway build, see what fails to compile, migrate away from those APIs, then decide separately whether the released pin should move.
 
 The way to handle this situation is to follow deprecation notices and migrate before the removal is released.
+
+::: tip Reading a deprecation notice for its deadline
+As of v6.3.0, every `@Deprecated(forRemoval = true)` member carries a machine-checked `{@removeIn X.Y.Z}` javadoc tag naming the concrete removal version.
+A build-time check fails the framework's own CI if the member is still declared once the project version reaches that target, so the tag is an enforced promise, not just documentation.
+See [`compatibility/DEPRECATIONS.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/compatibility/DEPRECATIONS.md) for every currently `ANNOUNCED` removal and its deadline in one place.
+:::
 
 ### Changed descriptors
 
@@ -209,7 +223,90 @@ If the linkage error you have is neither of the two situations above, it belongs
 - Yes. It should appear on the removal list. If it does not, please open an issue; that is a gap in the process rather than a problem only on your side.
 - No. Try the rebuild path above: raise the pin, rebuild, raise `api-version`. If the rebuild **fails to compile**, the change broke source compatibility as well, and what you need is a migration rather than a rebuild.
 
+As of v6.3.0, a framework API linkage error naming a type under `com.ultikits.ultitools` when loading the module's declared main class produces one English `SEVERE` line with the JAR name, `plugin.yml`'s `version` and `api-version` (when declared), and the original exception message after `Cause:`. `built against an older UltiTools-API version` means you should upgrade the module to a release built for the current framework and consult `COMPATIBILITY.md`; if the declared `api-version` is higher than the installed framework's, the message instead says `requires a newer UltiTools-API`, so upgrade the framework. The full stack trace is logged only at `FINE` (hidden by Paper's default logging), and this refusal is not sent as a panel error report. Missing third-party or Bukkit classes still produce the generic `SEVERE` error with a stack trace. For example, UltiLogin 1.0.0 on 6.3.0:
+
+```text
+[UltiTools-API] Module 'UltiLogin-1.0.0.jar' (version 1.0.0, api-version 620) declares main: 'com.ultikits.plugins.login.UltiLogin', but it was built against an older UltiTools-API version and is not compatible with this one -- refusing to load. Upgrade it to a release of the module built for the current UltiTools-API version -- see COMPATIBILITY.md for the list of APIs removed or changed in this release. Cause: java.lang.IncompatibleClassChangeError: class com.ultikits.plugins.login.UltiLogin overrides final method com.ultikits.ultitools.abstracts.UltiToolsPlugin.unregisterSelf()V
+```
+
+As of v6.3.0, a module refused this way is counted in the `Failed` number of the start-up summary `[UltiTools-API] Succeeded loaded <s>, Failed <f>.`, as is every other module JAR of that start that did not load: one refused while its main class is read, one excluded for a missing required plugin or a dependency cycle, and one whose registration failed. A second copy of a module that did load is not counted. When every JAR in the modules folder is refused, the summary reads `Succeeded loaded 0, Failed <n>.`; `No UltiTools plugin found.` appears only when the folder holds no module JAR. Before v6.3.0 the summary counted only modules that reached registration, so a start that refused a module could still print `Failed 0`.
+
 [jls13]: https://docs.oracle.com/javase/specs/jls/se21/html/jls-13.html
+
+### New annotation attributes
+
+A missing method or field fails loudly with a linkage error. A missing annotation attribute does not: the JVM drops any attribute the running annotation type does not declare, and nothing is logged. As of v6.3.0, `@Scheduled(config = ..., periodKey = ..., delayKey = ...)` and `@CmdCD(config = ..., key = ...)` read an interval or cooldown from a config key. A module that uses them still loads on a 6.2.x framework, where a bound `@Scheduled` runs once at load instead of on its interval and a bound `@CmdCD` enforces no cooldown.
+
+Raising the pin does not prevent this, for the reason given in [The pin and `api-version`](#the-pin-and-api-version). A module that uses either binding must declare `api-version: 630`, so that an older framework refuses it at load. To surface the mistake on the version you develop against, 6.3.0 itself refuses a module that uses a binding while declaring a lower `api-version`, naming the module, the binding and the required floor. Existing literal usages such as `@Scheduled(period = 6000)` and `@CmdCD(60)` are unaffected and need no change.
+
+## Two copies of one module
+
+As of v6.3.0, UltiTools reads the JARs in `plugins/UltiTools/plugins/` in file-name order, compared as plain strings, and builds the module class loader in the same order. Before v6.3.0 the order was whatever the file system listed, which Java does not define, so the same folder could load a different copy on another machine.
+
+A module JAR is identified by the `main:` entry of its `plugin.yml`. When two or more JARs declare the same `main:` class, the class comes from the first of them in that order that carries it, and the other copies are refused. One warning at start-up names every copy and the JAR the classes load from:
+
+```text
+[UltiTools-API] These JAR files all declare the same module main class com.example.MyModule: MyModule-1.0.0.jar, MyModule-1.1.0.jar. The module's classes load only from MyModule-1.0.0.jar; the other copies are not loaded. Keep only one of them.
+```
+
+The version numbers play no part here. In the example the older `1.0.0` keeps running because its file name sorts first, whatever the two `plugin.yml` files say. Before v6.3.0 each refused copy logged its own error line instead of this one warning.
+
+`/upm uninstall` removes every copy. As of v6.3.0 it deletes each JAR whose `plugin.yml` `main:` names the module's main class, whatever `name:` that JAR declares, and names each deleted file in its reply.
+
+`/upm update` refuses to update a module while such a copy would win. As of v6.3.0, before it downloads anything, it looks in the modules folder for another JAR that declares the module's `main:` and whose file name sorts before the new JAR's name. If it finds one, the new version could never load there: the copy would keep supplying the classes and the update would be rolled back at every start. So the command stages nothing, and its reply names the new JAR and every such copy. Remove them and run `/upm update` again; no restart is needed in between. A copy that sorts after the new JAR does not stop the update, and the start-up warning above still names it.
+
+## Version selection by API level
+
+As of v6.3.0, `api-version` is consulted twice: by the module loader at start-up, as described in [The pin and `api-version`](#the-pin-and-api-version), and by `/upm` when it installs or updates a module from UltiCloud.
+
+UltiCloud reads `api-version` from the `plugin.yml` of every JAR published to it and stores it with that version. A JAR without an integer `api-version` is refused at upload, as described in [UltiKits CLI](/guide/advanced/ultikits-cli#the-module-s-api-level). Versions published before UltiCloud read the level are recorded as built for a framework before 6.3.0.
+
+Which versions a server is offered and installs depends on the framework it runs:
+
+| Server runs | Versions offered and installed |
+|---|---|
+| UltiTools-API 6.3.0 or later | `api-version` from 630 up to the framework's own API level (630 for 6.3.0) |
+| UltiTools-API before 6.3.0 | `api-version` below 630 only |
+
+A 6.3.0 server sends its level with every catalogue request (`apiLevel`, and `minApiLevel=630`). A framework before 6.3.0 sends none, and UltiCloud treats such a request as coming from a framework before 6.3.0, so released 6.2.x servers are not offered a 6.3.0 build. This applies to `/upm install`, `/upm install <module> <version>`, `/upm versions`, `/upm update` and the update check at start-up. The update check reports only a version this server can install and never mentions one that needs a newer UltiTools-API. `/upm list` still lists every module in the catalogue; Install on a module with no compatible version replies with the reason.
+
+`/upm` also checks what it downloads. `/upm install` writes the JAR into the modules folder as `<id>-<version>.jar.part`, a name the module loader never reads, and reads its `plugin.yml` again; `/upm update` makes the same check on the copy it downloads into `.ultikits/upm-transactions/`. A module whose `api-version` is absent, not an integer, below 630 or above the framework's level is refused: the download is deleted and nothing is written to the modules folder. For `/upm update` the staged download is discarded and no update is recorded. The reply names the declared level, the framework's level and the accepted range. With `language: en`:
+
+```text
+Cannot install ultirecipe: UltiCloud has no version of it that this server can install. This UltiTools-API is at API level 630 and installs only modules declaring api-version 630 to 630. Nothing was written to the modules folder.
+Refused to install ultirecipe 1.0.0: the downloaded JAR declares api-version 620. This UltiTools-API is at API level 630 and installs only modules declaring api-version 630 to 630. The download was deleted; nothing was written to the modules folder.
+No version of ultirecipe can be installed on this server. This UltiTools-API is at API level 630 and installs only modules declaring api-version 630 to 630.
+```
+
+The first line answers an install when UltiCloud reports that no version is compatible, the second an install whose download declares another level, and the third `/upm versions` with no compatible version. An update that is refused for the same reason replies `The update of <module> was not staged:` followed by the reason.
+
+This has three consequences for a module author:
+
+- Declare `api-version: 630` as an integer for the module to be installable through `/upm` on 6.3.0. A build for 6.2.x (`api-version: 620`) is refused by `/upm` on 6.3.0. Every first-party module built for 6.2.x overrides `UltiToolsPlugin.unregisterSelf()`, which 6.3.0 made final, so those builds could not load anyway.
+- Raising `api-version` above 630 hides the version from servers whose framework level is lower, in addition to the loader refusing it there.
+- A JAR an operator copies into the modules folder by hand is judged only by the loader rule; `/upm` is not involved.
+
+`PluginInstallUtils.installLatestPlugin`, `installPlugin` and `updatePlugin` keep their signatures and return `false` for a module refused this way.
+
+::: warning A catalogue that does not filter
+With a catalogue that ignores `apiLevel`, such as a self-hosted `api-url`, `/upm versions` and the update check can list a version that `/upm install` or `/upm update` then refuses after downloading it.
+The post-download check is what protects the server in that case.
+:::
+
+## Updating and uninstalling on a server
+
+As of v6.3.0, `/upm update <module>` no longer replaces the JAR while the server runs. It downloads the new version into `.ultikits/upm-transactions/` under the server root and records it, and nothing in the modules folder changes until the next start. At that start, before any module loads, the old JAR is moved aside and kept and the new JAR is moved in. After the modules load, the update is kept only if your module is loaded from the new JAR at the new version; otherwise the new JAR is removed, the old JAR is put back, and the start-up log names both versions and says the restored version loads at the next start.
+
+This has two consequences for a module author:
+
+- The new JAR must declare in `plugin.yml` the version UltiCloud offers for it. A download that declares another version is refused before anything is recorded.
+- A release that fails to load, for example because of a linkage error or an exception from `registerSelf()`, is rolled back rather than left installed.
+
+A move that fails, such as a read-only folder or a file held open, leaves the modules folder unchanged and the current version loads. The start-up log reports it, and the next `/upm update` of that module reports it again. When `plugins/` and the server root are on different file systems the move is refused, with one error line naming both folders.
+
+As of v6.3.0, an update only ever moves, replaces or deletes a file whose SHA-256 matches its record: the downloaded JAR, or the old JAR it kept aside. If something else has changed one of those files, or put a file where the update needs a free place (for example a copy under the new JAR's name), the update does nothing to any file. It keeps its record in a state that means "on hold for the operator", and the start-up log names each unexpected file with the hash it expected and the one it found. Later starts repeat that line and do nothing else, and `/upm update` and `/upm uninstall` of that module refuse until you resolve it. To resolve it, check the named files, take back any JAR you need from `.ultikits/upm-transactions/`, then delete the update record named in the line and the folder of the same name.
+
+`/upm uninstall <module>` unloads every loaded instance through the framework's full unload path, deletes the module's JARs, and cancels any update of it still waiting for the next start, whichever of the module's names it was given. A JAR it cannot delete now, for example on Windows where the running server keeps every module JAR open, is recorded and deleted at the next start before any module loads.
 
 ## Current state of the modules
 

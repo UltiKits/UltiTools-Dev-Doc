@@ -29,7 +29,7 @@ main: com.example.myplugin.MyExternalPlugin
 depend: [UltiTools]
 ```
 
-::: warning
+::: warning UltiTools must be declared as a dependency
 `depend: [UltiTools]` is **required**. UltiTools must be loaded before your plugin so the framework is ready when `connect()` is called.
 :::
 
@@ -49,7 +49,7 @@ When `connect()` is called, the framework scans your plugin's base package and r
 | `@CmdExecutor` | Command class auto-registered with Bukkit |
 | `@EventListener` | Listener auto-registered with Bukkit |
 | `@Scheduled` | Methods scheduled as Bukkit tasks |
-| `@PlayerCache` | Fields tracked per-player with auto save/load |
+| `@PlayerCache` | Per-player entries removed when the player quits (`Map<UUID, ?>`; as of v6.3.0 also `Set<UUID>` and `Map<?, UUID>`), with an optional save hook (`saveBeforeRemove`) |
 | `@ModuleEventHandler` | Subscribed to the UltiTools EventBus |
 
 ## Writing Services
@@ -64,7 +64,7 @@ Use `@CmdExecutor` and `@CmdMapping` just like a UltiTools module:
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/GreetCommand.java
 
-::: tip
+::: tip Command descriptions are plain strings
 Command descriptions use the raw `description` attribute from `@CmdExecutor`. The `i18n()` method is not available for external plugins — use plain strings.
 :::
 
@@ -80,7 +80,7 @@ Use `UltiToolsAPI.getDataOperator()` to get a `DataOperator` for your data entit
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/StatsService.java
 
-::: tip
+::: tip The server configuration selects the storage backend
 The storage backend (JSON, SQLite, or MySQL) is determined by the UltiTools server configuration, not your plugin. Your code works the same regardless. Query column names must still match the entity's @Column value, not the Java field name.
 :::
 
@@ -115,6 +115,7 @@ public void onCustomEvent(MyCustomEvent event) {
 - **Auto-disconnect**: If your plugin is disabled (server stop, `/reload`), UltiTools automatically disconnects it via a `PluginDisableEvent` listener. You don't strictly need `disconnect()` in `onDisable()`, but it's good practice.
 - **UltiTools shutdown**: When UltiTools itself shuts down, all external plugins are disconnected automatically via `disconnectAll()`.
 - **Cleanup**: On disconnect, all commands, listeners, scheduled tasks, EventBus subscriptions, and PlayerCache beans registered by your plugin are removed.
+- **Refused connection** (as of v6.3.0): if `connect()` throws because the framework refused your plugin after building its container — a command executor whose declared annotations it cannot enforce, or a config-bound `@Scheduled`/`@CmdCD` — nothing it registered for your plugin is left behind, so a fixed build can connect again in the same server session ([issue #537](https://github.com/UltiKits/UltiTools-Reborn/issues/537)).
 
 ## Differences from UltiTools Modules
 
@@ -124,14 +125,15 @@ public void onCustomEvent(MyCustomEvent event) {
 | Registration | `@UltiToolsModule` + `registerSelf()` | `UltiToolsAPI.connect(this)` |
 | i18n | `plugin.i18n("key")` available | Not available — use plain strings |
 | Config entities | Full support (`@ConfigEntity`) | **Not available** — use Bukkit `getConfig()` |
+| Config-bound `@Scheduled` / `@CmdCD` (v6.3.0+) | Supported, see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing) | Refused, use literal `period` / `delay` / `value` |
 | Data storage | `plugin.getDataOperator(Class)` | `UltiToolsAPI.getDataOperator(plugin, Class)` |
 | Hot reload | Supported via `ul reload` | Not supported — requires server restart |
-| plugin.yml | `api-version: 620` | `depend: [UltiTools]` |
+| plugin.yml | `api-version: 630` for a module built for 6.3.0 (a config-bound `@Scheduled` / `@CmdCD` requires `630`) | `depend: [UltiTools]` |
 
 ## Complete Working Example
 
 Check out the [UltiTools-External-Example](https://github.com/UltiKits/UltiTools-External-Example) repository for a fully working example that demonstrates `@Service`, `@CmdExecutor`, `@EventListener`, `@Autowired`, and `DataOperator` CRUD in a standard Bukkit plugin.
 
-::: tip
+::: tip Related pages
 See also: [IoC Container](/guide/advanced/ioc-container) | [Command Executor](/guide/essentials/cmd-executor) | [Scheduled Tasks](/guide/advanced/scheduled-tasks) | [Module EventBus](/guide/advanced/module-eventbus)
 :::

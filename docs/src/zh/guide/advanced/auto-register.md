@@ -10,13 +10,9 @@
 
 此注解包含了自动扫描并注册此类包名下的命令，监听器和配置文件。
 
-::: warning @UltiToolsModule 上的 eventListener、cmdExecutor 与 config 从不被读取
-`registerBukkit` 通过朴素的元注解查找取 `@EnableAutoRegister`，拿到的始终是标注在 `@UltiToolsModule` 类型本身上的裸注解，因此你在 `@UltiToolsModule` 上设置的 `eventListener`、`cmdExecutor`、`config` 只是从未被解析的 `@AliasFor` 声明，不会生效。
-改为把你要的开关直接标在你的类上，写成 `@EnableAutoRegister(eventListener = false, cmdExecutor = false, config = false)`：`PluginManager` 是按直接查找读取这个注解类型的，标在它自己身上的值才会生效。
-解析这个别名，或者在元注解查找命中时合并宿主注解的属性值，跟踪于 [issue #325](https://github.com/UltiKits/UltiTools-Reborn/issues/325)。
+::: tip @UltiToolsModule 上的 eventListener、cmdExecutor 与 config 现在会生效（v6.3.0 起）
+`registerBukkit` 现在改用会遵循 `@AliasFor` 的合并注解查找来解析 `@EnableAutoRegister`，所以直接在 `@UltiToolsModule` 上把 `eventListener`、`cmdExecutor` 或 `config` 设为 `false`，就能关掉对应的自动注册。
 :::
-
-如果你想要手动注册命令或监听器，请按上方警告所述，把 `eventListener` 或 `cmdExecutor` 设为 `false` 并直接标注 `@EnableAutoRegister`，而不是标在 `@UltiToolsModule` 上。
 
 ```java
 import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
@@ -66,12 +62,6 @@ public class PluginMain extends UltiToolsPlugin {
 `@UltiToolsModule` 内包含了 `@EnableAutoRegister` 注解，在不适合使用 `@UltiToolsModule` 的情况下，你可以使用 `@EnableAutoRegister` 注解，比如你想在你自己的插件中使用 UltiTools 的自动注册。
 
 在继承了 `UltiToolsPlugin` 的类的上方添加这一注解，UltiTools 在加载你的模块时会根据你的配置进行自动注册：
-
-::: warning cmdExecutor = true 会走到一个抛 ClassCastException 的已弃用重载
-在本页展示的连接器注册路径上，`registerBukkit` 把命令注册交给 `CommandManager.registerAll(UltiToolsPlugin, String)`，它把每个扫描到的类直接强转成已废弃的 `AbstractCommandExecutor`，现已标 `@Deprecated(since = "6.2.5", forRemoval = true)`，因此按推荐写法继承 `BaseCommandExecutor` 的命令类会抛出未捕获的 `ClassCastException`。
-命令类若要走这条连接器路径，请改继承 `AbstractCommandExecutor`，或改用本页前文所述的模块 JAR 标准加载方式，那条路径完全不会调用这个重载。
-修复还是移除这个重载，与连接器的替代签名一起在 [issue #327](https://github.com/UltiKits/UltiTools-Reborn/issues/327) 中决定。
-:::
 
 ```java
 @EnableAutoRegister(

@@ -81,6 +81,14 @@ const sidebarGuideZH: SidebarItemExt[] = [
                 link: 'advanced/config-validation'
             },
             {
+                text: '配置转换器',
+                link: 'advanced/config-converters'
+            },
+            {
+                text: '模块加载顺序',
+                link: 'advanced/module-dependencies'
+            },
+            {
                 text: '外部插件 API',
                 link: 'advanced/external-plugin-api'
             },
@@ -105,6 +113,18 @@ const sidebarGuideZH: SidebarItemExt[] = [
             {
                 text: '模块事件总线',
                 link: 'advanced/module-eventbus'
+            },
+            {
+                text: '面板集成',
+                link: 'advanced/panel-integration'
+            },
+            {
+                text: '经济系统',
+                link: 'advanced/economy'
+            },
+            {
+                text: '云端登录',
+                link: 'advanced/cloud-login'
             }
         ]
     },
@@ -133,10 +153,6 @@ const sidebarGuideZH: SidebarItemExt[] = [
             {
                 text: 'UltiKits CLI',
                 link: 'advanced/ultikits-cli'
-            },
-            {
-                text: '测试工具',
-                link: 'advanced/test-utilities'
             }
         ]
     },

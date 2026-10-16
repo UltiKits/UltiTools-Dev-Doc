@@ -7,7 +7,13 @@ to use based on the server owner's configuration.
 All you need is an entity class. CRUD operations will be done automatically by UltiTools.
 
 ::: warning Try not to nest objects
-Since the API is still under development, there may be problems when dealing with complex objects, so try not to nest objects.
+The storage API maps each `@Column` field to one column (one field in a JSON file). A field of a non-simple type is stored there as JSON text and cannot be queried by its inner fields, so try to use simple values.
+:::
+
+::: warning SQLite on Paper with spark (all UltiTools versions)
+On Paper, spark's background profiler is on by default, and with SQLite storage it shortens how long a server-thread database call waits for a locked database file from about 3 s to about 0.4 s, so the call fails only when another thread or process holds the write lock longer than that ([#645](https://github.com/UltiKits/UltiTools-Reborn/issues/645)).
+MySQL is not affected.
+Servers whose writes hold the SQLite lock for long should use MySQL.
 :::
 
 ## Create Entity Class
@@ -38,11 +44,16 @@ Starting from v6.2.0, `DataOperator`, `Query`, and `UltiToolsPlugin.getDataOpera
 | `isNew()` | Returns `true` if the entity has no ID |
 | `copyWithoutId()` | Creates a copy of the entity without the ID. The entity class must implement `Cloneable`. |
 
-::: warning Lifecycle hooks are invoked by your code, not by the operator
-`onCreate()`, `onUpdate()`, `onDelete()` and `onLoad()` are declared on `BaseDataEntity`, but no read or write path in the JSON, MySQL or SQLite operators calls them, so an entity that overrides them stores exactly the same data as one that does not.
-Call the hook yourself around the operation, `entity.onCreate(); op.insert(entity);` before a write and `entity.onLoad();` on what a read returns: all four methods are public.
-Having the operators invoke the hooks is tracked in [issue #194](https://github.com/UltiKits/UltiTools-Reborn/issues/194).
-:::
+As of v6.3.0, the data operators call these hooks themselves, on the JSON, MySQL and SQLite backends alike:
+
+| Hook | Called by |
+|------|-----------|
+| `onCreate()` | `insert` and `insertAll`, on each entity, before its fields are written |
+| `onUpdate()` | `update(entity)`, `updateAll`, `updateCounted` and `updateIf`, on the entity passed in, before its fields are written, whether or not a row is then written |
+| `onDelete()` | `delById` and the Query DSL's `delete()`, on the stored entity, before it is removed; not called when no row has the id |
+| `onLoad()` | `getById`, `getAll`, `page`, `getLike` and the Query DSL reads built on them, once per entity returned |
+
+`update(column, value, id)`, `del(conditions)` and `exist(...)` do not read an entity and call no hook. Before v6.3.0 no operator called any of the four hooks.
 
 ### AuditableDataEntity <Badge type="tip" text="v6.2.0+" />
 
@@ -61,11 +72,7 @@ For entities that require audit tracking of creation and modification, use `Audi
 
 All four fields are pre-configured with `@Column` annotations and do not need to be declared in subclasses.
 
-::: warning The four audit columns stay NULL after an insert
-Because the operators do not call the lifecycle hooks, `onCreate()` and `onUpdate()` never run, so `created_at`, `updated_at`, `created_by` and `updated_by` are never written, `wasModified()` always returns `false`, and `getAge()` and `getTimeSinceUpdate()` always return `null`.
-Set the thread context with `AuditableDataEntity.setCurrentUser(uuid)`, call `entity.onCreate()` or `entity.onUpdate()` before the write, and clear the context in a `finally` block: without the context the two `by` fields stay null even when the hook runs.
-Having the operators invoke the hooks is tracked in [issue #194](https://github.com/UltiKits/UltiTools-Reborn/issues/194).
-:::
+As of v6.3.0 the operators fill the four columns through these hooks: `insert` sets `created_at` and `updated_at`, and `created_by` and `updated_by` when a current user is set; an update sets `updated_at`, and `updated_by` when a current user is set, and leaves `created_at` and `created_by` unchanged. A command handled by `BaseCommandExecutor` for a player sets that player as the current user while the command body runs, so writes made there record the player. Elsewhere, set the context yourself as shown below. Before v6.3.0 the operators did not call the hooks, and all four columns stayed NULL.
 
 #### User Context Management
 
@@ -142,7 +149,7 @@ You need to get the instance of the module main class, and then call the `getDat
 
 <<< @/../examples/src/main/java/com/ultikits/docs/data/UserDataService.java
 
-::: warning
+::: warning Obtain DataOperator when it is needed
 `DataOperator` is not thread-safe. Please get `DataOperator` when you need it, and do not try to save `DataOperator` object.
 :::
 
@@ -224,6 +231,39 @@ try {
 
 This overload declares `throws IllegalAccessException`, so the calling method must declare or catch it.
 
+As of v6.3.0, every entity a read returns (`getById`, `getAll`, `page`, `getLike` and the Query DSL) is a copy, and `insert` stores a copy of the entity you pass. Changing an entity has no effect on the stored data until you pass it to `update(...)`, on every backend. Before v6.3.0 the JSON backend returned the instances it kept in memory, so there a change without `update(...)` was saved at the next flush, while MySQL and SQLite never saved it.
+
+As of v6.3.0, `update(T)`, `update(column, value, id)`, `delById` and `updateAll` throw `DataAccessException` when the id is `null`, because no row can be addressed by it; `updateAll` checks every entity before it writes any. Rows that UltiTools-API 6.2.0 stored on SQLite without an id are given one when the table is initialised: the id the entity reports through `getId()`, or a new UUID when it reports none, as long as the entity then reports that id. One console line names the table and the count; a row that no id would make addressable is left as it is and counted in a warning. Every write stores `getId()` in the `id` column, so an entity that overrides `getId()` onto another field is addressable by the value it reports.
+
+As of v6.3.0, an update by an id that no row has writes nothing and logs one warning naming the table and the id, on every backend, and returns normally. To learn whether the update wrote, call `updateCounted(entity)`, which returns `1` for a written row and `0` when no row has the id:
+
+```java
+if (dataOperator.updateCounted(entity) == 0) {
+    // The row was deleted by another writer: nothing was written.
+}
+```
+
+A `DataOperator` implementation outside the framework that does not override `updateCounted` is counted by whether a row with the id exists before its `update`.
+
+### Conditional Update <Badge type="tip" text="v6.3.0+" />
+
+`updateIf(entity, expected...)` writes the entity only while the stored row still matches every expected condition, and returns whether it wrote. Use it to update a value you read earlier without overwriting a change another writer made in between:
+
+```java
+Account read = dataOperator.getById(accountId);
+double seen = read.getBalance();
+read.setBalance(seen + amount);
+boolean written = dataOperator.updateIf(read,
+    WhereCondition.builder().column("balance").value(seen).build());
+if (!written) {
+    // Another writer changed the row first: read it again and decide again.
+}
+```
+
+On MySQL and SQLite the check and the write are one `UPDATE ... WHERE id = ? AND <conditions>` statement, so the result holds across servers that share one database. On the JSON backend the check and the write run under the operator's lock; a JSON store belongs to one server. The conditions mean what they mean in `getAll(WhereCondition...)`.
+
+`updateIf` returns `false`, and writes nothing, when no row with the entity's id matches every condition. It throws `DataAccessException` when the id is `null`, when a condition is `null`, when a condition names a column the entity does not map with `@Column`, or when a condition's value is `null` under a comparison other than the default `EQUAL`, on every backend. As of v6.3.0 a `null` expected value under the default comparison means `IS NULL` (JSON: the field is absent or JSON null), so a compare-and-set against a column that was still unset when you read it misses when another writer has filled it in the meantime; this meaning belongs to `updateIf` alone ([#640](https://github.com/UltiKits/UltiTools-Reborn/issues/640)). A `DataOperator` implementation outside the framework that does not implement it throws `UnsupportedOperationException`.
+
 ### Delete
 
 Delete by ID:
@@ -257,10 +297,9 @@ WhereCondition.builder().column("somecol").value(someval).build();
 
 For operations that need to succeed or fail together, see the [Transactions](/guide/advanced/transactions) guide.
 
-::: warning Only the JSON backend rolls this block back
-The MySQL and SQLite operators are constructed without a transaction manager, and `transaction(...)` runs the callable directly when none is set, so the connection stays in autocommit and each `insert` below is committed on its own.
-Use the JSON backend when this block has to be atomic, or take your own JDBC connection, turn off autocommit and commit or roll back yourself: the Transactions guide describes both.
-Wiring the transaction manager into the relational operators is tracked in [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307).
+::: tip MySQL and SQLite run this block in one JDBC transaction
+As of v6.3.0 the MySQL and SQLite stores give every operator they hand out a transaction manager ([#307](https://github.com/UltiKits/UltiTools-Reborn/issues/307)), so `transaction(...)` runs in a JDBC transaction and the two inserts below are committed or rolled back together.
+The JSON backend restores a snapshot of its entries instead.
 :::
 
 ```java
@@ -270,3 +309,5 @@ dataOperator.transaction(() -> {
     // Both inserted or none
 });
 ```
+
+As of v6.3.0 a transaction whose own failure path fails never ends in an implicit commit ([#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)): when its rollback or its commit fails, the connection is discarded (a HikariCP pool evicts it) instead of being switched back to auto-commit, which would commit it, so nothing of the transaction is stored and the caller still gets the original exception. An `Error` thrown inside `transaction(...)` rolls the transaction back, or restores the JSON snapshot, and is rethrown as the same instance.

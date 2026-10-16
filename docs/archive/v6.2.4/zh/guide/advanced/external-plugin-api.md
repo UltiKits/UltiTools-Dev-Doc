@@ -35,7 +35,7 @@ depend: [UltiTools]
 
 ### 3. 连接和断开
 
-<<< @/../examples/src/main/java/com/ultikits/docs/external/MyExternalPlugin.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/external/MyExternalPlugin.java
 
 就这样。框架会自动扫描 `com.example.myplugin`（从主类名推导出）中的注解类。
 
@@ -56,13 +56,13 @@ depend: [UltiTools]
 
 服务的写法与 UltiTools 模块完全一样——使用 `@Service` 和 `@Autowired`：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/external/GreetingService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/external/GreetingService.java
 
 ## 编写命令
 
 像 UltiTools 模块一样使用 `@CmdExecutor` 和 `@CmdMapping`：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/external/GreetCommand.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/external/GreetCommand.java
 
 ::: tip
 命令描述使用 `@CmdExecutor` 的原始 `description` 属性。外部插件不支持 `i18n()` 方法——请使用纯字符串。
@@ -70,15 +70,15 @@ depend: [UltiTools]
 
 ## 编写事件监听器
 
-<<< @/../examples/src/main/java/com/ultikits/docs/external/JoinListener.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/external/JoinListener.java
 
 ## 数据存储
 
 使用 `UltiToolsAPI.getDataOperator()` 获取数据操作器。数据存储在**你插件自己的数据文件夹**中，而不是 UltiTools 的文件夹。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/external/StatsEntity.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/external/StatsEntity.java
 
-<<< @/../examples/src/main/java/com/ultikits/docs/external/StatsService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/external/StatsService.java
 
 ::: tip
 存储后端（JSON、SQLite 或 MySQL）由 UltiTools 服务端配置决定，而非你的插件。你的代码无论使用哪种后端都一样。

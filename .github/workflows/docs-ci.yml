@@ -1,13 +1,22 @@
 name: Docs
 
 on:
+  # `alpha` carries unreleased documentation and merges to `master` at release
+  # time (see the repository CLAUDE.md). Without it here, a docs PR targeting
+  # `alpha` runs none of this workflow's gates: PR #48 reported every check green
+  # while carrying 10 container-length violations against 0 on `master`, and they
+  # would first have surfaced in the release-time `alpha` -> `master` PR, all at
+  # once. Deferring doc verification to release time is what the alpha workflow
+  # exists to remove; leaving it out here just moves the staleness from the
+  # content to its verification.
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "alpha" ]
   # A push straight to master (e.g. two PRs merged back-to-back) can combine
   # cleanly on each branch yet break once integrated — this is the backstop
-  # that catches that cross-PR interaction on master itself.
+  # that catches that cross-PR interaction on master itself. `alpha` accumulates
+  # a whole release cycle of merges, so it needs the same backstop.
   push:
-    branches: [ "master" ]
+    branches: [ "master", "alpha" ]
   # No `schedule` here: unlike examples-ci.yml, this workflow doesn't depend on
   # Maven Central's release cadence — nothing external can silently drift out
   # from under it, so a timer would be pure overhead.
@@ -82,6 +91,45 @@ jobs:
           # 只读本地脚本，不需要持久化凭据
           persist-credentials: false
 
+      # Title rule rehearsal (UltiTools-Dev-Doc#46). A check that reports zero
+      # violations looks the same whether the docs are clean or the check read
+      # nothing, so the two fixtures prove it both ways before it is trusted on
+      # docs/src: the untitled fixture plants one untitled block of each of the
+      # four types and must exit exactly 1 with four TITLE lines at lines 6, 10,
+      # 14 and 18 (exit 2 is a usage error, which "non-zero" would not tell
+      # apart; a rule narrowed to one type would report fewer than four), the
+      # titled fixture must exit 0. Exit codes are captured explicitly because
+      # GitHub's default shell runs with -e.
+      - name: Rehearse the container title check on fixtures
+        run: |
+          set +e
+          present_out=$(bash scripts/check-container-length.sh scripts/fixtures/container-title-present.md 2>&1)
+          present_exit=$?
+          missing_out=$(bash scripts/check-container-length.sh scripts/fixtures/container-title-missing.md 2>&1)
+          missing_exit=$?
+          set -e
+          echo "$present_out"
+          echo "$missing_out"
+          if [ "$present_exit" != "0" ]; then
+            echo "::error::titled fixture exited $present_exit, expected 0: the title check rejects a titled container"
+            exit 1
+          fi
+          if [ "$missing_exit" != "1" ]; then
+            echo "::error::untitled fixture exited $missing_exit, expected exactly 1: the title check does not fail an untitled container"
+            exit 1
+          fi
+          title_lines=$(printf '%s\n' "$missing_out" | grep -c ' TITLE ' || true)
+          if [ "$title_lines" != "4" ]; then
+            echo "::error::untitled fixture produced $title_lines TITLE lines, expected 4 (tip, info, warning, danger): the title rule does not cover every type"
+            exit 1
+          fi
+          for n in 6 10 14 18; do
+            if ! printf '%s\n' "$missing_out" | grep -q "container-title-missing.md:$n .*TITLE"; then
+              echo "::error::untitled fixture did not name line $n with TITLE: the failure is not the title rule for that block"
+              exit 1
+            fi
+          done
+
       # 这里的引号是必需的：YAML 的 plain scalar 不允许出现「冒号 + 空格」，
       # 而步骤名里那三个冒号后面正是空格。去掉引号 GitHub 会把整个文件判为
       # invalid workflow file，本文件三个 job 全部不运行，而 PR 上不会显示为红。
@@ -91,6 +139,54 @@ jobs:
         # 不要加 xargs 的 -r：find 无结果时 xargs 仍调用一次命令，检查器的零参数守卫
         # 因此会以非零码退出；加了 -r 就变成静默通过，正是这道门禁要消灭的失效方式。
         run: find docs/src -name '*.md' -print0 | xargs -0 bash scripts/check-container-length.sh
+
+  archive-examples:
+    name: Archived pages include frozen examples only
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Only reads local scripts and files, no persisted credentials needed
+          persist-credentials: false
+
+      # Rehearsal first, for the same reason as the container title check: a
+      # guard that prints "no violations" looks the same whether the archive is
+      # clean or the guard read nothing. The planted fixtures must each fail
+      # with their own label (exit exactly 1; exit 2 means the guard read no
+      # page), and the clean one must pass, before the guard is trusted on
+      # docs/archive. The live and clean fixtures' pages have CRLF line endings, like
+      # 67 of the archive's 285 pages (6 of the 34 that include examples); the
+      # clean one is what makes deleting the guard's CR stripping fail the rehearsal. Exit codes are captured explicitly because
+      # GitHub's default shell runs with -e.
+      - name: Rehearse the archive example guard on fixtures
+        run: |
+          set +e
+          live_out=$(bash scripts/check-archive-examples.sh scripts/fixtures/archive-examples/live 2>&1)
+          live_exit=$?
+          unresolved_out=$(bash scripts/check-archive-examples.sh scripts/fixtures/archive-examples/unresolved 2>&1)
+          unresolved_exit=$?
+          clean_out=$(bash scripts/check-archive-examples.sh scripts/fixtures/archive-examples/clean 2>&1)
+          clean_exit=$?
+          set -e
+          echo "$live_out"
+          echo "$unresolved_out"
+          echo "$clean_out"
+          if [ "$live_exit" != "1" ] || ! printf '%s\n' "$live_out" | grep -q 'page.md:3  LIVE '; then
+            echo "::error::live fixture exited $live_exit, expected exactly 1 with a LIVE line at page.md:3: the guard does not fail a live examples/ reference"
+            exit 1
+          fi
+          if [ "$unresolved_exit" != "1" ] || ! printf '%s\n' "$unresolved_out" | grep -q 'page.md:3  UNRESOLVED '; then
+            echo "::error::unresolved fixture exited $unresolved_exit, expected exactly 1 with an UNRESOLVED line at page.md:3: the guard does not fail a missing frozen file"
+            exit 1
+          fi
+          if [ "$clean_exit" != "0" ]; then
+            echo "::error::clean fixture exited $clean_exit, expected 0: the guard rejects a frozen reference that resolves"
+            exit 1
+          fi
+
+      - name: Check docs/archive includes no live examples/ file and every frozen reference resolves
+        run: bash scripts/check-archive-examples.sh
 
   palette-contrast:
     # 检查对象：functions/api/_shared/palette.js 的 OVERRIDE_BLOCK —— 追加进

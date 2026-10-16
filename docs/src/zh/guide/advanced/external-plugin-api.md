@@ -29,7 +29,7 @@ main: com.example.myplugin.MyExternalPlugin
 depend: [UltiTools]
 ```
 
-::: warning
+::: warning 必须声明对 UltiTools 的依赖
 `depend: [UltiTools]` 是**必须的**。UltiTools 必须在你的插件之前加载，这样调用 `connect()` 时框架才可用。
 :::
 
@@ -49,7 +49,7 @@ depend: [UltiTools]
 | `@CmdExecutor` | 命令类自动注册到 Bukkit |
 | `@EventListener` | 监听器自动注册到 Bukkit |
 | `@Scheduled` | 方法注册为 Bukkit 定时任务 |
-| `@PlayerCache` | 字段按玩家跟踪，自动保存/加载 |
+| `@PlayerCache` | 玩家退出时移除该玩家的条目（`Map<UUID, ?>`；自 v6.3.0 起也支持 `Set<UUID>` 与 `Map<?, UUID>`），可选保存回调（`saveBeforeRemove`） |
 | `@ModuleEventHandler` | 订阅 UltiTools 事件总线 |
 
 ## 编写服务
@@ -64,7 +64,7 @@ depend: [UltiTools]
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/GreetCommand.java
 
-::: tip
+::: tip 命令描述使用纯字符串
 命令描述使用 `@CmdExecutor` 的原始 `description` 属性。外部插件不支持 `i18n()` 方法——请使用纯字符串。
 :::
 
@@ -80,7 +80,7 @@ depend: [UltiTools]
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/StatsService.java
 
-::: tip
+::: tip 存储后端由服务端配置决定
 存储后端（JSON、SQLite 或 MySQL）由 UltiTools 服务端配置决定，而非你的插件。你的代码无论使用哪种后端都一样。查询列名必须使用实体的 @Column 值，而不是 Java 字段名。
 :::
 
@@ -115,6 +115,7 @@ public void onCustomEvent(MyCustomEvent event) {
 - **自动断开**：如果你的插件被禁用（服务器停止、`/reload`），UltiTools 会通过 `PluginDisableEvent` 监听器自动断开连接。你不一定需要在 `onDisable()` 中调用 `disconnect()`，但这是个好习惯。
 - **UltiTools 关闭**：当 UltiTools 自身关闭时，所有外部插件会通过 `disconnectAll()` 自动断开。
 - **清理**：断开连接时，你的插件注册的所有命令、监听器、定时任务、事件总线订阅和玩家缓存 Bean 都会被移除。
+- **连接被拒绝**（v6.3.0 起）：如果框架在构建容器之后拒绝了你的插件、`connect()` 因此抛出异常——例如某个命令执行器声明的注解无法被执行，或使用了绑定配置的 `@Scheduled`/`@CmdCD`——框架为你的插件登记的内容不会残留，修正后的版本可以在同一次服务器运行中再次连接（[issue #537](https://github.com/UltiKits/UltiTools-Reborn/issues/537)）。
 
 ## 与 UltiTools 模块的区别
 
@@ -124,14 +125,15 @@ public void onCustomEvent(MyCustomEvent event) {
 | 注册方式 | `@UltiToolsModule` + `registerSelf()` | `UltiToolsAPI.connect(this)` |
 | 国际化 | `plugin.i18n("key")` 可用 | 不可用——使用纯字符串 |
 | 配置实体 | 完整支持（`@ConfigEntity`） | **不可用** — 请使用 Bukkit `getConfig()` |
+| 绑定到配置项的 `@Scheduled` / `@CmdCD`（v6.3.0+） | 支持，见[绑定到配置项的时间](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间) | 会被拒绝，请使用字面量 `period` / `delay` / `value` |
 | 数据存储 | `plugin.getDataOperator(Class)` | `UltiToolsAPI.getDataOperator(plugin, Class)` |
 | 热重载 | 支持 `ul reload` | 不支持——需要重启服务器 |
-| plugin.yml | `api-version: 620` | `depend: [UltiTools]` |
+| plugin.yml | 为 6.3.0 构建的模块写 `api-version: 630`（使用绑定到配置项的 `@Scheduled` / `@CmdCD` 时必须为 `630`） | `depend: [UltiTools]` |
 
 ## 完整示例项目
 
 查看 [UltiTools-External-Example](https://github.com/UltiKits/UltiTools-External-Example) 仓库，获取一个完整的示例项目，演示了在标准 Bukkit 插件中使用 `@Service`、`@CmdExecutor`、`@EventListener`、`@Autowired` 和 `DataOperator` CRUD。
 
-::: tip
+::: tip 相关页面
 另见：[IoC 容器](/zh/guide/advanced/ioc-container) | [命令执行器](/zh/guide/essentials/cmd-executor) | [定时任务](/zh/guide/advanced/scheduled-tasks) | [模块事件总线](/zh/guide/advanced/module-eventbus)
 :::
