@@ -97,7 +97,7 @@ instead.
 
 `onUnregister()` runs before the framework unregisters this module's commands and listeners, so the module's own beans are still alive during cleanup. `onReload()` runs after the framework's own reload steps: configuration reload and language catalogue refresh.
 
-On `/ul reload`, the framework logs one line naming the module after `onReload()` has returned. A module whose existing override only logged its own reload no longer needs that log line and can delete the override. A module with real reload or unload work renames its existing `reloadSelf()`/`unregisterSelf()` override to `onReload()`/`onUnregister()`, with the method body unchanged.
+On `/ul reload`, the framework logs one line naming the module after `onReload()` has returned. A module whose existing override only logged its own reload no longer needs that log line and can delete the override. A module with real reload or unload work renames its existing `reloadSelf()`/`unregisterSelf()` override to `onReload()`/`onUnregister()`. Remove every `super.unregisterSelf()` call from the renamed hook, keep the module's real cleanup work, and let the framework unregister commands and listeners after `onUnregister()` returns.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/quickstart/MyPlugin.java
 
