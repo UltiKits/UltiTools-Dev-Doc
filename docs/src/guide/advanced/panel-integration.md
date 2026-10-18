@@ -77,6 +77,8 @@ Before v6.3.0 this list was a hardcoded, unconfigurable set of the same ten entr
 moves to `ultipanel.commands.blocklist` and is fully editable in both directions — an operator may
 add to it or remove from it, including emptying it entirely.
 
+As of v6.3.0 the value is checked as a whole before it replaces anything. It has to be a list in which every element is a string; entries are trimmed and compared in lower case. Any other shape is rejected as a whole: a single string, a mapping, or a list holding a mapping, a nested list, an empty element, a number or a boolean. The framework then logs one warning that names `ultipanel.commands.blocklist` and the shape it found, never the value, and keeps the blocklist it already has (the ten default entries on a fresh start). An explicit empty list (`blocklist: []`) is valid and blocks nothing, and a missing key keeps the current policy. The framework never rewrites `config.yml` to correct a value.
+
 **There is deliberately no unoverridable floor.** The panel is the operator's own remote console, not
 an autonomous agent; the party a hard-coded floor would constrain is the operator, not an attacker —
 someone who has compromised the panel credential already holds the operator's own identity and can
@@ -146,6 +148,10 @@ happens to contain a credential file does not reopen access to that specific fil
 - **Not configurable** — the target matched the unconditional credential exclusion. The message says
   so explicitly, rather than pointing at a switch that does not exist.
 
+As of v6.3.0, authorization and the operation use the object the filesystem actually reaches. The request is resolved against the real server directory one component at a time, so a symbolic link means what the operating system means, and a `..` that follows a link is not collapsed beforehand. Whether the target lies inside an editable root, and whether it is a credential file or the action-log directory, is decided on that real object. A link inside a root that points outside it is refused as outside the roots. A link inside a root that points at a protected file is refused like the file itself, and so is a path that reaches the action-log directory through a linked parent directory.
+
+Some request shapes cannot be resolved safely and are refused with no configuration key that could allow them: a dangling or looping link, a component whose existence cannot be determined, and a `.` or `..` component in the part of a path that does not exist yet. A target that does not exist yet, such as the file of a `write`, must be made of ordinary names and must not exist even as a link. A `delete` also needs an ordinary final name, so `/`, `.` and a path ending in `.` or `..` are refused instead of resolving to some other directory.
+
 **`list` marks refused entries instead of omitting them.** Before v6.3.0, an entry the caller was not
 permitted to see was silently dropped from the listing, and the panel had no way to distinguish "this
 file does not exist" from "this file is hidden by policy." As of v6.3.0, every entry carries an
@@ -154,6 +160,8 @@ file does not exist" from "this file is hidden by policy." As of v6.3.0, every e
 schema addition — an older panel build that does not know about these fields renders exactly what it
 rendered before, plus the rows that used to be hidden.
 
+As of v6.3.0 a listed file is marked refused exactly when reading it would be refused: a link to a file outside the roots is marked `OUTSIDE_ROOTS`, and a link to a credential file is marked `PROTECTED_CREDENTIAL`, with the same withheld fields.
+
 **A recursive directory delete requires an explicit `recursive: true` on the request.** Before
 v6.3.0, a `delete` request naming a directory recursively removed it and everything inside with no
 flag and no confirmation of any kind. As of v6.3.0, a directory-delete request that omits the field,
@@ -161,9 +169,13 @@ sets it to `false`, or sets it to anything other than a real JSON boolean is ref
 filesystem access, naming the missing field. An older panel build that does not yet send this field
 has every directory-delete request refused with a clear reason.
 
+**Deleting a symbolic link removes the link and nothing it points to.** As of v6.3.0 a `delete` of a link to a file removes the link and leaves the file untouched. A `delete` of a link to a directory removes only the link; the target directory and its contents are untouched, and the request needs no `recursive` flag because no subtree is removed. A dangling link can be deleted the same way. Before v6.3.0 a recursive delete of a link to a directory inside the roots emptied the target directory first. The `recursive` rule above applies to a real directory.
+
 ## Panel configuration edits <Badge type="tip" text="v6.3.0+" />
 
 As of v6.3.0 a panel edit writes only what it names. An edit of a module configuration goes through the configuration write gate: it replaces the value at the named keys and keeps every other byte of the file, and a file the gate cannot write that way gets an error reply naming the reason (see [Saving configuration files](/guide/essentials/config-file#saving-configuration-files)).
+
+As of v6.3.0 the capability an `update_config` message needs follows the file it names. A `fileName` of `server_properties` (a read without content, or a write with content) is governed by `ultipanel.capabilities.server-properties` and by nothing else. Every other target is governed by `ultipanel.capabilities.file-write` and by nothing else: a named module configuration file, the whole configuration, and a request that names a file without content. A `fileName` that cannot be read as a single name, such as an object or an array of several names, is governed by `file-write` and never reaches `server.properties`; an array holding only `server_properties` counts as that file. Turning on `file-write` therefore no longer opens `server.properties`, and turning on `server-properties` no longer needs `file-write`.
 
 A `server.properties` edit replaces only the value text of the line that defines the key. Comments, key order, separators and other values keep their bytes, including a UTF-8 `motd`; the file is decoded and encoded as the server reads it and written atomically. A key defined on more than one line, or continued onto the next line, is refused with a reason naming the lines and no value: the `set` reply carries it as `reason`, and a `set_all` reply lists the key under `failed` and its reason under `failureReasons`. The server log names each refused key once. The server itself still rewrites the whole file when it next starts (measured on Paper 1.21.11).
 
@@ -181,9 +193,11 @@ to copy the credential from.
 **The move happens automatically, once, on the first credential read/write after upgrading** — there
 is no separate migration command to run. The sequence is fail-safe by construction: the old file is
 read, the new file is written, the new file is read back to confirm it landed correctly, and only then
-is the old file deleted. If the write fails at any point, the old file is left exactly where it was
-and the framework falls back to it, so a failed migration never loses the credential — it just leaves
-the operator on the old location until the next successful attempt.
+is the old file deleted. If the write or the read-back fails, the old file is left exactly where it was
+and a warning is logged, so a failed migration never loses the credential. The move is attempted again on
+the next credential access.
+
+If the current file already exists, the old file is removed only after the current file has been read as a credential document: any valid JSON object, an empty one included. The current file is never overwritten with the old content. If the current file cannot be read that way (it is empty, is not valid JSON, or is not a regular file), both files are kept unchanged, no new server identity or token is written, and one warning names both files and what to check. A current file that cannot be opened at all produces an error, and nothing is deleted. Once the current file is fixed, the next credential access completes the cleanup.
 
 The new location sits outside every default [editable root](#remote-file-api-boundary) described
 above, and — like `data.json` before it — is additionally covered by the unconditional, filename-based
@@ -216,6 +230,8 @@ ultipanel:
 ```
 
 There is deliberately no key to disable this log entirely.
+
+As of v6.3.0 the verdict records the policy decision, not the outcome of the operation. For a remote file operation, `denied` means a policy refusal at any layer: a disabled capability, a path outside the editable roots, the credential exclusion, a path shape that cannot be resolved safely, or a missing `recursive` flag. `allowed` means the policy allowed the operation, even if the operation then failed for an ordinary reason such as a missing file or a path of the wrong type. A refusal that depends on the real object a path reaches, such as a link pointing outside the roots, is recorded as `denied`.
 
 ## Live log stream
 
