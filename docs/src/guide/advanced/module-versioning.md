@@ -308,6 +308,12 @@ As of v6.3.0, an update only ever moves, replaces or deletes a file whose SHA-25
 
 `/upm uninstall <module>` unloads every loaded instance through the framework's full unload path, deletes the module's JARs, and cancels any update of it still waiting for the next start, whichever of the module's names it was given. A JAR it cannot delete now, for example on Windows where the running server keeps every module JAR open, is recorded and deleted at the next start before any module loads.
 
+As of v6.3.0, before the next start deletes a recorded JAR it confirms that the file is still the one the uninstall recorded. If it cannot read the JAR to confirm that, it leaves the JAR in place, so the module can load again at that start, reports the JAR and the read error in the start-up log at SEVERE level, and keeps the deletion recorded for the start after.
+
+If the deletion cannot be recorded either, for example on a read-only file system, the reply to `/upm uninstall` names only the module JARs to delete by hand and says on a separate line that the deletion could not be recorded, so the next start will not delete them.
+
+If a module's own unload hook throws, including an exception it does not declare, the uninstall still unregisters that module's commands and listeners, reports that the unload threw, and goes on to delete the JAR.
+
 ## Current state of the modules
 
 Most modules are still on `1.0.0`, because they have had no release requiring this decision. Two of them made a decision before this page existed and reached opposite conclusions: one used MINOR for a bug fix, the other MAJOR for a new feature, and neither matches the table above. They are being reconciled module by module rather than renumbered retroactively, because a published version number may already have been written down by server owners.

@@ -39,11 +39,13 @@ No `loadAfter` attribute was added to `@PluginDependency` itself. The two mechan
 
 ## Cycles and missing dependencies
 
-A dependency cycle, or a `depends` entry naming a module that is not installed, refuses only the affected modules — the cycle members (or the module with the missing dependency) and anything that transitively depends on them. Every unrelated module still loads.
+As of v6.3.0, a `depends` entry naming a module that is not installed refuses the declaring module and every module that requires it through `depends`, directly or transitively. A module that only lists the refused module under `softDepends`, `loadBefore` or `plugin.yml`'s `loadAfter` still loads, in the order the remaining declarations give. A dependency cycle refuses its members and the modules ordered after them, as before. Every unrelated module still loads.
 
 The console names the full cycle as a path, `A -> B -> C -> A`, and says which module's author to contact. This mirrors how Paper itself reports a plugin load cycle.
 
 As of v6.3.0, a module declaring several missing `depends` targets at once is named all of them in one console line, not just the first — you no longer need to fix one, restart, and discover the next.
+
+As of v6.3.0, when one start has both a missing dependency and a separate cycle, the console reports all of it: the missing dependency, each cycle as a path, and a final `Not loaded:` line that names every module it did not load.
 
 ## A required server plugin is missing
 
