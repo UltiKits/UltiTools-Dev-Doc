@@ -77,7 +77,7 @@ Before v6.3.0 this list was a hardcoded, unconfigurable set of the same ten entr
 moves to `ultipanel.commands.blocklist` and is fully editable in both directions — an operator may
 add to it or remove from it, including emptying it entirely.
 
-As of v6.3.0 the value is checked as a whole before it replaces anything. It has to be a list in which every element is a string; entries are trimmed and compared in lower case. Any other shape is rejected as a whole: a single string, a mapping, or a list holding a mapping, a nested list, an empty element, a number or a boolean. The framework then logs one warning that names `ultipanel.commands.blocklist` and the shape it found, never the value, and keeps the blocklist it already has (the ten default entries on a fresh start). An explicit empty list (`blocklist: []`) is valid and blocks nothing, and a missing key keeps the current policy. The framework never rewrites `config.yml` to correct a value.
+As of v6.3.0 the value is checked as a whole before it replaces anything. It has to be a list in which every element is a string; entries are trimmed and compared in lower case. Any other shape is rejected as a whole: a single string, a mapping, or a list holding a mapping, a nested list, a null element, a number or a boolean. A string element is always accepted, including an empty one. The framework then logs one warning that names `ultipanel.commands.blocklist` and the shape it found, never the value, and keeps the blocklist it already has (the ten default entries on a fresh start). An explicit empty list (`blocklist: []`) is valid and blocks nothing, and a missing key keeps the current policy. The framework never rewrites `config.yml` to correct a value.
 
 **There is deliberately no unoverridable floor.** The panel is the operator's own remote console, not
 an autonomous agent; the party a hard-coded floor would constrain is the operator, not an attacker —
@@ -148,7 +148,7 @@ happens to contain a credential file does not reopen access to that specific fil
 - **Not configurable** — the target matched the unconditional credential exclusion. The message says
   so explicitly, rather than pointing at a switch that does not exist.
 
-As of v6.3.0, authorization and the operation use the object the filesystem actually reaches. The request is resolved against the real server directory one component at a time, so a symbolic link means what the operating system means, and a `..` that follows a link is not collapsed beforehand. Whether the target lies inside an editable root, and whether it is a credential file or the action-log directory, is decided on that real object. A link inside a root that points outside it is refused as outside the roots. A link inside a root that points at a protected file is refused like the file itself, and so is a path that reaches the action-log directory through a linked parent directory.
+As of v6.3.0, authorization and the operation use the object the filesystem actually reaches. The request is resolved against the real server directory one component at a time, so a symbolic link means what the operating system means, and a `..` that follows a link is not collapsed beforehand. Whether the target lies inside an editable root, and whether it is a credential file or the action-log directory, is decided on that real object. A link inside a root that points outside it is refused as outside the roots. A link inside a root that points at a protected file is refused like the file itself, and so is a path that reaches the action-log directory through a linked parent directory. These statements describe `read`, `write` and `list`; a `delete` judges a link by its own location and name instead, as described under "Deleting a symbolic link" below.
 
 Some request shapes cannot be resolved safely and are refused with no configuration key that could allow them: a dangling or looping link, a component whose existence cannot be determined, and a `.` or `..` component in the part of a path that does not exist yet. A target that does not exist yet, such as the file of a `write`, must be made of ordinary names and must not exist even as a link. A `delete` also needs an ordinary final name, so `/`, `.` and a path ending in `.` or `..` are refused instead of resolving to some other directory.
 
@@ -160,7 +160,7 @@ file does not exist" from "this file is hidden by policy." As of v6.3.0, every e
 schema addition — an older panel build that does not know about these fields renders exactly what it
 rendered before, plus the rows that used to be hidden.
 
-As of v6.3.0 a listed file is marked refused exactly when reading it would be refused: a link to a file outside the roots is marked `OUTSIDE_ROOTS`, and a link to a credential file is marked `PROTECTED_CREDENTIAL`, with the same withheld fields.
+As of v6.3.0 a listed file is marked refused exactly when reading it would be refused: a link to a file outside the roots is marked `OUTSIDE_ROOTS`, and a link to a credential file is marked `PROTECTED_CREDENTIAL`, with the same withheld fields. A link to a directory is marked by its target in the same way: a target outside the roots is marked `OUTSIDE_ROOTS`, without the target's size or modification time.
 
 **A recursive directory delete requires an explicit `recursive: true` on the request.** Before
 v6.3.0, a `delete` request naming a directory recursively removed it and everything inside with no
@@ -169,9 +169,17 @@ sets it to `false`, or sets it to anything other than a real JSON boolean is ref
 filesystem access, naming the missing field. An older panel build that does not yet send this field
 has every directory-delete request refused with a clear reason.
 
-**Deleting a symbolic link removes the link and nothing it points to.** As of v6.3.0 a `delete` of a link to a file removes the link and leaves the file untouched. A `delete` of a link to a directory removes only the link; the target directory and its contents are untouched, and the request needs no `recursive` flag because no subtree is removed. A dangling link can be deleted the same way. Before v6.3.0 a recursive delete of a link to a directory inside the roots emptied the target directory first. The `recursive` rule above applies to a real directory.
+**Deleting a symbolic link removes the link and nothing it points to.** As of v6.3.0 a `delete` judges a link by its own location and name, not by its target, and removing it removes only the link. A `delete` of a link to a file removes the link and leaves the file untouched. A `delete` of a link to a directory removes only the link; the target directory and its contents are untouched, and the request needs no `recursive` flag because no subtree is removed. A dangling link can be deleted the same way. Before v6.3.0 a recursive delete of a link to a directory inside the roots emptied the target directory first. The `recursive` rule above applies to a real directory.
 
 **A recursive delete never follows a link found inside the deleted folder.** As of v6.3.0, when a recursive `delete` of a real folder meets a symbolic link (or a Windows directory junction) inside it, the link itself is removed and its target and the target's contents are left untouched. This also holds when the link points to a protected folder.
+
+### Known limitations of the file boundary
+
+As of v6.3.0 the following cases are not covered:
+
+- Another process on the server machine that swaps a path component for a link between the check and the use can redirect that one request. The panel itself cannot create links.
+- A hard link to a credential file, placed inside an editable root under another name, cannot be told apart from an ordinary file by its path. Do not hard-link credential files into editable roots.
+- On a case-insensitive file system such as the default macOS one, a case variant of a protected name is not recognised by the credential exclusion, and a directory requested with the wrong case is treated as an entry rather than as a directory: a `delete` of a non-empty one is refused instead of removing it, and an empty one is deleted without the `recursive` flag.
 
 ## Panel configuration edits <Badge type="tip" text="v6.3.0+" />
 
