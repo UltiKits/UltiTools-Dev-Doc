@@ -171,6 +171,8 @@ has every directory-delete request refused with a clear reason.
 
 **Deleting a symbolic link removes the link and nothing it points to.** As of v6.3.0 a `delete` of a link to a file removes the link and leaves the file untouched. A `delete` of a link to a directory removes only the link; the target directory and its contents are untouched, and the request needs no `recursive` flag because no subtree is removed. A dangling link can be deleted the same way. Before v6.3.0 a recursive delete of a link to a directory inside the roots emptied the target directory first. The `recursive` rule above applies to a real directory.
 
+**A recursive delete never follows a link found inside the deleted folder.** As of v6.3.0, when a recursive `delete` of a real folder meets a symbolic link (or a Windows directory junction) inside it, the link itself is removed and its target and the target's contents are left untouched. This also holds when the link points to a protected folder.
+
 ## Panel configuration edits <Badge type="tip" text="v6.3.0+" />
 
 As of v6.3.0 a panel edit writes only what it names. An edit of a module configuration goes through the configuration write gate: it replaces the value at the named keys and keeps every other byte of the file, and a file the gate cannot write that way gets an error reply naming the reason (see [Saving configuration files](/guide/essentials/config-file#saving-configuration-files)).
