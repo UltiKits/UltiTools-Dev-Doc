@@ -106,6 +106,8 @@ Till now, you only need to register the command executor to complete all the wor
 
 ::: tip Tab completion is wired into BaseCommandExecutor <Badge type="tip" text="v6.3.0+" />
 As of v6.3.0, `suggest(Player, Command, String[])` resolves the first-argument literal from the `@CmdMapping` format list *and* the `suggest` attribute of `@CmdParam` for parameter slots, through the shared `commands/tabcomplete/` dispatch — the sections below describe the full resolution order. You can still override `suggest(...)` yourself if you want different behaviour; the method remains `protected`.
+
+For a later argument, a literal token is suggested only from mappings whose earlier tokens match what the player has already typed, and each literal is offered once; a mapping the player may not use (permission or OP) never contributes a suggestion.
 :::
 
 Need Tab suggestion for each command parameter, but don't want to write a lot of code?
@@ -311,10 +313,9 @@ If you want to specify the sender for a method, just add it in front of the meth
 @CmdTarget(CmdTarget.CmdTargetType.BOTH)
 ```
 
-::: warning The method-level annotation replaces the class-level one
-A method-level `@CmdTarget` overrides the class-level one entirely, it does not require both to be satisfied.
-A class annotated `PLAYER` with a method annotated `BOTH` lets the console execute that method.
-Restoring the intersection semantics (narrowing, not overriding) is proposed in [issue #320](https://github.com/UltiKits/UltiTools-Reborn/issues/320).
+::: warning A method-level `@CmdTarget` may only narrow the class-level one
+A method-level `@CmdTarget` may only narrow the class-level one (`BOTH` to `PLAYER` or `CONSOLE`). A widening (`PLAYER` or `CONSOLE` to `BOTH`) or a lateral switch (`PLAYER` to `CONSOLE` or back) refuses the command class at load, naming the class and method.
+As of v6.3.0 this includes mappings the class inherits from a base executor class: a `@CmdTarget(CONSOLE)` class that inherits a `@CmdTarget(BOTH)` mapping is refused, and the log also names the class that declared the mapping.
 :::
 
 ### Asynchronous Execution
@@ -400,6 +401,10 @@ As of v6.3.0 an active cooldown is kept per executor instance as well as per map
 one `ValidatorChain` to both, no longer makes a player wait on executor B after using executor A. A
 dispatch refused before the method runs, for example by a wrong argument count, starts no cooldown.
 
+As of v6.3.0, a class-level `@CmdCD` on a shared base executor class applies to the mappings that base class declares, including mappings intercepted by AOP annotations such as `@ExceptionCatch`. A mapping overridden in a subclass follows the subclass's annotations.
+
+As of v6.3.0, when a module unloads, the `CooldownValidator` and `UsageLockValidator` in the chain its executors used are released, whether that chain came from `super(chain)` or from an overridden `createDefaultValidatorChain()`. A validator that another loaded executor still uses keeps its cooldowns, locks and quit cleanup until the last such executor unloads.
+
 ::: tip A `@CmdCD` your validator chain cannot enforce now refuses to load <Badge type="tip" text="v6.3.0+" />
 As of v6.3.0, a class or method carrying `@CmdCD` whose validator chain has no `CooldownValidator` — most commonly a custom `ValidatorChain` that omits it, see [Creating Custom Validators](#creating-custom-validators) below — is refused at plugin load, naming the offending class and method. This closes the gap where the annotation looked declared but enforced nothing.
 :::
@@ -457,6 +462,8 @@ Available types are:
 - `LimitType.ALL` limits that only one command of this type can be executed in the whole server
 - `LimitType.NONE` no limit
 
+As of v6.3.0, `@UsageLimit` may also be placed on the executor class, or on the base class that declares the mappings. A mapping without its own `@UsageLimit` uses the class-level one; a method-level annotation governs its own mapping.
+
 Under the `LimitType.SENDER` strategy, the player will receive a prompt: `Please wait for last Command Processing!`
 
 Under the `LimitType.ALL` strategy, the player will receive a
@@ -468,7 +475,7 @@ the same sender; `ALL`: from any sender). Acquiring the lock never waits, so not
 outer body's lock is released when it returns, normally or by throwing. Schedule the nested call with
 `runTask()` if it must run. Also as of v6.3.0, a lock taken during validation is released when the
 dispatch is then refused before the method runs: by the cooldown, which is checked after the lock, by
-a wrong argument count, or by a parameter that does not parse. Before v6.3.0 the lock stayed held until
+a wrong argument count, by a parameter that does not parse, or by an exception thrown from a later validator's `shouldValidate` or `validate` or from a module's parameter parser; such an exception then propagates unchanged. Before v6.3.0 the lock stayed held until
 the player quit, and every later call of that mapping was refused.
 
 ::: tip @UsageLimit now genuinely serialises <Badge type="tip" text="v6.3.0+" />
@@ -586,7 +593,7 @@ public void download(@CmdSender Player player) {
 
 ### Creating Custom Validators
 
-Implement `CommandValidator` to create custom validation logic:
+Implement `CommandValidator` to create custom validation logic. As of v6.3.0, a validator that acquires something in `validate` should release it in `onRefused`, which also runs when a later validator throws:
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/WorldRestrictionValidator.java
 
