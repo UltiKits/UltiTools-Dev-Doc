@@ -92,6 +92,8 @@ public void addPoint(@CmdSender Player player, @CmdParam("name") String name) {
 
 ::: tip BaseCommandExecutor 的 Tab 补全已接线 <Badge type="tip" text="v6.3.0+" />
 自 v6.3.0 起，`suggest(Player, Command, String[])` 通过共享的 `commands/tabcomplete/` 分发实现，既解析 `@CmdMapping` format 首段的第一参数字面量，也解析参数位上 `@CmdParam` 的 `suggest` 属性——下面几节说明完整的解析顺序。你仍然可以重写 `suggest(...)` 来自定义行为，该方法保持 `protected`。
+
+对于后续参数，只有前面各段与玩家已输入内容相匹配的映射才会提供字面量补全，且每个字面量只出现一次；玩家无权使用（权限或 OP）的映射不会提供任何补全。
 :::
 
 每次写完一个命令之后希望给自己的命令添加Tab提示补全，但是又不想写一大堆的代码？
@@ -285,10 +287,9 @@ public static SomeType toSomeType(String s) {
 @CmdTarget(CmdTarget.CmdTargetType.BOTH)
 ```
 
-::: warning 方法级注解会替换类级注解
-方法级 `@CmdTarget` 会完全覆盖类级 `@CmdTarget`，而不是要求两者都满足。
-类上标 `PLAYER`、方法上标 `BOTH` 时，控制台可以执行该方法。
-恢复交集语义（收窄而非覆盖）的诉求见 [issue #320](https://github.com/UltiKits/UltiTools-Reborn/issues/320)。
+::: warning 方法级 `@CmdTarget` 只能收窄类级注解
+方法级 `@CmdTarget` 只能收窄类级 `@CmdTarget`（`BOTH` 收窄为 `PLAYER` 或 `CONSOLE`）。放宽（`PLAYER` 或 `CONSOLE` 改为 `BOTH`）或横向切换（`PLAYER` 与 `CONSOLE` 互换）会使该命令类在加载时被拒绝，并指出类名与方法名。
+自 v6.3.0 起，这也适用于该类从基类继承的映射：标注 `@CmdTarget(CONSOLE)` 的类若继承了 `@CmdTarget(BOTH)` 的映射，会被拒绝，日志中同时会指出声明该映射的类。
 :::
 
 ### 异步执行
@@ -364,6 +365,10 @@ icon.onClick(event -> {
 
 自 v6.3.0 起，进行中的冷却按执行器实例和映射分别记录。同一个 `CooldownValidator` 被同一个类的两个执行器共用时（模块代码把同一个 `ValidatorChain` 传给两者时就会如此），玩家用过执行器 A 之后，不再需要在执行器 B 上等待。在方法执行之前就被拒绝的分派（例如参数个数不对）不会开始冷却。
 
+自 v6.3.0 起，共享基类执行器上的类级 `@CmdCD` 对该基类所声明的映射生效，包括被 `@ExceptionCatch` 等 AOP 注解拦截的映射；在子类中被重写的映射以子类的注解为准。
+
+自 v6.3.0 起，模块卸载时，其执行器实际使用的校验链中的 `CooldownValidator` 与 `UsageLockValidator` 会被释放（无论该链来自 `super(chain)` 还是重写的 `createDefaultValidatorChain()`）；仍被另一个已加载执行器使用的验证器会保留其冷却、锁与退出清理，直到最后一个使用它的执行器卸载。
+
 ::: tip 校验链无法强制执行的 @CmdCD 现在会拒绝加载 <Badge type="tip" text="v6.3.0+" />
 自 v6.3.0 起，标注了 `@CmdCD`、而其校验链中缺少 `CooldownValidator` 的类或方法——最常见的情形是省略了它的自定义 `ValidatorChain`，见下方[创建自定义验证器](#创建自定义验证器)一节——会在插件加载时被拒绝，并指出问题类与方法。这关闭了此前「看似已声明，实则拦不住任何调用」的缺口。
 :::
@@ -420,9 +425,11 @@ public void wild(@CmdSender Player player) { ... }
 - `LimitType.ALL` 限制全服只能有一条该指令在执行
 - `LimitType.NONE` 不作限制
 
+自 v6.3.0 起，`@UsageLimit` 也可以写在执行器类上，或写在声明这些映射的基类上。没有自带 `@UsageLimit` 的映射使用类级注解；方法级注解只管辖它自己的映射。
+
 在 `LimitType.SENDER` 策略下，玩家在上一条该指令执行完毕之前重复执行前将会收到提示：`请先等待上一条命令执行完毕！`
 
-自 v6.3.0 起，命令方法体在主线程上于分派时执行，因此持有锁的方法体再分派自身命令时，嵌套的那次分派会以上面的提示被拒绝（`SENDER`：同一发送者；`ALL`：任何发送者）。获取锁从不等待，因此不会阻塞；外层方法体返回时（无论正常返回还是抛出异常）会释放它的锁。如果嵌套调用必须执行，请用 `runTask()` 调度。同样自 v6.3.0 起，校验时已获取的锁，在分派随后于方法执行前被拒绝时会被释放：被冷却拒绝（冷却在锁之后检查）、参数个数不对，或参数无法解析。v6.3.0 之前，这种情况下锁会一直保留到玩家退出，此后该映射的每一次调用都会被拒绝。
+自 v6.3.0 起，命令方法体在主线程上于分派时执行，因此持有锁的方法体再分派自身命令时，嵌套的那次分派会以上面的提示被拒绝（`SENDER`：同一发送者；`ALL`：任何发送者）。获取锁从不等待，因此不会阻塞；外层方法体返回时（无论正常返回还是抛出异常）会释放它的锁。如果嵌套调用必须执行，请用 `runTask()` 调度。同样自 v6.3.0 起，校验时已获取的锁，在分派随后于方法执行前被拒绝时会被释放：被冷却拒绝（冷却在锁之后检查）、参数个数不对、参数无法解析，或者后续验证器的 `shouldValidate` / `validate`、模块的参数解析器抛出异常（该异常随后原样抛出）。v6.3.0 之前，这种情况下锁会一直保留到玩家退出，此后该映射的每一次调用都会被拒绝。
 
 ::: tip @UsageLimit 现在真正实现了串行化 <Badge type="tip" text="v6.3.0+" />
 自 v6.3.0 起，获取即为门槛：锁在验证本身内部被获取，被拦截的发送者在方法执行前就会被拒绝；`ALL` 范围的锁只能由获取它的发送者释放，其他发送者的完成不再能释放它。与上面的 `@CmdCD` 一样，链中缺少 `UsageLockValidator` 的 `@UsageLimit(SENDER|ALL)` 会在加载时拒绝，并指出问题类与方法；`LimitType.NONE` 不受此约束。
@@ -541,7 +548,7 @@ public void download(@CmdSender Player player) {
 
 ### 创建自定义验证器
 
-实现 `CommandValidator` 来创建自定义验证逻辑：
+实现 `CommandValidator` 来创建自定义验证逻辑。自 v6.3.0 起，在 `validate` 中获取了资源的验证器应在 `onRefused` 中释放它；后续验证器抛出异常时，`onRefused` 同样会被调用：
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/WorldRestrictionValidator.java
 
