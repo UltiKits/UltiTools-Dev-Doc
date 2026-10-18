@@ -310,10 +310,11 @@ ultipanel:
 | `excluded-loggers` | Empty (as of v6.3.0) | Logger name prefixes whose records are dropped. The example above drops everything logged through `Bukkit.getLogger()` |
 
 The framework reads both keys at the same point as the batch keys, each time the panel connection
-opens, so restart the server to apply a changed value here too. A few entries the framework sends to
-the panel directly, such as player join, quit and chat lines, do not pass through the handler, and
-neither key applies to them. Chat lines, sent while the `player-events` capability is on, arrive at
-the `debug` level even when `debug` is not in `levels`.
+opens, so restart the server to apply a changed value here too. As of v6.3.0 `levels` also applies to
+the entries the framework sends to the panel directly: player join, quit and chat lines, plugin
+action lines, and the lines sent when the stream starts. `excluded-loggers` still does not apply to
+them, because these entries come from no logger. Chat entries, sent while the `player-events`
+capability is on, are `debug` entries and reach the stream only when `debug` is in `levels`.
 
 Each `excluded-loggers` entry is compared, case-sensitively, with the start of the name of the
 `java.util.logging` logger that emitted the record, so an entry of `org.apache` also excludes
@@ -402,8 +403,8 @@ one warning in the server log at most once a minute.
 As of v6.3.0 the stream is a best-effort convenience copy of the console, and the server's
 `logs/latest.log` is authoritative ([#583](https://github.com/UltiKits/UltiTools-Reborn/issues/583),
 [#571](https://github.com/UltiKits/UltiTools-Reborn/issues/571)). Two known gaps: if the panel connection
-drops while the start-up replay is still sending, the replay records not yet sent move to the new
-connection's live queue, which keeps the newest 1000 and counts the rest in the warning above, and they are
+drops while the start-up replay is still sending, or while the buffered records are being handed over to
+the stream, the replay records not yet sent move to the new connection's live queue, which keeps the newest 1000 and counts the rest in the warning above, and they are
 then sent like live records, without the replay's pacing; and a record another thread logs in the
 microseconds while the stream first takes over from the start-up buffer can be missed, and is not counted.
 Read anything that must not be missed, such as an audit trail or an incident, from `logs/latest.log`.
@@ -411,7 +412,8 @@ Read anything that must not be missed, such as an audit trail or an incident, fr
 On a running server, the `log_stream` request with the action `config` described above can also
 carry a `levels` array. As of v6.3.0 the framework applies it; before v6.3.0 the field was ignored.
 The whole request is refused if any name is not one of the four above, and an empty array leaves no
-level enabled. Levels set this way last until the panel connection next opens, when the handler is
+level enabled. Levels set from the panel apply to the framework's direct entries too. Levels set this
+way last until the panel connection next opens, when the handler is
 created again from `config.yml`, or from the defaults if `levels` is absent there. The request has
 no field for excluded loggers.
 
@@ -453,6 +455,9 @@ Two things are deliberate about this event, both worth knowing before you rely o
 Data on the event is defensively copied on the way in and on every accessor call — mutating what a
 handler received never affects what the next handler sees, or what the framework already acted on.
 
+For a type a module's responder owns, the event is published once the request has been handed to the
+responder, which may still be running.
+
 ### Owning a request/response type: `PanelResponderRegistry`
 
 For panel message types the framework does **not** already handle, a module may register exactly one
@@ -475,9 +480,29 @@ UltiTools.getInstance().getPanelResponderRegistry()
 - **Responders return `CompletableFuture<JsonObject>`.** The framework wraps the resolved value (or a
   failure) with the request's `requestId` and sends it back to the panel — you never touch the
   WebSocket connection directly.
-- **One bounded timeout, applied in one place.** If a responder's future has not completed within a
-  few seconds, the framework completes the reply on the responder's behalf with an explicit timeout
-  error rather than leaving the panel's request hanging indefinitely.
+- **Responders run on worker threads (as of v6.3.0).** The framework calls a responder on one of its
+  own worker threads, never the server main thread and never the thread that reads the panel
+  connection, so a slow responder no longer holds up other panel messages. A responder that uses
+  Bukkit API schedules that part onto the main thread itself, for example with
+  `Bukkit.getScheduler().runTask(...)`, and completes its future from there.
+- **One deadline, counted from arrival.** One deadline of a few seconds starts when the request
+  arrives and covers waiting for a worker, the call itself and the returned future. When it passes,
+  the panel receives a timeout error naming the type and the module, and a result that arrives later
+  is dropped. At most 4 requests are handled at once and at most 64 more wait for a worker; a request
+  beyond that is refused at once with an error reply naming its type and module.
+- **Responders must be thread-safe.** Responders may run concurrently, up to 4 calls at once
+  including several calls of the same responder, and may finish out of request order. A call that
+  blocks keeps its worker until it returns, also past its deadline, and is never interrupted. The
+  call sees the context class loader of the thread that received the request, and no transaction,
+  user or other thread-local state.
+- **Late replies are dropped.** As of v6.3.0 the reply goes only through the WebSocket client of the cloud
+  session that was current when the request was admitted, and only while that client is still installed
+  and connected on the current session and UltiTools still accepts panel messages. It is not sent once
+  UltiTools starts disabling, once the cloud session logs out, or once the connection that carried the
+  request has closed or been replaced, and it is never redirected to a newer connection. The panel's own
+  timeout then applies.
+- **The responder registered on arrival handles the request,** even if the type is reassigned or the
+  module unloads before the call runs.
 - **Responders are unregistered automatically** when your module unloads, at the same point the
   framework already unregisters your `EventBus` subscriptions.
 - **A responder belongs to one module instance (as of v6.3.0).** One registered while the framework
