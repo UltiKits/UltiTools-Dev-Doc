@@ -93,6 +93,8 @@ UltiToolsPlugin 还定义了两个生命周期钩子方法，`onReload()` 和 `o
 
 执行 `/ul reload` 时，框架会在 `onReload()` 返回之后记录一行日志，写明模块名称。如果模块原有的重写只是记录自己的重载日志，这个重写可以直接删除。如果模块有实际的重载或卸载工作，把原有的 `reloadSelf()`/`unregisterSelf()` 重写改名为 `onReload()`/`onUnregister()`。从改名后的钩子中删除所有 `super.unregisterSelf()` 调用，保留模块自己的实际清理逻辑；框架会在 `onUnregister()` 返回后注销命令和监听器。
 
+自 v6.3.0 起，`onUnregister()` 可以抛出任何异常，包括它没有声明的受检异常。框架仍会注销该模块的命令和监听器、关闭它的容器并把它从已加载列表中移除，然后把钩子自己的异常原样重新抛给调用方，是同一个实例，不做包装。如果之后的清理步骤也失败，该失败会作为被抑制异常附加到钩子的异常上，而不会取代它。
+
 <<< @/../examples/src/main/java/com/ultikits/docs/quickstart/MyPlugin.java
 
 这样就已经完成了一个什么功能都没有的UltiTools模块。

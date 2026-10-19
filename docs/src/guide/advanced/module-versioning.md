@@ -231,6 +231,8 @@ As of v6.3.0, a framework API linkage error naming a type under `com.ultikits.ul
 
 As of v6.3.0, a module refused this way is counted in the `Failed` number of the start-up summary `[UltiTools-API] Succeeded loaded <s>, Failed <f>.`, as is every other module JAR of that start that did not load: one refused while its main class is read, one excluded for a missing required plugin or a dependency cycle, and one whose registration failed. A second copy of a module that did load is not counted. When every JAR in the modules folder is refused, the summary reads `Succeeded loaded 0, Failed <n>.`; `No UltiTools plugin found.` appears only when the folder holds no module JAR. Before v6.3.0 the summary counted only modules that reached registration, so a start that refused a module could still print `Failed 0`.
 
+As of v6.3.0, a module whose main class still overrides `unregisterSelf()` or `reloadSelf()`, both `final` since 6.3.0, is refused whole at load with the `built against an older UltiTools-API version` line above, and a module that names it in `@PluginDependency(depends = ...)` is refused too, as for any missing hard dependency. A module that lists it only under `softDepends`, `loadBefore` or `loadAfter` still loads, and so does every unrelated module. The fix is a release of the module built for the current UltiTools-API version; module authors move the override's work to `onUnregister()` or `onReload()`.
+
 [jls13]: https://docs.oracle.com/javase/specs/jls/se21/html/jls-13.html
 
 ### New annotation attributes
@@ -307,6 +309,12 @@ A move that fails, such as a read-only folder or a file held open, leaves the mo
 As of v6.3.0, an update only ever moves, replaces or deletes a file whose SHA-256 matches its record: the downloaded JAR, or the old JAR it kept aside. If something else has changed one of those files, or put a file where the update needs a free place (for example a copy under the new JAR's name), the update does nothing to any file. It keeps its record in a state that means "on hold for the operator", and the start-up log names each unexpected file with the hash it expected and the one it found. Later starts repeat that line and do nothing else, and `/upm update` and `/upm uninstall` of that module refuse until you resolve it. To resolve it, check the named files, take back any JAR you need from `.ultikits/upm-transactions/`, then delete the update record named in the line and the folder of the same name.
 
 `/upm uninstall <module>` unloads every loaded instance through the framework's full unload path, deletes the module's JARs, and cancels any update of it still waiting for the next start, whichever of the module's names it was given. A JAR it cannot delete now, for example on Windows where the running server keeps every module JAR open, is recorded and deleted at the next start before any module loads.
+
+As of v6.3.0, before the next start deletes a recorded JAR it confirms that the file is still the one the uninstall recorded. If it cannot read the JAR to confirm that, it leaves the JAR in place, so the module can load again at that start, reports the JAR and the read error in the start-up log at SEVERE level, and keeps the deletion recorded for the start after.
+
+If the deletion cannot be recorded either, for example on a read-only file system, the reply to `/upm uninstall` names only the module JARs to delete by hand and says on a separate line that the deletion could not be recorded, so the next start will not delete them.
+
+If a module's own unload hook throws, including a checked exception it does not declare, the framework still releases everything the module registered: its commands, listeners, scheduled tasks, tab-completion completers, EventBus handlers and panel responders, and its container is closed. The reply to `/upm uninstall` is then an error line saying the module was removed from the loaded modules but its unload threw (details are in the console), followed by a line saying the module's JARs were deleted.
 
 ## Current state of the modules
 
