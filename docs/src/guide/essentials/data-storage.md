@@ -260,7 +260,7 @@ if (!written) {
 }
 ```
 
-On MySQL and SQLite the check and the write are one `UPDATE ... WHERE id = ? AND <conditions>` statement, so the result holds across servers that share one database. On the JSON backend the check and the write run under the operator's lock; a JSON store belongs to one server. The conditions mean what they mean in `getAll(WhereCondition...)`.
+On MySQL and SQLite the check and the write are one `UPDATE ... WHERE id = ? AND <conditions>` statement, so the result holds across servers that share one database. On the JSON backend the check and the write run together under the table lock; a JSON store belongs to one server. The conditions mean what they mean in `getAll(WhereCondition...)`.
 
 `updateIf` returns `false`, and writes nothing, when no row with the entity's id matches every condition. It throws `DataAccessException` when the id is `null`, when a condition is `null`, when a condition names a column the entity does not map with `@Column`, or when a condition's value is `null` under a comparison other than the default `EQUAL`, on every backend. As of v6.3.0 a `null` expected value under the default comparison means `IS NULL` (JSON: the field is absent or JSON null), so a compare-and-set against a column that was still unset when you read it misses when another writer has filled it in the meantime; this meaning belongs to `updateIf` alone ([#640](https://github.com/UltiKits/UltiTools-Reborn/issues/640)). A `DataOperator` implementation outside the framework that does not implement it throws `UnsupportedOperationException`.
 
@@ -299,7 +299,7 @@ For operations that need to succeed or fail together, see the [Transactions](/gu
 
 ::: tip MySQL and SQLite run this block in one JDBC transaction
 As of v6.3.0 the MySQL and SQLite stores give every operator they hand out a transaction manager ([#307](https://github.com/UltiKits/UltiTools-Reborn/issues/307)), so `transaction(...)` runs in a JDBC transaction and the two inserts below are committed or rolled back together.
-The JSON backend restores a snapshot of its entries instead.
+As of v6.3.0 the JSON backend stages the callback's writes and commits them together or not at all.
 :::
 
 ```java
@@ -310,4 +310,20 @@ dataOperator.transaction(() -> {
 });
 ```
 
-As of v6.3.0 a transaction whose own failure path fails never ends in an implicit commit ([#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)): when its rollback or its commit fails, the connection is discarded (a HikariCP pool evicts it) instead of being switched back to auto-commit, which would commit it, so nothing of the transaction is stored and the caller still gets the original exception. An `Error` thrown inside `transaction(...)` rolls the transaction back, or restores the JSON snapshot, and is rethrown as the same instance.
+On the JSON backend, a transaction begun by `transaction(...)` locks each table at its first read or write, as 6.2.5 serialized each table, so a read-modify-write inside it cannot lose an update; a read inside it can wait, at most 5 seconds, for another transaction that holds the table. In a `@Transactional` method at the default isolation, read-modify-write uses `updateIf` or `isolation = REPEATABLE_READ` instead; see [JSON Transaction Behavior](/guide/advanced/transactions#json-transaction-behavior).
+
+As of v6.3.0 a transaction whose own failure path fails never ends in an implicit commit ([#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)): when its rollback or its commit fails, the connection is discarded (a HikariCP pool evicts it) instead of being switched back to auto-commit, which would commit it, so nothing of the transaction is stored and the caller still gets the original exception. An `Error` thrown inside `transaction(...)` rolls the transaction back (the JSON engine discards the staged writes) and is rethrown as the same instance.
+
+## Operating JSON Storage <Badge type="tip" text="v6.3.0+" />
+
+As of v6.3.0, every plugin's JSON tables have a hidden `.ultitools-journal` folder beside them. Committed transactions are written there and forced to disk before `commit` returns, and the next start replays them into the table files. In a server it is `plugins/UltiTools/data/<plugin name>/.ultitools-journal`. See the [Transactions](/guide/advanced/transactions#json-transaction-behavior) guide for what a transaction guarantees.
+
+- Run one server process per data folder. Two servers must never use the same `plugins` data folder at the same time.
+- Back up the `.ultitools-journal` folder together with the table folders, or back up with the server stopped. A copy such as `cp dir/*` skips folders whose name starts with a dot.
+- Never delete `.ultitools-journal`, not even after a crash: it holds commits that are not yet in the table files.
+- After a crash, start the server once before you edit any JSON data file by hand: the start replays the journal and would overwrite the edit.
+- A damaged newest journal record after a power cut usually means the disk or its controller did not honour flush requests. The plugin's JSON data stays closed until you move the named file out of the journal folder and restart the server. A module that obtains its data operators while it loads, as every shipped module does, is refused at that start. Only a plugin that first requests its data after it has loaded recovers at its next request, without a restart.
+- One entity file that keeps failing to move (for example, a file another program keeps locked) stops every flush of that plugin from emptying the journal: records accumulate, start-up recovery takes longer, and each failed flush is reported in the server log.
+- On Windows, a journal file move that another program (an antivirus scanner, an indexer, a backup tool) briefly holds is retried for at most 150 ms before the commit fails.
+- A JSON data folder whose ids contain `<`, `>`, `:`, `"`, `|`, `?` or `*` (UltiRemoteBag's edit claims use `:`) cannot be copied from Linux to Windows: Windows cannot create those files. Data whose ids differ only in letter case cannot be moved to Windows or to a default macOS volume either: the files collide. If a journal record holding such an id reaches a Windows server, start-up keeps that plugin's JSON data closed and names the record: apply it on the Linux server that wrote it, or move it out of the journal folder and lose its changes.
+- New ids are checked when they are created, and existing files are never renamed; see [JSON Entity Ids](/guide/advanced/transactions#json-entity-ids). A UUID string always works as an id; lowercase letters, digits, `-` and `_` are safe only if the id is not a Windows device name (`con`, `nul`, `aux`, `prn`, `com1`–`com9`, `lpt1`–`lpt9`). Do not key entities by player names (`Con` and `Nul` are valid names). An existing id the rules refuse keeps working for reads, `update` and delete, but deleting it and inserting it again is refused: replace it with `update`.

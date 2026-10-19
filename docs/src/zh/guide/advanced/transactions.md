@@ -97,7 +97,7 @@ dataOperator.updateAll(accounts); // 全部更新或全部不更新
 | 后端 | 机制 |
 |------|------|
 | **MySQL / SQLite** | 使用 JDBC 事务（`Connection.setAutoCommit(false)`，提交/回滚） |
-| **JSON** | 使用快照回滚（操作前复制数据，失败时恢复） |
+| **JSON** | 按事务暂存写入（自 v6.3.0 起）：写入留在事务内，提交时一起应用，回滚时丢弃，提交之前其他线程看不到 |
 
 你不需要知道当前使用的是哪个后端——相同的事务 API 适用于所有存储类型。
 
@@ -106,17 +106,40 @@ dataOperator.updateAll(accounts); // 全部更新或全部不更新
 一次批量插入若第三行违反主键约束，在任何后端上都会保留零行，不只是 JSON。
 :::
 
-::: warning JSON 后端的整体缓存回滚
-JSON 的回滚会把整个操作器的内存缓存恢复到快照状态，不是逐个实体撤销。这一点影响
-`Propagation.REQUIRES_NEW` 与 `NOT_SUPPORTED` 在同一操作器上的表现。
+::: tip JSON 事务是暂存的、原子的、持久的（自 v6.3.0 起）
+JSON 事务暂存自己的写入，在同一插件的所有表上原子提交，崩溃之后保持完整。其他线程只能看到已提交的数据。
 :::
 
-JSON 后端的回滚是基于快照的：事务内第一次触碰某个操作器时，会深拷贝它的整个内存缓存，失败时从
-这份快照整体恢复。这是整体缓存粒度，不是逐实体撤销。
+### JSON 事务行为
 
-这一点尤其影响 `Propagation.REQUIRES_NEW` 与 `NOT_SUPPORTED`（本页后面会讲到）：内层作用域相对
-外层的独立性，只有当两者触碰的是不同的 `DataOperator` 实例时才能被观察到。如果两者写的是
-**同一个**操作器，外层作用域最终的回滚会把内层作用域已经提交的写入也一并丢弃。
+自 v6.3.0 起，JSON 事务内的写入先暂存给该事务，事务自己的读取能看到这些写入；其他线程只看到已提交的数据。提交一次性应用暂存的写入，回滚则丢弃它们，且不影响任何已提交的内容。模块作者可能注意到下面这些：
+
+- 其他线程在同一瞬间看到一次提交对该插件所有表的改动：一次读取要么看到该提交的全部改动，要么一个也看不到。覆盖同一插件多张表的事务作为一个整体提交，崩溃之后仍然全有或全无。
+- 事务内对某张表的第一次写入会锁住该表，其他写入者要等到事务结束。事务外的普通写入同样要等这把锁。默认隔离级别的 `@Transactional` 事务中的读取从不等待表锁。
+- 由 `DataOperator#transaction(...)`（两个重载都是）开启的事务，在第一次读取或写入某张表时就锁住它（与 `REPEATABLE_READ` 相同），直到事务结束。因此读写同一张表的两个 `transaction(...)` 回调一个接一个地运行，与 6.2.5 相同（6.2.5 中每个回调持有其操作器的锁），其中的“先读后写”不会丢失更新。代价也与 6.2.5 相同：`transaction(...)` 中的读取可能等待持有该表的另一个事务，最多 5 秒（与写入一样有上限，见下；6.2.5 的锁等待没有上限）。加入活动事务的 `transaction(...)`（在 `@Transactional` 方法或外层 `transaction(...)` 中调用）沿用该事务的隔离级别，与 Spring 中加入现有事务的作用域相同：在默认隔离级别的 `@Transactional` 方法中，它的读取不加表锁。默认隔离级别的 `@Transactional` 不在第一次读取时锁表。
+- 写入（或在第一次读取时锁表的读取）遇到被锁的表，最多等待 5 秒，或者等到事务的 `timeout` 截止时间（如果更早），然后抛出 `DataAccessException`，消息以 `JSON write failed with a lock-wait timeout` 开头（等待中的读取也是这段文字），该调用不生效。若这次等待会形成环（两个事务互相等待），闭环的那次调用立即失败，消息以 `JSON write failed with a deadlock` 开头。框架不会重试这两种失败。
+- 这两种失败都会在抛出异常之前把所在事务标记为仅回滚，因此在事务内捕获该异常并不能挽救事务：最外层提交会回滚该事务写入的全部内容，并抛出 `UnexpectedRollbackException`。该事务持有的表锁保留到它结束为止。
+- 在默认隔离级别的 `@Transactional` 方法中，两个事务可以读到同一个值，后者再按读到的旧值算出新值写入：这种丢失更新不会被阻止。凭读到的值计算写入的代码应使用 `DataOperator#updateIf`（检查与写入在表锁下一起完成），或 `@Transactional(isolation = Isolation.REPEATABLE_READ)` / `Isolation.SERIALIZABLE`，它们像 `DataOperator#transaction(...)` 一样在第一次读取时就锁表。在 `DataOperator#transaction(...)` 中不会发生丢失更新。
+- `REQUIRES_NEW` 与 `NOT_SUPPORTED` 独立于外层事务提交。与 SQLite、MySQL 的一个差别：这类方法与被它挂起的调用方在同一线程上运行，而表锁归线程所有，所以它不会等待调用方持有的锁；若它写入调用方已暂存的同一个键，最终保留的是外层事务稍后提交的值。
+- 改动了数据的提交会在返回前写入并强制落盘一条日志记录，即在提交线程（常常是服务器主线程）上等待磁盘。什么都没改的事务不写任何东西，也不强制任何落盘。
+- 持久性：“`commit` 返回即持久”在 Linux 上完全成立。在 Windows 和 macOS 上，它能抵御服务器崩溃，但断电或操作系统崩溃可能丢失最近的几次完整提交。丢失的提交是整笔丢失，不会只丢一半。
+- 因真实 I/O 错误而无法强制落盘的目录会以 `WARNING` 记录（`Could not force the directory <目录> to disk ...`）。此时完成的提交已经提交，能抵御服务器崩溃，要等下一次刷新完成后才能抵御断电。
+- 启动时若发现已提交的日志记录损坏，该插件的 JSON 数据保持关闭：数据操作会失败，错误信息指明该文件，直到服主把该文件移出日志文件夹。框架不会删除、跳过或应用损坏的记录，其他插件不受影响。在加载时就获取数据操作器的模块（所有官方模块都是如此）会在那次启动时被拒绝加载，所以把文件移走后需要重启服务器；只有在加载完成之后才首次请求数据的插件，会在下一次请求时再次执行恢复，无需重启。服主可以在[JSON 存储的运维](/zh/guide/essentials/data-storage#json-存储的运维)中查看详情。
+- 一个 `@Table` 值只对应一个实体类。同一插件的两个实体类若声明了相同的 `@Table` 值，会得到两份独立的缓存和两把互不排斥的表锁（与 6.2.5 相同），它们的写入彼此没有先后保证，上述各项保证在它们之间都不成立。
+
+### JSON 实体 id
+
+每个 JSON 实体存为 `<id>.json`。`insert` 创建新 id 时，若该 id 符合下列任一情况，就抛出指明该 id 的 `DataAccessException`（`DATA_ENTITY_INVALID`）予以拒绝，事务内外、所有操作系统上都一样：
+
+- 为空串，或含 `/`、`\`、NUL 或其他控制字符（U+0000 至 U+001F、U+007F）；
+- 是 `.` 或 `..`，或以点或空格结尾；
+- 是 Windows 设备名（`CON`、`PRN`、`AUX`、`NUL`、`COM1` 至 `COM9`、`LPT1` 至 `LPT9`，以及 `COM` 或 `LPT` 后跟上标 `¹`、`²` 或 `³`，不分大小写），无论带不带扩展名：`con.txt` 也会被拒绝，因为检查的是第一个点之前的部分；
+- 使文件名 `<id>.json` 的 UTF-8 长度超过 255 字节；
+- 指向服务器自身文件系统无法命名的文件，或其路径规则会把它解读为表文件夹中 `<id>.json` 以外的文件。在 Windows 上即含 `<`、`>`、`:`、`"`、`|`、`?` 或 `*` 的 id，包括以一个字母加冒号开头的 id（如 `c:foo` 或 `p:<uuid>`）：Windows 会把它当作盘符前缀，文件会变成另一个 id 的文件或落到数据文件夹之外。Linux 接受这些字符，所以 UltiRemoteBag 的 `<玩家 uuid>:<页码>` id 在 Linux 上照常可用。
+
+除最后一条由文件系统自己决定外，其余规则在所有操作系统上都一样。被拒绝的插入不会把事务标记为只能回滚。插入一个已有条目的 id 不做任何改动，也永远不会被拒绝；已存在的文件也绝不会因这些规则被改名或重写：它照常加载，对该 id 的读取、更新和删除照常可用。删除一个这些规则会拒绝的已有 id 后再插入它（在同一个事务中也一样）算作创建新 id，会被拒绝：要替换这样的条目，请用 `update`。6.2.5 会把含 `/` 或 `\` 的 id 写进子路径，读回时成为损坏的条目；在 Windows 上含 `:` 的 id 会被接受，之后每次刷新都失败。刷新若遇到文件系统无法命名的 id，会以指明表和 id 的错误失败，且不写入任何东西。启动恢复若在日志记录中遇到这样的 id（例如从 Linux 复制到 Windows 的记录），会以指明该记录、表和 id 的错误拒绝打开该插件的 JSON 数据，不改动任何文件，处理方式与损坏的记录相同。
+
+UUID 字符串作为 id 总是可用。小写字母、数字、`-` 和 `_` 是安全的字符，但由它们组成的 id 若是 Windows 设备名（`con`、`nul`、`aux`、`prn`、`com1` 至 `com9`、`lpt1` 至 `lpt9`，无论带不带扩展名），在所有操作系统上仍会被拒绝。不要用玩家名作为实体 id：`Con` 和 `Nul` 都是合法的玩家名。在 Windows 上，含 `<`、`>`、`:`、`"`、`|`、`?` 或 `*` 的 id 会在插入时被拒绝。这些规则会拒绝的已有 id 仍可读取、`update` 和删除，但删除后再插入会被拒绝；要替换这样的条目，请用 `update`。只有大小写不同的两个 id，在不区分大小写的文件系统（Windows，以及默认设置的 macOS）上指向同一个文件，会互相覆盖。
 
 ## 完整示例
 
@@ -138,7 +161,7 @@ JSON 后端的回滚是基于快照的：事务内第一次触碰某个操作器
 不回滚，也不打日志。在 v6.2.5 上，请改用本页前面的编程式写法，或者直接移除该注解。
 
 从 v6.3.0 起，`@Transactional` 已经在全部三个存储后端上端到端接线：SQLite 与 MySQL 通过每个插件
-一个的 `JdbcTransactionManager`，JSON 通过基于快照的 `JsonTransactionManager`。如果框架无法为某个
+一个的 `JdbcTransactionManager`，JSON 通过每个插件一个、暂存写入的 `JsonTransactionManager`（见 [JSON 事务行为](#json-事务行为)）。如果框架无法为某个
 声明了 `@Transactional` 的 bean 提供事务管理器，包括仅仅继承或扩展了带该注解的类，这个 bean 会在
 加载期直接被拒绝，而不是静默地不受事务保护地运行。
 
@@ -201,6 +224,15 @@ Jakarta Transactions 2.0 的 `TxType` 集合：
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/AuditService.java
 
+::: warning 失败的加入方方法会回滚整个事务（自 v6.3.0 起）
+在 SQLite、MySQL 与 JSON 上一致：加入活动事务的 `@Transactional` 方法（`REQUIRED`，或在事务中调用的 `SUPPORTS`、`MANDATORY`）抛出其 `rollbackFor`/`noRollbackFor` 规则认可的异常时，即使调用方捕获了该异常，整个事务也被标记为仅回滚。
+最外层提交随后回滚该事务的全部写入，并抛出 `UnexpectedRollbackException`。
+:::
+
+规则不认可的异常不会使事务无法提交。外层方法未捕获的加入方失败会使事务回滚，调用方收到原来的异常。调用方需要承受其失败的工作，应放进 `REQUIRES_NEW` 方法，它单独提交或回滚。
+
+嵌套的 `DataOperator#transaction(...)` 遵循同一规则。自 v6.3.0 起，在 SQLite、MySQL 与 JSON 上一致：嵌套调用的回调失败时，整个事务被标记为仅回滚，并不结束；外层之后的写入仍留在事务内，外层提交回滚全部内容并抛出 `UnexpectedRollbackException`。6.3.0 之前在 SQLite 与 MySQL 上，内层失败会立即结束事务，外层之后的写入在没有事务的情况下执行。需要承受某项工作的失败时，让内层失败向外传播，或者把这项工作放进 `REQUIRES_NEW` 方法。
+
 ### 隔离级别
 
 `isolation` 属性控制事务的隔离级别：
@@ -212,6 +244,8 @@ Jakarta Transactions 2.0 的 `TxType` 集合：
 | `READ_COMMITTED` | 脏读 | 大多数数据库 |
 | `REPEATABLE_READ` | 脏读、不可重复读 | 大多数数据库 |
 | `SERIALIZABLE` | 所有问题 | 所有数据库 |
+
+在 JSON 后端上，自 v6.3.0 起，`REPEATABLE_READ` 与 `SERIALIZABLE` 在事务第一次读取某张表时就锁住该表，得到表粒度的可重复读；其他级别在第一次写入时锁表，`READ_UNCOMMITTED` 按 `READ_COMMITTED` 处理。由 `DataOperator#transaction(...)` 开启的事务无论级别如何，都像 `REPEATABLE_READ` 一样在第一次读取时锁表；加入活动事务的 `transaction(...)` 沿用该事务的隔离级别。
 
 隔离级别越高，一致性保证越强，但性能影响越大。仅在需要严格隔离时使用 `SERIALIZABLE`：
 
@@ -281,11 +315,12 @@ public void processOrder(Order order) throws ValidationException {
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/PlayerRepository.java
 
+在 JSON 后端上，自 v6.3.0 起，`readOnly = true` 会拒绝写入。这种拒绝不会把事务标记为仅回滚：捕获它后事务仍可提交，与 SQLite、MySQL 上一条失败的语句相同。
+
 ### 超时配置
 
-::: tip 按语句设限，不是方法整体的墙钟限制
-`timeout` 把 `setQueryTimeout` 施加在事务内每一条语句上，针对一个共享的、不断缩小的预算。它不会
-打断方法内的非数据库工作，在 JSON 后端上会直接失败。
+::: tip JDBC 上按语句设限，JSON 上检查截止时间
+在 SQLite 与 MySQL 上，`timeout` 把 `setQueryTimeout` 施加在事务内每一条语句上，针对一个共享的、不断缩小的预算。在 JSON 上，每个数据操作都先检查截止时间。在所有后端上它都不会打断方法内的非数据库工作。
 :::
 
 `timeout` 是作为 JDBC `setQueryTimeout` 施加在事务内发出的每一条语句上的，针对的是一个从事务开始
@@ -293,8 +328,9 @@ public void processOrder(Order order) throws ValidationException {
 一个已经耗尽的预算依然快速失败。这不是对方法体整体的限制：方法内的非数据库工作（一次慢计算、
 一次对外网络调用）不会被打断，因为纯 JDBC 没有取消已经在途工作的机制。
 
-在 SQLite 与 MySQL 上按上述方式强制执行。在 JSON 后端上，正数的 `timeout` 会让事务直接失败，因为
-`JsonTransactionManager` 没有语句可设限：它的回滚是缓存快照恢复，不是 JDBC 操作。
+在 SQLite 与 MySQL 上按上述方式强制执行。在 JSON 后端上没有语句可设限，所以自 v6.3.0 起改为检查截止时间。事务内的每个数据操作都先检查它；截止时间过后开始的操作抛出 `DataAccessException`，消息以 `JSON transaction timeout` 开头。等待表锁也会在截止时间到达时结束（如果比 5 秒更早）。该失败在抛出之前把事务标记为仅回滚（与 Spring 在事务截止时间已过时的做法相同），因此捕获它并不能挽救事务：最外层提交会回滚并抛出 `UnexpectedRollbackException`。
+
+两类后端在这里有差别。在 SQLite 与 MySQL 上，截止时间之后发出的语句仍会执行，查询超时为 1 秒，并且不会标记事务为仅回滚。
 
 为长时间运行的事务设置超时（秒）：
 
