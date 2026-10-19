@@ -258,7 +258,7 @@ if (!written) {
 }
 ```
 
-在 MySQL 与 SQLite 上，检查与写入是同一条 `UPDATE ... WHERE id = ? AND <条件>` 语句，因此对共用同一个数据库的多台服务器同样成立。在 JSON 后端上，检查与写入在数据操作器的锁内完成；JSON 储存只属于一台服务器。条件的含义与 `getAll(WhereCondition...)` 中相同。
+在 MySQL 与 SQLite 上，检查与写入是同一条 `UPDATE ... WHERE id = ? AND <条件>` 语句，因此对共用同一个数据库的多台服务器同样成立。在 JSON 后端上，检查与写入在表锁下一起完成；JSON 储存只属于一台服务器。条件的含义与 `getAll(WhereCondition...)` 中相同。
 
 没有任何一行同时具有该实体的 id 并满足全部条件时，`updateIf` 返回 `false`，不写入任何内容；id 为 `null`、条件为 `null`、条件使用了实体没有用 `@Column` 映射的列，或在默认 `EQUAL` 以外的比较下条件的值为 `null` 时，各个后端都抛出 `DataAccessException`。自 v6.3.0 起，默认比较下的 `null` 期望值表示 `IS NULL`（JSON：字段不存在或为 JSON null），因此对读取时仍未设置的列做比较后写入时，若其间另一个写入方已写入该列，本次写入不生效；这一含义只属于 `updateIf`（[#640](https://github.com/UltiKits/UltiTools-Reborn/issues/640)）。框架之外的 `DataOperator` 实现如果没有实现它，会抛出 `UnsupportedOperationException`。
 
@@ -308,6 +308,8 @@ dataOperator.transaction(() -> {
 });
 ```
 
+在 JSON 后端上，由 `transaction(...)` 开启的事务在第一次读取或写入某张表时就锁住它（与 6.2.5 对每张表串行化一致），所以其中的“先读后写”不会丢失更新；其中的读取可能为等待持有该表的另一个事务而停顿，最多 5 秒。在默认隔离级别的 `@Transactional` 方法中，“先读后写”则改用 `updateIf` 或 `isolation = REPEATABLE_READ`，见[JSON 事务行为](/zh/guide/advanced/transactions#json-事务行为)。
+
 自 v6.3.0 起，事务自身的失败路径再失败时不会隐式提交（[#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)）：回滚或提交失败时，连接被丢弃（HikariCP 连接池会将其剔除），而不是重新打开自动提交（那样会提交该事务），因此事务中的内容不会被保存，调用方仍收到原来的异常。`transaction(...)` 中抛出的 `Error` 会使事务回滚（JSON 引擎丢弃暂存的写入），并原样抛出同一个实例。
 
 ## JSON 存储的运维 <Badge type="tip" text="v6.3.0+" />
@@ -318,6 +320,8 @@ dataOperator.transaction(() -> {
 - 备份时把 `.ultitools-journal` 文件夹与各表文件夹一起备份，或者在服务器停止时备份。`cp dir/*` 这类复制会跳过以点开头的文件夹。
 - 永远不要删除 `.ultitools-journal`，崩溃之后也不要：里面保存着尚未写入表文件的提交。
 - 崩溃之后，手工编辑任何 JSON 数据文件之前先启动一次服务器：启动会重放日志，并会覆盖你的编辑。
-- 断电后发现最新的日志记录损坏，通常说明磁盘或其控制器没有遵守刷盘请求。该插件的 JSON 数据会保持关闭，直到你把指明的文件移出日志文件夹。
+- 断电后发现最新的日志记录损坏，通常说明磁盘或其控制器没有遵守刷盘请求。该插件的 JSON 数据会保持关闭，直到你把指明的文件移出日志文件夹并重启服务器。在加载时就获取数据操作器的模块（所有官方模块都是如此）会在那次启动时被拒绝加载；只有在加载完成之后才首次请求数据的插件，会在下一次请求时恢复，无需重启。
 - 某个实体文件持续无法移动（例如被其他程序一直锁着）会使该插件的每次刷新都无法清空日志：记录不断累积，启动恢复变慢，每次失败的刷新都会出现在服务器日志里。
 - 在 Windows 上，被其他程序（杀毒软件、索引器、备份工具）短暂占用的日志文件移动，最多重试 150 毫秒，之后提交失败。
+- id 中含 `<`、`>`、`:`、`"`、`|`、`?` 或 `*` 的 JSON 数据文件夹（UltiRemoteBag 的编辑占用记录使用 `:`）无法从 Linux 复制到 Windows：Windows 无法创建这些文件。id 只有大小写不同的数据也无法迁移到 Windows 或默认设置的 macOS 卷：文件会互相冲突。若含这类 id 的日志记录到了 Windows 服务器上，启动时该插件的 JSON 数据会保持关闭，错误信息指明该记录：请在写下它的 Linux 服务器上应用它，或把它移出日志文件夹并放弃其中的改动。
+- 新 id 在创建时检查，已有文件绝不会被改名，见 [JSON 实体 id](/zh/guide/advanced/transactions#json-实体-id)。id 请只用小写字母、数字、`-` 和 `_`；UUID 字符串总是可用。
