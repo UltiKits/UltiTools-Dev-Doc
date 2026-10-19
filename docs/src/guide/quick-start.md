@@ -99,6 +99,8 @@ instead.
 
 On `/ul reload`, the framework logs one line naming the module after `onReload()` has returned. A module whose existing override only logged its own reload no longer needs that log line and can delete the override. A module with real reload or unload work renames its existing `reloadSelf()`/`unregisterSelf()` override to `onReload()`/`onUnregister()`. Remove every `super.unregisterSelf()` call from the renamed hook, keep the module's real cleanup work, and let the framework unregister commands and listeners after `onUnregister()` returns.
 
+As of v6.3.0, `onUnregister()` may throw anything, including a checked exception it does not declare. The framework still unregisters the module's commands and listeners, closes its container and removes it from the loaded modules, then rethrows the hook's own exception to the caller unchanged, the same instance and never wrapped. If a later cleanup step also fails, that failure is attached to the hook's exception as a suppressed exception instead of replacing it.
+
 <<< @/../examples/src/main/java/com/ultikits/docs/quickstart/MyPlugin.java
 
 Then you have completed an UltiTools module that does nothing.

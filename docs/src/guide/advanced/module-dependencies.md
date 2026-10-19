@@ -45,7 +45,7 @@ The console names the full cycle as a path, `A -> B -> C -> A`, and says which m
 
 As of v6.3.0, a module declaring several missing `depends` targets at once is named all of them in one console line, not just the first — you no longer need to fix one, restart, and discover the next.
 
-As of v6.3.0, when one start has both a missing dependency and a separate cycle, the console reports all of it: the missing dependency, each cycle as a path, and a final `Not loaded:` line that names every module it did not load.
+As of v6.3.0, when one start has both a missing dependency and an independent cycle, the modules refused are the declaring module, the modules that require it through `depends`, the cycle members and every module ordered after them. The console names the missing dependency, each cycle as a `Loop:` path and every module that did not load on a `Not loaded:` line. A cycle with no missing dependency is refused as before.
 
 ## A required server plugin is missing
 

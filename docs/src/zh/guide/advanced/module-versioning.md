@@ -231,6 +231,8 @@ python3 scripts/symcheck.py 你的模块.jar UltiTools-API-<你声明的下限>.
 
 自 v6.3.0 起，这样被拒绝的模块会计入启动摘要 `[UltiTools-API] Succeeded loaded <s>, Failed <f>.` 中的 `Failed`。本次启动中其它未能加载的模块 JAR 也同样计入：读取主类时被拒绝的、因缺少必需插件或依赖成环而被排除的，以及注册失败的。已加载模块的第二个副本不计入。模块目录中的 JAR 全部被拒绝时，摘要为 `Succeeded loaded 0, Failed <n>.`；`No UltiTools plugin found.` 只在目录中没有任何模块 JAR 时出现。v6.3.0 之前，摘要只统计进入注册阶段的模块，所以一次拒绝了模块的启动仍可能打印 `Failed 0`。
 
+自 v6.3.0 起，主类仍重写 `unregisterSelf()` 或 `reloadSelf()`（二者自 6.3.0 起为 `final`）的模块会在加载时被整体拒绝，日志为上面的 `built against an older UltiTools-API version` 一行；在 `@PluginDependency(depends = ...)` 中声明依赖它的模块也会被拒绝，与任何缺失的硬依赖相同。只在 `softDepends`、`loadBefore` 或 `loadAfter` 中提到它的模块仍会加载，其余无关模块同样照常加载。修复办法是换用为当前 UltiTools-API 版本构建的模块版本；模块作者需把重写中的工作移到 `onUnregister()` 或 `onReload()`。
+
 [jls13]: https://docs.oracle.com/javase/specs/jls/se21/html/jls-13.html
 
 ### 新增的注解属性
@@ -312,7 +314,7 @@ ultirecipe 没有可以安装在本服务器上的版本。本 UltiTools-API 的
 
 如果这次删除也无法记录，例如文件系统是只读的，`/upm uninstall` 的回复只列出需要手动删除的模块 JAR，并另起一行说明这次删除未能记录，因此下次启动不会删除它们。
 
-如果模块自己的卸载钩子抛出异常，包括它没有声明的受检异常，卸载仍会注销该模块的命令和监听器，在回复中说明卸载过程抛出了异常，并继续删除 JAR。
+如果模块自己的卸载钩子抛出异常，包括它没有声明的受检异常，框架仍会释放该模块注册的全部内容：命令、监听器、计划任务、Tab 补全器、EventBus 处理器和面板响应器，并关闭它的容器。`/upm uninstall` 的回复先是一行错误，说明模块已从已加载列表移除、但其卸载过程抛出了异常（详情见控制台），随后是一行说明该模块的 JAR 已删除。
 
 ## 各模块的现状
 

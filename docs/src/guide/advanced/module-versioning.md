@@ -231,6 +231,8 @@ As of v6.3.0, a framework API linkage error naming a type under `com.ultikits.ul
 
 As of v6.3.0, a module refused this way is counted in the `Failed` number of the start-up summary `[UltiTools-API] Succeeded loaded <s>, Failed <f>.`, as is every other module JAR of that start that did not load: one refused while its main class is read, one excluded for a missing required plugin or a dependency cycle, and one whose registration failed. A second copy of a module that did load is not counted. When every JAR in the modules folder is refused, the summary reads `Succeeded loaded 0, Failed <n>.`; `No UltiTools plugin found.` appears only when the folder holds no module JAR. Before v6.3.0 the summary counted only modules that reached registration, so a start that refused a module could still print `Failed 0`.
 
+As of v6.3.0, a module whose main class still overrides `unregisterSelf()` or `reloadSelf()`, both `final` since 6.3.0, is refused whole at load with the `built against an older UltiTools-API version` line above, and a module that names it in `@PluginDependency(depends = ...)` is refused too, as for any missing hard dependency. A module that lists it only under `softDepends`, `loadBefore` or `loadAfter` still loads, and so does every unrelated module. The fix is a release of the module built for the current UltiTools-API version; module authors move the override's work to `onUnregister()` or `onReload()`.
+
 [jls13]: https://docs.oracle.com/javase/specs/jls/se21/html/jls-13.html
 
 ### New annotation attributes
@@ -312,7 +314,7 @@ As of v6.3.0, before the next start deletes a recorded JAR it confirms that the 
 
 If the deletion cannot be recorded either, for example on a read-only file system, the reply to `/upm uninstall` names only the module JARs to delete by hand and says on a separate line that the deletion could not be recorded, so the next start will not delete them.
 
-If a module's own unload hook throws, including an exception it does not declare, the uninstall still unregisters that module's commands and listeners, reports that the unload threw, and goes on to delete the JAR.
+If a module's own unload hook throws, including a checked exception it does not declare, the framework still releases everything the module registered: its commands, listeners, scheduled tasks, tab-completion completers, EventBus handlers and panel responders, and its container is closed. The reply to `/upm uninstall` is then an error line saying the module was removed from the loaded modules but its unload threw (details are in the console), followed by a line saying the module's JARs were deleted.
 
 ## Current state of the modules
 
