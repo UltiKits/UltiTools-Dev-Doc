@@ -293,6 +293,17 @@ WhereCondition.builder().column("somecol").value(someval).build();
 
 `column` is used to specify the column to be queried, and `value` is used to specify the value to be queried.
 
+#### Comparisons <Badge type="tip" text="v6.3.0+" />
+
+As of v6.3.0 a comparison other than `EQUAL` means the same in `getAll`, `exist`, `page`, `del` and `updateIf` on SQLite, MySQL and JSON, and no table is changed. 6.2.5's SQLite and MySQL operators matched every condition by equality.
+
+- `INCLUDE`, `STARTSWITH` and `ENDSWITH` match the value literally as text on every backend: `%`, `_`, `!` and `\` are ordinary characters, not wildcards or escapes. `getLike` and `Query#like` keep pattern semantics.
+- Letter case and accents follow the backend: SQLite ignores the case of ASCII letters only; MySQL compares under the `utf8mb3_general_ci` collation of the tables the framework creates, which ignores case and accents (`é` matches `e`); JSON compares exactly.
+- `GREATER` and `LESS` on a `byte`, `short`, `int`, `long`, `float` or `double` field (or its wrapper) compare numbers of the field's type on SQLite and JSON. Pass the value as a number of that type (`10`, not `"10"`): on MySQL a string value compares as text, so `"10"` sorts below `"2"`. On SQLite the typed comparison holds also in a column left on the default `VARCHAR(255)` type, with 64-bit integer precision, and a stored value compares the way it reads back: a `float` `0.1f` is neither greater nor less than `0.1f`. That read-back comparison applies to a value that is a finite number; an infinite value, a number beyond `double` range and any text are compared as bound, so `GREATER Float.POSITIVE_INFINITY` matches no row, and NaN matches no row. JSON does not support an infinite or NaN value: a condition holding one throws `IllegalArgumentException` when it is evaluated.
+- On MySQL a numeric field left in a default text column compares in double precision, exact up to ±9,007,199,254,740,992 (2^53) and approximate beyond. Declare a numeric column `type` such as `BIGINT` where exact results matter. On JSON the values are compared as `double`, also approximate beyond 2^53.
+- `exist(...)` works on SQLite; in 6.2.x it threw `ClassCastException` there.
+- Known limitations: on SQLite a `double` in a default column is stored with 15 significant digits, so `1/3.0` reads back and compares as `0.333333333333333`; declare `type = "DOUBLE"` to keep every digit. Non-numeric text written by hand into a numeric field's column compares on SQLite as its leading number (`'abc'` as 0, `'12abc'` as 12), while JSON compares it as text. On SQLite a number that agrees with a stored `float` to 15 significant digits but differs after them (for example a whole number of 10^15 or more such as `(1L << 53) + 1`, or a decimal with 16 or more significant digits) compares as equal to it, in a default and in a `REAL` column; pass a `float` value for a `float` field. On SQLite a NaN comparison value is bound as NULL, so a condition holding it matches no row and an `updateIf` with it never applies; do not retry `updateIf` on a NaN threshold.
+
 ### Transactions <Badge type="tip" text="v6.2.0+" />
 
 For operations that need to succeed or fail together, see the [Transactions](/guide/advanced/transactions) guide.
@@ -312,7 +323,15 @@ dataOperator.transaction(() -> {
 
 On the JSON backend, a transaction begun by `transaction(...)` locks each table at its first read or write, as 6.2.5 serialized each table, so a read-modify-write inside it cannot lose an update; a read inside it can wait, at most 5 seconds, for another transaction that holds the table. In a `@Transactional` method at the default isolation, read-modify-write uses `updateIf` or `isolation = REPEATABLE_READ` instead; see [JSON Transaction Behavior](/guide/advanced/transactions#json-transaction-behavior).
 
-As of v6.3.0 a transaction whose own failure path fails never ends in an implicit commit ([#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)): when its rollback or its commit fails, the connection is discarded (a HikariCP pool evicts it) instead of being switched back to auto-commit, which would commit it, so nothing of the transaction is stored and the caller still gets the original exception. An `Error` thrown inside `transaction(...)` rolls the transaction back (the JSON engine discards the staged writes) and is rethrown as the same instance.
+As of v6.3.0 a transaction whose own failure path fails never ends in an implicit commit ([#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)): when its rollback or its commit fails, the connection is discarded (a HikariCP pool evicts it) instead of being switched back to auto-commit, which would commit it, and the framework never retries the commit. What is stored afterwards depends on where the failure happened:
+
+- When the action fails and the rollback succeeds, nothing is stored.
+- When a SQLite or MySQL rollback fails, including the real rollback an outer commit performs for a rollback-only transaction, the framework issues no commit.
+- When the commit throws `UnexpectedRollbackException` because the transaction was marked rollback-only, the transaction was rolled back and none of its writes is stored, on every backend.
+- When a SQLite or MySQL commit itself fails (`DataAccessException`, `TRANSACTION_FAILED`), the outcome is unknown: the database may have applied the commit before its acknowledgement was lost, for example on a dropped MySQL connection, and discarding the connection cannot undo that. Code that must not apply a write twice, such as a payment or a reward, re-reads the data or uses `updateIf` before trying again.
+- On JSON, a commit that fails commits nothing.
+
+The caller gets the original exception, or `UnexpectedRollbackException` for a rollback-only transaction. An `Error` thrown inside `transaction(...)` rolls the transaction back (the JSON engine discards the staged writes) and is rethrown as the same instance.
 
 ## Operating JSON Storage <Badge type="tip" text="v6.3.0+" />
 

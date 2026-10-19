@@ -291,6 +291,17 @@ WhereCondition.builder().column("somecol").value(someval).build();
 
 其中，`column` 属性用于指定查询的列，`value` 属性用于指定查询的值。
 
+#### 比较方式 <Badge type="tip" text="v6.3.0+" />
+
+自 v6.3.0 起，`EQUAL` 以外的比较方式在 SQLite、MySQL 和 JSON 上，于 `getAll`、`exist`、`page`、`del` 和 `updateIf` 中含义一致，且不改动任何表。6.2.5 的 SQLite 与 MySQL 实现把所有条件都按相等匹配。
+
+- `INCLUDE`、`STARTSWITH` 和 `ENDSWITH` 在所有后端都把值作为文本字面匹配：`%`、`_`、`!` 和 `\` 都是普通字符，不是通配符或转义符。`getLike` 和 `Query#like` 保持模式匹配语义。
+- 字母大小写和重音取决于后端：SQLite 只忽略 ASCII 字母的大小写；MySQL 按框架建表时使用的 `utf8mb3_general_ci` 排序规则比较，同时忽略大小写和重音（`é` 能匹配 `e`）；JSON 精确比较。
+- `GREATER` 和 `LESS` 用于 `byte`、`short`、`int`、`long`、`float` 或 `double` 字段（或其包装类型）时，在 SQLite 和 JSON 上按该字段类型的数值比较。请以该类型的数字传值（`10`，而不是 `"10"`）：在 MySQL 上字符串值按文本比较，于是 `"10"` 排在 `"2"` 之前。在 SQLite 上，列保持默认 `VARCHAR(255)` 类型时同样按类型比较，整数保持 64 位精度，所存的值按读回时的值比较：`0.1f` 这样的 `float` 既不大于也不小于 `0.1f`。这种按读回值的比较只适用于有限数字的值；无穷大、超出 `double` 范围的数字以及任何文本都按绑定时的值比较，因此 `GREATER Float.POSITIVE_INFINITY` 不匹配任何行，NaN 值也不匹配任何行。JSON 不支持无穷大或 NaN 值：含有这种值的条件在求值时会抛出 `IllegalArgumentException`。
+- 在 MySQL 上，留在默认文本列中的数值字段按双精度比较，在 ±9,007,199,254,740,992（2^53）以内精确，超出则只是近似。需要精确结果时，请为该列声明数值 `type`，例如 `BIGINT`。在 JSON 上按 `double` 比较，超出 2^53 时同样是近似的。
+- `exist(...)` 在 SQLite 上可用；6.2.x 在那里会抛出 `ClassCastException`。
+- 已知限制：在 SQLite 上，默认列中的 `double` 只保存 15 位有效数字，因此 `1/3.0` 读回和比较都按 `0.333333333333333`；要保留全部数字，请声明 `type = "DOUBLE"`。手工写入数值字段列的非数字文本，在 SQLite 上按其开头的数字比较（`'abc'` 为 0，`'12abc'` 为 12），JSON 则按文本比较。在 SQLite 上，与所存 `float` 前 15 位有效数字相同、之后才不同的任何数值（例如 10^15 及以上的整数如 `(1L << 53) + 1`，或有 16 位及以上有效数字的小数）会被视为与它相等，默认列和 `REAL` 列都如此；对 `float` 字段请传 `float` 值。在 SQLite 上，NaN 比较值会被绑定为 NULL，因此含它的条件不匹配任何行，带它的 `updateIf` 也永远不会生效；请勿对 NaN 阈值重试 `updateIf`。
+
 ### 事务 <Badge type="tip" text="v6.2.0+" />
 
 对于需要同时成功或同时失败的操作，请参阅[事务](/zh/guide/advanced/transactions)指南。
@@ -310,7 +321,15 @@ dataOperator.transaction(() -> {
 
 在 JSON 后端上，由 `transaction(...)` 开启的事务在第一次读取或写入某张表时就锁住它（与 6.2.5 对每张表串行化一致），所以其中的“先读后写”不会丢失更新；其中的读取可能为等待持有该表的另一个事务而停顿，最多 5 秒。在默认隔离级别的 `@Transactional` 方法中，“先读后写”则改用 `updateIf` 或 `isolation = REPEATABLE_READ`，见[JSON 事务行为](/zh/guide/advanced/transactions#json-事务行为)。
 
-自 v6.3.0 起，事务自身的失败路径再失败时不会隐式提交（[#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)）：回滚或提交失败时，连接被丢弃（HikariCP 连接池会将其剔除），而不是重新打开自动提交（那样会提交该事务），因此事务中的内容不会被保存，调用方仍收到原来的异常。`transaction(...)` 中抛出的 `Error` 会使事务回滚（JSON 引擎丢弃暂存的写入），并原样抛出同一个实例。
+自 v6.3.0 起，事务自身的失败路径再失败时不会隐式提交（[#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)）：回滚或提交失败时，连接被丢弃（HikariCP 连接池会将其剔除），而不是重新打开自动提交（那样会提交该事务），框架也不会重试提交。之后保存了什么，取决于失败发生在哪里：
+
+- 操作失败且回滚成功时，未保存任何写入。
+- SQLite 或 MySQL 的回滚失败时（包括外层提交为仅回滚的事务执行的真正回滚），框架不发出提交。
+- 提交因事务已被标记为仅回滚而抛出 `UnexpectedRollbackException` 时，事务已回滚，其写入均未保存，所有后端都是如此。
+- SQLite 或 MySQL 的提交本身失败（`DataAccessException`，`TRANSACTION_FAILED`）时，结果未知：数据库可能在确认丢失之前已经应用了该提交（例如 MySQL 连接断开），丢弃连接无法撤销它。不能重复写入的代码（例如支付、奖励）在重试前应先重新读取数据，或使用 `updateIf`。
+- 在 JSON 上，失败的提交不会提交任何内容。
+
+调用方收到原来的异常；事务被标记为仅回滚时收到 `UnexpectedRollbackException`。`transaction(...)` 中抛出的 `Error` 会使事务回滚（JSON 引擎丢弃暂存的写入），并原样抛出同一个实例。
 
 ## JSON 存储的运维 <Badge type="tip" text="v6.3.0+" />
 
