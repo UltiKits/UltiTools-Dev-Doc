@@ -95,7 +95,7 @@ Transactions work transparently across all storage backends:
 | Backend | Mechanism |
 |---------|-----------|
 | **MySQL / SQLite** | Uses JDBC transactions (`Connection.setAutoCommit(false)`, commit/rollback) |
-| **JSON** | Uses snapshot-based rollback (copies data before changes, restores on failure) |
+| **JSON** | Stages writes per transaction (as of v6.3.0): they are held for the transaction, applied together at commit, discarded on rollback, and invisible to other threads until commit |
 
 You don't need to know which backend is active — the same transaction API works for all storage types.
 
@@ -105,13 +105,24 @@ JDBC statement paths that used to bypass it: a batch insert whose third row viol
 constraint leaves zero rows on any backend, not just JSON.
 :::
 
-::: warning Whole-cache rollback on the JSON backend
-JSON rollback restores an operator's entire in-memory cache from a snapshot, not individual entities. This affects `Propagation.REQUIRES_NEW` and `NOT_SUPPORTED` when both scopes write to the same operator.
+::: tip JSON transactions are staged, atomic and durable (as of v6.3.0)
+A JSON transaction stages its writes, commits them atomically across all of a plugin's tables, and survives a crash whole. Other threads see only committed data.
 :::
 
-The JSON backend's rollback is snapshot-based: on first touch inside a transaction, an operator's entire in-memory cache is deep-copied, and on failure the whole cache is restored from that snapshot. This is whole-cache granularity, not a per-entity undo.
+### JSON Transaction Behavior
 
-It matters specifically for `Propagation.REQUIRES_NEW` and `NOT_SUPPORTED` (covered later on this page): an inner scope's independence from an outer one is only observable when the two scopes touch *different* `DataOperator` instances. If both write to the *same* operator, the outer scope's eventual rollback discards the inner scope's already-committed write too.
+As of v6.3.0, writes inside a JSON transaction are staged for that transaction, and the transaction's own reads see them. Other threads see only committed data. Commit applies the staged writes together; rollback discards them and never touches anything that was committed. What module authors may notice:
+
+- Other threads see each commit at one instant across all of the plugin's tables: one read returns all of a commit's changes or none of them. A transaction that covers several tables of one plugin commits as one unit and stays all-or-nothing across a crash.
+- The first write to a table inside a transaction locks that table against other writers until the transaction ends. A plain write outside a transaction waits for that lock too. A read at the default isolation never waits for a table lock.
+- A write that meets a locked table waits at most 5 seconds, or until the transaction's `timeout` deadline if that comes sooner, and then fails with a `DataAccessException` whose message starts `JSON write failed with a lock-wait timeout`. A wait that would complete a cycle (each of two transactions waiting for the other) fails the call that closes the cycle at once, with a message starting `JSON write failed with a deadlock`. The framework does not retry either failure.
+- Either failure marks its transaction rollback-only before the exception is thrown, so catching the exception inside the transaction does not save it: the outermost commit rolls back everything the transaction wrote and throws `UnexpectedRollbackException`. The transaction keeps its table locks until it ends.
+- At the default isolation, two transactions can both read the same value, and the second then writes a value computed from what it read before the first committed. That lost update is not prevented. Code that computes a write from a value it read uses `DataOperator#updateIf`, whose check and write run together under the table lock, or `@Transactional(isolation = Isolation.REPEATABLE_READ)` or `Isolation.SERIALIZABLE`, which lock the table at the first read.
+- `REQUIRES_NEW` and `NOT_SUPPORTED` commit independently of the outer transaction. One difference from SQLite and MySQL: such a method runs on the same thread as the caller it suspended, and table locks belong to the thread, so it does not wait for the locks its caller holds. If it writes a key its caller already staged, the outer commit's value is the one that stays.
+- A commit that changed something writes one journal record and forces it to disk before it returns, so it waits for the disk on the committing thread, which is often the server's main thread. A transaction that changed nothing writes and forces nothing.
+- Durability: "durable once `commit` returns" holds fully on Linux. On Windows and macOS it holds against a server crash, but a power loss or operating-system crash can lose the last whole commits. A lost commit is lost whole, never half.
+- A directory that cannot be forced to disk because of a real I/O error is logged at `WARNING` (`Could not force the directory <directory> to disk ...`). A commit made while that happens is committed and survives a server crash, and it survives a power loss only once the next flush has completed.
+- If a committed journal record is found damaged at start-up, that plugin's JSON data stays closed: its data operations fail with an error naming the file, until the server operator moves the file out of the journal folder. The framework never deletes, skips or applies the damaged record, and other plugins are not affected. Server operators find the details under [Operating JSON storage](/guide/essentials/data-storage#operating-json-storage).
 
 ## Complete Example
 
@@ -129,7 +140,7 @@ Through v6.2.5, `@Transactional` was never read: no interceptor ran, so annotate
 
 The `aop` package that creates the proxies was not referenced anywhere outside itself through v6.2.5: no bean post processor was registered and `TransactionInterceptor` was never instantiated, so an annotated method took exactly the same path as an unannotated one, with no commit, no rollback, and no log line. On v6.2.5, use the programmatic form shown earlier on this page instead, or drop the annotation.
 
-Starting in v6.3.0, `@Transactional` is wired end to end on all three storage backends: SQLite and MySQL through a per-plugin `JdbcTransactionManager`, JSON through a snapshot-based `JsonTransactionManager`. A bean that declares `@Transactional`, including one that merely inherits or extends a class that does, is rejected at load time if the framework cannot supply a transaction manager for it, rather than silently running untransacted.
+Starting in v6.3.0, `@Transactional` is wired end to end on all three storage backends: SQLite and MySQL through a per-plugin `JdbcTransactionManager`, JSON through a per-plugin `JsonTransactionManager` that stages writes (see [JSON Transaction Behavior](#json-transaction-behavior)). A bean that declares `@Transactional`, including one that merely inherits or extends a class that does, is rejected at load time if the framework cannot supply a transaction manager for it, rather than silently running untransacted.
 
 The `@Transactional` annotation provides declarative transaction management on service methods. This approach is cleaner than programmatic transactions and integrates seamlessly with the IoC container.
 
@@ -185,6 +196,15 @@ Example with `REQUIRES_NEW`:
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/AuditService.java
 
+::: warning A failing joined method rolls back the whole transaction (as of v6.3.0)
+On SQLite, MySQL and JSON alike, a `@Transactional` method that joins an active transaction (`REQUIRED`, or `SUPPORTS` or `MANDATORY` inside one) and throws an exception its `rollbackFor`/`noRollbackFor` rules accept marks the whole transaction rollback-only, even when the caller catches the exception.
+The outermost commit then rolls back every write of the transaction and throws `UnexpectedRollbackException`.
+:::
+
+An exception the rules do not accept leaves the transaction committable. A joined failure that the outer method does not catch rolls the transaction back, and the caller receives the original exception. Work whose failure the caller wants to survive goes in a `REQUIRES_NEW` method, which commits or rolls back on its own.
+
+The same rule applies to a nested `DataOperator#transaction(...)` call. As of v6.3.0, on SQLite, MySQL and JSON alike, a nested call whose callback fails marks the whole transaction rollback-only and does not end it. The outer scope's later writes stay inside the transaction, and the outer commit rolls everything back and throws `UnexpectedRollbackException`. Before 6.3.0 on SQLite and MySQL, the inner failure ended the transaction at once, and the outer scope's later writes ran without one. To survive the failure of a piece of work, let the inner failure propagate or do that work in a `REQUIRES_NEW` method.
+
 ### Isolation Levels
 
 The `isolation` attribute controls the isolation level for the transaction:
@@ -196,6 +216,8 @@ The `isolation` attribute controls the isolation level for the transaction:
 | `READ_COMMITTED` | Dirty reads | Most databases |
 | `REPEATABLE_READ` | Dirty reads, non-repeatable reads | Most databases |
 | `SERIALIZABLE` | All consistency issues | All databases |
+
+On the JSON backend, as of v6.3.0, `REPEATABLE_READ` and `SERIALIZABLE` lock a table at the transaction's first read of it, which gives repeatable reads at table granularity. The other levels lock a table at the first write and serve `READ_UNCOMMITTED` as `READ_COMMITTED`.
 
 Higher isolation levels provide stronger consistency guarantees but may impact performance. Use `SERIALIZABLE` only when strict isolation is critical:
 
@@ -263,15 +285,19 @@ Mark read-only query methods with `readOnly = true` to allow the database to app
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/PlayerRepository.java
 
+On the JSON backend, as of v6.3.0, `readOnly = true` rejects writes. The refusal does not mark the transaction rollback-only: catching it leaves the transaction committable, as a failed statement does on SQLite and MySQL.
+
 ### Timeout Configuration
 
-::: tip Per-statement bound, not a method-wide wall clock
-`timeout` applies `setQueryTimeout` to each JDBC statement inside the transaction, against a shared budget that shrinks as the transaction progresses. It never interrupts non-database work, and it fails outright on the JSON backend.
+::: tip Per-statement bound on JDBC, deadline check on JSON
+On SQLite and MySQL, `timeout` applies `setQueryTimeout` to each JDBC statement inside the transaction, against a shared budget that shrinks as the transaction progresses. On JSON, every data operation checks the deadline first. On every backend it never interrupts non-database work.
 :::
 
 `timeout` is enforced as a JDBC `setQueryTimeout` on every statement issued inside the transaction, against a shared deadline that starts when the transaction begins. Each statement gets whatever time is left in that budget when it is prepared, floored at 1 second so an exhausted budget still fails fast. This is not a bound on the method body as a whole: non-database work inside the method, such as a slow computation or an outbound network call, is never interrupted, because plain JDBC has no mechanism to cancel work already in flight.
 
-On SQLite and MySQL, timeout is enforced as described. On the JSON backend, a positive `timeout` fails the transaction outright, because `JsonTransactionManager` has no statement to bound: its rollback is a cache-snapshot restore, not a JDBC operation.
+On SQLite and MySQL, timeout is enforced as described. On the JSON backend there is no statement to bound, so the deadline is checked instead, as of v6.3.0. Every data operation inside the transaction checks it first, and an operation started after it has passed fails with a `DataAccessException` whose message starts `JSON transaction timeout`. A wait for a table lock also ends at the deadline when that comes sooner than 5 seconds. That failure marks the transaction rollback-only before it is thrown, as Spring does when a transaction's deadline has passed, so catching it does not save the transaction: the outermost commit rolls back and throws `UnexpectedRollbackException`.
+
+This is a difference between the backends. On SQLite and MySQL, a statement issued after the deadline still runs, with a query timeout of 1 second, and nothing is marked rollback-only.
 
 Set a timeout (in seconds) for long-running transactions:
 
