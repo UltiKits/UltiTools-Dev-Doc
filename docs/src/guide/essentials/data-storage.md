@@ -299,7 +299,7 @@ For operations that need to succeed or fail together, see the [Transactions](/gu
 
 ::: tip MySQL and SQLite run this block in one JDBC transaction
 As of v6.3.0 the MySQL and SQLite stores give every operator they hand out a transaction manager ([#307](https://github.com/UltiKits/UltiTools-Reborn/issues/307)), so `transaction(...)` runs in a JDBC transaction and the two inserts below are committed or rolled back together.
-The JSON backend restores a snapshot of its entries instead.
+As of v6.3.0 the JSON backend stages the callback's writes and commits them together or not at all.
 :::
 
 ```java
@@ -310,4 +310,16 @@ dataOperator.transaction(() -> {
 });
 ```
 
-As of v6.3.0 a transaction whose own failure path fails never ends in an implicit commit ([#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)): when its rollback or its commit fails, the connection is discarded (a HikariCP pool evicts it) instead of being switched back to auto-commit, which would commit it, so nothing of the transaction is stored and the caller still gets the original exception. An `Error` thrown inside `transaction(...)` rolls the transaction back, or restores the JSON snapshot, and is rethrown as the same instance.
+As of v6.3.0 a transaction whose own failure path fails never ends in an implicit commit ([#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)): when its rollback or its commit fails, the connection is discarded (a HikariCP pool evicts it) instead of being switched back to auto-commit, which would commit it, so nothing of the transaction is stored and the caller still gets the original exception. An `Error` thrown inside `transaction(...)` rolls the transaction back (the JSON engine discards the staged writes) and is rethrown as the same instance.
+
+## Operating JSON Storage <Badge type="tip" text="v6.3.0+" />
+
+As of v6.3.0, every plugin's JSON tables have a hidden `.ultitools-journal` folder beside them. Committed transactions are written there and forced to disk before `commit` returns, and the next start replays them into the table files. In a server it is `plugins/UltiTools/data/<plugin name>/.ultitools-journal`. See the [Transactions](/guide/advanced/transactions#json-transaction-behavior) guide for what a transaction guarantees.
+
+- Run one server process per data folder. Two servers must never use the same `plugins` data folder at the same time.
+- Back up the `.ultitools-journal` folder together with the table folders, or back up with the server stopped. A copy such as `cp dir/*` skips folders whose name starts with a dot.
+- Never delete `.ultitools-journal`, not even after a crash: it holds commits that are not yet in the table files.
+- After a crash, start the server once before you edit any JSON data file by hand: the start replays the journal and would overwrite the edit.
+- A damaged newest journal record after a power cut usually means the disk or its controller did not honour flush requests. The plugin's JSON data stays closed until you move the named file out of the journal folder.
+- One entity file that keeps failing to move (for example, a file another program keeps locked) stops every flush of that plugin from emptying the journal: records accumulate, start-up recovery takes longer, and each failed flush is reported in the server log.
+- On Windows, a journal file move that another program (an antivirus scanner, an indexer, a backup tool) briefly holds is retried for at most 150 ms before the commit fails.

@@ -297,7 +297,7 @@ WhereCondition.builder().column("somecol").value(someval).build();
 
 ::: tip MySQL 与 SQLite 在一个 JDBC 事务中执行这段代码
 自 v6.3.0 起，MySQL 与 SQLite 储存为其交出的每个操作器注入事务管理器（[#307](https://github.com/UltiKits/UltiTools-Reborn/issues/307)），因此 `transaction(...)` 在 JDBC 事务中执行，下面两条插入一起提交或一起回滚。
-JSON 后端则恢复其条目的快照。
+自 v6.3.0 起，JSON 后端暂存回调的写入，一起提交或一起不提交。
 :::
 
 ```java
@@ -308,4 +308,16 @@ dataOperator.transaction(() -> {
 });
 ```
 
-自 v6.3.0 起，事务自身的失败路径再失败时不会隐式提交（[#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)）：回滚或提交失败时，连接被丢弃（HikariCP 连接池会将其剔除），而不是重新打开自动提交（那样会提交该事务），因此事务中的内容不会被保存，调用方仍收到原来的异常。`transaction(...)` 中抛出的 `Error` 会使事务回滚（JSON 则恢复快照），并原样抛出同一个实例。
+自 v6.3.0 起，事务自身的失败路径再失败时不会隐式提交（[#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)）：回滚或提交失败时，连接被丢弃（HikariCP 连接池会将其剔除），而不是重新打开自动提交（那样会提交该事务），因此事务中的内容不会被保存，调用方仍收到原来的异常。`transaction(...)` 中抛出的 `Error` 会使事务回滚（JSON 引擎丢弃暂存的写入），并原样抛出同一个实例。
+
+## JSON 存储的运维 <Badge type="tip" text="v6.3.0+" />
+
+自 v6.3.0 起，每个插件的 JSON 表旁边都有一个隐藏的 `.ultitools-journal` 文件夹。已提交的事务会在 `commit` 返回之前写入其中并强制落盘，下次启动时重放进表文件。服务器中它位于 `plugins/UltiTools/data/<插件名>/.ultitools-journal`。事务提供的保证见[事务](/zh/guide/advanced/transactions#json-事务行为)指南。
+
+- 一个数据文件夹只运行一个服务器进程：两个服务器绝不能同时使用同一个 `plugins` 数据文件夹。
+- 备份时把 `.ultitools-journal` 文件夹与各表文件夹一起备份，或者在服务器停止时备份。`cp dir/*` 这类复制会跳过以点开头的文件夹。
+- 永远不要删除 `.ultitools-journal`，崩溃之后也不要：里面保存着尚未写入表文件的提交。
+- 崩溃之后，手工编辑任何 JSON 数据文件之前先启动一次服务器：启动会重放日志，并会覆盖你的编辑。
+- 断电后发现最新的日志记录损坏，通常说明磁盘或其控制器没有遵守刷盘请求。该插件的 JSON 数据会保持关闭，直到你把指明的文件移出日志文件夹。
+- 某个实体文件持续无法移动（例如被其他程序一直锁着）会使该插件的每次刷新都无法清空日志：记录不断累积，启动恢复变慢，每次失败的刷新都会出现在服务器日志里。
+- 在 Windows 上，被其他程序（杀毒软件、索引器、备份工具）短暂占用的日志文件移动，最多重试 150 毫秒，之后提交失败。
