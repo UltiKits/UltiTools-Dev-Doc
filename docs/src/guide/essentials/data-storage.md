@@ -297,11 +297,12 @@ WhereCondition.builder().column("somecol").value(someval).build();
 
 As of v6.3.0 a comparison other than `EQUAL` means the same in `getAll`, `exist`, `page`, `del` and `updateIf` on SQLite, MySQL and JSON, and no table is changed. 6.2.5's SQLite and MySQL operators matched every condition by equality.
 
-- `INCLUDE`, `STARTSWITH` and `ENDSWITH` match the value literally as text: `%`, `_`, `!` and `\` are ordinary characters on every backend. `getLike` and `Query#like` keep pattern semantics.
-- Letter case follows the backend: case-insensitive on SQLite and on MySQL's default collation, case-sensitive on JSON.
-- `GREATER` and `LESS` on a `byte`, `short`, `int`, `long`, `float` or `double` field (or its wrapper) compare numbers of the field's type on SQLite and JSON. On SQLite that holds also in a column left on the default `VARCHAR(255)` type, with 64-bit integer precision.
+- `INCLUDE`, `STARTSWITH` and `ENDSWITH` match the value literally as text on every backend: `%`, `_`, `!` and `\` are ordinary characters, not wildcards or escapes. `getLike` and `Query#like` keep pattern semantics.
+- Letter case and accents follow the backend: SQLite ignores the case of ASCII letters only; MySQL compares under the `utf8mb3_general_ci` collation of the tables the framework creates, which ignores case and accents (`é` matches `e`); JSON compares exactly.
+- `GREATER` and `LESS` on a `byte`, `short`, `int`, `long`, `float` or `double` field (or its wrapper) compare numbers of the field's type on SQLite and JSON. Pass the value as a number of that type (`10`, not `"10"`): on MySQL a string value compares as text, so `"10"` sorts below `"2"`. On SQLite the typed comparison holds also in a column left on the default `VARCHAR(255)` type, with 64-bit integer precision, and a stored value compares the way it reads back: a `float` `0.1f` is neither greater nor less than `0.1f`.
 - On MySQL a numeric field left in a default text column compares in double precision, exact up to ±9,007,199,254,740,992 (2^53) and approximate beyond. Declare a numeric column `type` such as `BIGINT` where exact results matter. On JSON the values are compared as `double`, also approximate beyond 2^53.
 - `exist(...)` works on SQLite; in 6.2.x it threw `ClassCastException` there.
+- Known limitations: on SQLite a `double` in a default column is stored with 15 significant digits, so `1/3.0` reads back and compares as `0.333333333333333`; declare `type = "DOUBLE"` to keep every digit. Non-numeric text written by hand into a numeric field's column compares on SQLite as its leading number (`'abc'` as 0, `'12abc'` as 12), while JSON compares it as text.
 
 ### Transactions <Badge type="tip" text="v6.2.0+" />
 
