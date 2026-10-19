@@ -293,6 +293,16 @@ WhereCondition.builder().column("somecol").value(someval).build();
 
 `column` is used to specify the column to be queried, and `value` is used to specify the value to be queried.
 
+#### Comparisons <Badge type="tip" text="v6.3.0+" />
+
+As of v6.3.0 a comparison other than `EQUAL` means the same in `getAll`, `exist`, `page`, `del` and `updateIf` on SQLite, MySQL and JSON, and no table is changed. 6.2.5's SQLite and MySQL operators matched every condition by equality.
+
+- `INCLUDE`, `STARTSWITH` and `ENDSWITH` match the value literally as text: `%`, `_`, `!` and `\` are ordinary characters on every backend. `getLike` and `Query#like` keep pattern semantics.
+- Letter case follows the backend: case-insensitive on SQLite and on MySQL's default collation, case-sensitive on JSON.
+- `GREATER` and `LESS` on a `byte`, `short`, `int`, `long`, `float` or `double` field (or its wrapper) compare numbers of the field's type on SQLite and JSON. On SQLite that holds also in a column left on the default `VARCHAR(255)` type, with 64-bit integer precision.
+- On MySQL a numeric field left in a default text column compares in double precision, exact up to ±9,007,199,254,740,992 (2^53) and approximate beyond. Declare a numeric column `type` such as `BIGINT` where exact results matter. On JSON the values are compared as `double`, also approximate beyond 2^53.
+- `exist(...)` works on SQLite; in 6.2.x it threw `ClassCastException` there.
+
 ### Transactions <Badge type="tip" text="v6.2.0+" />
 
 For operations that need to succeed or fail together, see the [Transactions](/guide/advanced/transactions) guide.

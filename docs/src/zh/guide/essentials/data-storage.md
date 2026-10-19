@@ -291,6 +291,16 @@ WhereCondition.builder().column("somecol").value(someval).build();
 
 其中，`column` 属性用于指定查询的列，`value` 属性用于指定查询的值。
 
+#### 比较方式 <Badge type="tip" text="v6.3.0+" />
+
+自 v6.3.0 起，`EQUAL` 以外的比较方式在 SQLite、MySQL 和 JSON 上，于 `getAll`、`exist`、`page`、`del` 和 `updateIf` 中含义一致，且不改动任何表。6.2.5 的 SQLite 与 MySQL 实现把所有条件都按相等匹配。
+
+- `INCLUDE`、`STARTSWITH` 和 `ENDSWITH` 把值作为文本字面匹配：`%`、`_`、`!` 和 `\` 在所有后端都是普通字符。`getLike` 和 `Query#like` 保持模式匹配语义。
+- 字母大小写取决于后端：SQLite 和 MySQL 默认排序规则下不区分大小写，JSON 区分。
+- `GREATER` 和 `LESS` 用于 `byte`、`short`、`int`、`long`、`float` 或 `double` 字段（或其包装类型）时，在 SQLite 和 JSON 上按该字段类型的数值比较。在 SQLite 上，列保持默认 `VARCHAR(255)` 类型时同样如此，整数保持 64 位精度。
+- 在 MySQL 上，留在默认文本列中的数值字段按双精度比较，在 ±9,007,199,254,740,992（2^53）以内精确，超出则只是近似。需要精确结果时，请为该列声明数值 `type`，例如 `BIGINT`。在 JSON 上按 `double` 比较，超出 2^53 时同样是近似的。
+- `exist(...)` 在 SQLite 上可用；6.2.x 在那里会抛出 `ClassCastException`。
+
 ### 事务 <Badge type="tip" text="v6.2.0+" />
 
 对于需要同时成功或同时失败的操作，请参阅[事务](/zh/guide/advanced/transactions)指南。
