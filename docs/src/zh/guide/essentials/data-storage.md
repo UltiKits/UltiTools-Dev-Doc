@@ -324,4 +324,4 @@ dataOperator.transaction(() -> {
 - 某个实体文件持续无法移动（例如被其他程序一直锁着）会使该插件的每次刷新都无法清空日志：记录不断累积，启动恢复变慢，每次失败的刷新都会出现在服务器日志里。
 - 在 Windows 上，被其他程序（杀毒软件、索引器、备份工具）短暂占用的日志文件移动，最多重试 150 毫秒，之后提交失败。
 - id 中含 `<`、`>`、`:`、`"`、`|`、`?` 或 `*` 的 JSON 数据文件夹（UltiRemoteBag 的编辑占用记录使用 `:`）无法从 Linux 复制到 Windows：Windows 无法创建这些文件。id 只有大小写不同的数据也无法迁移到 Windows 或默认设置的 macOS 卷：文件会互相冲突。若含这类 id 的日志记录到了 Windows 服务器上，启动时该插件的 JSON 数据会保持关闭，错误信息指明该记录：请在写下它的 Linux 服务器上应用它，或把它移出日志文件夹并放弃其中的改动。
-- 新 id 在创建时检查，已有文件绝不会被改名，见 [JSON 实体 id](/zh/guide/advanced/transactions#json-实体-id)。id 请只用小写字母、数字、`-` 和 `_`；UUID 字符串总是可用。
+- 新 id 在创建时检查，已有文件绝不会被改名，见 [JSON 实体 id](/zh/guide/advanced/transactions#json-实体-id)。UUID 字符串作为 id 总是可用；小写字母、数字、`-` 和 `_` 仅在该 id 不是 Windows 设备名（`con`、`nul`、`aux`、`prn`、`com1`–`com9`、`lpt1`–`lpt9`）时才安全。不要用玩家名作为实体 id（`Con` 和 `Nul` 都是合法的玩家名）。这些规则会拒绝的已有 id 仍可读取、`update` 和删除，但删除后再插入会被拒绝：请用 `update` 替换。
