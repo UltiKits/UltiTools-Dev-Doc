@@ -312,7 +312,15 @@ dataOperator.transaction(() -> {
 
 On the JSON backend, a transaction begun by `transaction(...)` locks each table at its first read or write, as 6.2.5 serialized each table, so a read-modify-write inside it cannot lose an update; a read inside it can wait, at most 5 seconds, for another transaction that holds the table. In a `@Transactional` method at the default isolation, read-modify-write uses `updateIf` or `isolation = REPEATABLE_READ` instead; see [JSON Transaction Behavior](/guide/advanced/transactions#json-transaction-behavior).
 
-As of v6.3.0 a transaction whose own failure path fails never ends in an implicit commit ([#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)): when its rollback or its commit fails, the connection is discarded (a HikariCP pool evicts it) instead of being switched back to auto-commit, which would commit it, so nothing of the transaction is stored and the caller still gets the original exception. An `Error` thrown inside `transaction(...)` rolls the transaction back (the JSON engine discards the staged writes) and is rethrown as the same instance.
+As of v6.3.0 a transaction whose own failure path fails never ends in an implicit commit ([#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)): when its rollback or its commit fails, the connection is discarded (a HikariCP pool evicts it) instead of being switched back to auto-commit, which would commit it, and the framework never retries the commit. What is stored afterwards depends on where the failure happened:
+
+- When the action fails and the rollback succeeds, nothing is stored.
+- When a SQLite or MySQL rollback fails, including the real rollback an outer commit performs for a rollback-only transaction, the framework issues no commit.
+- When the commit throws `UnexpectedRollbackException` because the transaction was marked rollback-only, the transaction was rolled back and none of its writes is stored, on every backend.
+- When a SQLite or MySQL commit itself fails (`DataAccessException`, `TRANSACTION_FAILED`), the outcome is unknown: the database may have applied the commit before its acknowledgement was lost, for example on a dropped MySQL connection, and discarding the connection cannot undo that. Code that must not apply a write twice, such as a payment or a reward, re-reads the data or uses `updateIf` before trying again.
+- On JSON, a commit that fails commits nothing.
+
+The caller gets the original exception, or `UnexpectedRollbackException` for a rollback-only transaction. An `Error` thrown inside `transaction(...)` rolls the transaction back (the JSON engine discards the staged writes) and is rethrown as the same instance.
 
 ## Operating JSON Storage <Badge type="tip" text="v6.3.0+" />
 

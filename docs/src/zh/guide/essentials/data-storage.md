@@ -310,7 +310,15 @@ dataOperator.transaction(() -> {
 
 在 JSON 后端上，由 `transaction(...)` 开启的事务在第一次读取或写入某张表时就锁住它（与 6.2.5 对每张表串行化一致），所以其中的“先读后写”不会丢失更新；其中的读取可能为等待持有该表的另一个事务而停顿，最多 5 秒。在默认隔离级别的 `@Transactional` 方法中，“先读后写”则改用 `updateIf` 或 `isolation = REPEATABLE_READ`，见[JSON 事务行为](/zh/guide/advanced/transactions#json-事务行为)。
 
-自 v6.3.0 起，事务自身的失败路径再失败时不会隐式提交（[#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)）：回滚或提交失败时，连接被丢弃（HikariCP 连接池会将其剔除），而不是重新打开自动提交（那样会提交该事务），因此事务中的内容不会被保存，调用方仍收到原来的异常。`transaction(...)` 中抛出的 `Error` 会使事务回滚（JSON 引擎丢弃暂存的写入），并原样抛出同一个实例。
+自 v6.3.0 起，事务自身的失败路径再失败时不会隐式提交（[#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)）：回滚或提交失败时，连接被丢弃（HikariCP 连接池会将其剔除），而不是重新打开自动提交（那样会提交该事务），框架也不会重试提交。之后保存了什么，取决于失败发生在哪里：
+
+- 操作失败且回滚成功时，未保存任何写入。
+- SQLite 或 MySQL 的回滚失败时（包括外层提交为仅回滚的事务执行的真正回滚），框架不发出提交。
+- 提交因事务已被标记为仅回滚而抛出 `UnexpectedRollbackException` 时，事务已回滚，其写入均未保存，所有后端都是如此。
+- SQLite 或 MySQL 的提交本身失败（`DataAccessException`，`TRANSACTION_FAILED`）时，结果未知：数据库可能在确认丢失之前已经应用了该提交（例如 MySQL 连接断开），丢弃连接无法撤销它。不能重复写入的代码（例如支付、奖励）在重试前应先重新读取数据，或使用 `updateIf`。
+- 在 JSON 上，失败的提交不会提交任何内容。
+
+调用方收到原来的异常；事务被标记为仅回滚时收到 `UnexpectedRollbackException`。`transaction(...)` 中抛出的 `Error` 会使事务回滚（JSON 引擎丢弃暂存的写入），并原样抛出同一个实例。
 
 ## JSON 存储的运维 <Badge type="tip" text="v6.3.0+" />
 
