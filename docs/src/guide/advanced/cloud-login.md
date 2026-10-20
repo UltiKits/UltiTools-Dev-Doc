@@ -9,7 +9,7 @@ This page describes the cloud-login lifecycle landing in UltiTools-API v6.3.0, c
 remote management through the UltiPanel dashboard. v6.3.0 changes how the framework tracks a login
 internally. It does not change what an operator sees.
 
-## A login is a session
+## Login sessions
 
 A successful login creates a session. The session holds the credential, the WebSocket connection
 to UltiPanel, the reconnect schedule, and the token-refresh schedule as one unit.
@@ -26,7 +26,7 @@ the case where an operator most needs logout to actually stop things, and the pr
 implementation could leave a connection open past the point where the credential backing it was no
 longer valid.
 
-## What an operator sees
+## Operator commands
 
 The three commands and their console output are unchanged:
 
@@ -39,11 +39,12 @@ The three commands and their console output are unchanged:
 An operator who ran these commands on an earlier version sees the same messages. Nothing about the
 session change is visible from the console.
 
-## What this does not change
+## Module API compatibility
 
 `CloudAuthManager`, the class implementing this lifecycle, is internal to the framework
 (`@ApiStatus.Internal`) and was never part of the public API surface module authors write against.
-No module needs to change anything for this release.
+The session-lifecycle change requires no module API migration; server-associated link requests
+must follow the authentication requirements below.
 
 ## Authenticated requests on a module's behalf (as of v6.3.0)
 
@@ -74,8 +75,31 @@ contains `..`, `//`, `\`, `%`, `?` or `#` returns `PATH_NOT_ALLOWED`. Query para
 the `query` map, which the helper URL-encodes as UTF-8. The list grows only through a documented
 change in a framework release; a module cannot add to it.
 
-Handle `NOT_CONNECTED` as an ordinary state, not an error: an operator may run the server without
-UltiCloud at all. UltiLogin, for example, falls back to its request without a credential in that case.
+Handle `NOT_CONNECTED` as an ordinary state: an operator may run the server without UltiCloud.
+A module must not retry link creation anonymously; ask the server owner to connect the server with
+`/ulticloud login` before using the server-associated `/panel` link.
+
+### Server-owner authentication (as of v6.3.0)
+
+::: warning Authenticated link creation
+As of v6.3.0, only an authenticated server owner can create a server-associated `/panel` magic link through the plugin.
+There is no anonymous fallback, no grace period and no polling by player UUID.
+:::
+
+`POST /auth/magic-link` requires the server owner's bearer credential, attached by
+`UltiCloudRequests`. For an otherwise valid request, a missing or invalid credential returns
+`401 invalid_credential`; an authenticated account that does not own the server returns
+`403 not_server_owner`. Neither refusal creates a link. This requirement concerns the server owner
+authorizing the plugin's request, not a requirement for every player opening a link to own the server.
+
+Poll the created request with `GET /auth/magic-link/poll?requestId=...` through the helper, using the
+same server-owner authentication. The old `playerUuid`-only poll is not supported; omitting
+`requestId` returns `400 invalid_request`. The caller cannot read requests for a server that the
+authenticated account does not own.
+
+Ordinary website account login, browser magic-link verification and the in-game `/login` command
+remain unchanged by the removal of anonymous plugin creation and polling. These are separate from
+`/ulticloud login`, which connects the server to UltiCloud.
 
 Both methods block on network I/O, with a 10-second connect timeout and a 30-second read timeout, and
 throw `IllegalStateException` when called on the server's primary thread. Call them from an
