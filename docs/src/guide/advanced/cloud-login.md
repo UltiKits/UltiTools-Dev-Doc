@@ -1,13 +1,13 @@
 # Cloud Login
 
 ::: warning As of v6.3.0 — unreleased
-This page describes the cloud-login lifecycle landing in UltiTools-API v6.3.0, currently on the
-`alpha` branch. The three commands and their console output are unchanged from earlier versions.
+As of v6.3.0 (currently unreleased on the `alpha` branch), UltiTools-API uses the cloud-login
+lifecycle described here. The three commands and their console output are unchanged from earlier versions.
 :::
 
+As of v6.3.0, the framework tracks a login differently internally. It does not change what an operator sees.
 `/ulticloud login`, `/ulticloud logout`, and `/ulticloud status` connect a server to UltiCloud for
-remote management through the UltiPanel dashboard. v6.3.0 changes how the framework tracks a login
-internally. It does not change what an operator sees.
+remote management through the UltiPanel dashboard.
 
 ## Login sessions
 
