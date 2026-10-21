@@ -255,6 +255,13 @@ check_nav() {
       continue
     fi
     local path="$root$link.md"
+    # A zh entry with skipVersioning carries its locale prefix itself
+    # (the versioning helper is what normally adds /zh/), so do not add it twice.
+    if [ "$lang" = "zh" ]; then
+      case "$link" in
+        /zh/*) path="$ROOT/docs/src$link.md" ;;
+      esac
+    fi
     if [ ! -f "$path" ]; then
       fail_line "nav($lang) -> $link -> $(rel_path "$path")"
     fi
