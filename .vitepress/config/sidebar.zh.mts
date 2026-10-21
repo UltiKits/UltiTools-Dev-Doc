@@ -214,7 +214,7 @@ const sidebarGuideZH: SidebarItemExt[] = [
     },
     {
         base: '/guide/',
-        text: '发布说明',
+        text: '更新说明',
         items: [
             {
                 text: '6.3.0',

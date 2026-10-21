@@ -1,11 +1,5 @@
 const navEN = [
     {
-        text: 'Release Notes',
-        activeMatch: `/guide/release-notes/`,
-        link: '/guide/release-notes/6.3.0',
-        skipVersioning: true
-    },
-    {
         text: 'Documents',
         activeMatch: `/guide/(?!release-notes/)`,
         link: '/guide/introduction',
@@ -35,6 +29,12 @@ const navEN = [
     {
         text: 'User Doc',
         link: 'https://doc.ultikits.com',
+        skipVersioning: true
+    },
+    {
+        text: 'Release Notes',
+        activeMatch: `/guide/release-notes/`,
+        link: '/guide/release-notes/6.3.0',
         skipVersioning: true
     },
     // No link, no activeMatch, no versioningPlugin prop supplied by hand:

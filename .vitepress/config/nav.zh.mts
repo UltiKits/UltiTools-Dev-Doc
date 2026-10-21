@@ -1,11 +1,5 @@
 const navZH = [
     {
-        text: '发布说明',
-        activeMatch: `/guide/release-notes/`,
-        link: '/zh/guide/release-notes/6.3.0',
-        skipVersioning: true
-    },
-    {
         text: '深度指南',
         activeMatch: `/guide/(?!release-notes/)`,
         link: '/guide/introduction',
@@ -31,6 +25,12 @@ const navZH = [
     {
         text: '用户文档',
         link: 'https://doc.ultikits.com',
+        skipVersioning: true
+    },
+    {
+        text: '更新说明',
+        activeMatch: `/guide/release-notes/`,
+        link: '/zh/guide/release-notes/6.3.0',
         skipVersioning: true
     },
     // 不传 link、不传 activeMatch、也不手传 versioningPlugin：
