@@ -1,5 +1,11 @@
 const navEN = [
     {
+        text: 'Release Notes',
+        activeMatch: `/guide/release-notes/`,
+        link: '/guide/release-notes/6.3.0',
+        skipVersioning: true
+    },
+    {
         text: 'Documents',
         activeMatch: `/guide/`,
         link: '/guide/introduction',

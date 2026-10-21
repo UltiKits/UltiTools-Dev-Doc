@@ -1,5 +1,11 @@
 const navZH = [
     {
+        text: '发布说明',
+        activeMatch: `/guide/release-notes/`,
+        link: '/zh/guide/release-notes/6.3.0',
+        skipVersioning: true
+    },
+    {
         text: '深度指南',
         activeMatch: `/guide/`,
         link: '/guide/introduction',
