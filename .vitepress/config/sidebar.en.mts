@@ -228,6 +228,16 @@ const sidebarGuideEN: SidebarItemExt[] = [
             }
         ]
     },
+    {
+        base: '/guide/',
+        text: 'Release Notes',
+        items: [
+            {
+                text: '6.3.0',
+                link: 'release-notes/6.3.0'
+            }
+        ]
+    },
 ]
 
 const sidebarGuideEN_v610: DefaultTheme.SidebarItem[] = [

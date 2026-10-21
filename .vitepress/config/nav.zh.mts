@@ -1,7 +1,13 @@
 const navZH = [
     {
+        text: '发布说明',
+        activeMatch: `/guide/release-notes/`,
+        link: '/zh/guide/release-notes/6.3.0',
+        skipVersioning: true
+    },
+    {
         text: '深度指南',
-        activeMatch: `/guide/`,
+        activeMatch: `/guide/(?!release-notes/)`,
         link: '/guide/introduction',
     },
     // 下面这个 target 字段（取值 '_self'）用来关掉 VitePress 全局 click 处理

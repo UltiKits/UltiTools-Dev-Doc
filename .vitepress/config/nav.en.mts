@@ -1,7 +1,13 @@
 const navEN = [
     {
+        text: 'Release Notes',
+        activeMatch: `/guide/release-notes/`,
+        link: '/guide/release-notes/6.3.0',
+        skipVersioning: true
+    },
+    {
         text: 'Documents',
-        activeMatch: `/guide/`,
+        activeMatch: `/guide/(?!release-notes/)`,
         link: '/guide/introduction',
     },
     // The `target` field below (set to '_self') stops VitePress's global

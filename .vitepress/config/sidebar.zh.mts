@@ -212,6 +212,16 @@ const sidebarGuideZH: SidebarItemExt[] = [
             }
         ]
     },
+    {
+        base: '/guide/',
+        text: '发布说明',
+        items: [
+            {
+                text: '6.3.0',
+                link: 'release-notes/6.3.0'
+            }
+        ]
+    },
 ]
 
 const sidebarGuideZH_v610: DefaultTheme.SidebarItem[] = [
