@@ -11,7 +11,8 @@ hero:
       link: /zh/guide/quick-start
     - theme: alt
       text: Javadoc 文档
-      link: https://dev.ultikits.com/javadoc
+      link: /api/
+      target: _self
     - theme: alt
       text: GitHub 仓库
       link: https://github.com/UltiKits/UltiTools-Reborn
