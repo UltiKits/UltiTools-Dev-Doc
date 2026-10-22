@@ -1,7 +1,7 @@
 import type { LocaleConfig } from 'vitepress'
 import type { DefaultTheme } from 'vitepress/theme'
 import {navZH} from "./nav.zh.mjs";
-import {sidebarApiZH, sidebarGuideZH, sidebarGuideZH_v624, sidebarGuideZH_v620, sidebarGuideZH_v610} from "./sidebar.zh.mjs";
+import {sidebarApiZH, sidebarGuideZH, sidebarGuideZH_v625, sidebarGuideZH_v624, sidebarGuideZH_v620, sidebarGuideZH_v610} from "./sidebar.zh.mjs";
 import {sidebarGuideSnapshotZH, sidebarApiSnapshotZH} from "./sidebar-snapshot.generated.mjs";
 import {textCN} from "./text.zh.mjs";
 import {socialZH} from "./social.zh.mjs";
@@ -21,6 +21,9 @@ const localeZH: LocaleConfig<DefaultTheme.Config> = {
                 '/guide/': sidebarGuideZH,
                 'v6.3.0-SNAPSHOT/guide/': sidebarGuideSnapshotZH,
                 'v6.3.0-SNAPSHOT/api/': sidebarApiSnapshotZH,
+                'v6.2.5/guide/': sidebarGuideZH_v625,
+                // 6.2.5 发布源树不包含可归档的 API 页面。
+                'v6.2.5/api/': [],
                 'v6.2.4/guide/': sidebarGuideZH_v624,
                 'v6.2.4/api/': sidebarApiZH,
                 'v6.2.3/guide/': sidebarGuideZH_v624,

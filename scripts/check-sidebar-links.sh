@@ -285,12 +285,15 @@ check_nav() {
 }
 
 check_guide_constant "sidebarGuideEN" "$SIDEBAR_EN" en ""
+check_guide_constant "sidebarGuideEN_v625" "$SIDEBAR_EN" en v6.2.5
 check_guide_constant "sidebarGuideEN_v624" "$SIDEBAR_EN" en v6.2.4 v6.2.3 v6.2.2
 check_guide_constant "sidebarGuideEN_v620" "$SIDEBAR_EN" en v6.2.1 v6.2.0
 check_guide_constant "sidebarGuideEN_v610" "$SIDEBAR_EN" en v6.1.0
+# v6.2.5 maps API navigation to []: its release tree has no API pages.
 check_api_constant "sidebarApiEN" "$SIDEBAR_EN" en v6.2.4 v6.2.3 v6.2.2 v6.2.1 v6.2.0 v6.1.0
 
 check_guide_constant "sidebarGuideZH" "$SIDEBAR_ZH" zh ""
+check_guide_constant "sidebarGuideZH_v625" "$SIDEBAR_ZH" zh v6.2.5
 check_guide_constant "sidebarGuideZH_v624" "$SIDEBAR_ZH" zh v6.2.4 v6.2.3 v6.2.2
 check_guide_constant "sidebarGuideZH_v620" "$SIDEBAR_ZH" zh v6.2.1 v6.2.0
 check_guide_constant "sidebarGuideZH_v610" "$SIDEBAR_ZH" zh v6.1.0
