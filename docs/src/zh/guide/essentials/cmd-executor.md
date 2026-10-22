@@ -29,10 +29,9 @@ v6.3.0 之前，help 子命令会在校验链之前执行，导致在 `@CmdTarge
 
 ## 注册命令
 
-::: warning 六参数连接器构造器已标记为待移除
-下面的示例调用的是六参数 `UltiToolsPlugin` 构造器，它带有 `@Deprecated(since = "6.0.8", forRemoval = true)` 并把资源目录路径写死，因此每次编译都会产生一条移除警告。
-改用外部插件 API，在你自己的 `JavaPlugin` 里调用 `UltiToolsAPI.connect`，或者保留连接器、改调七参数构造器并自行传入 `resourceFolderPath`：这两种写法在 v6.2.5 上都可用。
-连接器的替代签名仍在 [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217) 中讨论，移除动作本身跟踪于 [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213)。
+::: info 自 v6.3.0 起的连接器构造器
+六参数构造器已移除。下面的连接器使用七参数构造器，由调用方传入 `resourceFolderPath`。
+新的独立 Bukkit 插件优先在自己的 `JavaPlugin` 中调用 `UltiToolsAPI.connect(this)`，见[外部插件 API](/zh/guide/advanced/external-plugin-api)。
 :::
 
 和spigot开发一样，有了执行器，就需要去注册它。我们可以在 `registerSelf` 方法中使用 `getCommandManager().register()` 方法来注册命令。
@@ -381,16 +380,9 @@ icon.onClick(event -> {
 
 用 `key` 指定一个 `@ConfigEntry` 路径，并用 `config` 指定配置实体类。值的单位与 `value` 相同，都是秒，默认值只写在配置字段上：
 
-```java
-@ConfigEntry(path = "features.wild.cooldown", comment = "/wild 的冷却时间（秒）")
-private int wildCooldown = 60;
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/BoundCooldownConfig.java
 
-```java
-@CmdMapping(format = "wild")
-@CmdCD(config = EssentialsConfig.class, key = "features.wild.cooldown")
-public void wild(@CmdSender Player player) { ... }
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/BoundCooldownCommand.java
 
 绑定的值为 `0` 表示没有冷却，与 `value = 0` 相同。键按 `@ConfigEntry(path = ...)` 声明的路径匹配；`path` 为空时按字段名匹配。与字面量的 `@CmdCD` 一样，绑定的 `@CmdCD` 可以写在执行器类上，也可以写在映射方法上，以最具体的声明为准。
 

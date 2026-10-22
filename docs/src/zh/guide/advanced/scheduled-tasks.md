@@ -69,30 +69,9 @@ Bukkit.getScheduler().runTask(UltiTools.getInstance(), () -> {
 
 不写 `period` 和 `delay` 字面量，改用 `periodKey` 和 `delayKey` 指定一个 `@ConfigEntry` 路径，并用 `config` 指定配置实体类。读取到的值以秒为单位，乘以 20 换算为 tick。默认值只写在配置字段上：
 
-```java
-@Getter
-@Setter
-@ConfigEntity("config/economy.yml")
-public class EconomyConfig extends AbstractConfigEntity {
-    @ConfigEntry(path = "interest.interval", comment = "利息发放间隔（秒）")
-    private int interestInterval = 1800;
+<<< @/../examples/src/main/java/com/ultikits/docs/scheduled/BoundScheduleConfig.java
 
-    public EconomyConfig(String configFilePath) {
-        super(configFilePath);
-    }
-}
-```
-
-```java
-@Service
-public class InterestService {
-
-    @Scheduled(config = EconomyConfig.class, periodKey = "interest.interval", delayKey = "interest.interval")
-    public void distributeInterest() {
-        // 每隔 interest.interval 秒在主线程上执行一次
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/scheduled/BoundScheduleService.java
 
 `delayKey` 可以与 `periodKey` 指向同一个键，这样首次执行会先等待一个完整的间隔。像发放利息这类不应在加载时立即执行的任务，通常就需要这样写。键按 `@ConfigEntry(path = ...)` 声明的路径匹配；`path` 为空时按字段名匹配。
 
@@ -146,7 +125,7 @@ public class InterestService {
 
 - 被注解的方法必须是 `void` 且**无参数**
 - 方法必须在受容器管理的 Bean 中（如 `@Service`）
-- Bean 必须在 `@UltiToolsModule(scanBasePackages = {...})` 扫描的包内
+- Bean 必须在 `@UltiToolsModule(scanBasePackages = {...})` 扫描的包内。下面的主类用 `scanBasePackageClasses = BoundScheduleService.class` 扫描示例服务所在的包。
 
 <<< @/../examples/src/main/java/com/ultikits/docs/scheduled/MyPlugin.java
 

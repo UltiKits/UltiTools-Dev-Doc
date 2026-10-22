@@ -1,8 +1,7 @@
 # 经济系统
 
-::: warning 自 v6.3.0 起 — 尚未发布
-本页描述的行为落地于 UltiTools-API v6.3.0，目前只存在于 `alpha` 分支。如果你运行的是
-v6.2.5 或更早版本，`EconomyUtils` 依然存在，但经济不可用时只会静默返回，不会输出下面的状态日志。
+::: info 自 v6.3.0 起
+以下经济状态和诊断日志已在 UltiTools-API v6.3.0 中提供。v6.2.5 及更早版本的 `EconomyUtils` 在不可用时只会静默返回。
 :::
 
 UltiTools 把 Vault 的经济 API 当作一个可选的软依赖来集成。服务器不安装 Vault 时，UltiTools

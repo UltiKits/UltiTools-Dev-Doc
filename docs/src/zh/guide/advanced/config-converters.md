@@ -1,7 +1,7 @@
 # 配置转换器
 
 ::: info 可用版本
-本页描述 alpha 分支尚未发布的配置转换行为，自 v6.3.0 起可用。
+配置转换已在 UltiTools-API v6.3.0 中提供。
 :::
 
 `ConfigConverter<T>` 在声明 Java 值与普通配置数据之间双向转换。通过模块扫描包内的 `@ConfigConverterFor` 在配置构造前登记。文档存储和注册表协调桥接是内部实现，不是模块事务 API。
@@ -61,7 +61,7 @@ Module UltiRecipe, file config/recipes.yml, key "recipes": no config converter f
 
 ## 转换器示例
 
-把以下值/字段成员放进 `example.config` 包的 `MigrationExample` 类（imports 放在外层类前）。转换器单独放进同一扫描包的 public 顶层文件 `TokenConverter.java`，见第二段；不能嵌套在外层类中。这是未发布分支内联片段，不是对已发布构件编译的引用。严格的单文字键映射使两条等式成立，包括 null 文字。
+把以下值/字段成员放进 `example.config` 包的 `MigrationExample` 类（imports 放在外层类前）。转换器单独放进同一扫描包的 public 顶层文件 `TokenConverter.java`，见第二段；不能嵌套在外层类中。这些内联片段面向 v6.3.0；与共享示例文件引用不同，文档构建不会编译它们。严格的单文字键映射使两条等式成立，包括 null 文字。
 
 ```java
 import java.util.Objects;

@@ -15,7 +15,7 @@ UltiTools-API 6.2.2 及更高版本可用。
 <dependency>
     <groupId>com.ultikits</groupId>
     <artifactId>UltiTools-API</artifactId>
-    <version>6.2.5</version>
+    <version>6.3.0</version>
     <scope>provided</scope>
 </dependency>
 ```

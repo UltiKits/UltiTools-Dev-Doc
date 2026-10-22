@@ -7,8 +7,8 @@ import java.util.List;
 
 public class UltiToolsConnector extends UltiToolsPlugin {
 
-    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass) {
-        super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass);
+    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath) {
+        super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass, resourceFolderPath);
     }
 
     @Override
@@ -16,15 +16,5 @@ public class UltiToolsConnector extends UltiToolsPlugin {
         // register command
         getCommandManager().register(this, ExampleCommand.class);
         return true;
-    }
-
-    @Override
-    public void unregisterSelf() {
-
-    }
-
-    @Override
-    public void reloadSelf() {
-        super.reloadSelf();
     }
 }

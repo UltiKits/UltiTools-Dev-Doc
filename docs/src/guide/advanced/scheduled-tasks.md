@@ -69,30 +69,9 @@ Bukkit.getScheduler().runTask(UltiTools.getInstance(), () -> {
 
 Instead of the `period` and `delay` literals, name a `@ConfigEntry` path with `periodKey` and `delayKey`, and give the config entity class with `config`. The value is read in seconds and multiplied by 20 to get ticks. The default lives only in the config field:
 
-```java
-@Getter
-@Setter
-@ConfigEntity("config/economy.yml")
-public class EconomyConfig extends AbstractConfigEntity {
-    @ConfigEntry(path = "interest.interval", comment = "Seconds between interest payouts")
-    private int interestInterval = 1800;
+<<< @/../examples/src/main/java/com/ultikits/docs/scheduled/BoundScheduleConfig.java
 
-    public EconomyConfig(String configFilePath) {
-        super(configFilePath);
-    }
-}
-```
-
-```java
-@Service
-public class InterestService {
-
-    @Scheduled(config = EconomyConfig.class, periodKey = "interest.interval", delayKey = "interest.interval")
-    public void distributeInterest() {
-        // Runs every interest.interval seconds on the main thread
-    }
-}
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/scheduled/BoundScheduleService.java
 
 `delayKey` may name the same key as `periodKey`. The first run then waits one full interval, which is what a task such as a payout usually wants instead of running at load. A key is matched against `@ConfigEntry(path = ...)` as declared, or against the field name when `path` is empty.
 
@@ -146,7 +125,7 @@ You do not need to track or cancel tasks manually.
 
 - The annotated method must be `void` and take **no parameters**
 - The method must be inside a bean managed by the container (e.g., `@Service`)
-- The bean must be in a package scanned by `@UltiToolsModule(scanBasePackages = {...})`
+- The bean must be in a package scanned by `@UltiToolsModule(scanBasePackages = {...})`. The main class below uses `scanBasePackageClasses = BoundScheduleService.class` to scan the example services' package.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/scheduled/MyPlugin.java
 

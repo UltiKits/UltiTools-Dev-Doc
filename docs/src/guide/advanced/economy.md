@@ -1,9 +1,7 @@
 # Economy
 
-::: warning As of v6.3.0 — unreleased
-Everything on this page describes behaviour landing in UltiTools-API v6.3.0, currently on the
-`alpha` branch. If you are running v6.2.5 or earlier, `EconomyUtils` still exists but reports
-unavailability silently instead of logging the states below.
+::: info As of v6.3.0
+The economy states and diagnostics below are available in UltiTools-API v6.3.0. In v6.2.5 and earlier, `EconomyUtils` reports unavailability silently.
 :::
 
 UltiTools integrates with Vault's economy API as an optional, soft dependency. A server without

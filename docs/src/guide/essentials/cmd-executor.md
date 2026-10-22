@@ -35,10 +35,9 @@ the next section.
 
 ## Register command
 
-::: warning The six-parameter connector constructor is marked for removal
-The example below calls the six-parameter `UltiToolsPlugin` constructor, which carries `@Deprecated(since = "6.0.8", forRemoval = true)` and hardcodes the resource folder path, so javac reports a removal warning on every build.
-Move the integration to the External Plugin API and call `UltiToolsAPI.connect` from your own `JavaPlugin`, or keep the connector and call the seven-parameter constructor passing `resourceFolderPath` yourself: both are supported on v6.2.5.
-The replacement signature for connectors is still being decided in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217), and the removal itself is tracked in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213).
+::: info Connector constructor as of v6.3.0
+The six-parameter constructor has been removed. The connector below uses the seven-parameter constructor and receives `resourceFolderPath` from its caller.
+For a new standalone Bukkit plugin, prefer `UltiToolsAPI.connect(this)` in your own `JavaPlugin`; see the [External Plugin API](/guide/advanced/external-plugin-api).
 :::
 
 The same as spigot development, with the executor, you need to register it. We can use
@@ -417,16 +416,9 @@ Instead of a literal, `@CmdCD` can read the cooldown from a key in your module's
 
 Name a `@ConfigEntry` path with `key` and give the config entity class with `config`. The value is in seconds, like `value`, and the default lives only in the config field:
 
-```java
-@ConfigEntry(path = "features.wild.cooldown", comment = "Seconds between /wild uses")
-private int wildCooldown = 60;
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/BoundCooldownConfig.java
 
-```java
-@CmdMapping(format = "wild")
-@CmdCD(config = EssentialsConfig.class, key = "features.wild.cooldown")
-public void wild(@CmdSender Player player) { ... }
-```
+<<< @/../examples/src/main/java/com/ultikits/docs/command/BoundCooldownCommand.java
 
 A bound value of `0` means no cooldown, the same as `value = 0`. The key is matched against `@ConfigEntry(path = ...)` as declared, or against the field name when `path` is empty. Like a literal `@CmdCD`, a bound one may sit on the executor class or on a mapping method, and the most-derived declaration wins.
 

@@ -1,7 +1,7 @@
 # 云端登录
 
-::: warning 自 v6.3.0 起（尚未发布）
-自 v6.3.0 起（尚未发布，当前在 `alpha` 分支），UltiTools-API 采用本页描述的云端登录生命周期。三条命令和它们的控制台输出与此前版本相同。
+::: info 自 v6.3.0 起
+UltiTools-API v6.3.0 采用本页描述的云端登录生命周期。三条命令和它们的控制台输出与此前版本相同。
 :::
 
 自 v6.3.0 起，框架内部追踪一次登录的方式改变，不改变操作员看到的东西。`/ulticloud login`、`/ulticloud logout`、`/ulticloud status` 用于将服务器接入 UltiCloud，从而通过 UltiPanel 面板进行远程管理。

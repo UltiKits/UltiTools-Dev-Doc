@@ -53,10 +53,9 @@ public class PluginMain extends UltiToolsPlugin {
 
 ## @EnableAutoRegister
 
-::: warning The six-parameter connector constructor is marked for removal
-The constructor in the example below matches the `UltiToolsPlugin` overload that carries `@Deprecated(since = "6.0.8", forRemoval = true)` and hardcodes the resource folder path, so javac reports a removal warning wherever it is used, including the identical constructor in the `@ContextEntry` example further down.
-Move the integration to the External Plugin API and call `UltiToolsAPI.connect` from your own `JavaPlugin`, or keep the connector and call the seven-parameter constructor passing `resourceFolderPath` yourself: both are supported on v6.2.5.
-The replacement signature for connectors is still being decided in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217), and the removal itself is tracked in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213).
+::: info Connector constructor as of v6.3.0
+The six-parameter constructor has been removed. Both connector examples below use the seven-parameter constructor and receive `resourceFolderPath` from their caller.
+For a new standalone Bukkit plugin, prefer `UltiToolsAPI.connect(this)` in your own `JavaPlugin`; see the [External Plugin API](/guide/advanced/external-plugin-api).
 :::
 
 `@UltiToolsModule` contains the `@EnableAutoRegister` annotation. If you cannot use `@UltiToolsModule`, you can use the `@EnableAutoRegister` annotation, such as if you want to use UltiTools' automatic registration in your own plugin.
@@ -74,8 +73,8 @@ public class UltiToolsConnector extends UltiToolsPlugin {
     
     // If you need to connect to UltiTools-API, you need to override this constructor with parameters,
     // the other one without parameters is for module development.
-    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass) {
-        super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass);
+    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath) {
+        super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass, resourceFolderPath);
     }
 
     @Override
@@ -89,7 +88,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
 ## @ContextEntry
 
-The connector constructor in this example is the same six-parameter overload described under `@EnableAutoRegister`.
+The connector constructor in this example is the same seven-parameter overload described under `@EnableAutoRegister`.
 
 Add this annotation above the class that extends `UltiToolsPlugin`; it only takes effect on the `register(UltiToolsPlugin)` connector and adapter path described above, not when UltiTools loads your module as a standard JAR. Standard modules should register beans with `@Service` or `@Bean` instead.
 
@@ -99,8 +98,8 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
     // If you need to connect to UltiTools-API, you need to override this constructor with parameters,
     // the other one without parameters is for module development.
-    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass) {
-        super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass);
+    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath) {
+        super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass, resourceFolderPath);
     }
 
     @Override
