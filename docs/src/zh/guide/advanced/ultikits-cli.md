@@ -2,10 +2,9 @@
 
 `@ultikits/cli` 是官方命令行工具，用于将 UltiTools 插件模块发布到 [UltiCloud](https://panel.ultikits.com/) 市场。开发者可以使用它进行身份验证、初始化项目元数据、上传 JAR 文件，以及管理已发布的模块和版本。
 
-::: tip 推荐：GitHub Actions
-
-所有官方 UltiTools 模块都使用 [GitHub Actions 工作流](#ci-cd-github-actions) 在创建 GitHub Release 时自动发布到 UltiCloud。CLI 仍然适用于本地测试、调试和手动发布。
-
+::: tip 推荐：本地发布
+官方 UltiTools 模块由维护者在本地发布：把验收通过的 JAR 附加到 GitHub Release，再用 CLI 将同一个文件发布到 UltiCloud。第三方开发者也可以使用相同的路径。
+[GitHub Actions](#ci-cd-github-actions) 是可选的手动工作流，不是官方模块的发布路径。
 :::
 
 ## 安装
@@ -159,15 +158,17 @@ ultikits init
 
 ### 基本用法
 
-先构建模块 JAR，然后发布：
+先构建并测试模块，保留准备发布的 JAR。把这个文件附加到 GitHub Release，再用 CLI 发布相同字节的文件，不要在两次上传之间重新构建：
 
 ```bash
-mvn clean package -DskipTests
-ultikits publish
+mvn clean verify
+ultikits publish target/MyPlugin-1.2.0.jar \
+  --module-version 1.2.0 \
+  --changelog "CHANGELOG.md 中 1.2.0 节的正文"
 ```
 
-CLI 自动完成以下操作：
-1. 在 `./target/` 中查找 JAR 文件（跳过 `-sources.jar` 和 `-javadoc.jar`）
+未指定 JAR 路径时，CLI 在 `./target/` 中查找文件（跳过 `-sources.jar` 和 `-javadoc.jar`）。选定 JAR 后，CLI 自动完成以下操作：
+1. 使用这个文件上传
 2. 从 JAR 中读取 `plugin.yml` 获取名称和版本
 3. 读取 `ultikits.json` 获取标识符、描述和分类
 4. 如果模块在 UltiCloud 上不存在则自动创建
@@ -175,12 +176,12 @@ CLI 自动完成以下操作：
 
 ### 带参数发布
 
-可以显式指定 JAR 路径，并通过命令行参数覆盖元数据：
+显式指定 JAR 路径，并通过命令行参数覆盖元数据。建议把已发布版本在 `CHANGELOG.md` 中对应一节的正文作为一个完整的 `--changelog` 参数，不要传整份文件或通用占位说明。下面的示例文本应替换为该节正文：
 
 ```bash
 ultikits publish target/MyPlugin-1.2.0.jar \
   --module-version 1.2.0 \
-  --changelog "新增功能"
+  --changelog "CHANGELOG.md 中 1.2.0 节的正文"
 ```
 
 可用参数：
@@ -201,7 +202,7 @@ ultikits publish target/MyPlugin-1.2.0.jar \
 ```bash
 ULTIKITS_TOKEN=your_token ultikits publish --yes \
   --module-version "1.2.0" \
-  --changelog "修复 Bug 和改进"
+  --changelog "CHANGELOG.md 中 1.2.0 节的正文"
 ```
 
 ### 元数据优先级
@@ -211,6 +212,12 @@ CLI 从多个来源解析元数据，优先级如下：
 **CLI 参数** > **ultikits.json** > **JAR 中的 plugin.yml**
 
 例如，如果你传入 `--module-version 1.2.0`，它会覆盖 `plugin.yml` 中的版本号。
+
+### 上传失败与重试
+
+文件上传从未完成的版本不算已发布，不会出现在公开列表中，也不会被选为最新版本。上传失败或中断后，可以立即使用同一版本再次执行相同的 `ultikits publish` 命令，不需要等待预留过期。新尝试会替换该版本的待上传预留，并使旧上传令牌失效。同一模块另一个版本的上传仍在进行时，仍会阻止新的预留。
+
+已发布版本不可覆盖，CLI 上传和旧的 `POST /developer/plugin/update` Accesskey 接口都如此。修改文件后应发布新版本。如果网络故障导致结果不明，先检查公开版本列表：已经完成的发布不是待上传状态，不能通过重试替换。
 
 ### 模块的 API 级别
 
@@ -294,14 +301,25 @@ ultikits versions delete myplugin 0.9.0
 
 ## CI/CD — GitHub Actions {#ci-cd-github-actions}
 
-推荐使用 GitHub Actions 进行自动发布。在模块仓库中创建 `.github/workflows/publish.yml`：
+推荐使用本地发布。如果项目需要通过 CI 发布，可以使用下面的可选方案，仅在维护者手动启动时运行。推送、合并或创建 GitHub Release 都不会触发它。在模块仓库中创建 `.github/workflows/publish.yml`：
 
 ```yaml
 name: Publish to UltiCloud
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Module version, for example 1.2.0
+        required: true
+        type: string
+      changelog:
+        description: Body of this version's CHANGELOG.md section
+        required: true
+        type: string
+
+permissions:
+  contents: read
 
 jobs:
   publish:
@@ -309,77 +327,60 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 8
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '8'
+          java-version: '21'
           distribution: 'temurin'
           cache: maven
 
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
-      - name: Set project version
+      - name: Set project version and verify
         env:
-          MODULE_VERSION: ${{ steps.version.outputs.VERSION }}
-        run: mvn versions:set -DnewVersion="$MODULE_VERSION" -DgenerateBackupPoms=false
-
-      - name: Build with Maven
-        run: mvn clean package -DskipTests
+          MODULE_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$MODULE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          mvn -B versions:set "-DnewVersion=$MODULE_VERSION" -DgenerateBackupPoms=false
+          mvn -B clean verify
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install UltiKits CLI
-        run: npm install -g @ultikits/cli
+      - name: Install a pinned UltiKits CLI
+        run: npm install -g @ultikits/cli@1.2.0 --ignore-scripts
 
       - name: Publish to UltiCloud
         env:
           ULTIKITS_TOKEN: ${{ secrets.ULTIKITS_TOKEN }}
-          MODULE_VERSION: ${{ steps.version.outputs.VERSION }}
-          RELEASE_BODY: ${{ github.event.release.body }}
+          MODULE_VERSION: ${{ inputs.version }}
+          RELEASE_NOTES: ${{ inputs.changelog }}
+        shell: bash
         run: |
-          ultikits publish --yes \
+          set -euo pipefail
+          ultikits publish "target/MyPlugin-${MODULE_VERSION}.jar" --yes \
             --module-version "$MODULE_VERSION" \
-            --changelog "$RELEASE_BODY"
+            --changelog "$RELEASE_NOTES"
 ```
 
 ### 配置步骤
 
-1. **添加工作流文件** 到 `.github/workflows/publish.yml`
+1. 添加工作流文件，把精确 JAR 路径中的 `MyPlugin` 改为自己构建产物的最终名称。不要用通配符，以免上传源码包或未打包依赖的 JAR。
+2. 把开发者门户的 Access Token 设置为仓库的 `ULTIKITS_TOKEN` Secret，不要写进工作流正文或手动输入参数。
+3. 保持 CLI 版本固定，检查版本变更后再更新这个固定值。
 
-2. **设置 `ULTIKITS_TOKEN` Secret**：
-   ```bash
-   gh secret set ULTIKITS_TOKEN --body "your_access_token" --repo YourOrg/YourPlugin
-   ```
-   从 [panel.ultikits.com/developer](https://panel.ultikits.com/developer) 获取 Access Token。
-
-3. **创建 GitHub Release**（例如标签 `v1.0.0`）。工作流会：
-   - 从标签中去掉 `v` 前缀得到版本号（`1.0.0`）
-   - 更新 `pom.xml` 中的版本号
-   - 使用 `mvn clean package` 构建 JAR
-   - 将 Release 正文作为更新日志发布到 UltiCloud
-
-::: tip 只有 GitHub Release 会触发发布
-
-推送代码到 `master` **不会**触发发布，只有创建 GitHub Release 才会。
-
+::: warning 推送即发布
+不要加入 `push` 或合并触发器，否则合并版本号改动就会自动发布。把工作流输入直接插入 `run:` 也可能造成 shell 注入；应像示例一样通过环境变量传递，并对变量展开放置引号。
 :::
 
 ### 发布新版本
 
-初始配置完成后，发布新版本很简单：
-
-1. 提交并推送代码到 `master`
-2. 在 GitHub 上进入 Releases > **Draft a new release**
-3. 创建新标签（例如 `v1.1.0`）— `v` 前缀会自动去除
-4. 在 Release 正文中填写更新日志
-5. 点击 **Publish release**
-
-工作流会自动构建并上传新版本到 UltiCloud。
+1. 检查源码和该版本的 `CHANGELOG.md` 一节。
+2. 打开 **Actions > Publish to UltiCloud > Run workflow**，选择准备发布的分支或标签。
+3. 输入模块版本，把对应更新说明节的正文粘贴到 `changelog`。
+4. 明确启动工作流，然后核对上传的版本与文件。这个可选方案会构建并发布到 UltiCloud，不会创建 GitHub Release；如果也在 GitHub 发布，应附加同一个 JAR，不要另做一次构建。
 
 ## 常见问题
 

@@ -26,8 +26,8 @@ public class UltiToolsConnector extends UltiToolsPlugin {
     // If you need to connect to UltiTools-API, you need to override this constructor with parameters,
     // the other one without parameters is for module development.
     // Please do not use the constructor without parameters here
-    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass) {
-      super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass);
+    public UltiToolsConnector(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath) {
+      super(pluginName, version, authors, loadAfter, minUltiToolsVersion, mainClass, resourceFolderPath);
     }
     @Override
     public boolean registerSelf() {
@@ -37,7 +37,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
     }
 
     @Override
-    public void unregisterSelf() {
+    protected void onUnregister() {
         // Optional,
         // if you only need to unregister all commands and listeners,
         // you don't need to override this method
@@ -45,7 +45,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
     }
 
     @Override
-    public void reloadSelf() {
+    protected void onReload() {
         // Optional,
         // if you only need to reload the module configuration file,
         // you don't need to override this method

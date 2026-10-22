@@ -23,6 +23,4 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MyPlugin extends UltiToolsPlugin {
     @Override
     public boolean registerSelf() { return true; }
-    @Override
-    public void unregisterSelf() { }
 }

@@ -32,9 +32,12 @@ v6.3.0 的 jar 里两者都不存在，下方的方法列表已相应移除该�
 public abstract class **UltiToolsPlugin** extends java.lang.Object implements IPlugin, Localized, Configurable
 
 ## 构造器概要
+
+自 v6.3.0 起，六参数构造器已移除。标准模块使用无参构造器，连接器则使用七参数构造器并显式传入 `resourceFolderPath`。`reloadSelf()` 与 `unregisterSelf()` 为 `final`，自定义工作写在 `onReload()` 与 `onUnregister()` 中。
+
 :::tabs
 == 构造器
-`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass)` `@Deprecated`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
+`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
 :::
 
 ## 方法概要
@@ -117,5 +120,5 @@ getAllConfigs, getConfig, saveConfig
 
 ## 构造器详细资料
 ::: info UltiToolsPlugin
-`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass)` `@Deprecated`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
+`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
 :::

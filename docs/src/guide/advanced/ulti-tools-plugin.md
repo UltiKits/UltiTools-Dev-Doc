@@ -32,9 +32,12 @@ Use `XVersionUtils`'s static methods instead — see [`VersionWrapper`](/api/ver
 public abstract class **UltiToolsPlugin** extends java.lang.Object implements IPlugin, Localized, Configurable
 
 ## 构造器概要
+
+As of v6.3.0, the six-parameter constructor is removed. Use the no-argument constructor for a standard module, or pass `resourceFolderPath` explicitly to the seven-parameter connector constructor. `reloadSelf()` and `unregisterSelf()` are `final`; put custom work in `onReload()` and `onUnregister()`.
+
 :::tabs
 == 构造器
-`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass)` `@Deprecated`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
+`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
 :::
 
 ## 方法概要
@@ -117,5 +120,5 @@ getAllConfigs, getConfig, saveConfig
 
 ## 构造器详细资料
 ::: info UltiToolsPlugin
-`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass)` `@Deprecated`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
+`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
 :::

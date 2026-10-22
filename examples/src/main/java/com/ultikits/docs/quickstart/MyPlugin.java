@@ -30,7 +30,7 @@ public class MyPlugin extends UltiToolsPlugin {
     }
     
     @Override
-    public void unregisterSelf() {
+    protected void onUnregister() {
       // Optional, 
       // if you only need to unregister all commands and listeners, 
       // you don't need to override this method
@@ -38,7 +38,7 @@ public class MyPlugin extends UltiToolsPlugin {
     }
     
     @Override
-    public void reloadSelf() {
+    protected void onReload() {
       // Optional,
       // if you only need to reload the module configuration file,
       // you don't need to override this method

@@ -7,7 +7,4 @@ import com.ultikits.ultitools.annotations.UltiToolsModule;
 public class MyPlugin extends UltiToolsPlugin {
     @Override
     public boolean registerSelf() { return true; }
-
-    @Override
-    public void unregisterSelf() { }
 }

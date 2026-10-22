@@ -27,14 +27,14 @@ footer: false
 <dependency>
   <groupId>com.ultikits</groupId>
   <artifactId>UltiTools-API</artifactId>
-  <version>6.2.5</version>
+  <version>6.3.0</version>
   <scope>provided</scope>
 </dependency>
 ```
 
 ```groovy [Gradle]
 dependencies {
-  compileOnly 'com.ultikits:UltiTools-API:6.2.5'
+  compileOnly 'com.ultikits:UltiTools-API:6.3.0'
 }
 ```
 
@@ -69,8 +69,8 @@ name: TestPlugin
 version: '${project.version}'
 # 模块主类
 main: com.test.plugin.MyPlugin
-# 模块用到的UltiTools-API版本，例如6.2.0就是620
-api-version: 620
+# 模块用到的 UltiTools API 级别，例如 6.3.0 为 630
+api-version: 630
 # 模块作者
 authors: [ yourname ]
 # UltiTools 检查更新时使用的唯一标识符
@@ -81,8 +81,8 @@ identify-string: test-plugin
 
 ### 编写模块主类
 
-新建一个主类继承 `UltiToolsPlugin` ，类似传统的Paper插件，UltiTools模块也需要重写启动和关闭方法。
-UltiToolsPlugin 还定义了两个生命周期钩子方法，`onReload()` 和 `onUnregister()`，分别用于重载与卸载时的工作。
+新建一个主类继承 `UltiToolsPlugin`，实现 `registerSelf()` 完成启动工作。
+可选的 `onReload()` 和 `onUnregister()` 钩子分别处理自定义重载与卸载工作；没有自定义工作时可以省略。
 
 ::: tip 自 v6.3.0 起
 `reloadSelf()` 与 `unregisterSelf()` 是 `final` 方法，改为重写 `onReload()` 与
@@ -135,7 +135,7 @@ protected void onReload(ReloadReport report) {
 你可以使用更简单的外部插件 API：在你的插件 `onEnable()` 中调用 `UltiToolsAPI.connect(this)` 即可。详情请参阅[外部插件 API 指南](./advanced/external-plugin-api.md)。
 :::
 
-以下部分介绍的是旧版连接器方式，该方式仍然受支持，但不再推荐用于新项目。它的六参数构造器已标记为待移除，优先使用在你自己的 `JavaPlugin` 里调用的外部插件 API，或接收 `resourceFolderPath` 的七参数重载；替代签名仍在 [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217) 中讨论，移除动作跟踪于 [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213)。
+以下部分介绍的是旧版连接器方式，该方式仍受支持，但不再推荐用于新项目。自 v6.3.0 起，六参数构造器已移除，连接器使用显式接收 `resourceFolderPath` 的七参数构造器；新的集成应在自己的 `JavaPlugin` 中使用外部插件 API。
 
 ### 创建入口类（旧版）
 
@@ -143,17 +143,13 @@ protected void onReload(ReloadReport report) {
 
 <<< @/../examples/src/main/java/com/ultikits/docs/quickstart/UltiToolsConnector.java
 
-这个类只有在你把模块打成 JAR、交由 UltiTools 走标准模块加载路径时才会起作用，见上文[创建一个 UltiTools 的模块](#创建一个ultitools的模块)。
+集成它的插件需要传入全部七个参数来构造连接器，包括自己的资源目录。标准模块则使用上文[创建一个UltiTools的模块](#创建一个ultitools的模块)中的无参主类。
 
 ### 将入口类注册到UltiTools插件管理器（旧版）
 
-不由 UltiTools 加载的插件，过去要手动把入口类注册到 UltiTools 插件管理器。
+旧版集成先构造连接器，再把实例传给 `UltiToolsPlugin.getPluginManager().register(connector)`，并在使用前检查返回的布尔值。这使用的是 `register(UltiToolsPlugin)` 重载，不通过反射调用构造器。
 
-::: warning 六参数手动注册在 v6.2.5 上必定失败
-下面曾经展示的 `register(pluginClass, name, version, authors, loadAfter, minUltiToolsVersion, mainClass)` 调用在 v6.2.5 上必定抛出异常：`validateConstructorArgs` 按类名前缀校验每个实参类型，`Collections.singletonList(...)` 与 `Collections.emptyList()` 产出的 `Collections$SingletonList`/`Collections$EmptyList` 都不匹配任何白名单前缀，触发的 `SecurityException` 被外层 `catch (Exception | Error)` 吞掉，只打日志并返回 `false`。
-改用本页前文「创建一个UltiTools的模块」那一节的写法，而不是这个入口类：那一节的主类没有声明任何构造器，UltiTools 从 `plugins/UltiTools/plugins` 通过自动生成的无参构造器加载它，完全不会走到 `validateConstructorArgs`，也不会碰到手工构造 `ArrayList` 之后仍会命中的 `int` 与 `Integer` 精确匹配失败。
-`register(...)` 是否应该接受这些实参类型，与连接器的替代签名一起在 [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217) 中讨论，六参数构造器本身已列入 [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213) 的移除清单。
-:::
+自 v6.3.0 起，反射式 `register(Class, Object...)` 重载与六参数构造器均已移除，不要再向 `register(...)` 传入元数据实参。新的独立插件使用[外部插件 API](./advanced/external-plugin-api.md)，标准模块则使用上方的无参主类。
 
 ## 验证安装
 
