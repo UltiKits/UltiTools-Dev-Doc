@@ -12,6 +12,7 @@ hero:
     - theme: alt
       text: Javadoc
       link: /api/
+      target: _self
     - theme: alt
       text: GitHub Repo
       link: https://github.com/UltiKits/UltiTools-Reborn
