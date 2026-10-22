@@ -1,3 +1,10 @@
+# The hero button linked to /javadoc, which never existed as a page.
+# Keep these rules: all 14 frozen archive homepages still link to
+# https://dev.ultikits.com/javadoc and depend on this redirect. Those archived
+# buttons intentionally land on the current version's Javadoc, not frozen Javadoc.
+/javadoc /api/ 301
+/zh/javadoc /api/ 301
+
 # Redirect /en/* to root (English is the root locale, no /en/ prefix)
 /en/* /:splat 301
 /en / 301
