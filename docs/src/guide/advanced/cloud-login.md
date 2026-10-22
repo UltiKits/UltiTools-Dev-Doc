@@ -1,8 +1,7 @@
 # Cloud Login
 
-::: warning As of v6.3.0 — unreleased
-As of v6.3.0 (currently unreleased on the `alpha` branch), UltiTools-API uses the cloud-login
-lifecycle described here. The three commands and their console output are unchanged from earlier versions.
+::: info As of v6.3.0
+UltiTools-API v6.3.0 uses the cloud-login lifecycle described here. The three commands and their console output are unchanged from earlier versions.
 :::
 
 As of v6.3.0, the framework tracks a login differently internally. It does not change what an operator sees.

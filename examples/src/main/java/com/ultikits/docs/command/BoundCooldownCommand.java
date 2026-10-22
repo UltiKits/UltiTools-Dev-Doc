@@ -21,6 +21,6 @@ public class BoundCooldownCommand extends BaseCommandExecutor {
     @CmdMapping(format = "wild")
     @CmdCD(config = BoundCooldownConfig.class, key = "features.wild.cooldown")
     public void wild(@CmdSender Player player) {
-        // 在这里实现功能；方法抛出异常时，这次执行尝试仍会开始冷却。
+        // Implement the action here; the cooldown starts even if this attempt throws.
     }
 }

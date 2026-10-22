@@ -6,11 +6,11 @@ footer: false
 
 In this article, you will learn how to create an UltiTools module and how to use UltiTools-API in your own plugin.
 
-[//]: # (## 使用 IDEA 插件快速创建)
+[//]: # (## Quick creation with the IDEA plugin)
 
 [//]: # ()
 
-[//]: # (UltiKits 开发了官方的 IDEA 插件，你可以使用他来快速创建项目。)
+[//]: # (Use the official UltiKits IDEA plugin to create a project.)
 
 ## Create a new Paper project
 
@@ -73,7 +73,7 @@ name: TestPlugin
 version: '${project.version}'
 # Module main class
 main: com.test.plugin.MyPlugin
-# UltiTools API 级别，例如 6.3.0 为 630
+# UltiTools API level, for example 630 for 6.3.0
 api-version: 630
 # Module authors
 authors: 

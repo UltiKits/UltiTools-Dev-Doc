@@ -11,7 +11,7 @@ import lombok.Setter;
 @ConfigEntity("config/economy.yml")
 public class BoundScheduleConfig extends AbstractConfigEntity {
 
-    @ConfigEntry(path = "interest.interval", comment = "利息发放间隔（秒）")
+    @ConfigEntry(path = "interest.interval", comment = "Seconds between interest payouts")
     private int interestInterval = 1800;
 
     public BoundScheduleConfig(String configFilePath) {

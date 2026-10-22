@@ -1,7 +1,7 @@
 # Config Converters
 
 ::: info Availability
-This page describes unreleased configuration conversion as of v6.3.0 on the framework alpha branch.
+Configuration conversion is available in UltiTools-API v6.3.0.
 :::
 
 `ConfigConverter<T>` converts a declared Java value to plain configuration data and back. Register a converter with `@ConfigConverterFor` in your module's scan packages before configuration construction. The storage document and registry coordination bridges are internal, not a module transaction API.
@@ -61,7 +61,7 @@ The actual message names the complete type. During binding, a convertible declar
 
 ## Converter example
 
-Place the value/field members below inside `MigrationExample` in package `example.config` (imports go before the outer class). Put the converter in its own public top-level `TokenConverter.java` in the same scanned package, as shown in the second block; do not nest it in the outer class. These are inline snippets for the unreleased branch, not references compiled against the released artifact. The text-only map shape is strict so both equations hold, including null text.
+Place the value/field members below inside `MigrationExample` in package `example.config` (imports go before the outer class). Put the converter in its own public top-level `TokenConverter.java` in the same scanned package, as shown in the second block; do not nest it in the outer class. These inline snippets target v6.3.0; unlike shared example-file references, they are not compiled by the documentation build. The text-only map shape is strict so both equations hold, including null text.
 
 ```java
 import java.util.Objects;

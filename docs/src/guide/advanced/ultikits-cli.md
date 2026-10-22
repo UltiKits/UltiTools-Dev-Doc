@@ -82,7 +82,7 @@ The command prompts you for:
 | Author | `git config user.name` | Your name |
 | API version | `6.2.2` | UltiTools-API version. This default lags the current release; use the latest version instead. |
 
-It generates a complete, compilable project:
+CLI 1.2.0 generates this project structure:
 
 ```
 UltiHome/
@@ -98,7 +98,12 @@ UltiHome/
 └── src/test/java/.../               # Test directory (empty, ready for tests)
 ```
 
-The generated project compiles immediately:
+Before compiling against UltiTools-API 6.3.0, migrate the CLI 1.2.0 template:
+
+- Select API version `6.3.0` and set `api-version: 630` in `src/main/resources/plugin.yml`; the template still writes `620`.
+- Remove the empty `unregisterSelf()` and `reloadSelf()` overrides from the main class. These methods are final in 6.3.0; put cleanup in `protected void onUnregister()` and reload logic in `protected void onReload()` if needed.
+
+Then compile the migrated project:
 
 ```bash
 cd UltiHome
@@ -217,7 +222,7 @@ For example, if you pass `--module-version 1.2.0`, it overrides the version in `
 
 A version whose artifact upload never completed is not published: it is not listed publicly or selected as the latest version. After a failed or interrupted upload, run the same `ultikits publish` command again immediately with the same version; there is no waiting period for a pending upload. A fresh attempt replaces that version's pending reservation and invalidates the old upload token. An active upload of a different version still blocks a new reservation for the module.
 
-A published version cannot be overwritten, either through CLI uploads or the legacy `POST /developer/plugin/update` Accesskey endpoint. Use a new version for changed bytes. If a network failure leaves the outcome unknown, check the public version list first: a completed publication is not a pending upload and cannot be replaced by retrying.
+A published version cannot be overwritten, either through CLI uploads or the legacy `POST /developer/plugin/update` Accesskey endpoint. Use a new version for changed bytes. If a network failure leaves the outcome unknown, check the [public version-detail API](#list-versions) first: a completed publication is not a pending upload and cannot be replaced by retrying.
 
 ### The module's API level
 
@@ -284,20 +289,21 @@ This permanently deletes the module and all its versions. This cannot be undone.
 ultikits versions list myplugin
 ```
 
-Output:
+In CLI 1.2.0, this command is not reliable for modules built for UltiTools-API 6.3.0. It omits the API-level query, so the server excludes versions with `api-version: 630`; it also treats the returned version strings as objects and can print `undefined`. Do not use its output to decide whether an upload completed.
 
-```
-  1.0.0 (latest) 85 KB — 2026-02-14T12:00:00Z
-  0.9.0 72 KB — 2026-02-10T08:30:00Z
+Check the public version-detail API instead. Look up the module by its `identifyString`, then use the numeric `data.id` from the response:
 
-2 version(s)
+```bash
+curl --fail-with-body 'https://api.ultikits.com/plugin/get?identifyString=myplugin'
+# Replace 123 with data.id from the response above.
+curl --fail-with-body 'https://api.ultikits.com/plugin/123/versions-detail'
 ```
+
+The second response's `data` array contains finalized versions, including their `version`, `changelog`, `fileSize` and `downloadLink`, without the compatibility filter used by `/versions`. Check the intended version and notes; download its `downloadLink` and compare its SHA-256 with your retained JAR to verify the uploaded bytes. Pending uploads are not included.
 
 ### Delete a Version
 
-```bash
-ultikits versions delete myplugin 0.9.0
-```
+CLI 1.2.0 exposes `ultikits versions delete`, but the server does not implement its `DELETE /developer/modules/<id>/versions/<version>` route. It returns 404 and does not delete the version. Do not use it to work around the rule that published versions cannot be overwritten; publish a new version for changed bytes.
 
 ## CI/CD with GitHub Actions {#ci-cd-with-github-actions}
 
@@ -313,10 +319,6 @@ on:
         description: Module version, for example 1.2.0
         required: true
         type: string
-      changelog:
-        description: Body of this version's CHANGELOG.md section
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -326,6 +328,53 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Extract release notes
+        env:
+          MODULE_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["MODULE_VERSION"]
+          if not re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", version):
+              raise SystemExit("Expected a release version such as 1.2.0")
+          lines = Path("CHANGELOG.md").read_text(encoding="utf-8").splitlines()
+          heading = re.compile(r"^##[ \t]+(?:\[v?([^\]]+)\]|v?([0-9]+\.[0-9]+\.[0-9]+))(?=[ \t]|$)")
+          sections = []
+          start = None
+          fence = None
+          for index, line in enumerate(lines):
+              marker = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
+              if fence:
+                  if re.fullmatch(r" {0,3}" + re.escape(fence[0]) + "{" + str(len(fence)) + r",}[ \t]*", line):
+                      fence = None
+                  continue
+              if marker:
+                  fence = marker.group(1)
+                  continue
+              if re.match(r"^##(?:[ \t]|$)", line):
+                  if start is not None:
+                      sections.append(lines[start:index])
+                      start = None
+                  match = heading.match(line)
+                  if match and (match.group(1) or match.group(2)) == version:
+                      start = index + 1
+          if start is not None:
+              sections.append(lines[start:])
+          if len(sections) != 1:
+              raise SystemExit("Expected exactly one CHANGELOG section for " + version)
+          body = "\n".join(sections[0]).strip()
+          if not body:
+              raise SystemExit("The CHANGELOG section is empty")
+          Path("release-notes.md").write_text(body + "\n", encoding="utf-8")
+          PY
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -344,6 +393,14 @@ jobs:
           mvn -B versions:set "-DnewVersion=$MODULE_VERSION" -DgenerateBackupPoms=false
           mvn -B clean verify
 
+      - name: Retain the built JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: module-${{ inputs.version }}
+          path: target/MyPlugin-${{ inputs.version }}.jar
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -356,18 +413,19 @@ jobs:
         env:
           ULTIKITS_TOKEN: ${{ secrets.ULTIKITS_TOKEN }}
           MODULE_VERSION: ${{ inputs.version }}
-          RELEASE_NOTES: ${{ inputs.changelog }}
         shell: bash
         run: |
           set -euo pipefail
           ultikits publish "target/MyPlugin-${MODULE_VERSION}.jar" --yes \
             --module-version "$MODULE_VERSION" \
-            --changelog "$RELEASE_NOTES"
+            --changelog "$(cat release-notes.md)"
 ```
+
+The extractor accepts a single `## [1.2.0]`, `## [v1.2.0]` or `## 1.2.0` heading, optionally followed by a date. It keeps subheadings and fenced code through the next level-two heading or end of file, and refuses an invalid version, missing or duplicate section, or empty body before building or publishing. Review the selected ref: its changelog must describe the bytes you intend to build.
 
 ### Setup Steps
 
-1. Add the workflow file and change `MyPlugin` in the exact JAR path to your build's final artifact name. Do not use a wildcard that could upload a sources or unshaded JAR.
+1. Add the workflow file and change `MyPlugin` in both exact JAR paths to your build's final artifact name. Do not use a wildcard that could upload a sources or unshaded JAR.
 2. Set the repository's `ULTIKITS_TOKEN` secret with your developer portal access token; never put it in the workflow text or a dispatch input.
 3. Keep the CLI version pinned. Review a version change before updating the pin.
 
@@ -379,8 +437,8 @@ Do not add a `push` or merge trigger: merging a version bump would then release 
 
 1. Review the source and the version's `CHANGELOG.md` section.
 2. Open **Actions > Publish to UltiCloud > Run workflow** and select the intended branch or tag.
-3. Enter the module version and paste that section's body into `changelog`.
-4. Start the workflow deliberately, then check the uploaded version and file. This optional recipe builds and publishes to UltiCloud; it does not create a GitHub release. If you also publish there, attach the same JAR, not a second build.
+3. Enter only the module version. The workflow reads its complete section body from the checked-out `CHANGELOG.md`; no multiline form input is used.
+4. Start the workflow deliberately, then check the uploaded version and file. This optional recipe builds once and publishes to UltiCloud; it does not create a GitHub release. Download the `module-<version>` artifact from the workflow run, extract its JAR, and attach that file to GitHub if needed, without rebuilding.
 
 ## Troubleshooting
 

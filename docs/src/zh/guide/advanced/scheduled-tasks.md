@@ -125,7 +125,7 @@ Bukkit.getScheduler().runTask(UltiTools.getInstance(), () -> {
 
 - 被注解的方法必须是 `void` 且**无参数**
 - 方法必须在受容器管理的 Bean 中（如 `@Service`）
-- Bean 必须在 `@UltiToolsModule(scanBasePackages = {...})` 扫描的包内
+- Bean 必须在 `@UltiToolsModule(scanBasePackages = {...})` 扫描的包内。下面的主类用 `scanBasePackageClasses = BoundScheduleService.class` 扫描示例服务所在的包。
 
 <<< @/../examples/src/main/java/com/ultikits/docs/scheduled/MyPlugin.java
 

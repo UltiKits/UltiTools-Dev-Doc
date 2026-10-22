@@ -11,7 +11,7 @@ import lombok.Setter;
 @ConfigEntity("config/essentials.yml")
 public class BoundCooldownConfig extends AbstractConfigEntity {
 
-    @ConfigEntry(path = "features.wild.cooldown", comment = "/wild 的冷却时间（秒）")
+    @ConfigEntry(path = "features.wild.cooldown", comment = "Cooldown for /wild in seconds")
     private int wildCooldown = 60;
 
     public BoundCooldownConfig(String configFilePath) {

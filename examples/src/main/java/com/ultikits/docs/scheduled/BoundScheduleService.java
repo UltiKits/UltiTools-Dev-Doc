@@ -8,6 +8,6 @@ public class BoundScheduleService {
 
     @Scheduled(config = BoundScheduleConfig.class, periodKey = "interest.interval", delayKey = "interest.interval")
     public void distributeInterest() {
-        // 首次等待一个完整间隔，此后每隔 interest.interval 秒在主线程执行。
+        // Wait one full interval, then run on the main thread every interest.interval seconds.
     }
 }

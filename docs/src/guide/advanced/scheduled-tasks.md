@@ -125,7 +125,7 @@ You do not need to track or cancel tasks manually.
 
 - The annotated method must be `void` and take **no parameters**
 - The method must be inside a bean managed by the container (e.g., `@Service`)
-- The bean must be in a package scanned by `@UltiToolsModule(scanBasePackages = {...})`
+- The bean must be in a package scanned by `@UltiToolsModule(scanBasePackages = {...})`. The main class below uses `scanBasePackageClasses = BoundScheduleService.class` to scan the example services' package.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/scheduled/MyPlugin.java
 

@@ -227,18 +227,10 @@ export async function onRequestGet(context) {
   // throw PR-preview visitors onto production (see index.js's header
   // comment for the full reasoning, which applies identically here).
   if (segments.length === 1 && segments[0] === 'version-wrapper') {
-    // D-13: this target is pinned to CURRENT_VERSION, and 301s are cached
-    // permanently by browsers. A reader who follows this redirect today
-    // will keep landing on THIS release's VersionWrapper page even after a
-    // later release ships — they will never re-request /api/version-wrapper
-    // to pick up a newer pin. That staleness is accepted as the tradeoff
-    // for D-13's decision to retire the page: VersionWrapper has been
-    // @Deprecated since 6.2.0 and is slated for removal, so once it's
-    // actually gone from a future API, a permanently-pinned link to the
-    // last release that had it is the only target left that still resolves
-    // at all. Surfaced to the user at 01-05-PLAN.md's merge decision gate.
+    // VersionWrapper was removed in 6.3.0. Keep this retired deep link
+    // on the last release that contains the class, independently of CURRENT_VERSION.
     const location = new URL(
-      `/api/${CURRENT_VERSION}/com/ultikits/ultitools/interfaces/VersionWrapper.html`,
+      '/api/6.2.5/com/ultikits/ultitools/interfaces/VersionWrapper.html',
       context.request.url
     );
     const headers = withStandardHeaders(new Headers({ Location: location.toString() }));

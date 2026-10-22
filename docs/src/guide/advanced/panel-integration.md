@@ -1,9 +1,7 @@
 # Panel Integration
 
-::: warning As of v6.3.0 — unreleased
-Everything on this page describes behaviour landing in UltiTools-API v6.3.0, currently on the
-`alpha` branch. On v6.2.5 or earlier, most of the config keys and classes below do not exist yet;
-where one already exists, its section says what changed.
+::: info As of v6.3.0
+The capabilities and APIs below are available in UltiTools-API v6.3.0. Sections identify changes to behaviour that also existed in earlier versions.
 :::
 
 UltiTools connects to the UltiPanel remote-management platform over a WebSocket. As of v6.3.0, five
