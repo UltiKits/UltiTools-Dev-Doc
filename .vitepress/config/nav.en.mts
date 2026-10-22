@@ -1,7 +1,7 @@
 const navEN = [
     {
         text: 'Documents',
-        activeMatch: `/guide/`,
+        activeMatch: `/guide/(?!release-notes/)`,
         link: '/guide/introduction',
     },
     // The `target` field below (set to '_self') stops VitePress's global
@@ -29,6 +29,12 @@ const navEN = [
     {
         text: 'User Doc',
         link: 'https://doc.ultikits.com',
+        skipVersioning: true
+    },
+    {
+        text: 'Release Notes',
+        activeMatch: `/guide/release-notes/`,
+        link: '/guide/release-notes/6.3.0',
         skipVersioning: true
     },
     // No link, no activeMatch, no versioningPlugin prop supplied by hand:

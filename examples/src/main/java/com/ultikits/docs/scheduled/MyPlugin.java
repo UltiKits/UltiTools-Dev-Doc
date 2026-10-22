@@ -19,10 +19,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-@UltiToolsModule(scanBasePackages = {"com.example.plugin"})
+@UltiToolsModule(scanBasePackageClasses = BoundScheduleService.class)
 public class MyPlugin extends UltiToolsPlugin {
     @Override
     public boolean registerSelf() { return true; }
-    @Override
-    public void unregisterSelf() { }
 }

@@ -39,9 +39,11 @@
 #
 # ── Exemption: exact link value, never a path prefix ─────────────────────────
 # RUNTIME_ROUTE_EXEMPT below lists exact link values that are Cloudflare
-# Pages Function routes, not files under docs/src/ or docs/archive/ — /api/
-# is the first and (as of this script) only case. The list is intentionally
-# an exact-match set, never a wildcard or path-prefix pattern.
+# Pages Function routes, not files under docs/src/ or docs/archive/. The two
+# reviewed exact values are /api/ and /api/6.2.5/index.html; the latter is
+# handled by functions/api/[[path]].js, which proxies /api/{version}/… to
+# javadoc.io. The list is intentionally an exact-match set, never a wildcard
+# or path-prefix pattern.
 # scripts/check-container-length.sh's header carries the full argument for
 # why: a path-prefix exemption (e.g. "/api/*") would silently exempt every
 # current AND FUTURE link under that prefix, whereas an exact-value exemption
@@ -63,6 +65,7 @@ NAV_ZH="$ROOT/.vitepress/config/nav.zh.mts"
 # See the header comment above for why this must stay an exact-match list.
 RUNTIME_ROUTE_EXEMPT=(
   '/api/'
+  '/api/6.2.5/index.html'
 )
 
 total=0
@@ -226,15 +229,27 @@ check_api_constant() {
 check_nav() {
   local file="$1" lang="$2"
   local links
-  # WR-04 (02-REVIEW.md): reuses LINK_RE (dual-quote-aware, defined above
-  # for extract_base_link_pairs) instead of a separate single-quote-only
-  # ad hoc pattern. nav.en.mts/nav.zh.mts happen to use single quotes
-  # throughout today, so the old pattern passed, but it was a latent,
-  # silent under-extraction — a future double-quoted nav entry would not
-  # match, and because other entries in the same file still use single
-  # quotes, $links would stay non-empty, so the "0 extracted" self-check
-  # below would never catch the gap.
-  links="$(grep -oE "$LINK_RE" "$file" | sed -E "s/$LINK_RE/\1/")"
+  # WR-04 (02-REVIEW.md) asked for dual-quote-aware extraction; the awk
+  # below accepts single or double quotes. The "0 extracted" self-check
+  # still treats an empty result as a script failure, not zero violations.
+  # One "link<TAB>skip" line per nav entry, where skip is 1 when the same
+  # entry declares skipVersioning: true. Nav entries are flat objects with one
+  # property per line, so the entry ends at its closing brace.
+  links="$(awk -v q="'" '
+    function strip_link(s) {
+      sub(/^[[:space:]]*link:[[:space:]]*/, "", s)
+      s = substr(s, 2)
+      sub("[\"" q "].*$", "", s)
+      return s
+    }
+    /^[[:space:]]*\{/ { inobj = 1; link = ""; skip = 0 }
+    inobj && /^[[:space:]]*link:[[:space:]]*/ { link = strip_link($0) }
+    inobj && /^[[:space:]]*skipVersioning:[[:space:]]*true/ { skip = 1 }
+    /^[[:space:]]*\},?[[:space:]]*$/ {
+      if (inobj && link != "") print link "\t" skip
+      inobj = 0
+    }
+  ' "$file")"
   if [ -z "$links" ]; then
     echo "FAIL: nav in $(rel_path "$file") extracted 0 link: entries — treating as script self-failure, not zero violations"
     self_check_failed=1
@@ -242,7 +257,8 @@ check_nav() {
   fi
   local root="$ROOT/docs/src"
   [ "$lang" = "zh" ] && root="$ROOT/docs/src/zh"
-  while IFS= read -r link; do
+  local link skip
+  while IFS=$'\t' read -r link skip; do
     [ -z "$link" ] && continue
     case "$link" in
       http*)
@@ -255,6 +271,16 @@ check_nav() {
       continue
     fi
     local path="$root$link.md"
+    # The versioning helper adds the /zh/ prefix to zh nav links. An entry
+    # with skipVersioning: true bypasses it, so such an entry must carry
+    # /zh/ itself and is resolved from docs/src. Without skipVersioning a
+    # /zh/ link would be prefixed twice on the site, so it keeps the zh root
+    # and fails here.
+    if [ "$lang" = "zh" ] && [ "$skip" = "1" ]; then
+      case "$link" in
+        /zh/*) path="$ROOT/docs/src$link.md" ;;
+      esac
+    fi
     if [ ! -f "$path" ]; then
       fail_line "nav($lang) -> $link -> $(rel_path "$path")"
     fi
@@ -262,12 +288,15 @@ check_nav() {
 }
 
 check_guide_constant "sidebarGuideEN" "$SIDEBAR_EN" en ""
+check_guide_constant "sidebarGuideEN_v625" "$SIDEBAR_EN" en v6.2.5
 check_guide_constant "sidebarGuideEN_v624" "$SIDEBAR_EN" en v6.2.4 v6.2.3 v6.2.2
 check_guide_constant "sidebarGuideEN_v620" "$SIDEBAR_EN" en v6.2.1 v6.2.0
 check_guide_constant "sidebarGuideEN_v610" "$SIDEBAR_EN" en v6.1.0
+# v6.2.5 maps API navigation to []: its release tree has no API pages.
 check_api_constant "sidebarApiEN" "$SIDEBAR_EN" en v6.2.4 v6.2.3 v6.2.2 v6.2.1 v6.2.0 v6.1.0
 
 check_guide_constant "sidebarGuideZH" "$SIDEBAR_ZH" zh ""
+check_guide_constant "sidebarGuideZH_v625" "$SIDEBAR_ZH" zh v6.2.5
 check_guide_constant "sidebarGuideZH_v624" "$SIDEBAR_ZH" zh v6.2.4 v6.2.3 v6.2.2
 check_guide_constant "sidebarGuideZH_v620" "$SIDEBAR_ZH" zh v6.2.1 v6.2.0
 check_guide_constant "sidebarGuideZH_v610" "$SIDEBAR_ZH" zh v6.1.0

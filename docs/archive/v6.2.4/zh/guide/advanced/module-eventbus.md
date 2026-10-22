@@ -10,7 +10,7 @@ UltiTools 提供了一套解耦的发布/订阅事件系统，用于模块间通
 
 通过继承 `ModuleEvent` 创建自定义事件：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/eventbus/BalanceChangeEvent.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/eventbus/BalanceChangeEvent.java
 
 每个 `ModuleEvent` 自动携带：
 - `sourceModule` — 发布事件的模块名称（通过 `setSourceModule()` 设置）
@@ -20,7 +20,7 @@ UltiTools 提供了一套解耦的发布/订阅事件系统，用于模块间通
 
 在任何托管 Bean 中使用 `@ModuleEventHandler` 标记方法。框架会自动发现并注册：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/eventbus/AuditService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/eventbus/AuditService.java
 
 方法必须有**且仅有一个**继承 `ModuleEvent` 的参数。
 
@@ -111,7 +111,7 @@ eventBus.publishAsync(event);
 
 实现 `Cancellable` 接口允许处理器阻止后续处理：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/eventbus/PlayerTradeEvent.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/eventbus/PlayerTradeEvent.java
 
 处理器可以取消事件：
 
@@ -187,7 +187,7 @@ public class EconomyService {
 
 **独立的审计模块**无需依赖经济模块即可接收事件：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/eventbus/complete/AuditLogService.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/eventbus/complete/AuditLogService.java
 
 ::: tip 跨模块通信
 EventBus 非常适合模块需要对彼此的操作做出反应但又不想紧耦合的场景。例如：

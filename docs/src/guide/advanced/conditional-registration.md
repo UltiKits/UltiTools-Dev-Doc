@@ -21,10 +21,24 @@ enableWarp: true
 
 If `enableWarp` is `false` or missing, the `WarpCommands` class is **not registered** at all — no command, no memory usage, no side effects.
 
-::: warning The condition is skipped on the connector path
-`@ConditionalOnConfig` is read only in `ComponentScanner.shouldRegister`, which sits on the container scan path, while a plugin registered through `PluginManager.register(...)` reaches its command executors and listeners through a package scan that instantiates them reflectively, so the annotation is never consulted and the class is not skipped as this page describes.
-Ship the code as a standard UltiTools module with `@UltiToolsModule`, as every example on this page does; if you have to use a connector, read the config in `registerSelf()` and decide there whether to register.
-Making the connector path honour the condition is tracked in [issue #334](https://github.com/UltiKits/UltiTools-Reborn/issues/334).
+::: warning Only the connector entry point still skips the condition
+The standard `@UltiToolsModule` path resolves command classes as container beans, so a class whose condition is `false` was never constructed as a bean, and this already worked before v6.3.0.
+As of v6.3.0 the listener package-scan path evaluates the condition too, closing the one gap that was real.
+Only the connector entry point (`PluginManager.register(UltiToolsPlugin)`) performs no component scan at all, so nothing there evaluates the condition yet -- tracked in [issue #334](https://github.com/UltiKits/UltiTools-Reborn/issues/334).
+:::
+
+## Reload Drift Reporting <Badge type="tip" text="v6.3.0+" />
+
+`@ConditionalOnConfig` is evaluated once, at component scan (plugin startup). `ul reload` re-reads the config file, but it never registers or unregisters anything by itself -- it only reports what changed.
+
+As of v6.3.0, the drift message names what the container actually holds, not just what the condition now answers:
+
+```
+[UltiTools-API] @ConditionalOnConfig drift after reload: com.example.MyService (config/config.yml -> myFeature.enabled) now evaluates to disabled, but the component is already registered. @ConditionalOnConfig is evaluated once at component scan; a restart is required to remove the component.
+```
+
+::: tip Before v6.3.0, the advice was one fixed sentence
+The message used to advise "a restart is required" unconditionally, even when nothing had ever been constructed. As of v6.3.0 the advice follows what the container actually holds: present and now disabled restarts to remove it, absent and now disabled needs no restart (check the startup log instead), absent and now enabled restarts to create it, and present and now enabled needs no restart either.
 :::
 
 ## Annotation Attributes
@@ -32,7 +46,7 @@ Making the connector path honour the condition is tracked in [issue #334](https:
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `value` | `String` | (required) | Config file path relative to the plugin data folder |
-| `path` | `String` | (required) | Dot-separated or slash-separated YAML key path |
+| `path` | `String` | (required) | Dot-separated YAML key path; as of v6.3.0 it is read with the module config entity's rule, so a flat dotted key such as `features.chat: false` matches too, and a path written in both forms refuses the module |
 | `negate` | `boolean` | `false` | If `true`, register when config value is `false` (inverted logic) |
 
 ## Examples

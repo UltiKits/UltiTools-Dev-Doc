@@ -6,6 +6,12 @@ The full class reference for `UltiToolsPlugin` is on the [Javadoc](/api/) page.
 See the [Javadoc](/api/) for the current API surface.
 :::
 
+::: danger Removed in v6.3.0
+`getVersionWrapper()` and `VersionWrapper` were deleted outright in v6.3.0, along with `DefaultVersionWrapper`.
+Neither exists in the jar; the method rows below have been removed to match.
+Use `XVersionUtils`'s static methods instead; the retired [`VersionWrapper` API](/api/version-wrapper) remains available in the 6.2.5 Javadoc.
+:::
+
 # 类 `UltiToolsPlugin`
 
 包 `com.ultikits.ultitools.abstracts`
@@ -26,9 +32,12 @@ See the [Javadoc](/api/) for the current API surface.
 public abstract class **UltiToolsPlugin** extends java.lang.Object implements IPlugin, Localized, Configurable
 
 ## 构造器概要
+
+As of v6.3.0, the six-parameter constructor is removed. Use the no-argument constructor for a standard module, or pass `resourceFolderPath` explicitly to the seven-parameter connector constructor. `reloadSelf()` and `unregisterSelf()` are `final`; put custom work in `onReload()` and `onUnregister()`.
+
 :::tabs
 == 构造器
-`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass)` `@Deprecated`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
+`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
 :::
 
 ## 方法概要
@@ -46,7 +55,6 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `java.lang.String`                              | getLanguageCode()                                                           |
 | `static ListenerManager`                        | getListenerManager\()                                                       |
 | `static PluginManager`                          | getPluginManager\()                                                         |
-| `static VersionWrapper`                         | getVersionWrapper\() `@Deprecated`                                          |
 | `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
 | `java.lang.String`                              | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
 | `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
@@ -59,7 +67,6 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `static ConfigManager `                         | getConfigManager\()                                                         |
 | `static ListenerManager`                        | getListenerManager\()                                                       |
 | `static PluginManager`                          | getPluginManager\()                                                         |
-| `static VersionWrapper`                         | getVersionWrapper\() `@Deprecated`                                          |
 
 == 实例方法
 
@@ -87,7 +94,6 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `java.lang.String`                              | getLanguageCode()                                                           |
 | `static ListenerManager`                        | getListenerManager\()                                                       |
 | `static PluginManager`                          | getPluginManager\()                                                         |
-| `static VersionWrapper`                         | getVersionWrapper\() `@Deprecated`                                          |
 | `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
 | `java.lang.String`                              | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
 | `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
@@ -114,5 +120,5 @@ getAllConfigs, getConfig, saveConfig
 
 ## 构造器详细资料
 ::: info UltiToolsPlugin
-`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass)` `@Deprecated`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
+`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
 :::

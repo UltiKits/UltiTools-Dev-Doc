@@ -21,7 +21,7 @@ and `@CmdExecutor` annotations here represent the target type and executor infor
 `AbstractCommandExecutor` is deprecated since v6.2.0. Use `BaseCommandExecutor` instead which provides the same annotation-driven features plus a pluggable validation chain, improved context management, and custom type parser support.
 :::
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/ExampleCommand.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/ExampleCommand.java
 
 You have completed an empty command executor that does nothing! The `@CmdTarget` and `@CmdExecutor` annotations here
 represent the sender type and executor information of the command. We will introduce these two annotations in detail in
@@ -36,7 +36,7 @@ If your module has a large number of command executors and you don't want to reg
 the automatic registration provided by UltiTools, for details, please refer
 to [this article](/guide/advanced/auto-register).
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/UltiToolsConnector.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/UltiToolsConnector.java
 
 ## Mapping-based command executor
 
@@ -416,7 +416,7 @@ The validation chain implements the Chain of Responsibility pattern, allowing yo
 
 Validates that the command sender matches the expected target type (player, console, or both):
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerOnlyCommand.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/PlayerOnlyCommand.java
 
 #### PermissionValidator
 
@@ -483,15 +483,15 @@ public void download(@CmdSender Player player) {
 
 Implement `CommandValidator` to create custom validation logic:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/WorldRestrictionValidator.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/WorldRestrictionValidator.java
 
 Register the validator in your command executor:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/ValidatorCommand.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/ValidatorCommand.java
 
 Or use a custom validator chain:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/ChainCommand.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/ChainCommand.java
 
 ### Validator Execution Order
 
@@ -553,7 +553,7 @@ Type parsers convert command argument strings into the types your methods requir
 
 Implement `TypeParser<T>`:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/ColorParser.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/ColorParser.java
 
 Register the parser:
 
@@ -578,7 +578,7 @@ public void setColor(@CmdSender Player player, @CmdParam("color") Color color) {
 
 Advanced parser with array support:
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/RangeParser.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/RangeParser.java
 
 ```java
 // Usage
@@ -597,7 +597,7 @@ public void randomNumber(@CmdSender Player player,
 If you want a command to be executed only in the game (executed by the player), you can inherit the
 `AbstractPlayerCommandExecutor` class and override the `onPlayerCommand` method.
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerCommandExample.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/PlayerCommandExample.java
 
 Except for the `Player` type parameter, this method is the same as the `CommandExecutor#onCommand` method.
 
@@ -632,7 +632,7 @@ The rest of the usage is the same as the `AbstractPlayerCommandExecutor` class.
 If you want a command to be executed only in the console, you can inherit the `AbstractConsoleCommandExecutor` class and
 override the `onConsoleCommand` method.
 
-<<< @/../examples/src/main/java/com/ultikits/docs/command/ConsoleCommandExample.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/command/ConsoleCommandExample.java
 
 This method is the same as the `CommandExecutor#onCommand` method.
 

@@ -25,7 +25,7 @@ public class BackListener implements Listener {
 
 在继承了 `UltiToolsPlugin` 的类中的 `registerSelf` 中注册监听器。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/listener/UltiToolsConnector.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/listener/UltiToolsConnector.java
 
 当然，你也可以使用 UltiTools 提供的自动注册功能，详情可以查看[这篇文章](/zh/guide/advanced/auto-register)。
 

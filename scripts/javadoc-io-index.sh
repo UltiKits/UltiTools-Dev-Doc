@@ -29,7 +29,7 @@ USER_AGENT="UltiTools-Dev-Doc-indexer/1 (+https://github.com/UltiKits/UltiTools-
 # third-party service for versions this site has no archive for and no
 # reader will ever reach (D-33, D-12). When a new archived version is added
 # to docs/archive/, this list must be updated by hand at the same time.
-BACKFILL_VERSIONS=(6.1.0 6.2.0 6.2.1 6.2.2 6.2.3 6.2.4)
+BACKFILL_VERSIONS=(6.1.0 6.2.0 6.2.1 6.2.2 6.2.3 6.2.4 6.2.5)
 
 # Overridable only so D-32's timeout path can be exercised in seconds
 # instead of the real 5-minute wait — that is the only reason these two

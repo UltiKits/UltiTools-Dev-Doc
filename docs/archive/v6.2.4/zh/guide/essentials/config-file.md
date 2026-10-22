@@ -12,7 +12,7 @@ UltiTools提供了优雅的单例模式的封装API，让你可以像操作对�
 
 根据你的配置文件的键值对结构，创建一个类，继承 `AbstractConfigEntity` 类。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/config/SomeConfig.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/config/SomeConfig.java
 
 #### @ConfigEntity
 
@@ -61,7 +61,7 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 它可以处理大多数情况，但并不是所有情况。如果你需要解析一个更复杂的对象，你可以创建一个继承 `ConfigParser` 类的类，并在 `parser` 属性中指定它。
 
 ::: tip 自定义解析器示例
-<<< @/../examples/src/main/java/com/ultikits/docs/config/StringHashMapParser.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/config/StringHashMapParser.java
 :::
 
 #### @Getter 和 @Setter
@@ -123,7 +123,7 @@ public List<AbstractConfigEntity> getAllConfigs() {
 
 从 v6.2.0 开始，UltiTools 提供了校验注解来防止无效的配置值。详情请参阅[配置校验](/zh/guide/advanced/config-validation)指南。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/config/MyConfig.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/config/MyConfig.java
 
 可用的校验注解：`@Range`、`@NotEmpty`、`@Size`、`@Pattern`（来自 `com.ultikits.ultitools.annotations.config` 包）。
 

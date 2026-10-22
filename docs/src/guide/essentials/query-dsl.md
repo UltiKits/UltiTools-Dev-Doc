@@ -102,7 +102,7 @@ Every query chain must end with a terminal operation:
 | `first()` | `T` (nullable) | Returns the first match, or `null` |
 | `exists()` | `boolean` | Returns `true` if any match exists |
 | `count()` | `long` | Counts matching results |
-| `delete()` | `int` | Deletes matching results, returns count |
+| `delete()` | `int` | Deletes matching results, returns the number of rows removed |
 
 ```java
 // Check if a player has any homes
@@ -120,6 +120,8 @@ int deleted = dataOperator.query()
     .where("world").eq("old_world")
     .delete();
 ```
+
+As of v6.3.0, `delete()` returns the number of rows the backend actually removed, so a matched row that another writer removed first is not counted. If a matched row has a `null` id, `delete()` throws `DataAccessException` before deleting anything, because no delete can address that row.
 
 ## Complete Example
 

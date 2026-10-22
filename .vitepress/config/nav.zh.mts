@@ -1,7 +1,7 @@
 const navZH = [
     {
         text: '深度指南',
-        activeMatch: `/guide/`,
+        activeMatch: `/guide/(?!release-notes/)`,
         link: '/guide/introduction',
     },
     // 下面这个 target 字段（取值 '_self'）用来关掉 VitePress 全局 click 处理
@@ -25,6 +25,12 @@ const navZH = [
     {
         text: '用户文档',
         link: 'https://doc.ultikits.com',
+        skipVersioning: true
+    },
+    {
+        text: '更新说明',
+        activeMatch: `/guide/release-notes/`,
+        link: '/zh/guide/release-notes/6.3.0',
         skipVersioning: true
     },
     // 不传 link、不传 activeMatch、也不手传 versioningPlugin：

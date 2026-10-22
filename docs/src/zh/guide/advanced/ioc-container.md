@@ -4,7 +4,7 @@ IOC 的全称为 Inversion of Control （反转控制），意在将对象的创
 
 UltiTools 拥有自己的 IOC 容器，基于 `SimpleContainer` 构建，使用三级缓存来解决循环依赖问题。如果你接触过 Spring 开发，你将会对下面的概念感到十分熟悉。
 
-::: warning 局限性
+::: warning 找不到的类无法注册为 Bean
 尽管 UltiTools 尽可能地对涉及的class进行扫描，但仍然可能存在因找不到类使 Bean 注册失败的问题。
 :::
 
@@ -94,7 +94,7 @@ public MyClass(PluginMain pluginMain) {
 }
 ```
 
-::: tip
+::: tip 通过字段注入获取主类
 如果该类为事件监听器类或命令执行器类，那么可以使用字段注入的方式来实现主类的获取。
 :::
 
@@ -165,7 +165,7 @@ public class MyPlugin extends UltiToolsPlugin {
 - 类必须用 `@Configuration` 注解
 - 方法必须用 `@Bean` 注解
 - 返回类型变成 Bean 类型
-- Bean 名称默认为方法名。
+- Bean 名称默认为方法名，除非设置了 `@Bean(name = ...)` 或 `@Bean(value = ...)`（v6.3.0 起）——声明的第一个元素成为注册名称，其余元素作为别名解析到同一实例。
 - 工厂方法以零参数方式被调用；不能接受 `@Autowired` 形参。
 
 ## 插件实例注入 <Badge type="tip" text="v6.2.0+" />

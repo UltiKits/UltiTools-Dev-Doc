@@ -5,7 +5,13 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 你需要的仅仅只是一个实体类。CRUD 操作将由 UltiTools 自动完成。
 
 ::: warning 尽量不要嵌套对象
-由于插件还处于开发状态，难免在处理复杂对象时出现问题，所以存储的对象尽量不要超过两层嵌套（尽量不要嵌套对象）。
+存储 API 把每个 `@Column` 字段对应到一列（JSON 文件中对应一个字段）。非简单类型的字段会以 JSON 文本存入该列，不能按其内部字段查询，所以尽量使用简单值。
+:::
+
+::: warning Paper 上的 SQLite 与 spark（适用于所有 UltiTools 版本）
+在 Paper 上，spark 的后台分析器默认开启；使用 SQLite 存储时，它会把服务器线程上的数据库调用等待被锁定的数据库文件的时间从约 3 秒缩短到约 0.4 秒，因此只有当另一个线程或进程持有写锁超过这个时间时，调用才会失败（[#645](https://github.com/UltiKits/UltiTools-Reborn/issues/645)）。
+MySQL 不受影响。
+写入会长时间持有 SQLite 锁的服务器应改用 MySQL。
 :::
 
 ## 创建实体类
@@ -36,11 +42,16 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 | `isNew()` | 实体无 ID 时返回 `true` |
 | `copyWithoutId()` | 创建不含 ID 的实体副本，前提是实体类自行实现 `Cloneable` |
 
-::: warning 生命周期钩子由你的代码调用，而不是由操作器调用
-`onCreate()`、`onUpdate()`、`onDelete()` 与 `onLoad()` 声明在 `BaseDataEntity` 上，但 JSON、MySQL 与 SQLite 三个操作器的读写路径都不调用它们，因此重写这些方法的实体落库结果与不重写完全一致。
-在操作前后自己调一次，写入前 `entity.onCreate(); op.insert(entity);`，读取则在返回的实体上调 `entity.onLoad();`：这四个方法都是 public。
-让操作器调用这些钩子的修法跟踪于 [issue #194](https://github.com/UltiKits/UltiTools-Reborn/issues/194)。
-:::
+自 v6.3.0 起，数据操作器自行调用这些钩子，JSON、MySQL 与 SQLite 后端一致：
+
+| 钩子 | 调用方 |
+|------|--------|
+| `onCreate()` | `insert` 与 `insertAll`，对每个实体，在写入其字段之前 |
+| `onUpdate()` | `update(entity)`、`updateAll`、`updateCounted` 与 `updateIf`，对传入的实体，在写入其字段之前，无论随后是否写入了行 |
+| `onDelete()` | `delById` 与查询 DSL 的 `delete()`，对已储存的实体，在删除之前；没有任何行具有该 id 时不调用 |
+| `onLoad()` | `getById`、`getAll`、`page`、`getLike` 以及基于它们的查询 DSL 读取，对返回的每个实体调用一次 |
+
+`update(column, value, id)`、`del(conditions)` 与 `exist(...)` 不读取实体，不调用任何钩子。v6.3.0 之前，操作器不调用这四个钩子中的任何一个。
 
 ### AuditableDataEntity <Badge type="tip" text="v6.2.0+" />
 
@@ -59,11 +70,7 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 
 所有这四个字段都已预配置 `@Column` 注解，子类中无需声明。
 
-::: warning 四个审计列在插入后仍为 NULL
-由于操作器不调用生命周期钩子，`onCreate()` 与 `onUpdate()` 不会执行，`created_at`、`updated_at`、`created_by`、`updated_by` 四列因此不被写入，`wasModified()` 恒返回 `false`，`getAge()` 与 `getTimeSinceUpdate()` 恒返回 `null`。
-先用 `AuditableDataEntity.setCurrentUser(uuid)` 设置线程上下文，在写入前调用 `entity.onCreate()` 或 `entity.onUpdate()`，并在 `finally` 中清除上下文：不设置上下文时，即使钩子执行，两个 `by` 字段仍为 null。
-让操作器调用这些钩子的修法跟踪于 [issue #194](https://github.com/UltiKits/UltiTools-Reborn/issues/194)。
-:::
+自 v6.3.0 起，操作器通过这些钩子填写四个审计列：`insert` 设置 `created_at` 与 `updated_at`，设置了当前用户时再设置 `created_by` 与 `updated_by`；更新时设置 `updated_at`，设置了当前用户时再设置 `updated_by`，不改动 `created_at` 与 `created_by`。由 `BaseCommandExecutor` 为玩家处理的命令，在命令主体运行期间把该玩家设为当前用户，因此在其中进行的写入会记录该玩家。在其他地方，请按下文自行设置上下文。v6.3.0 之前，操作器不调用这些钩子，四列始终为 NULL。
 
 #### 用户上下文管理
 
@@ -222,6 +229,39 @@ try {
 
 该重载声明了受检异常 `IllegalAccessException`，调用方需要声明或捕获它。
 
+自 v6.3.0 起，读取返回的每个实体（`getById`、`getAll`、`page`、`getLike` 以及查询 DSL）都是副本，`insert` 存下的也是传入实体的副本。修改实体后，只有把它交给 `update(...)`，储存的数据才会改变，各个后端都是如此。v6.3.0 之前，JSON 后端返回的是它缓存在内存中的实例，因此在 JSON 后端上不调用 `update(...)` 的修改也会在下一次落盘时保存，而 MySQL 与 SQLite 从来不会保存这样的修改。
+
+自 v6.3.0 起，`update(T)`、`update(column, value, id)`、`delById` 与 `updateAll` 在 id 为 `null` 时抛出 `DataAccessException`，因为没有任何一行能用它定位；`updateAll` 会在写入之前检查全部实体。UltiTools-API 6.2.0 在 SQLite 上写入的无 id 行，会在初始化数据表时补上 id：优先使用实体通过 `getId()` 给出的值，实体给不出时使用新的 UUID，前提是实体随后确实给出这个值。控制台输出一行，给出表名与行数；任何 id 都无法使其可定位的行保持原样，并在一条警告中计数。每次写入都把 `getId()` 存入 `id` 列，因此把 `getId()` 覆写到其他字段上的实体，可以用它给出的值定位。
+
+自 v6.3.0 起，按一个没有任何行具有的 id 更新时，各个后端都不写入任何内容，输出一条给出表名与 id 的警告，并正常返回。需要知道更新是否写入时，调用 `updateCounted(entity)`：写入了一行时返回 `1`，没有任何行具有该 id 时返回 `0`：
+
+```java
+if (dataOperator.updateCounted(entity) == 0) {
+    // 这一行已被其他写入方删除：没有写入任何内容。
+}
+```
+
+框架之外的 `DataOperator` 实现如果没有覆写 `updateCounted`，按更新之前是否存在具有该 id 的行计数。
+
+### 条件更新 <Badge type="tip" text="v6.3.0+" />
+
+`updateIf(entity, expected...)` 只在储存的行仍然满足全部预期条件时写入实体，并返回是否写入。需要基于之前读到的值做更新、又不能覆盖其间其他写入方的修改时，使用它：
+
+```java
+Account read = dataOperator.getById(accountId);
+double seen = read.getBalance();
+read.setBalance(seen + amount);
+boolean written = dataOperator.updateIf(read,
+    WhereCondition.builder().column("balance").value(seen).build());
+if (!written) {
+    // 其他写入方先修改了这一行：重新读取，再做决定。
+}
+```
+
+在 MySQL 与 SQLite 上，检查与写入是同一条 `UPDATE ... WHERE id = ? AND <条件>` 语句，因此对共用同一个数据库的多台服务器同样成立。在 JSON 后端上，检查与写入在表锁下一起完成；JSON 储存只属于一台服务器。条件的含义与 `getAll(WhereCondition...)` 中相同。
+
+没有任何一行同时具有该实体的 id 并满足全部条件时，`updateIf` 返回 `false`，不写入任何内容；id 为 `null`、条件为 `null`、条件使用了实体没有用 `@Column` 映射的列，或在默认 `EQUAL` 以外的比较下条件的值为 `null` 时，各个后端都抛出 `DataAccessException`。自 v6.3.0 起，默认比较下的 `null` 期望值表示 `IS NULL`（JSON：字段不存在或为 JSON null），因此对读取时仍未设置的列做比较后写入时，若其间另一个写入方已写入该列，本次写入不生效；这一含义只属于 `updateIf`（[#640](https://github.com/UltiKits/UltiTools-Reborn/issues/640)）。框架之外的 `DataOperator` 实现如果没有实现它，会抛出 `UnsupportedOperationException`。
+
 ### 删除
 
 按 ID 删除：
@@ -251,14 +291,24 @@ WhereCondition.builder().column("somecol").value(someval).build();
 
 其中，`column` 属性用于指定查询的列，`value` 属性用于指定查询的值。
 
+#### 比较方式 <Badge type="tip" text="v6.3.0+" />
+
+自 v6.3.0 起，`EQUAL` 以外的比较方式在 SQLite、MySQL 和 JSON 上，于 `getAll`、`exist`、`page`、`del` 和 `updateIf` 中含义一致，且不改动任何表。6.2.5 的 SQLite 与 MySQL 实现把所有条件都按相等匹配。
+
+- `INCLUDE`、`STARTSWITH` 和 `ENDSWITH` 在所有后端都把值作为文本字面匹配：`%`、`_`、`!` 和 `\` 都是普通字符，不是通配符或转义符。`getLike` 和 `Query#like` 保持模式匹配语义。
+- 字母大小写和重音取决于后端：SQLite 只忽略 ASCII 字母的大小写；MySQL 按框架建表时使用的 `utf8mb3_general_ci` 排序规则比较，同时忽略大小写和重音（`é` 能匹配 `e`）；JSON 精确比较。
+- `GREATER` 和 `LESS` 用于 `byte`、`short`、`int`、`long`、`float` 或 `double` 字段（或其包装类型）时，在 SQLite 和 JSON 上按该字段类型的数值比较。请以该类型的数字传值（`10`，而不是 `"10"`）：在 MySQL 上字符串值按文本比较，于是 `"10"` 排在 `"2"` 之前。在 SQLite 上，列保持默认 `VARCHAR(255)` 类型时同样按类型比较，整数保持 64 位精度，所存的值按读回时的值比较：`0.1f` 这样的 `float` 既不大于也不小于 `0.1f`。这种按读回值的比较只适用于有限数字的值；无穷大、超出 `double` 范围的数字以及任何文本都按绑定时的值比较，因此 `GREATER Float.POSITIVE_INFINITY` 不匹配任何行，NaN 值也不匹配任何行。JSON 不支持无穷大或 NaN 值：含有这种值的条件在求值时会抛出 `IllegalArgumentException`。
+- 在 MySQL 上，留在默认文本列中的数值字段按双精度比较，在 ±9,007,199,254,740,992（2^53）以内精确，超出则只是近似。需要精确结果时，请为该列声明数值 `type`，例如 `BIGINT`。在 JSON 上按 `double` 比较，超出 2^53 时同样是近似的。
+- `exist(...)` 在 SQLite 上可用；6.2.x 在那里会抛出 `ClassCastException`。
+- 已知限制：在 SQLite 上，默认列中的 `double` 只保存 15 位有效数字，因此 `1/3.0` 读回和比较都按 `0.333333333333333`；要保留全部数字，请声明 `type = "DOUBLE"`。手工写入数值字段列的非数字文本，在 SQLite 上按其开头的数字比较（`'abc'` 为 0，`'12abc'` 为 12），JSON 则按文本比较。在 SQLite 上，与所存 `float` 前 15 位有效数字相同、之后才不同的任何数值（例如 10^15 及以上的整数如 `(1L << 53) + 1`，或有 16 位及以上有效数字的小数）会被视为与它相等，默认列和 `REAL` 列都如此；对 `float` 字段请传 `float` 值。在 SQLite 上，NaN 比较值会被绑定为 NULL，因此含它的条件不匹配任何行，带它的 `updateIf` 也永远不会生效；请勿对 NaN 阈值重试 `updateIf`。
+
 ### 事务 <Badge type="tip" text="v6.2.0+" />
 
 对于需要同时成功或同时失败的操作，请参阅[事务](/zh/guide/advanced/transactions)指南。
 
-::: warning 只有 JSON 后端会回滚这段代码
-MySQL 与 SQLite 的操作器在构造时不注入事务管理器，而 `transaction(...)` 在管理器为 null 时直接执行回调，连接始终处于 autocommit 状态，下面每一条 `insert` 各自独立提交。
-需要这段代码原子时，改用 JSON 后端，或自取 JDBC 连接、关闭 autocommit 并自行提交或回滚：事务指南对两种做法都有说明。
-把事务管理器接进关系型操作器的修法跟踪于 [issue #307](https://github.com/UltiKits/UltiTools-Reborn/issues/307)。
+::: tip MySQL 与 SQLite 在一个 JDBC 事务中执行这段代码
+自 v6.3.0 起，MySQL 与 SQLite 储存为其交出的每个操作器注入事务管理器（[#307](https://github.com/UltiKits/UltiTools-Reborn/issues/307)），因此 `transaction(...)` 在 JDBC 事务中执行，下面两条插入一起提交或一起回滚。
+自 v6.3.0 起，JSON 后端暂存回调的写入，一起提交或一起不提交。
 :::
 
 ```java
@@ -268,3 +318,29 @@ dataOperator.transaction(() -> {
     // 全部插入或全部不插入
 });
 ```
+
+在 JSON 后端上，由 `transaction(...)` 开启的事务在第一次读取或写入某张表时就锁住它（与 6.2.5 对每张表串行化一致），所以其中的“先读后写”不会丢失更新；其中的读取可能为等待持有该表的另一个事务而停顿，最多 5 秒。在默认隔离级别的 `@Transactional` 方法中，“先读后写”则改用 `updateIf` 或 `isolation = REPEATABLE_READ`，见[JSON 事务行为](/zh/guide/advanced/transactions#json-事务行为)。
+
+自 v6.3.0 起，事务自身的失败路径再失败时不会隐式提交（[#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)）：回滚或提交失败时，连接被丢弃（HikariCP 连接池会将其剔除），而不是重新打开自动提交（那样会提交该事务），框架也不会重试提交。之后保存了什么，取决于失败发生在哪里：
+
+- 操作失败且回滚成功时，未保存任何写入。
+- SQLite 或 MySQL 的回滚失败时（包括外层提交为仅回滚的事务执行的真正回滚），框架不发出提交。
+- 提交因事务已被标记为仅回滚而抛出 `UnexpectedRollbackException` 时，事务已回滚，其写入均未保存，所有后端都是如此。
+- SQLite 或 MySQL 的提交本身失败（`DataAccessException`，`TRANSACTION_FAILED`）时，结果未知：数据库可能在确认丢失之前已经应用了该提交（例如 MySQL 连接断开），丢弃连接无法撤销它。不能重复写入的代码（例如支付、奖励）在重试前应先重新读取数据，或使用 `updateIf`。
+- 在 JSON 上，失败的提交不会提交任何内容。
+
+调用方收到原来的异常；事务被标记为仅回滚时收到 `UnexpectedRollbackException`。`transaction(...)` 中抛出的 `Error` 会使事务回滚（JSON 引擎丢弃暂存的写入），并原样抛出同一个实例。
+
+## JSON 存储的运维 <Badge type="tip" text="v6.3.0+" />
+
+自 v6.3.0 起，每个插件的 JSON 表旁边都有一个隐藏的 `.ultitools-journal` 文件夹。已提交的事务会在 `commit` 返回之前写入其中并强制落盘，下次启动时重放进表文件。服务器中它位于 `plugins/UltiTools/data/<插件名>/.ultitools-journal`。事务提供的保证见[事务](/zh/guide/advanced/transactions#json-事务行为)指南。
+
+- 一个数据文件夹只运行一个服务器进程：两个服务器绝不能同时使用同一个 `plugins` 数据文件夹。
+- 备份时把 `.ultitools-journal` 文件夹与各表文件夹一起备份，或者在服务器停止时备份。`cp dir/*` 这类复制会跳过以点开头的文件夹。
+- 永远不要删除 `.ultitools-journal`，崩溃之后也不要：里面保存着尚未写入表文件的提交。
+- 崩溃之后，手工编辑任何 JSON 数据文件之前先启动一次服务器：启动会重放日志，并会覆盖你的编辑。
+- 断电后发现最新的日志记录损坏，通常说明磁盘或其控制器没有遵守刷盘请求。该插件的 JSON 数据会保持关闭，直到你把指明的文件移出日志文件夹并重启服务器。在加载时就获取数据操作器的模块（所有官方模块都是如此）会在那次启动时被拒绝加载；只有在加载完成之后才首次请求数据的插件，会在下一次请求时恢复，无需重启。
+- 某个实体文件持续无法移动（例如被其他程序一直锁着）会使该插件的每次刷新都无法清空日志：记录不断累积，启动恢复变慢，每次失败的刷新都会出现在服务器日志里。
+- 在 Windows 上，被其他程序（杀毒软件、索引器、备份工具）短暂占用的日志文件移动，最多重试 150 毫秒，之后提交失败。
+- id 中含 `<`、`>`、`:`、`"`、`|`、`?` 或 `*` 的 JSON 数据文件夹（UltiRemoteBag 的编辑占用记录使用 `:`）无法从 Linux 复制到 Windows：Windows 无法创建这些文件。id 只有大小写不同的数据也无法迁移到 Windows 或默认设置的 macOS 卷：文件会互相冲突。若含这类 id 的日志记录到了 Windows 服务器上，启动时该插件的 JSON 数据会保持关闭，错误信息指明该记录：请在写下它的 Linux 服务器上应用它，或把它移出日志文件夹并放弃其中的改动。
+- 新 id 在创建时检查，已有文件绝不会被改名，见 [JSON 实体 id](/zh/guide/advanced/transactions#json-实体-id)。UUID 字符串作为 id 总是可用；小写字母、数字、`-` 和 `_` 仅在该 id 不是 Windows 设备名（`con`、`nul`、`aux`、`prn`、`com1`–`com9`、`lpt1`–`lpt9`）时才安全。不要用玩家名作为实体 id（`Con` 和 `Nul` 都是合法的玩家名）。这些规则会拒绝的已有 id 仍可读取、`update` 和删除，但删除后再插入会被拒绝：请用 `update` 替换。

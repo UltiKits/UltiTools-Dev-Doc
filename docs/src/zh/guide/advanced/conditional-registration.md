@@ -21,10 +21,24 @@ enableWarp: true
 
 如果 `enableWarp` 为 `false` 或缺失，`WarpCommands` 类将**完全不被注册**——没有命令注册、没有内存占用、没有副作用。
 
-::: warning 连接器路径上不检查该条件
-`@ConditionalOnConfig` 只在 `ComponentScanner.shouldRegister` 中被读取，而该方法位于容器扫描路径上，通过 `PluginManager.register(...)` 注册的插件，其命令执行器与监听器是由包扫描反射实例化的，注解不会被读取，本页所述的「完全跳过」不会发生。
-按标准 UltiTools 模块发布，在主类上使用 `@UltiToolsModule`，本页所有示例都是这种写法；若必须使用连接器，在 `registerSelf()` 里自行读取配置并决定是否注册。
-让连接器路径也检查这个条件的诉求跟踪于 [issue #334](https://github.com/UltiKits/UltiTools-Reborn/issues/334)。
+::: warning 只有连接器入口点仍然跳过这个条件
+标准 `@UltiToolsModule` 路径把命令类当容器 bean 解析，条件为 `false` 的类从一开始就不会被构造成 bean，这条路径在 v6.3.0 之前就已经生效。
+v6.3.0 起，监听器包扫描路径也会检查这个条件，补上了唯一真实存在的缺口。
+只有连接器入口点（`PluginManager.register(UltiToolsPlugin)`）完全不做组件扫描，那里目前还没有任何地方检查这个条件——跟踪于 [issue #334](https://github.com/UltiKits/UltiTools-Reborn/issues/334)。
+:::
+
+## 重载漂移报告 <Badge type="tip" text="v6.3.0+" />
+
+`@ConditionalOnConfig` 只在组件扫描时（插件启动）求值一次。`ul reload` 会重新读取配置文件，但它本身不会注册或注销任何组件——它只报告发生了什么变化。
+
+v6.3.0 起，漂移消息会说明容器里实际持有什么，而不只是条件现在给出的答案：
+
+```
+[UltiTools-API] @ConditionalOnConfig drift after reload: com.example.MyService (config/config.yml -> myFeature.enabled) now evaluates to disabled, but the component is already registered. @ConditionalOnConfig is evaluated once at component scan; a restart is required to remove the component.
+```
+
+::: tip v6.3.0 之前，建议是一句固定文案
+消息过去无条件建议"需要重启"，哪怕从未构造过任何实例。v6.3.0 起，建议会跟随容器实际持有的状态：已存在且现在禁用会建议重启移除，不存在且现在禁用则无需重启（改看启动日志），不存在且现在启用会建议重启创建，已存在且现在启用同样无需重启。
 :::
 
 ## 注解属性
@@ -32,7 +46,7 @@ enableWarp: true
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `value` | `String` | （必填） | 相对于插件数据目录的配置文件路径 |
-| `path` | `String` | （必填） | 点分隔或斜杠分隔的 YAML 键路径 |
+| `path` | `String` | （必填） | 点分隔的 YAML 键路径；自 v6.3.0 起按模块配置实体的同一规则读取，`features.chat: false` 这类扁平点键也能匹配，同一路径写了两种形式时拒绝加载模块 |
 | `negate` | `boolean` | `false` | 如果为 `true`，在配置值为 `false` 时注册（反转逻辑） |
 
 ## 示例

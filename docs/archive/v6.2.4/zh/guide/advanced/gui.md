@@ -52,11 +52,11 @@ public abstract class BaseInventoryPage extends Gui {
 
 ### 创建简单的信息面板
 
-<<< @/../examples/src/main/java/com/ultikits/docs/gui/InfoGui.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/gui/InfoGui.java
 
 ### 打开 GUI
 
-<<< @/../examples/src/main/java/com/ultikits/docs/gui/InfoCommand.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/gui/InfoCommand.java
 
 ### 底部工具栏
 
@@ -170,7 +170,7 @@ protected static final int NEXT_BUTTON_COLUMN = 8;  // 最右边
 
 ### 创建分页玩家列表
 
-<<< @/../examples/src/main/java/com/ultikits/docs/gui/PlayerListGui.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/gui/PlayerListGui.java
 
 ### 分页方法
 
@@ -212,7 +212,7 @@ public abstract class BaseConfirmationPage extends BaseInventoryPage {
 
 ### 创建确认对话框（子类方法）
 
-<<< @/../examples/src/main/java/com/ultikits/docs/gui/DeleteConfirmation.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/gui/DeleteConfirmation.java
 
 ### 创建确认对话框（构建器模式）
 
@@ -266,13 +266,13 @@ ItemStack glass = XVersionUtils.getColoredPlaneGlass(Colors.CYAN);
 
 以下是结合分页和自定义操作的完整示例：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/gui/WarpListGui.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/gui/WarpListGui.java
 
 ## 高级：自定义按钮样式
 
 重写按钮创建方法来自定义外观：
 
-<<< @/../examples/src/main/java/com/ultikits/docs/gui/CustomPaginationGui.java
+<<< @/../examples-archive/v6.2.4/src/main/java/com/ultikits/docs/gui/CustomPaginationGui.java
 
 ## 弃用的 API
 

@@ -29,6 +29,12 @@
 
 `UltiTools-API` 的 [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/COMPATIBILITY.md) 说明，它的版本号是产品阶段的标识，而不是严格的 semver 约定，框架的 MINOR 版本可能移除 API。
 
+::: tip 向框架本身贡献代码，而不只是使用它
+如果你打算向 `UltiTools-Reborn` 提交 pull request，请注意它的贡献语言政策和本文档站不同：新增的注释、javadoc、workflow 注释与 PR 标题正文都要求以英文为主、中文作为补充。
+CI 会对 `src/main` 的注释与 javadoc、workflow 文件与一个测试包强制执行这条规则，对照一份很小的、明确列出的白名单。
+这是框架仓库自己的政策，不是这个双语文档站的要求。
+:::
+
 这看起来与上面的规则矛盾，实际上并不矛盾，两者的区别值得先理解清楚。
 
 框架的版本号会被解析和链接。Maven 依据它选择构件，已编译的下游插件在运行时链接到它的类。这两件事都是兼容性问题，而一个需要回答兼容性问题的数字不能是自由格式的标识。
@@ -37,18 +43,20 @@
 
 | 使用方 | 用途 |
 |---|---|
-| `PluginManager.hasNewerVersionLoaded` | 同一模块存在两个 JAR 时比较版本，拒绝加载较旧的那个 |
-| `PluginManager.unregisterSupersededVersions` | 卸载被新加载的版本取代的那个版本 |
+| `PluginManager.hasNewerVersionLoaded` | 代码通过 `PluginManager#register(...)` 再注册一个已加载模块（同一个主类）的实例时，比较两个版本，拒绝较旧的那个 |
+| `PluginManager.unregisterSupersededVersions` | 同样是这种情况下，正在注册的实例更新时，卸载被它取代的已加载版本。自 v6.3.0 起走完整的卸载流程，卸载失败会记在旧版本名下，不影响新版本继续加载。同样自 v6.3.0 起，旧版本的面板 responder、EventBus 处理器和补全器在新实例刷新容器、运行 `registerSelf()` 之前就被释放，所以新实例可以注册旧版本占用的面板消息类型；新实例随后加载失败时，这些登记会还给旧版本，旧版本照常运行 |
 | `UpdateManager.checkModuleUpdates` | 比较已加载版本与已发布版本，提示有更新可用 |
 
 三者都通过 `VersionComparatorUtil.compare` 判断 A 是否大于 B，都不关心这个差异属于 MAJOR、MINOR 还是 PATCH。
+
+模块目录里同一个模块的两个 JAR 不会走到前两项。所有模块 JAR 共用一个类加载器，两个副本解析到的是同一个类，不会并排加载。由哪个副本提供类取决于文件名而不是版本号，见[同一模块的两个副本](#同一模块的两个副本)。
 
 也没有任何机制从 Maven 解析一个模块供另一个模块使用。官方模块中没有一个在 pom 中声明对兄弟模块的依赖；以多模块工程构建的模块（例如 `UltiBot`）依赖的是它自己的子模块，那属于该构建的内部结构，不是模块之间的依赖。因此约束框架版本号的那条理由不适用于模块的版本号。如果你把自己的模块发布出去供他人编译和链接，这条理由就同样适用于你的模块：你的版本号从此需要回答兼容性问题，此时需要的是一套比框架更严格、能够保证兼容性的约定，而不是框架那套更宽松的约定。
 
 所以两者的区别在于：版本号的顺序会被程序使用，而 MAJOR、MINOR、PATCH 的含义不会。由此产生一条强制要求，其余部分交给编写者判断。
 
 ::: tip 唯一的强制要求
-版本号必须单调递增并保持可比较。从 `1.10.0` 退回 `1.9.0`，或者中途更换编号方案，会导致同时存在两个 JAR 时框架加载错误的那一个，而且没有明显提示，落选的那个只会被拒绝并记录一条警告。
+版本号必须单调递增并保持可比较。从 `1.10.0` 退回 `1.9.0`，或者中途更换编号方案，会导致更新检查漏掉更新的版本或提示一个更旧的版本，也会导致对同一模块的第二次注册保留错误的实例。
 :::
 
 除此之外，版本号的形态是写给服主看的信息，所以它的规则可以与框架不同，两者都不算错。
@@ -82,11 +90,11 @@ pin 不是模块的运行时下限。这是两个互相独立的数字，其中�
 | 数字 | 决定什么 | 由谁检查 |
 |---|---|---|
 | `pom.xml` 中的 `UltiTools-API` 版本 | 字节码记录的是哪一版的描述符 | 没有。它是 `provided`，不会进入 JAR，框架在运行时也读不到它 |
-| `plugin.yml` 中的 `api-version` | 声明的运行时下限 | `PluginManager.isUltiToolsVersionCompatible`。这是模块被放行前唯一被检查的框架版本 |
+| `plugin.yml` 中的 `api-version` | 声明的运行时下限 | 模块加载时由 `PluginManager.isUltiToolsVersionCompatible` 检查。这是模块被放行前唯一被检查的框架版本。自 v6.3.0 起，`/upm` 安装或更新该模块时也会检查它，见[按 API 级别选择版本](#按-api-级别选择版本) |
 
 提高 pin 不会提高下限。两个数字不一致本身不是问题：只要字节码引用的成员在声明的下限中都已存在，针对更新的 pin 构建出的产物照样可以在该下限上运行。真正会出问题的是字节码引用了 `api-version` 所声明的框架版本没有的符号，这时那个服务器会放行这个 JAR，并在执行到对应调用点时失败。
 
-模块被放行前检查的项目不止这一个：JAR 会先经过结构校验，同一模块已经加载了更新的版本时也会被拒绝，完整的判断是 `passesCompatibilityGates` 中的 `!hasNewerVersionLoaded && isUltiToolsVersionCompatible`。其中只有 `api-version` 与「能在哪些框架版本上运行」有关，所以本页只讨论它。
+模块被放行前检查的项目不止这一个：JAR 会先经过结构校验，同一模块已经加载了更新的实例时也会被拒绝（这只发生在代码通过 `PluginManager#register` 第二次注册同一个主类时），完整的判断是 `passesCompatibilityGates` 中的 `!hasNewerVersionLoaded && isUltiToolsVersionCompatible`。其中只有 `api-version` 与「能在哪些框架版本上运行」有关，所以本页只讨论它。
 
 ## 框架引起的兼容性中断
 
@@ -117,6 +125,12 @@ pin 不是模块的运行时下限。这是两个互相独立的数字，其中�
 只有在发布提高后的 pin 时才会产生代价：针对更新的框架构建可能记录更新的描述符，这意味着需要同时提高 `api-version`，而那会让仍在使用旧版框架的服务器无法升级。因此提高 pin 适合用来做检查，不适合用来做修复：在一次临时构建中提高 pin，观察哪些地方编译不通过，从这些 API 迁移出去，然后单独决定正式发布使用的 pin 是否需要变动。
 
 这种情形的应对方式是关注废弃通告，在移除正式发布之前完成迁移。
+
+::: tip 从废弃通告里读出移除期限
+自 v6.3.0 起，框架里每一个 `@Deprecated(forRemoval = true)` 成员都携带一个 `{@removeIn X.Y.Z}` javadoc 标签，指明移除会落在哪个具体版本。
+一旦项目版本到达该目标而成员仍在源码中声明，框架自己的 CI 就会在构建期失败，这个标签是被强制执行的承诺。
+完整列表见框架仓库的 [`compatibility/DEPRECATIONS.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/compatibility/DEPRECATIONS.md)，一次性查看所有 `ANNOUNCED` 状态的移除项及其期限。
+:::
 
 ### 描述符变更
 
@@ -209,7 +223,98 @@ python3 scripts/symcheck.py 你的模块.jar UltiTools-API-<你声明的下限>.
 - 是。那么它应当出现在移除清单上。如果不在，请提交一个 issue，这属于流程上的疏漏，不只是你这一侧的问题。
 - 否。尝试上面所说的重新构建流程：提高 pin，重新构建，提高 `api-version`。如果重新构建时**编译不通过**，说明这次变更同时破坏了源码兼容性，需要的是迁移而不是重新构建。
 
+自 v6.3.0 起，加载模块声明的主类时，如果框架 API 链接错误点名了 `com.ultikits.ultitools` 下的类型，日志会输出一行英文 `SEVERE`，包含 JAR 名、`plugin.yml` 中声明的 `version` 和 `api-version`（未声明的项不列出），以及 `Cause:` 后的原始异常消息。看到 `built against an older UltiTools-API version` 时，应将模块升级到为当前框架构建的版本，并参照 `COMPATIBILITY.md`；如果声明的 `api-version` 高于已安装框架的版本，提示会改为 `requires a newer UltiTools-API`，此时应升级框架。完整堆栈只在 `FINE` 级别输出（Paper 默认日志配置下不可见），这类拒载也不会作为错误报告发送到面板。缺少第三方类或 Bukkit 类时，仍输出带堆栈的通用 `SEVERE` 报错。例如，UltiLogin 1.0.0 装在 6.3.0 上时：
+
+```text
+[UltiTools-API] Module 'UltiLogin-1.0.0.jar' (version 1.0.0, api-version 620) declares main: 'com.ultikits.plugins.login.UltiLogin', but it was built against an older UltiTools-API version and is not compatible with this one -- refusing to load. Upgrade it to a release of the module built for the current UltiTools-API version -- see COMPATIBILITY.md for the list of APIs removed or changed in this release. Cause: java.lang.IncompatibleClassChangeError: class com.ultikits.plugins.login.UltiLogin overrides final method com.ultikits.ultitools.abstracts.UltiToolsPlugin.unregisterSelf()V
+```
+
+自 v6.3.0 起，这样被拒绝的模块会计入启动摘要 `[UltiTools-API] Succeeded loaded <s>, Failed <f>.` 中的 `Failed`。本次启动中其它未能加载的模块 JAR 也同样计入：读取主类时被拒绝的、因缺少必需插件或依赖成环而被排除的，以及注册失败的。已加载模块的第二个副本不计入。模块目录中的 JAR 全部被拒绝时，摘要为 `Succeeded loaded 0, Failed <n>.`；`No UltiTools plugin found.` 只在目录中没有任何模块 JAR 时出现。v6.3.0 之前，摘要只统计进入注册阶段的模块，所以一次拒绝了模块的启动仍可能打印 `Failed 0`。
+
+自 v6.3.0 起，主类仍重写 `unregisterSelf()` 或 `reloadSelf()`（二者自 6.3.0 起为 `final`）的模块会在加载时被整体拒绝，日志为上面的 `built against an older UltiTools-API version` 一行；在 `@PluginDependency(depends = ...)` 中声明依赖它的模块也会被拒绝，与任何缺失的硬依赖相同。只在 `softDepends`、`loadBefore` 或 `loadAfter` 中提到它的模块仍会加载，其余无关模块同样照常加载。修复办法是换用为当前 UltiTools-API 版本构建的模块版本；模块作者需把重写中的工作移到 `onUnregister()` 或 `onReload()`。
+
 [jls13]: https://docs.oracle.com/javase/specs/jls/se21/html/jls-13.html
+
+### 新增的注解属性
+
+缺失的方法或字段会以链接错误的形式明确失败，缺失的注解属性则不会：JVM 会丢弃运行时注解类型中没有声明的属性，并且不输出任何日志。自 v6.3.0 起，`@Scheduled(config = ..., periodKey = ..., delayKey = ...)` 和 `@CmdCD(config = ..., key = ...)` 可以从配置项读取间隔或冷却时间。使用了它们的模块在 6.2.x 框架上仍然可以加载，此时被绑定的 `@Scheduled` 只会在加载时执行一次，而不是按间隔重复执行，被绑定的 `@CmdCD` 则完全不会执行冷却。
+
+提高 pin 无法避免这种情况，原因见 [pin 与 `api-version`](#pin-与-api-version)。使用了任一种绑定的模块必须声明 `api-version: 630`，这样旧框架会在加载时拒绝它。为了让这个错误在你开发所用的版本上就暴露出来，6.3.0 自身也会拒绝使用了绑定、却声明了更低 `api-version` 的模块，并给出模块名、绑定和所需的下限。`@Scheduled(period = 6000)`、`@CmdCD(60)` 这类已有的字面量用法不受影响，无需修改。
+
+## 同一模块的两个副本
+
+自 v6.3.0 起，UltiTools 按文件名顺序（按普通字符串比较）读取 `plugins/UltiTools/plugins/` 中的 JAR，并按同样的顺序构建模块类加载器。v6.3.0 之前的顺序是文件系统列出的顺序，Java 并不规定这个顺序，所以同一个目录在另一台机器上可能加载另一个副本。
+
+模块 JAR 由其 `plugin.yml` 的 `main:` 项识别。两个或更多 JAR 声明同一个 `main:` 类时，类来自按上述顺序排在最前、且带有这个类的那个 JAR，其余副本被拒绝。启动时会输出一条警告，列出每一个副本以及类实际加载自哪个 JAR：
+
+```text
+[UltiTools-API] 以下 JAR 文件都声明了同一个模块主类 com.example.MyModule：MyModule-1.0.0.jar, MyModule-1.1.0.jar。该模块的类只从 MyModule-1.0.0.jar 加载，其余副本不会加载；请只保留其中一个。
+```
+
+这里不比较版本号。上例中较旧的 `1.0.0` 继续运行，原因是它的文件名排在前面，与两份 `plugin.yml` 中写的版本无关。v6.3.0 之前，每个被拒绝的副本各自输出一条错误日志，而不是这一条警告。
+
+`/upm uninstall` 会删除所有副本。自 v6.3.0 起，它删除每一个 `plugin.yml` 的 `main:` 指向该模块主类的 JAR，不论这个 JAR 声明的 `name:` 是什么，并在回复中列出每一个被删除的文件。
+
+只要这样的副本会胜出，`/upm update` 就拒绝更新该模块。自 v6.3.0 起，它在下载任何东西之前，先在模块目录中查找另一个声明了该模块 `main:`、且文件名排在新 JAR 文件名之前的 JAR。找到时，新版本在这里永远无法加载：那个副本会继续提供模块的类，每次启动都会把更新回滚。所以命令不暂存任何东西，并在回复中列出新 JAR 和每一个这样的副本。移走它们后再次执行 `/upm update` 即可，中间不需要重启。文件名排在新 JAR 之后的副本不会阻止更新，上文的启动警告仍会列出它。
+
+## 按 API 级别选择版本
+
+自 v6.3.0 起，`api-version` 会在两处被检查：启动时由模块加载器检查，见 [pin 与 `api-version`](#pin-与-api-version)；`/upm` 从 UltiCloud 安装或更新模块时也会检查。
+
+UltiCloud 从发布到它上面的每个 JAR 的 `plugin.yml` 中读取 `api-version`，与该版本一起保存。没有整数 `api-version` 的 JAR 在上传时被拒绝，见 [UltiKits CLI](/zh/guide/advanced/ultikits-cli#模块的-api-级别)。UltiCloud 开始读取级别之前发布的版本，记为面向 6.3.0 之前的框架构建。
+
+服务器会被提供、也会安装哪些版本，取决于它运行的框架：
+
+| 服务器运行的框架 | 提供并安装的版本 |
+|---|---|
+| UltiTools-API 6.3.0 及以后 | `api-version` 从 630 到框架自身的 API 级别（6.3.0 为 630） |
+| UltiTools-API 6.3.0 之前 | 只有 `api-version` 低于 630 的版本 |
+
+6.3.0 的服务器在每个目录请求中都带上自己的级别（`apiLevel`，以及 `minApiLevel=630`）。6.3.0 之前的框架不带级别，UltiCloud 把这样的请求视为来自 6.3.0 之前的框架，所以已发布的 6.2.x 服务器不会被提供为 6.3.0 构建的版本。这适用于 `/upm install`、`/upm install <模块> <版本>`、`/upm versions`、`/upm update` 以及启动时的更新检查。更新检查只报告本服务器能安装的版本，从不提及需要更新 UltiTools-API 的版本。`/upm list` 仍列出目录中的全部模块；对没有兼容版本的模块点击安装，会回复原因。
+
+`/upm` 还会检查下载到的文件。`/upm install` 先把 JAR 写入模块目录，文件名是模块加载器永远不读的 `<id>-<version>.jar.part`，然后重新读取其中的 `plugin.yml`；`/upm update` 对它下载到 `.ultikits/upm-transactions/` 的副本做同样的检查。`api-version` 缺失、不是整数、低于 630 或高于框架级别的模块会被拒绝：下载的文件被删除，模块目录不写入任何东西。对 `/upm update` 来说，暂存的下载被丢弃，不记录任何更新。回复会写明模块声明的级别、框架的级别和接受的范围。使用 `language: zh` 时：
+
+```text
+无法安装 ultirecipe：云端没有可以安装在本服务器上的版本。本 UltiTools-API 的 API 级别是 630，只安装声明 api-version 630 到 630 的模块。模块目录没有任何改动。
+已拒绝安装 ultirecipe 1.0.0：下载的 JAR 声明 api-version 620。本 UltiTools-API 的 API 级别是 630，只安装声明 api-version 630 到 630 的模块。下载的文件已删除，模块目录没有任何改动。
+ultirecipe 没有可以安装在本服务器上的版本。本 UltiTools-API 的 API 级别是 630，只安装声明 api-version 630 到 630 的模块。
+```
+
+第一行是 UltiCloud 回答没有兼容版本时安装命令的回复，第二行是下载到的 JAR 声明了其它级别时的回复，第三行是 `/upm versions` 没有兼容版本时的回复。因同样原因被拒绝的更新回复 `<模块> 的更新未能暂存：`，后接原因。
+
+对模块作者来说，这有三点影响：
+
+- 要让模块能在 6.3.0 上通过 `/upm` 安装，应以整数形式声明 `api-version: 630`。为 6.2.x 构建的版本（`api-version: 620`）在 6.3.0 上会被 `/upm` 拒绝。官方模块的 6.2.x 构建都覆盖了 6.3.0 改为 final 的 `UltiToolsPlugin.unregisterSelf()`，本来也无法加载。
+- 把 `api-version` 提高到 630 以上，除了加载器会在级别更低的框架上拒绝它之外，这些服务器也看不到这个版本。
+- 服主手动复制到模块目录的 JAR 只按加载器的规则判断，与 `/upm` 无关。
+
+`PluginInstallUtils.installLatestPlugin`、`installPlugin` 和 `updatePlugin` 签名不变，对这样被拒绝的模块返回 `false`。
+
+::: warning 不过滤的目录
+目录忽略 `apiLevel` 时（例如自建的 `api-url`），`/upm versions` 和更新检查可能列出 `/upm install` 或 `/upm update` 下载后才拒绝的版本。
+这种情况下由下载后的检查保护服务器。
+:::
+
+## 在服务器上更新和卸载
+
+自 v6.3.0 起，`/upm update <模块>` 不再在服务器运行期间替换 JAR。它把新版本下载到服务器根目录下的 `.ultikits/upm-transactions/` 并记录下来，在下次启动之前模块目录不会有任何变化。下次启动时，在任何模块加载之前，旧 JAR 被移到一旁保留，新 JAR 被移入。模块加载完成后，只有观察到你的模块确实从新 JAR 以新版本加载，这次更新才会保留；否则新 JAR 被移除、旧 JAR 放回原处，启动日志列出两个版本，并说明恢复的版本会在下次启动时加载。
+
+对模块作者来说，这有两点影响：
+
+- 新 JAR 的 `plugin.yml` 必须声明 UltiCloud 为它提供的那个版本。声明了其它版本的下载会在任何记录写入之前被拒绝。
+- 无法加载的发布，例如出现链接错误或 `registerSelf()` 抛出异常，会被回滚，而不是留在服务器上。
+
+移动失败时，例如目录只读或文件被占用，模块目录保持不变，当前版本照常加载。启动日志会报告这一情况，下次对该模块执行 `/upm update` 时也会再次报告。`plugins/` 与服务器根目录不在同一个文件系统上时，移动会被拒绝，并输出一条列出两个目录的错误日志。
+
+自 v6.3.0 起，更新只会移动、替换或删除 SHA-256 与其记录一致的文件：下载的 JAR，或它移到一旁保留的旧 JAR。如果这些文件中的某一个被其它东西改动了，或者更新需要空出的位置上出现了文件（例如新 JAR 文件名下的一份副本），更新不会对任何文件做任何操作。它会把记录保留为“等待管理员处理”的状态，启动日志会列出每一个不符合的文件，以及预期的哈希和实际找到的哈希。之后的启动只会重复这条日志，不做其它操作；在处理之前，对该模块执行 `/upm update` 和 `/upm uninstall` 都会被拒绝。处理方法：检查日志中列出的文件，从 `.ultikits/upm-transactions/` 取回需要的 JAR，然后删除日志中列出的更新记录及其同名文件夹。
+
+`/upm uninstall <模块>` 通过框架完整的卸载流程卸载该模块的每一个已加载实例，删除它的 JAR，并取消该模块仍在等待下次启动的更新，不论命令里用的是该模块的哪一个名称。当下无法删除的 JAR，例如在 Windows 上运行中的服务器会一直占用每一个模块 JAR，会被记录下来，并在下次启动时、任何模块加载之前删除。
+
+自 v6.3.0 起，下次启动在删除已记录的 JAR 之前，会先确认它仍是卸载时记录的那个文件。如果读取这个 JAR 失败而无法确认，它会保留在原处，因此该模块在这次启动中仍可能加载；启动日志会以 SEVERE 级别报告这个 JAR 和读取错误，这次删除继续保持记录，留到再下一次启动。
+
+如果这次删除也无法记录，例如文件系统是只读的，`/upm uninstall` 的回复只列出需要手动删除的模块 JAR，并另起一行说明这次删除未能记录，因此下次启动不会删除它们。
+
+如果模块自己的卸载钩子抛出异常，包括它没有声明的受检异常，框架仍会释放该模块注册的全部内容：命令、监听器、计划任务、Tab 补全器、EventBus 处理器和面板响应器，并关闭它的容器。`/upm uninstall` 的回复先是一行错误，说明模块已从已加载列表移除、但其卸载过程抛出了异常（详情见控制台），随后是一行说明该模块的 JAR 已删除。
 
 ## 各模块的现状
 

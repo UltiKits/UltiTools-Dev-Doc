@@ -25,10 +25,9 @@ The `@EventListener` annotation has an optional `manualRegister` parameter (defa
 
 Register the listener in `registerSelf` of the class that inherits `UltiToolsPlugin`.
 
-::: warning The six-parameter connector constructor is marked for removal
-The example below calls the six-parameter `UltiToolsPlugin` constructor, which carries `@Deprecated(since = "6.0.8", forRemoval = true)` and hardcodes the resource folder path, so javac reports a removal warning on every build.
-Move the integration to the External Plugin API and call `UltiToolsAPI.connect` from your own `JavaPlugin`, or keep the connector and call the seven-parameter constructor passing `resourceFolderPath` yourself: both are supported on v6.2.5.
-The replacement signature for connectors is still being decided in [issue #217](https://github.com/UltiKits/UltiTools-Reborn/issues/217), and the removal itself is tracked in [issue #213](https://github.com/UltiKits/UltiTools-Reborn/issues/213).
+::: info Connector constructor as of v6.3.0
+The six-parameter constructor has been removed. The connector below uses the seven-parameter constructor and receives `resourceFolderPath` from its caller.
+For a new standalone Bukkit plugin, prefer `UltiToolsAPI.connect(this)` in your own `JavaPlugin`; see the [External Plugin API](/guide/advanced/external-plugin-api).
 :::
 
 <<< @/../examples/src/main/java/com/ultikits/docs/listener/UltiToolsConnector.java
@@ -62,10 +61,9 @@ TempListener.common(PlayerInteractEvent.class)
 - `build()` — Build and return the `TempListener` (manual `register()` required).
 - `listen(TempEventHandler<E> handler)` — Build and immediately register in one call.
 
-::: warning build() returns a listener without your filter
-`build()` calls the three-argument `SimpleTempListener` constructor, which assigns the event class, priority and handler but leaves `filter` at its field default of `(ignored) -> true`, so a listener built this way runs the handler for every event of that type; `listen(...)` does pass the filter through, but it returns `void`, which leaves no handle to call `unregister()` on.
-Construct `new SimpleTempListener<>(eventClass, priority, handler, filter)` directly and call `register()` on it: the legacy section below states that this form is still supported, and it is currently the only way to get a listener that both filters and can be unregistered.
-Passing the filter through `build()` is tracked in [issue #313](https://github.com/UltiKits/UltiTools-Reborn/issues/313).
+::: tip build() passes your filter through <Badge type="tip" text="v6.3.0+" />
+As of v6.3.0, `.filter(x).build()` is the single recommended way to get a listener that both filters and can be unregistered: `build()` calls the same four-argument `SimpleTempListener` constructor `listen(...)` already used, so the filter you set is applied, and calling `register()` on the returned `TempListener` gives you the handle to call `unregister()` on — one construction call, both capabilities, no second listener needed.
+Before v6.3.0, `build()` called a three-argument constructor that had no filter parameter, so a filter set through `.filter(...)` was silently discarded; `listen(...)` did pass the filter through, but returned `void`, with no handle to unregister. Both gaps are closed by the same fix.
 :::
 
 **Example: Wait for player to interact with a specific block type**
@@ -99,7 +97,7 @@ TempListener.common(AsyncPlayerChatEvent.class)
     });
 ```
 
-::: info
+::: info Returning true unregisters the TempEventHandler
 The `TempEventHandler<E>` is a functional interface that receives the event and returns a boolean:
 - Return `true` to automatically unregister the listener after handling.
 - Return `false` to keep the listener active for subsequent events.
@@ -107,10 +105,14 @@ The `TempEventHandler<E>` is a functional interface that receives the event and 
 
 ### Legacy Temporary Listener (SimpleTempListener)
 
-The legacy direct instantiation approach using `SimpleTempListener` is still supported and is not deprecated, unlike `PlayerTempListener` (described below); the builder API remains the recommended approach for new code:
+::: warning Four constructors deprecated for removal in Phase 7 <Badge type="tip" text="v6.3.0+" />
+As of v6.3.0, `SimpleTempListener`'s no-argument constructor and its two- and three-argument overloads — including the no-filter `(Class, TempEventHandler)` shape used below — carry `@Deprecated(since = "6.3.0", forRemoval = true)` and are scheduled for removal in a future Phase 7 milestone. They confusably overlap: two three-argument overloads differ only in whether the last parameter is `EventPriority` or a filter `Function`, with no compile-time signal for picking the wrong one. Prefer the builder API above, or the four-argument all-args constructor `new SimpleTempListener<>(eventClass, priority, handler, filter)` directly, which is not deprecated.
+:::
+
+The legacy direct instantiation approach using `SimpleTempListener` still works for the example below, but the constructor it calls is now on a removal track; the builder API is the recommended approach for new code:
 
 ```java
-// Legacy approach - still works but not recommended
+// Legacy approach - still works, but its constructor is deprecated for removal in Phase 7
 TempListener listener = new SimpleTempListener(PlayerInteractEvent.class, event -> {
     // do something...
     return true; // return true to unregister this listener
@@ -134,4 +136,4 @@ TempListener.common(PlayerInteractEvent.class)
     .listen(event -> { /* ... */ return true; });
 ```
 
-Unregistering a filtered listener by hand requires the four-argument `SimpleTempListener` constructor described in the warning above; `build()` does return a handle but drops your filter, and `listen(...)` keeps the filter but returns nothing to unregister.
+As of v6.3.0, `.filter(x).build()` (shown at the top of this section) is the recommended way to get a listener that both filters and can be unregistered by hand — you no longer need to construct `SimpleTempListener` directly for that combination.
