@@ -127,6 +127,10 @@ const sidebarGuideEN: SidebarItemExt[] = [
             {
                 text: 'Cloud Login',
                 link: 'advanced/cloud-login'
+            },
+            {
+                text: 'Player Link',
+                link: 'advanced/player-link'
             }
         ]
     },

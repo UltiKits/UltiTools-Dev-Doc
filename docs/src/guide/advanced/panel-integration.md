@@ -13,6 +13,60 @@ and `debug` level now take effect, and its level filter no longer suppresses err
 from log records; and a module can now observe or answer panel messages without the framework
 growing a second dispatch mechanism beside the existing one.
 
+As of v6.3.1 the connection speaks UltiCloud protocol 2.0.0; [UltiCloud protocol 2.0.0](#ulticloud-protocol-2-0-0)
+below lists what that changes. Modules can also keep the arguments of secret-carrying commands out of
+everything sent to the cloud ([Sensitive commands](#sensitive-commands)) and answer the panel's module requests
+([Owning a request/response type](#owning-a-request-response-type-panelresponderregistry)).
+
+## UltiCloud protocol 2.0.0
+
+As of v6.3.1 the server is linked with a device code (see [Cloud Login](/guide/advanced/cloud-login)) and the
+framework speaks UltiCloud protocol 2.0.0 to `wss://api.ultikits.com/v1/agent`. The capability switches, the
+command blocklist, the editable roots with their credential exclusion and the remote action log described on
+this page keep working as described. The 6.3.0 wire messages that some sections below name, such as
+`command_result`, `log_stream`, `update_config` and `set_all`, no longer exist; where a section describes such
+a message, the 6.3.1 behaviour is the one stated here.
+
+The server declares to UltiCloud, in its handshake, only the capabilities its switches allow, and checks the
+switch again for every request. A request whose switch is off is refused with `capability_not_accepted`, naming
+the configuration key.
+
+| Switch | What the panel gets or may do in 6.3.1 |
+|---|---|
+| `monitoring` | `status` and the player, plugin and world snapshots; a `snapshot.request` pushes the requested snapshots, then answers |
+| `logs` | `log.lines` batches, sent once a second or when a batch is full, within the rate UltiCloud sets for the connection; lines over that rate are dropped on the server |
+| `player-events` | Join and leave events, kept in the reliable outbox until UltiCloud acknowledges them, and `player.command` events with the command name only |
+| `ultipanel.logging.error-reporting.enabled` | `error.report` |
+| `commands` | `command.execute`: acknowledged before it runs, then answered with the output lines the command printed |
+| `player-actions` | `player.action`: kick, change game mode, teleport to a player or to coordinates (new in v6.3.1, off by default) |
+| `file-read` | `files.list` and `files.read`, and reading the configuration files of loaded modules (`config.tree`, `config.entries`) |
+| `file-write` | `files.write` and `config.update` |
+| `file-delete` | `files.delete` |
+| `server-properties` | `properties.get` and `properties.update` |
+| `power-actions` | `server.power`: stop or restart (new in v6.3.1, off by default) |
+
+`files.read` returns a `version`, the SHA-256 of the file's raw bytes. `files.write` and `config.update` must
+send the `version` they read as `baseVersion` and are refused with `file_changed`, writing nothing, when the
+file changed in between. `files.write` overwrites an existing file, `files.delete` removes a file and never a
+directory, and a listing longer than 2000 entries is cut and marked. `config.update` writes only the keys it
+names, through the configuration write gate. `properties.get` reads 14 common keys and `properties.update`
+writes 12 of them; `online-mode` and `white-list` stay read-only from the panel.
+
+A restart through `server.power` needs the `restart-script` of `spigot.yml` to exist; otherwise it is refused
+as `power_unsupported` and the server keeps running. A power request is answered before the server stops and
+does not pass through the command blocklist. The panel greys out the power buttons while `power-actions` is off;
+after `/ul reload` a changed value is reported to the panel at once.
+
+The panel can no longer start, stop, pause or reconfigure the log stream, because protocol 2.0.0 has no
+message for it; the `levels` and `excluded-loggers` keys still apply. Backups are not offered: 6.3.1 never
+declares the capability.
+
+From the first step of UltiTools' disable, every request that would change server state is refused with a
+failure saying the server is shutting down, and read-only requests keep working until the connection closes.
+A command or power request is acknowledged and then fails, so it is not run again after the restart. The
+disable waits up to 5 seconds for changes already under way. A request that needs the server thread and
+arrived just before the stop began may get no answer; the panel then reports a timeout and nothing changed.
+
 ## Capabilities
 
 Every panel-facing capability is gated by a switch under `ultipanel.capabilities` in
@@ -29,6 +83,8 @@ ultipanel:
     file-delete: false        # delete files/directories within the editable roots
     commands: false           # remote command execution, subject to the blocklist
     server-properties: false  # read/edit server.properties safe keys
+    power-actions: false      # stop/restart the server (as of v6.3.1)
+    player-actions: false     # kick, game mode, teleport (as of v6.3.1)
 ```
 
 `list` operations are gated by `file-read` — listing is reading, so there is no separate ninth
@@ -111,11 +167,19 @@ accepted command's result carried the invented text `Command executed successful
 `Command execution failed`) in place of a reply. A panel or tool
 that showed `output` as the command's reply now shows the sentence above.
 
+As of v6.3.1 the command runs with Paper's capturing command sender, which has the console's permissions, and
+`command.result` carries the lines the command printed to that sender, cut to a bounded number of lines and
+characters and marked `truncated` when cut. A command the server does not accept is answered with the reply it
+printed, for example Paper's unknown-command line. A plugin command that accepts only the console sender
+refuses the capturing sender; run such commands in the server console. The framework does not retry them as
+the console.
+
 As of v6.3.0, from the moment UltiTools starts disabling, panel requests get no reply
 ([#621](https://github.com/UltiKits/UltiTools-Reborn/issues/621)): an inbound message is dropped with one
 `FINE` line instead of scheduling work for a disabled plugin, so a panel action sent while the server stops
 waits for the panel's own timeout. A remote command caught in the moment the stop begins can be logged in
-the console and in the remote action log as allowed and still never run, with no result reply.
+the console and in the remote action log as allowed and still never run, with no result reply. As of v6.3.1
+the shutdown window is the one described under [UltiCloud protocol 2.0.0](#ulticloud-protocol-2-0-0).
 
 ## Remote file API boundary
 
@@ -389,7 +453,8 @@ a plugin line, without ANSI colour codes.
 The mirror is complete and unredacted. It includes player command lines with their arguments, such as
 `<player> issued server command: /login <password>`. The panel is at the console's trust level, so
 whatever the console shows, the panel may show. Operators who do not want that should leave the `logs`
-capability off.
+capability off. As of v6.3.1 a command registered as sensitive is the exception: its arguments are replaced
+with `***` in these lines too (see [Sensitive commands](#sensitive-commands)).
 
 A plugin line arrives once, although Paper also copies it into Log4j. Lines about the panel connection,
 the log transmitter's own lines and the WebSocket library's (`org.java_websocket.*`) are never sent. If
@@ -441,6 +506,36 @@ way last until the panel connection next opens, when the handler is
 created again from `config.yml`, or from the defaults if `levels` is absent there. The request has
 no field for excluded loggers.
 
+## Sensitive commands
+
+As of v6.3.1 a module keeps the arguments of its secret-carrying commands out of everything the framework
+sends to UltiCloud by registering the commands and their aliases with
+`com.ultikits.ultitools.websocket.SensitiveCommandRegistry`:
+
+<!-- UltiCloudDocSnippetsTest: sensitive-commands -->
+```java
+public class SensitiveCommands {
+
+    /** Call from registerSelf() with UltiTools.getInstance().getSensitiveCommandRegistry(). */
+    public void register(SensitiveCommandRegistry registry) {
+        registry.register("login", "l", "register", "reg", "changepassword");
+    }
+}
+```
+
+- The table starts empty; the framework registers nothing itself.
+- A command line matches when its first word, with one leading `/` and a `namespace:` prefix removed, equals a
+  registered name, compared case-insensitively: with `login` registered, `/login`, `/LOGIN` and
+  `/ultilogin:Login` all match.
+- A matching command keeps its name and loses its arguments: `/login hunter2` becomes `/login ***`. This
+  applies to every log line sent to the panel, live and replayed at start-up, console-mirror lines included,
+  to error reports (message, trigger and stack trace) and to chat.
+- `player.command` events carry only the command name, lower-cased and without namespace, for every command,
+  registered or not.
+- The server's own console, its log files and the log records other handlers see are not changed.
+- Registration works from any thread, whether or not the server is linked, and repeating it is harmless.
+  There is no way to unregister: a name stays redacted until the server restarts.
+
 ## Module extension point
 
 Modules can now react to panel messages without the framework growing a second dispatch mechanism
@@ -482,28 +577,71 @@ handler received never affects what the next handler sees, or what the framework
 For a type a module's responder owns, the event is published once the request has been handed to the
 responder, which may still be running.
 
+As of v6.3.1 the event is published for every `module.request` that reaches a module's responder, on the main
+thread, with the responder's type, the responder's input (the request's `params` plus `actor`) and the request
+envelope as received. A request answered `module_not_found` publishes nothing. The framework's own protocol
+messages publish no event.
+
 ### Owning a request/response type: `PanelResponderRegistry`
 
 For panel message types the framework does **not** already handle, a module may register exactly one
 responder and answer requests directly, through
-`com.ultikits.ultitools.websocket.PanelResponderRegistry`:
+`com.ultikits.ultitools.websocket.PanelResponderRegistry`.
 
+As of v6.3.1 the panel reaches a responder with a `module.request { module, action, params, actor }`. The
+`module` is the module's UltiCloud identifier: its `identify-string`, trimmed and lower-cased, not its
+`plugin.yml` name. For UltiChat that is `ultichat`, although its name is `UltiTools-Chat`. Register the responder
+under `<identifier>.<action>`; the 6.3.0 form `<plugin.yml name lower-cased>.<action>` is still found. The
+action uses lower-case letters, digits, `.`, `_` and `-`. A request reaches only a responder of the module with
+that identifier; any other request is answered `module_not_found`.
+
+<!-- UltiCloudDocSnippetsTest: module-responders -->
 ```java
-UltiTools.getInstance().getPanelResponderRegistry()
-    .registerResponder("my_module:status", data -> {
-        JsonObject reply = new JsonObject();
-        reply.addProperty("state", "ok");
-        return CompletableFuture.completedFuture(reply);
-    }, "MyModule");
+public class MailResponders {
+
+    /** Call from registerSelf(); the framework releases the responders when the module unloads. */
+    public void register(PanelResponderRegistry registry, UltiToolsPlugin module) {
+        // Answers module.request { module: "ultimail", action: "inbox.count", params, actor }.
+        registry.registerResponder("ultimail.inbox.count", data -> {
+            JsonObject actor = data.getAsJsonObject("actor");
+            JsonObject reply = new JsonObject();
+            reply.addProperty("userId", actor.get("userId").getAsLong());
+            reply.addProperty("unread", 3);
+            return CompletableFuture.completedFuture(reply);
+        }, module.getPluginName(), module);
+
+        // Completing with null answers ok with data: null.
+        registry.registerResponder("ultimail.inbox.clear",
+                data -> CompletableFuture.completedFuture(null), module.getPluginName(), module);
+    }
+}
 ```
 
-- **Single owner per type.** Registering a type the framework already serves (any of its 24 built-in
-  message types) throws immediately, naming the framework as the existing owner. Registering a type
+The responder receives a copy of the request's `params` with one more member, `actor`:
+`{ "userId": <panel user id>, "minecraftUuid": <UUID or null> }`. UltiCloud fills it in for the panel user who
+sent the request, and the framework passes it on as received; an `actor` inside `params` is replaced. Use it to
+decide what that user may see. A module with at least one responder is declared in the handshake as
+`modules:<identifier>@<X.Y.Z>`, the version being the first three numbers of its `plugin.yml` version, and
+UltiCloud sends requests only for declared modules. The list is built when the connection opens; `/ul reload`
+reconnects when it changed. A module whose identifier is not a valid UltiCloud identifier, or would make the
+capability name longer than 96 characters, is skipped with one warning.
+
+The panel receives `ok` with the responder's result as `data`, `module_not_found` when no responder serves the
+request, `deadline_exceeded` when the deadline below passed, and `module_error` when the responder failed or its
+result is not valid JSON (`NaN` or an infinite number).
+
+- **Single owner per type.** Registering a type the framework already serves (as of v6.3.1, any message type
+  of UltiCloud protocol 2.0.0) throws immediately, naming the framework as the existing owner. Registering a type
   another module already owns throws immediately, naming that module. This is checked, not
   advisory — there is no silent second-registration-wins fallback.
-- **Responders return `CompletableFuture<JsonObject>`.** The framework wraps the resolved value (or a
-  failure) with the request's `requestId` and sends it back to the panel — you never touch the
-  WebSocket connection directly.
+- **Responders return a future of any JSON value (as of v6.3.1).** An object, an array or a primitive is
+  sent as the reply's `data`; a future that completes with `null` or `JsonNull` is a success with no
+  content. Returning no future, throwing, or completing the future exceptionally fails the request. You never
+  touch the connection directly. In v6.3.0 the result had to be an object and `null` was a failure. The
+  registration methods now take `Function<JsonObject, ? extends CompletableFuture<? extends JsonElement>>` and
+  `dispatch` returns `CompletableFuture<JsonElement>`: a 6.3.0 lambda still compiles and a compiled module still
+  links, but a subclass overriding `registerResponder` with the old parameter type, or code assigning
+  `dispatch`'s result to a `CompletableFuture<JsonObject>`, must be updated.
 - **Responders run on worker threads (as of v6.3.0).** The framework calls a responder on one of its
   own worker threads, never the server main thread and never the thread that reads the panel
   connection, so a slow responder no longer holds up other panel messages. A responder that uses
@@ -524,7 +662,8 @@ UltiTools.getInstance().getPanelResponderRegistry()
   and connected on the current session and UltiTools still accepts panel messages. It is not sent once
   UltiTools starts disabling, once the cloud session logs out, or once the connection that carried the
   request has closed or been replaced, and it is never redirected to a newer connection. The panel's own
-  timeout then applies.
+  timeout then applies. As of v6.3.1 the reply goes on the protocol 2.0.0 connection that carried the request,
+  under the same rule.
 - **The responder registered on arrival handles the request,** even if the type is reassigned or the
   module unloads before the call runs.
 - **Responders are unregistered automatically** when your module unloads, at the same point the
@@ -545,12 +684,13 @@ UltiTools.getInstance().getPanelResponderRegistry()
   one's `registerSelf()` runs, so registering the same type there succeeds. If the newer instance
   fails to load, its responders are released and the older instance's come back unchanged.
 
-There is no `<module>:<type>` namespace requirement enforced by the framework — that would be a
-cross-repository protocol convention the panel side would also have to honour, not something this
-framework alone can enforce. Choosing a namespaced type string (as in the example above) is a
-convention worth following anyway, to avoid colliding with another module's own message type.
+As of v6.3.1 the panel reaches only types of the form `<identifier>.<action>` (or the 6.3.0 name form above),
+so the module is the namespace and an action needs no prefix of its own. The framework does not reject other
+type strings, but no panel request can reach them.
 
 ## See also
 
 - [Module EventBus](/guide/advanced/module-eventbus) — the underlying pub/sub mechanism
   `PanelMessageEvent` is published on.
+- [Cloud Login](/guide/advanced/cloud-login) — linking the server and the connection states.
+- [Player Link](/guide/advanced/player-link) — letting a player reach the panel.
