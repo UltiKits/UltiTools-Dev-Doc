@@ -37,7 +37,7 @@ the configuration key.
 | `logs` | `log.lines` batches, sent once a second or when a batch is full, within the rate UltiCloud sets for the connection; lines over that rate are dropped on the server |
 | `player-events` | Join and leave events, kept in the reliable outbox until UltiCloud acknowledges them, and `player.command` events with the command name only |
 | `ultipanel.logging.error-reporting.enabled` | `error.report` |
-| `commands` | `command.execute`: acknowledged before it runs, then answered with the output lines the command printed |
+| `commands` | `command.execute`: acknowledged before it runs, then answered with the output lines the command printed before its dispatch returned; later lines go to the server console and the log stream |
 | `player-actions` | `player.action`: kick, change game mode, teleport to a player or to coordinates (new in v6.3.1, off by default) |
 | `file-read` | `files.list` and `files.read`, and reading the configuration files of loaded modules (`config.tree`, `config.entries`) |
 | `file-write` | `files.write` and `config.update` |
@@ -80,7 +80,7 @@ ultipanel:
     player-events: true       # join/quit/chat events
     file-read: true           # read + list files within the editable roots
     file-write: false         # write/upload files within the editable roots
-    file-delete: false        # delete files/directories within the editable roots
+    file-delete: false        # delete files within the editable roots (as of v6.3.1 never a directory)
     commands: false           # remote command execution, subject to the blocklist
     server-properties: false  # read/edit server.properties safe keys
     power-actions: false      # stop/restart the server (as of v6.3.1)
@@ -168,8 +168,12 @@ accepted command's result carried the invented text `Command executed successful
 that showed `output` as the command's reply now shows the sentence above.
 
 As of v6.3.1 the command runs with Paper's capturing command sender, which has the console's permissions, and
-`command.result` carries the lines the command printed to that sender, cut to a bounded number of lines and
-characters and marked `truncated` when cut. A command the server does not accept is answered with the reply it
+`command.result` carries the lines the command printed to that sender before its dispatch returned, cut to a
+bounded number of lines and characters and marked `truncated` when cut. Lines the command prints later, for
+example from an asynchronous body, are not in the result: the framework writes them to the server console
+unchanged, so they reach the panel through the [live log stream](#live-log-stream), with sensitive commands
+redacted as in every console line. This forwarding lasts 10 minutes after the result; a line printed later
+still is dropped, with one warning naming the command. A command the server does not accept is answered with the reply it
 printed, for example Paper's unknown-command line. A plugin command that accepts only the console sender
 refuses the capturing sender; run such commands in the server console. The framework does not retry them as
 the console.
@@ -590,7 +594,10 @@ responder and answer requests directly, through
 
 As of v6.3.1 the panel reaches a responder with a `module.request { module, action, params, actor }`. The
 `module` is the module's UltiCloud identifier: its `identify-string`, trimmed and lower-cased, not its
-`plugin.yml` name. For UltiChat that is `ultichat`, although its name is `UltiTools-Chat`. Register the responder
+`plugin.yml` name. For UltiChat that is `ultichat`, although its name is `UltiTools-Chat`. A module whose
+`identify-string` is missing or is not a valid identifier (a lower-case letter first, segments of lower-case
+letters and digits joined by one `.` or `-`, at most 64 characters) is addressed by its `plugin.yml` name,
+trimmed and lower-cased, as in 6.3.0, when that name is a valid identifier. Register the responder
 under `<identifier>.<action>`; the 6.3.0 form `<plugin.yml name lower-cased>.<action>` is still found. The
 action uses lower-case letters, digits, `.`, `_` and `-`. A request reaches only a responder of the module with
 that identifier; any other request is answered `module_not_found`.
