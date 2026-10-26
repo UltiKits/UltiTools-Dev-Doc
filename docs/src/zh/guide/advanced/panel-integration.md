@@ -50,7 +50,7 @@ ultipanel:
   capabilities:
     monitoring: true          # TPS、内存、世界/玩家快照
     logs: true                # 实时控制台日志流
-    player-events: true       # 上线/下线/聊天事件
+    player-events: true       # 上线/下线与命令事件，无聊天事件（自 v6.3.1 起）
     file-read: true           # 在可编辑根目录内读取与列出文件
     file-write: false         # 在可编辑根目录内写入/上传文件
     file-delete: false        # 在可编辑根目录内删除文件（自 v6.3.1 起从不删除目录）

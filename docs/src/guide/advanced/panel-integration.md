@@ -77,7 +77,7 @@ ultipanel:
   capabilities:
     monitoring: true          # TPS, memory, world/player snapshots
     logs: true                # live console log stream
-    player-events: true       # join/quit/chat events
+    player-events: true       # join/quit and command events, no chat event (as of v6.3.1)
     file-read: true           # read + list files within the editable roots
     file-write: false         # write/upload files within the editable roots
     file-delete: false        # delete files within the editable roots (as of v6.3.1 never a directory)
