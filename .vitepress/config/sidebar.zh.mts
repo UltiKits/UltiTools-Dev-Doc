@@ -125,6 +125,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
             {
                 text: '云端登录',
                 link: 'advanced/cloud-login'
+            },
+            {
+                text: '玩家链接',
+                link: 'advanced/player-link'
             }
         ]
     },

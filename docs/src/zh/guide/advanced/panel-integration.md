@@ -10,6 +10,36 @@ API 被限定在一组显式的可编辑根目录内，并附带一层不可配�
 面板无法再启动、停止、暂停或恢复实时日志流，日志批量发送的间隔与 `debug` 级别配置开始生效，日志级别过滤也不再拦截由日志记录产生的错误上报；
 模块现在可以观察或应答面板消息，而无需框架再造出第二套分发机制。
 
+自 v6.3.1 起，这条连接使用 UltiCloud 协议 2.0.0，由此带来的变化见下文 [UltiCloud 协议 2.0.0](#ulticloud-协议-2-0-0)。模块还可以让带密码类参数的命令不把参数发往云端（[敏感命令](#敏感命令)），并应答面板的模块请求（[拥有一个请求/响应类型](#拥有一个请求-响应类型-panelresponderregistry)）。
+
+## UltiCloud 协议 2.0.0
+
+自 v6.3.1 起，服务器通过设备码接入（见[云端登录](/zh/guide/advanced/cloud-login)），框架通过 UltiCloud 协议 2.0.0 连接 `wss://api.ultikits.com/v1/agent`。本页介绍的能力开关、命令黑名单、可编辑根目录及其凭据排除、远程操作日志都照常生效。下文某些小节提到的 6.3.0 线上消息，例如 `command_result`、`log_stream`、`update_config`、`set_all`，已不复存在；凡是小节描述这类消息之处，以本节所述的 6.3.1 行为为准。
+
+服务器在握手中只向 UltiCloud 声明开关允许的能力，并对每个请求再次检查开关。开关关闭时，请求以 `capability_not_accepted` 被拒绝，并指明配置键。
+
+| 开关 | 6.3.1 中面板得到什么、可以做什么 |
+|---|---|
+| `monitoring` | `status` 以及玩家、插件、世界快照；`snapshot.request` 先推送所请求的快照，再回复 |
+| `logs` | `log.lines` 批次，每秒或批次满时发送，不超过 UltiCloud 为本连接设定的速率；超出的行在服务器上丢弃 |
+| `player-events` | 进服、离服事件（在 UltiCloud 确认之前保存在可靠发件箱中），以及只带命令名的 `player.command` 事件 |
+| `ultipanel.logging.error-reporting.enabled` | `error.report` |
+| `commands` | 自 v6.3.1 起，`command.execute` 在执行之前先确认，即时输出只在 `command.result` 中回复：被接受的命令在 `data.output` 中，被拒绝的命令在 `command_failed` 错误的 `message` 中；不回显到服务器控制台、日志文件或面板实时日志流；之后打印的行写入服务器控制台与日志流 |
+| `player-actions` | `player.action`：踢出、修改游戏模式、传送到某位玩家或某个坐标（v6.3.1 新增，默认关闭） |
+| `file-read` | `files.list`、`files.read`，以及读取已加载模块的配置文件（`config.tree`、`config.entries`） |
+| `file-write` | `files.write` 与 `config.update` |
+| `file-delete` | `files.delete` |
+| `server-properties` | `properties.get` 与 `properties.update` |
+| `power-actions` | `server.power`：停止或重启（v6.3.1 新增，默认关闭） |
+
+`files.read` 返回 `version`，即文件原始字节的 SHA-256。`files.write` 与 `config.update` 必须把读到的 `version` 作为 `baseVersion` 发回；其间文件已改动时以 `file_changed` 拒绝，什么也不写。`files.write` 覆盖一个已存在的文件，`files.delete` 删除文件、从不删除目录，超过 2000 项的列表会被截断并标注。`config.update` 只写它指定的键，并经过配置写入闸门。`properties.get` 读取 14 个常用键，`properties.update` 可以写其中 12 个；`online-mode` 与 `white-list` 对面板保持只读。
+
+通过 `server.power` 重启需要 `spigot.yml` 中 `restart-script` 指向的文件存在，否则以 `power_unsupported` 拒绝，服务器继续运行。电源请求在服务器停止之前得到回复，并且不经过命令黑名单。`power-actions` 关闭时面板会把电源按钮置灰；执行 `/ul reload` 后，改动的值会立即报告给面板。
+
+面板无法再启动、停止、暂停或重新配置日志流，因为协议 2.0.0 没有这样的消息；`levels` 与 `excluded-loggers` 两个键仍然生效。不提供备份功能：6.3.1 从不声明这项能力。
+
+从 UltiTools 开始禁用的第一步起，所有会改变服务器状态的请求都以「服务器正在关闭」的失败被拒绝，只读请求在连接关闭之前照常工作。命令或电源请求先被确认、再失败，因此重启后不会再次执行。禁用过程最多等待 5 秒，让已经开始的改动完成。需要服务器线程、恰在停服开始前到达的请求可能得不到回复，面板随后报告超时，服务器上什么也没有改变。
+
 ## 能力开关
 
 每一项面板可用能力都由 `plugins/UltiTools/config.yml` 中 `ultipanel.capabilities` 下的一个
@@ -20,12 +50,14 @@ ultipanel:
   capabilities:
     monitoring: true          # TPS、内存、世界/玩家快照
     logs: true                # 实时控制台日志流
-    player-events: true       # 上线/下线/聊天事件
+    player-events: true       # 上线/下线与命令事件，无聊天事件（自 v6.3.1 起）
     file-read: true           # 在可编辑根目录内读取与列出文件
     file-write: false         # 在可编辑根目录内写入/上传文件
-    file-delete: false        # 在可编辑根目录内删除文件/目录
+    file-delete: false        # 在可编辑根目录内删除文件（自 v6.3.1 起从不删除目录）
     commands: false           # 远程命令执行，仍受黑名单约束
     server-properties: false  # 读取/编辑 server.properties 的安全白名单键
+    power-actions: false      # 停止/重启服务器（自 v6.3.1 起）
+    player-actions: false     # 踢出、游戏模式、传送（自 v6.3.1 起）
 ```
 
 `list` 操作由 `file-read` 控制——列出即是读取，因此没有单独的第九项能力。
@@ -90,7 +122,9 @@ plugins/UltiTools/config.yml to change this.
 
 自 v6.3.0 起，面板的远程命令以服务器控制台的身份运行，等同于在控制台中输入该命令，模块看到的仍是通常的控制台发送者。框架不捕获命令的回复：`command_result` 消息只说明命令已分派，文本为 `Command dispatched to the server console. Its output appears in the server log stream.`；分派返回 false 时为 `The server console did not accept the command. Any message it printed appears in the server log stream.`。回复本身与其他所有控制台输出一起，通过[实时日志流](#实时日志流)到达面板，因此需要开启 `logs` 能力才能看到。黑名单拒绝、空命令与分派错误的报告方式不变。v6.3.0 之前，被接受的命令结果里携带的是编造的 `Command executed successfully`（被拒绝的为 `Command execution failed`），而不是回复。把 `output` 当作命令回复来显示的面板或工具，现在显示的是上面这句话。
 
-自 v6.3.0 起，从 UltiTools 开始禁用的那一刻起，面板请求不再得到回复（[#621](https://github.com/UltiKits/UltiTools-Reborn/issues/621)）：入站消息只记一条 `FINE` 日志后丢弃，而不是为已禁用的插件调度任务，因此服务器停止期间发出的面板操作要等到面板自身的超时。恰在停服开始那一刻到达的远程命令，可能已在控制台和远程操作日志中记为允许，却不会执行，也没有结果回复。
+自 v6.3.1 起，命令以 Paper 的捕获式命令发送者运行，它拥有控制台的权限；`command.result` 携带命令在分派返回之前向这个发送者打印的各行，行数与字符数有上限，被截断时标注 `truncated`。即时回复只进入 `command.result`：被接受的命令在 `data.output` 中，被拒绝的命令在 `command_failed` 错误的 `message` 中；不回显到服务器控制台、日志文件或面板实时日志流。控制台记录的是审计行：`language: en` 时为 `[UltiTools] [Remote command] > <command>`，`language: zh`（随框架发布的默认值）时为 `[UltiTools] [远程命令] > <command>`，而不是即时回复的副本。命令自身的副作用，例如 `say` 广播或插件自己打印的日志行，仍照常出现在控制台。命令之后才打印的行（例如异步执行体打印的）不在结果中：框架把它们原样写入服务器控制台，因此它们经[实时日志流](#实时日志流)到达面板，敏感命令与其他控制台行一样被脱敏。这种转发在结果发出后持续 10 分钟；更晚打印的行会被丢弃，并记一条指明该命令的警告。服务器不接受的命令，回复的是它打印的内容，例如 Paper 的未知命令提示。只接受控制台发送者的插件命令会拒绝捕获式发送者，这类命令请在服务器控制台执行。框架不会改用控制台身份重试。
+
+自 v6.3.0 起，从 UltiTools 开始禁用的那一刻起，面板请求不再得到回复（[#621](https://github.com/UltiKits/UltiTools-Reborn/issues/621)）：入站消息只记一条 `FINE` 日志后丢弃，而不是为已禁用的插件调度任务，因此服务器停止期间发出的面板操作要等到面板自身的超时。恰在停服开始那一刻到达的远程命令，可能已在控制台和远程操作日志中记为允许，却不会执行，也没有结果回复。自 v6.3.1 起，关闭期间的行为以 [UltiCloud 协议 2.0.0](#ulticloud-协议-2-0-0) 一节为准。
 
 ## 远程文件 API 边界
 
@@ -284,7 +318,7 @@ ultipanel:
 
 自 v6.3.0 起，`logs` 能力开启时，日志流显示的就是服务器控制台显示的内容。Paper 的大部分输出通过 Log4j 打印：命令反馈、模块对控制台发送者的回复、玩家加入与退出、聊天、原版的警告与错误，以及玩家的命令行。v6.3.0 之前这些都不会到达面板。框架现在在加载时于 Log4j 的根记录器上安装一个 appender，在禁用时移除它。每一行都与插件日志行一样经过相同的过滤、批量发送与启动回放，并去掉 ANSI 颜色码。
 
-这个镜像是完整且未脱敏的，包含带参数的玩家命令行，例如 `<player> issued server command: /login <password>`。面板与控制台处于同一信任级别，控制台显示什么，面板就可以显示什么。不希望如此的运营者应保持 `logs` 能力关闭。
+这个镜像是完整且未脱敏的，包含带参数的玩家命令行，例如 `<player> issued server command: /login <password>`。面板与控制台处于同一信任级别，控制台显示什么，面板就可以显示什么。不希望如此的运营者应保持 `logs` 能力关闭。自 v6.3.1 起，登记为敏感命令的命令是例外：这些行中它的参数同样被替换为 `***`（见[敏感命令](#敏感命令)）。
 
 插件日志行只会到达一次，尽管 Paper 也会把它复制进 Log4j。与面板连接有关的行、日志发送器自己的行以及 WebSocket 库（`org.java_websocket.*`）的行永远不会被发送。服务器的 Log4j 配置使用异步记录器时，镜像不会安装，控制台会输出一条警告说明这一点，日志流只包含插件日志行。自 v6.3.0 起，`java.util.logging` 根记录器上找不到 Paper 的日志转发器（`org.bukkit.craftbukkit.util.ForwardLogHandler`，例如分支服务端或重定位了 CraftBukkit 的构建）时同样如此：没有它，镜像无法区分转发的插件日志行与控制台行，每条插件日志都会被推送两次，因此不安装镜像，每次服务器运行只输出一条控制台警告（[#583](https://github.com/UltiKits/UltiTools-Reborn/issues/583)）。自 v6.3.0 起，Paper 1.19.2 至 1.20.4 的所有构建都重定位了 CraftBukkit，因此在这些版本上镜像始终不会安装，启动时输出一条警告说明这一点，日志流只包含插件日志行；Paper 1.20.5 及以上不受影响。携带异常的 Log4j `ERROR` 行还会向面板的错误收集上报一次。`org.apache.logging.log4j:log4j-core`（2.24.1）是框架的 `provided` 依赖，由 Paper 在运行时提供，不会被打包，模块无需做任何改动。
 
@@ -297,6 +331,28 @@ ultipanel:
 自 v6.3.0 起，日志流是控制台尽力而为的便利副本，以服务器的 `logs/latest.log` 为准（[#583](https://github.com/UltiKits/UltiTools-Reborn/issues/583)、[#571](https://github.com/UltiKits/UltiTools-Reborn/issues/571)）。已知两处缺口：启动回放尚未发完、或缓冲的记录正在移交给日志流时面板连接断开，未发送的回放记录会转入新连接的实时队列，该队列保留最新的 1000 条、其余计入上文的警告，之后这些记录按实时记录发送，不再按回放的节奏；以及在日志流首次接管启动缓冲区的那几微秒内，其他线程记下的一条记录可能漏发，且不计数。凡是不能遗漏的内容（例如审计记录或事故排查），请从 `logs/latest.log` 读取。
 
 服务器运行期间，上文所述动作为 `config` 的 `log_stream` 请求也可以携带 `levels` 数组。自 v6.3.0 起框架会应用它；v6.3.0 之前该字段会被忽略。只要有一个名称不属于上述四个，整个请求都会被拒绝；空数组会让所有级别都不启用。从面板设置的级别同样作用于框架直接发送的条目。以这种方式设置的级别会保持到下一次面板连接建立，届时框架会按 `config.yml` 重新创建日志处理器，`config.yml` 中没有 `levels` 时则使用默认值。这个请求没有用于排除记录器的字段。
+
+## 敏感命令
+
+自 v6.3.1 起，模块可以把带密码类参数的命令及其别名登记到 `com.ultikits.ultitools.websocket.SensitiveCommandRegistry`，让这些参数不出现在框架发往 UltiCloud 的任何内容中：
+
+<!-- UltiCloudDocSnippetsTest: sensitive-commands -->
+```java
+public class SensitiveCommands {
+
+    /** Call from registerSelf() with UltiTools.getInstance().getSensitiveCommandRegistry(). */
+    public void register(SensitiveCommandRegistry registry) {
+        registry.register("login", "l", "register", "reg", "changepassword");
+    }
+}
+```
+
+- 登记表初始为空，框架自己不登记任何命令。
+- 命令行的第一个词去掉开头的一个 `/` 和 `namespace:` 前缀之后，与某个已登记的名字相同（不区分大小写）即为匹配：登记 `login` 后，`/login`、`/LOGIN` 与 `/ultilogin:Login` 都匹配。
+- 匹配的命令保留命令名、去掉参数：`/login hunter2` 变成 `/login ***`。这适用于发往面板的每一条日志行（实时的与启动时补发的，包括控制台镜像的行）、错误上报（消息、触发信息与堆栈）以及聊天。
+- 对所有命令，无论是否登记，`player.command` 事件都只带命令名（小写、去掉命名空间）。
+- 服务器自己的控制台、日志文件以及其他处理器看到的日志记录都不改变。
+- 登记可以在任何线程进行，与服务器是否已接入无关，重复登记没有副作用。没有注销方法：名字一经登记，直到服务器重启都会被脱敏。
 
 ## 模块扩展点
 
@@ -335,26 +391,51 @@ public void onPanelMessage(PanelMessageEvent event) {
 
 对于由模块 responder 拥有的类型，事件在请求交给 responder 之后发布，此时 responder 可能仍在运行。
 
+自 v6.3.1 起，每一条到达模块 responder 的 `module.request` 都会在主线程上发布这个事件，携带 responder 的类型、responder 的输入（请求的 `params` 加上 `actor`）以及收到的请求信封。以 `module_not_found` 回复的请求不发布事件。框架自己的协议消息不发布事件。
+
 ### 拥有一个请求/响应类型：`PanelResponderRegistry`
 
 对于框架**尚未**处理的面板消息类型，模块可以通过
 `com.ultikits.ultitools.websocket.PanelResponderRegistry` 注册唯一一个 responder，直接应
-答请求：
+答请求。
 
+自 v6.3.1 起，面板通过 `module.request { module, action, params, actor }` 到达 responder。`module` 是模块的 UltiCloud 标识：它的 `identify-string` 去掉首尾空白并转小写，而不是 `plugin.yml` 中的名字。例如 UltiChat 的标识是 `ultichat`，而它的名字是 `UltiTools-Chat`。模块没有 `identify-string`，或它不是合法标识（小写字母开头，由小写字母与数字组成的段以单个 `.` 或 `-` 连接，至多 64 个字符）时，改用它的 `plugin.yml` 名字去掉首尾空白并转小写作为标识，与 6.3.0 相同，前提是这个名字本身是合法标识。请把 responder 注册在 `<标识>.<action>` 下；6.3.0 的 `<plugin.yml 名字小写>.<action>` 形式仍能找到。action 由小写字母、数字、`.`、`_` 与 `-` 组成。请求只会到达拥有该标识的模块的 responder，其他请求一律以 `module_not_found` 回复。
+
+<!-- UltiCloudDocSnippetsTest: module-responders -->
 ```java
-UltiTools.getInstance().getPanelResponderRegistry()
-    .registerResponder("my_module:status", data -> {
-        JsonObject reply = new JsonObject();
-        reply.addProperty("state", "ok");
-        return CompletableFuture.completedFuture(reply);
-    }, "MyModule");
+public class MailResponders {
+
+    /** Call from registerSelf(); the framework releases the responders when the module unloads. */
+    public void register(PanelResponderRegistry registry, UltiToolsPlugin module) {
+        // Answers module.request { module: "ultimail", action: "inbox.count", params, actor }.
+        registry.registerResponder("ultimail.inbox.count", data -> {
+            JsonObject actor = data.getAsJsonObject("actor");
+            JsonObject reply = new JsonObject();
+            reply.addProperty("userId", actor.get("userId").getAsLong());
+            reply.addProperty("unread", 3);
+            return CompletableFuture.completedFuture(reply);
+        }, module.getPluginName(), module);
+
+        // Completing with null answers ok with data: null.
+        registry.registerResponder("ultimail.inbox.clear",
+                data -> CompletableFuture.completedFuture(null), module.getPluginName(), module);
+    }
+}
 ```
 
-- **每个类型只能有一个所有者。** 注册一个框架已经服务的类型（框架内置的 24 种消息类型之
-  一）会立即抛出异常，并指明框架是既有所有者；注册一个另一个模块已经拥有的类型也会立即抛
+responder 收到请求 `params` 的一份拷贝，其中多了一个成员 `actor`：`{ "userId": <面板用户 ID>, "minecraftUuid": <UUID 或 null> }`。它由 UltiCloud 按发出请求的面板用户填写，框架原样传递；`params` 里自带的 `actor` 会被替换。可以据此决定该用户能看到什么。拥有至少一个 responder 的模块会在握手中声明为 `modules:<标识>@<X.Y.Z>`，版本取它 `plugin.yml` 版本的前三个数字；UltiCloud 只为已声明的模块发送请求。这个列表在连接建立时生成，列表变化时 `/ul reload` 会重新连接。标识不是合法的 UltiCloud 标识、或会使能力名超过 96 个字符的模块，会被跳过，并记录一条警告。
+
+面板收到的回复：成功时为 `ok`，`data` 是 responder 的结果；没有 responder 服务该请求时为 `module_not_found`；超过下文所述的期限时为 `deadline_exceeded`；responder 失败或结果不是合法 JSON（`NaN` 或无穷大）时为 `module_error`。
+
+- **每个类型只能有一个所有者。** 注册一个框架已经服务的类型（自 v6.3.1 起，即 UltiCloud 协议 2.0.0
+  的任一消息类型）会立即抛出异常，并指明框架是既有所有者；注册一个另一个模块已经拥有的类型也会立即抛
   出异常，并指明那个模块。这是硬性检查，不是建议——不存在"后注册者静默生效"的兜底行为。
-- **responder 返回 `CompletableFuture<JsonObject>`。** 框架会把解析结果（或失败）包装上请
-  求的 `requestId` 并发回给面板——你无需直接接触 WebSocket 连接。
+- **responder 返回任意 JSON 值的 future（自 v6.3.1 起）。** 对象、数组或原始值作为回复的 `data` 发送；
+  以 `null` 或 `JsonNull` 完成的 future 表示成功、没有内容。不返回 future、抛出异常或 future 异常完成时，
+  请求失败。你无需直接接触连接。v6.3.0 中结果必须是对象，`null` 视为失败。注册方法现在接受
+  `Function<JsonObject, ? extends CompletableFuture<? extends JsonElement>>`，`dispatch` 返回
+  `CompletableFuture<JsonElement>`：6.3.0 写法的 lambda 仍能编译，已编译的模块仍能链接；但用旧参数类型覆写
+  `registerResponder` 的子类，或把 `dispatch` 的结果赋给 `CompletableFuture<JsonObject>` 的代码，需要修改。
 - **responder 运行在工作线程上（自 v6.3.0 起）。** 框架在自己的工作线程上调用 responder，既不是服务器
   主线程，也不是读取面板连接的线程，因此一个慢 responder 不会再拖住其他面板消息。responder 中需要调用
   Bukkit API 的部分，由 responder 自己调度到主线程（例如通过 `Bukkit.getScheduler().runTask(...)`），
@@ -368,7 +449,7 @@ UltiTools.getInstance().getPanelResponderRegistry()
 - **迟到的回复会被丢弃。** 自 v6.3.0 起，回复只通过请求被受理时当前云会话的 WebSocket 客户端发送，
   并且仅当该客户端仍已安装、仍在当前会话上保持连接，且 UltiTools 仍在接受面板消息时才发送。UltiTools
   开始禁用之后、云会话登出之后，或者承载该请求的连接已经关闭或被替换之后，回复都不会发送，也不会被转到
-  更新的连接上，面板按自己的超时处理。
+  更新的连接上，面板按自己的超时处理。自 v6.3.1 起，回复发往承载该请求的协议 2.0.0 连接，规则相同。
 - **请求到达时注册的 responder 负责处理它，** 即使在调用运行之前该类型被重新分配或模块已经卸载。
 - **模块卸载时，responder 会自动注销**，与框架自动注销该模块 `EventBus` 订阅的同一时机
   一致。
@@ -382,11 +463,11 @@ UltiTools.getInstance().getPanelResponderRegistry()
   在新实例的 `registerSelf()` 运行之前被释放，所以在其中注册同一类型会成功。新实例加载失败时，它的
   responder 被注销，旧实例的 responder 原样恢复。
 
-框架不强制要求 `<模块>:<类型>` 这样的命名空间前缀——那将是面板一侧也需要遵守的跨仓库协议
-约定，而不是框架单方面能强制的东西。不过采用带命名空间的类型字符串（如上例）仍是值得遵循
-的约定，可以避免与其他模块自己的消息类型发生冲突。
+自 v6.3.1 起，面板只能到达 `<标识>.<action>`（或上文的 6.3.0 名字形式）这样的类型，因此模块本身就是命名空间，action 不需要另加前缀。框架不拒绝其他类型字符串，但任何面板请求都到达不了它们。
 
 ## 参见
 
 - [模块事件总线](/zh/guide/advanced/module-eventbus) —— `PanelMessageEvent` 所依托的底层
   发布/订阅机制。
+- [云端登录](/zh/guide/advanced/cloud-login) —— 接入服务器与连接状态。
+- [玩家链接](/zh/guide/advanced/player-link) —— 让玩家进入面板。

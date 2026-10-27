@@ -1,74 +1,100 @@
 # 云端登录
 
-::: info 自 v6.3.0 起
-UltiTools-API v6.3.0 采用本页描述的云端登录生命周期。三条命令和它们的控制台输出与此前版本相同。
+::: info 自 v6.3.1 起
+UltiTools-API v6.3.1 用设备码和 UltiCloud 协议 2.0.0 把服务器接入 UltiCloud。6.3.0 的魔法链接登录及其云端服务在切换时停止。
 :::
 
-自 v6.3.0 起，框架内部追踪一次登录的方式改变，不改变操作员看到的东西。`/ulticloud login`、`/ulticloud logout`、`/ulticloud status` 用于将服务器接入 UltiCloud，从而通过 UltiPanel 面板进行远程管理。
+`/ulticloud login`、`/ulticloud logout`、`/ulticloud status` 与 `/ulticloud reconnect` 用于把服务器接入 UltiCloud，从而通过 UltiPanel 面板远程管理。自 v6.3.1 起，已接入的服务器只持有一份属于它自己、可以吊销的凭据，不再持有任何用户账号令牌；框架通过 UltiCloud 协议 2.0.0 连接 `wss://api.ultikits.com/v1/agent`。这些命令在服务器控制台或 RCON 上执行，需要管理员权限。
 
-## 登录会话
+## 接入服务器
 
-一次成功的登录会创建一个会话。这个会话把凭证、与 UltiPanel 的 WebSocket 连接、重连计划和令牌刷新计划整体持有在一起。
+`/ulticloud login` 向 UltiCloud 申请一个设备码并打印出来：
 
-一次登出会用一个全新的、空的会话替换掉当前会话。旧会话启动的一切，在被替换的那一刻起就不再重要：一次正在进行的重连尝试，一次已经在途的凭证刷新，一次还在等待浏览器那一步的魔法链接轮询。它们都不能把结果写回一个已经被登出撤换掉的会话，无论它们在登出命令到达服务器之前已经运行了多久。
+```
+========================================
+ To link this server to UltiCloud, open:
+ <verification URI>
+ and enter the code:
+ BCDF-GHJK
+ Or open this link directly: <complete verification link>
+========================================
+The code expires in 10 minutes. Waiting for confirmation...
+```
 
-这也是登出必须无条件执行的原因。即便保存的凭证已经过期，登出也会关闭连接、停掉重连计划、停掉刷新计划。凭证过期恰恰是操作员最需要登出真正生效的场景，此前的实现会在凭证已经失效之后仍然保留连接。
+在浏览器中打开这个地址，登录 UltiCloud，输入代码并确认。服务器的名字在确认页上选定，服务器的 MOTD 只是建议的默认值。代码不区分大小写，连字符可有可无。服主确认后，控制台记录 `UltiCloud: this server is now linked as <name> (server ID <server ID>).`，随即开始连接。
+
+| 情况 | 命令的行为 |
+|---|---|
+| 服务器已经接入 | 拒绝，并提示 `/ulticloud logout` |
+| 60 秒内第二次执行 `/ulticloud login` | 拒绝，并给出剩余秒数 |
+| 服主在确认页上拒绝 | 停止轮询，记录 `UltiCloud: linking was denied on the confirmation page. Run /ulticloud login to try again.` |
+| 10 分钟内无人确认 | 停止轮询，记录 `UltiCloud: the device code expired before it was confirmed. Run /ulticloud login to get a new code.` |
+| 等待期间执行 `/ulticloud logout` | 取消这次申请；之后再确认也不会接入 |
+
+通过 RCON 执行时，命令会立即回复代码和链接将打印在服务器控制台，上面那段输出的每一行也会写入控制台日志。RCON 的回复在命令返回时就结束了，而代码稍后才到。
+
+## 服务器凭据
+
+凭据保存在 `<server root>/.ultikits/credentials.json` 的 `cloud_credential` 条目中，这是框架自有的文件，6.3.0 的令牌原本也存放在这里。在 POSIX 文件系统上，该文件只有所有者可读写。凭据不会过期，也没有刷新令牌。UltiCloud 可能轮换它：框架先把新凭据写入磁盘再确认轮换，当前连接继续使用旧凭据，下一次连接起使用新凭据。远程文件 API 从不提供 `.ultikits` 目录。
+
+`/ulticloud logout` 先在 UltiCloud 上吊销凭据，再删除它，停止重连并停止所有云端功能。无法连上 UltiCloud 时，登出仍会在本地删除凭据，并警告：`The cloud credential may still be valid. Revoke it in the panel: server settings > Revoke credential.`
 
 ## 操作员命令
 
-三条命令和它们的控制台输出与此前版本相同：
-
 | 命令 | 作用 |
 |---|---|
-| `/ulticloud login` | 请求一条魔法链接，打印到控制台，等待浏览器那一步完成 |
-| `/ulticloud logout` | 关闭连接并清除保存的凭证 |
-| `/ulticloud status` | 报告服务器当前是否已连接，以及连接到哪个账号 |
+| `/ulticloud login` | 申请设备码、打印出来，并等待确认 |
+| `/ulticloud logout` | 吊销并删除凭据，停止所有云端功能 |
+| `/ulticloud status` | 打印 `UltiCloud: Linked as <name> (server ID <server ID>)` 与连接状态，或说明服务器未接入 |
+| `/ulticloud reconnect` | 立即重试连接，每 10 秒最多一次；服务器已连接或正在连接、未接入、需要升级 UltiTools 时分别说明 |
 
-在更早版本上运行过这些命令的操作员，看到的消息不变。会话内部的变化在控制台上没有任何可见痕迹。
+## 连接与重连
+
+连接由一个状态机维护。连接断开后，它在 1 秒到一个上限之间随机延迟重试，这个上限从 1 秒逐次翻倍到 60 秒；每次尝试都新建连接，并重新读取凭据。控制台每次尝试、每次排定重试各记录一行，从不包含凭据。只有在 15 秒内收到 UltiCloud 的 `welcome`，连接才算建立；此后框架每 30 秒发送一次心跳，90 秒没有回应就重连。
+
+UltiCloud 的某些回复会结束或改变重试：
+
+| UltiCloud 的回复 | 框架的处理 |
+|---|---|
+| HTTP 401，或关闭码 4401（凭据被吊销、服务器被删除） | 停止，删除凭据与缓存的云端状态，记录 `UltiCloud rejected this server's credential (it was revoked or is no longer valid). The saved credential was deleted. Run /ulticloud login to link this server again.` |
+| HTTP 426，或关闭码 4426 | 停止并保留凭据；控制台说明 UltiCloud 不再接受这个 UltiTools 版本，UltiCloud 给出最低版本时一并显示。升级 UltiTools 后重启 |
+| HTTP 402，或关闭码 4402（套餐超限） | 保留凭据并暂停，见下文 |
+| HTTP 429、关闭码 4400 或 4429、其他 4xx | 等待更久：随机延迟的上限从 60 秒增长到 15 分钟，429 至少等待其 `Retry-After` |
+| 连续三次关闭码 4000 | 另一处连接正在使用同一凭据；第三次后停止重连，控制台说明原因 |
+| `welcome` 中的服务器 ID 与已接入的不同 | 停止并保留凭据，提示联系支持，或登出后重新接入 |
+
+### 套餐超限暂停
+
+UltiCloud 账号超出套餐时（例如 Pro 套餐到期、服务器数量超过免费套餐，并且 7 天宽限期已过），UltiCloud 以 HTTP 402 拒绝连接，或以 4402 关闭连接。框架保留凭据，打印一次原因、宽限期结束时间和套餐管理链接，之后每 15 分钟静默重试一次。`/ulticloud status` 显示 `paused — plan limit reached; retrying every 15 minutes`。服主续费或把这台服务器选为保留之后，下一次重试即可连上，也可以用 `/ulticloud reconnect` 立即连接，不需要重新登录。
+
+## 能力开关
+
+`plugins/UltiTools/config.yml` 中 `ultipanel.capabilities` 下的开关决定面板可以做什么。自 v6.3.1 起，服务器只向 UltiCloud 声明开关允许的能力，并对每个请求再次检查开关。
+
+| 键 | 默认值 | 面板功能 |
+|---|---|---|
+| `monitoring` | `true` | 服务器状态，以及玩家、插件、世界快照 |
+| `logs` | `true` | 实时控制台日志流 |
+| `player-events` | `true` | 玩家进服、离服与命令事件 |
+| `file-read` | `true` | 读取、列出文件与模块配置 |
+| `file-write` | `false` | 写入文件与模块配置 |
+| `file-delete` | `false` | 删除文件 |
+| `commands` | `false` | 远程命令，受命令黑名单约束 |
+| `server-properties` | `false` | 读取与编辑 `server.properties` |
+| `power-actions` | `false` | 从面板停止、重启服务器（v6.3.1 新增） |
+| `player-actions` | `false` | 踢出玩家、修改游戏模式、传送玩家（v6.3.1 新增） |
+
+电源动作与玩家动作默认关闭。6.3.0 的 `config.yml` 会在启动时一次性加入这两个新键，值为 `false`；只补充缺失的键，服主写下的每个值和注释逐字节保持不变；框架无法以这种方式扩展的文件排版会得到一条警告，两个开关保持关闭。错误上报仍使用自己的键 `ultipanel.logging.error-reporting.enabled`。执行 `/ul reload` 后，改动的开关立即生效；声明的能力集合发生变化时，服务器会重新连接。每项功能发送和接受什么，见[面板集成](/zh/guide/advanced/panel-integration)。
+
+## 从 6.3.0 升级
+
+6.3.0 的登录使用服主的账号令牌，它已不再可用，也不会自动迁移：
+
+- 6.3.1 第一次启动时，保存的 6.3.0 令牌会从 `credentials.json` 中删除，并记录一条以 `Run /ulticloud login to re-attach this server.` 结尾的警告。同一文件中的服务器安装 ID 保留不变，并随下一次设备登录发送，面板据此可以把这次登录接回原有的服务器。
+- 执行一次 `/ulticloud login`。服务器不再保留旧登录的任何痕迹。
 
 ## 模块 API 兼容性
 
-实现这套生命周期的 `CloudAuthManager` 类是框架内部类（`@ApiStatus.Internal`），此前也从未属于模块开发者需要对接的公开 API 面。会话生命周期的变化不要求模块迁移 API；与服务器关联的链接请求须遵循下文的认证要求。
+`CloudAuthManager` 仍是内部类（`@ApiStatus.Internal`）。6.3.0 中替 UltiLogin 发送魔法链接请求的 `UltiCloudRequests` 已弃用，将在 6.4.0 删除。自 v6.3.1 起它的每次调用都返回 `PATH_NOT_ALLOWED`，什么也不发送，因此 UltiLogin 2.0.0 的 `/panel` 无法再使用；UltiLogin 2.1.0 改用[玩家链接 API](/zh/guide/advanced/player-link)。需要让玩家进入面板的模块使用这个 API；带有密码类参数的命令应登记为敏感命令（见[面板集成](/zh/guide/advanced/panel-integration#敏感命令)）。
 
-## 代模块发送的认证请求（自 v6.3.0 起）
-
-框架从不把服务器的 UltiCloud 凭证交给模块。自 v6.3.0 起，需要让 UltiCloud 确认某个请求来自本服务器的模块，可以请框架代为发送：`com.ultikits.ultitools.utils.UltiCloudRequests` 在自己打开的那一个连接上附加凭证，只把 HTTP 状态码和响应正文返回给模块。UltiLogin 的 `/panel` 网页登录链接是第一个使用它的模块。
-
-它只发送两种请求：
-
-| 方法 | 路径 | 调用 |
-|---|---|---|
-| `POST` | `/auth/magic-link` | `UltiCloudRequests.post("/auth/magic-link", jsonBody)` |
-| `GET` | `/auth/magic-link/poll` | `UltiCloudRequests.get("/auth/magic-link/poll", query)` |
-
-每次调用返回一个 `UltiCloudRequests.Result`，其 `getOutcome()` 是下面四个值之一：
-
-| 结果 | 含义 | 是否发出请求 |
-|---|---|---|
-| `OK` | 完成了一次 HTTP 交换，不论状态码。请读取 `getStatusCode()` 和 `getBody()`。 | 是 |
-| `NOT_CONNECTED` | 服务器没有有效的 UltiCloud 会话：从未执行 `/ulticloud login`，已执行 `/ulticloud logout`，或已保存的凭证已过期。 | 否 |
-| `PATH_NOT_ALLOWED` | 方法和路径不是上表中的两种之一。 | 否 |
-| `IO_ERROR` | 交换未能完成（连接被拒、超时、读取失败），或未配置 UltiCloud API 地址。 | 已尝试；未配置地址时不发出 |
-
-路径必须完全一致。其他路径、方法不对的允许路径，或含有 `..`、`//`、`\`、`%`、`?`、`#` 的路径，都返回 `PATH_NOT_ALLOWED`。查询参数只能通过 `query` 映射传入，由它按 UTF-8 进行 URL 编码。允许的请求只会随框架版本中有文档记录的变更而增加，模块无法自行添加。
-
-请把 `NOT_CONNECTED` 当作正常状态处理：服主完全可以不使用 UltiCloud。模块不得匿名重试链接创建；使用与服务器关联的 `/panel` 链接前，应请服务器所有者先通过 `/ulticloud login` 将服务器接入 UltiCloud。
-
-### 服务器所有者认证（自 v6.3.0 起）
-
-::: warning 经过认证的链接创建
-自 v6.3.0 起，只有经过认证的服务器所有者才能通过插件创建与服务器关联的 `/panel` 魔法链接。
-不提供匿名回退、宽限期或按玩家 UUID 轮询。
-:::
-
-`POST /auth/magic-link` 要求服务器所有者的 bearer 凭证，由 `UltiCloudRequests` 附加。对于其他字段均有效的请求，缺少凭证或凭证无效时返回 `401 invalid_credential`；已认证账号不拥有该服务器时返回 `403 not_server_owner`。这两种拒绝均不会创建链接。该要求指的是服务器所有者授权插件发起请求，不要求每个打开链接的玩家都拥有服务器。
-
-创建请求后，通过 helper 以同样的服务器所有者认证调用 `GET /auth/magic-link/poll?requestId=...` 轮询。不再支持旧的仅带 `playerUuid` 的轮询；缺少 `requestId` 时返回 `400 invalid_request`。调用方无法读取认证账号不拥有的服务器的请求。
-
-移除插件匿名创建和轮询不改变普通网站账号登录、浏览器魔法链接验证及游戏内的 `/login` 命令。这些操作与将服务器接入 UltiCloud 的 `/ulticloud login` 不同。
-
-两个方法都会阻塞在网络 I/O 上（连接超时 10 秒，读取超时 30 秒），在服务器主线程上调用时抛出 `IllegalStateException`。请在异步任务中调用，再回到主线程处理结果。
-
-凭证始终留在框架内部。它不会被返回，框架自身不会把它写入日志，也不会出现在到达模块的异常消息或 `Result.toString()` 中，该类也没有任何类型为 `TokenEntity` 的公开成员。它不跟随重定向，因此 `Location` 响应头无法让它把凭证发往其他主机；3xx 响应作为状态码为该值的 `OK` 结果返回。它不写任何文件，也不写日志。
-
-有一个限制在框架之外：JDK 自带的 HTTP 客户端日志器 `sun.net.www.protocol.http.HttpURLConnection` 设为 `FINE` 或更低级别时，会打印包括凭证在内的请求头；默认级别不会。请勿在正式服务器上开启该日志器。
+6.3.1 的完整变更、弃用与已知限制，见 [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md) 的「UltiCloud protocol 2.0.0」一节。
