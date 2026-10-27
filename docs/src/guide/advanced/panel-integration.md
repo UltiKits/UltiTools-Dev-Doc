@@ -37,7 +37,7 @@ the configuration key.
 | `logs` | `log.lines` batches, sent once a second or when a batch is full, within the rate UltiCloud sets for the connection; lines over that rate are dropped on the server |
 | `player-events` | Join and leave events, kept in the reliable outbox until UltiCloud acknowledges them, and `player.command` events with the command name only |
 | `ultipanel.logging.error-reporting.enabled` | `error.report` |
-| `commands` | `command.execute`: acknowledged before it runs, then answered with the output lines the command printed before its dispatch returned; later lines go to the server console and the log stream |
+| `commands` | As of v6.3.1, `command.execute` is acknowledged before it runs, then answered with the immediate output only in `command.result` `data.output`, not echoed to the server console, its log files or the panel's live log stream; later lines go to the server console and the log stream |
 | `player-actions` | `player.action`: kick, change game mode, teleport to a player or to coordinates (new in v6.3.1, off by default) |
 | `file-read` | `files.list` and `files.read`, and reading the configuration files of loaded modules (`config.tree`, `config.entries`) |
 | `file-write` | `files.write` and `config.update` |
@@ -169,7 +169,10 @@ that showed `output` as the command's reply now shows the sentence above.
 
 As of v6.3.1 the command runs with Paper's capturing command sender, which has the console's permissions, and
 `command.result` carries the lines the command printed to that sender before its dispatch returned, cut to a
-bounded number of lines and characters and marked `truncated` when cut. Lines the command prints later, for
+bounded number of lines and characters and marked `truncated` when cut. As of v6.3.1, the immediate reply goes
+only into `command.result` `data.output`; it is not echoed to the server console, its log files or the panel's
+live log stream. The console records the `[UltiTools] [Remote command] > <command>` audit line, not a copy of
+the immediate reply. Lines the command prints later, for
 example from an asynchronous body, are not in the result: the framework writes them to the server console
 unchanged, so they reach the panel through the [live log stream](#live-log-stream), with sensitive commands
 redacted as in every console line. This forwarding lasts 10 minutes after the result; a line printed later
