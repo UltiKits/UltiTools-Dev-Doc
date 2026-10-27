@@ -24,7 +24,7 @@ API 被限定在一组显式的可编辑根目录内，并附带一层不可配�
 | `logs` | `log.lines` 批次，每秒或批次满时发送，不超过 UltiCloud 为本连接设定的速率；超出的行在服务器上丢弃 |
 | `player-events` | 进服、离服事件（在 UltiCloud 确认之前保存在可靠发件箱中），以及只带命令名的 `player.command` 事件 |
 | `ultipanel.logging.error-reporting.enabled` | `error.report` |
-| `commands` | 自 v6.3.1 起，`command.execute` 在执行之前先确认，即时输出只在 `command.result` 的 `data.output` 中回复，不回显到服务器控制台、日志文件或面板实时日志流；之后打印的行写入服务器控制台与日志流 |
+| `commands` | 自 v6.3.1 起，`command.execute` 在执行之前先确认，即时输出只在 `command.result` 中回复：被接受的命令在 `data.output` 中，被拒绝的命令在 `command_failed` 错误的 `message` 中；不回显到服务器控制台、日志文件或面板实时日志流；之后打印的行写入服务器控制台与日志流 |
 | `player-actions` | `player.action`：踢出、修改游戏模式、传送到某位玩家或某个坐标（v6.3.1 新增，默认关闭） |
 | `file-read` | `files.list`、`files.read`，以及读取已加载模块的配置文件（`config.tree`、`config.entries`） |
 | `file-write` | `files.write` 与 `config.update` |
@@ -122,7 +122,7 @@ plugins/UltiTools/config.yml to change this.
 
 自 v6.3.0 起，面板的远程命令以服务器控制台的身份运行，等同于在控制台中输入该命令，模块看到的仍是通常的控制台发送者。框架不捕获命令的回复：`command_result` 消息只说明命令已分派，文本为 `Command dispatched to the server console. Its output appears in the server log stream.`；分派返回 false 时为 `The server console did not accept the command. Any message it printed appears in the server log stream.`。回复本身与其他所有控制台输出一起，通过[实时日志流](#实时日志流)到达面板，因此需要开启 `logs` 能力才能看到。黑名单拒绝、空命令与分派错误的报告方式不变。v6.3.0 之前，被接受的命令结果里携带的是编造的 `Command executed successfully`（被拒绝的为 `Command execution failed`），而不是回复。把 `output` 当作命令回复来显示的面板或工具，现在显示的是上面这句话。
 
-自 v6.3.1 起，命令以 Paper 的捕获式命令发送者运行，它拥有控制台的权限；`command.result` 携带命令在分派返回之前向这个发送者打印的各行，行数与字符数有上限，被截断时标注 `truncated`。自 v6.3.1 起，即时回复只进入 `command.result` 的 `data.output`，不回显到服务器控制台、日志文件或面板实时日志流。控制台记录的是 `[UltiTools] [Remote command] > <command>` 审计行，而不是即时回复的副本。命令之后才打印的行（例如异步执行体打印的）不在结果中：框架把它们原样写入服务器控制台，因此它们经[实时日志流](#实时日志流)到达面板，敏感命令与其他控制台行一样被脱敏。这种转发在结果发出后持续 10 分钟；更晚打印的行会被丢弃，并记一条指明该命令的警告。服务器不接受的命令，回复的是它打印的内容，例如 Paper 的未知命令提示。只接受控制台发送者的插件命令会拒绝捕获式发送者，这类命令请在服务器控制台执行。框架不会改用控制台身份重试。
+自 v6.3.1 起，命令以 Paper 的捕获式命令发送者运行，它拥有控制台的权限；`command.result` 携带命令在分派返回之前向这个发送者打印的各行，行数与字符数有上限，被截断时标注 `truncated`。即时回复只进入 `command.result`：被接受的命令在 `data.output` 中，被拒绝的命令在 `command_failed` 错误的 `message` 中；不回显到服务器控制台、日志文件或面板实时日志流。控制台记录的是审计行：`language: en` 时为 `[UltiTools] [Remote command] > <command>`，`language: zh`（随框架发布的默认值）时为 `[UltiTools] [远程命令] > <command>`，而不是即时回复的副本。命令自身的副作用，例如 `say` 广播或插件自己打印的日志行，仍照常出现在控制台。命令之后才打印的行（例如异步执行体打印的）不在结果中：框架把它们原样写入服务器控制台，因此它们经[实时日志流](#实时日志流)到达面板，敏感命令与其他控制台行一样被脱敏。这种转发在结果发出后持续 10 分钟；更晚打印的行会被丢弃，并记一条指明该命令的警告。服务器不接受的命令，回复的是它打印的内容，例如 Paper 的未知命令提示。只接受控制台发送者的插件命令会拒绝捕获式发送者，这类命令请在服务器控制台执行。框架不会改用控制台身份重试。
 
 自 v6.3.0 起，从 UltiTools 开始禁用的那一刻起，面板请求不再得到回复（[#621](https://github.com/UltiKits/UltiTools-Reborn/issues/621)）：入站消息只记一条 `FINE` 日志后丢弃，而不是为已禁用的插件调度任务，因此服务器停止期间发出的面板操作要等到面板自身的超时。恰在停服开始那一刻到达的远程命令，可能已在控制台和远程操作日志中记为允许，却不会执行，也没有结果回复。自 v6.3.1 起，关闭期间的行为以 [UltiCloud 协议 2.0.0](#ulticloud-协议-2-0-0) 一节为准。
 
