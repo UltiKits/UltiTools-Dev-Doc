@@ -307,6 +307,10 @@ As of v6.3.0 a comparison other than `EQUAL` means the same in `getAll`, `exist`
 - `exist(...)` works on SQLite; in 6.2.x it threw `ClassCastException` there.
 - Known limitations: on SQLite a `double` in a default column is stored with 15 significant digits, so `1/3.0` reads back and compares as `0.333333333333333`; declare `type = "DOUBLE"` to keep every digit. Non-numeric text written by hand into a numeric field's column compares on SQLite as its leading number (`'abc'` as 0, `'12abc'` as 12), while JSON compares it as text. On SQLite a number that agrees with a stored `float` to 15 significant digits but differs after them (for example a whole number of 10^15 or more such as `(1L << 53) + 1`, or a decimal with 16 or more significant digits) compares as equal to it, in a default and in a `REAL` column; pass a `float` value for a `float` field. On SQLite a NaN comparison value is bound as NULL, so a condition holding it matches no row and an `updateIf` with it never applies; do not retry `updateIf` on a NaN threshold.
 
+#### Non-finite condition values <Badge type="tip" text="v6.3.2+" />
+
+Known limitation documented for v6.3.2, with behavior unchanged: do not pass Infinity or NaN as query-condition values. SQL and JSON do not share a result or exception contract for them: a SQL operation can complete with no matching rows, whereas a JSON condition throws `IllegalArgumentException` when evaluated, including for `EQUAL`. A JSON `updateIf` for a missing row can return `false` before evaluating the condition. The framework does not normalize these cases to one `DATA_ENTITY_INVALID` error. Validate values with `Float.isFinite` or `Double.isFinite` before constructing conditions, and do not retry a NaN threshold ([#696](https://github.com/UltiKits/UltiTools-Reborn/issues/696)).
+
 ### Transactions <Badge type="tip" text="v6.2.0+" />
 
 For operations that need to succeed or fail together, see the [Transactions](/guide/advanced/transactions) guide.
@@ -335,6 +339,19 @@ As of v6.3.0 a transaction whose own failure path fails never ends in an implici
 - On JSON, a commit that fails commits nothing.
 
 The caller gets the original exception, or `UnexpectedRollbackException` for a rollback-only transaction. An `Error` thrown inside `transaction(...)` rolls the transaction back (the JSON engine discards the staged writes) and is rethrown as the same instance.
+
+## JSON Storage Trade-offs <Badge type="tip" text="v6.3.2+" />
+
+The following are retained behavior, documented for v6.3.2 rather than runtime changes ([#694](https://github.com/UltiKits/UltiTools-Reborn/issues/694)):
+
+- On Windows and macOS, durability covers a server-process crash, not loss of the last whole commits after power loss or an OS crash. Choose storage and backups for the guarantee you need; do not infer a cross-platform power-loss guarantee from Linux behavior.
+- A changed commit forces its journal synchronously on the committing thread, often the server main thread. Disk contention, including world saves, can therefore add tick latency; account for this when choosing JSON for frequent transactions.
+- Windows move retries do not extend to deletion: a held file fails that flush and the next flush tries again. Check failures and remove the external lock rather than assuming the 150 ms move retry covers every file operation.
+- Directly constructing an operator gives it a separate identity and a sibling `<table folder>.ultitools-journal`; a common parent folder does not group separately constructed operators into one transaction. Use framework-managed operators for one plugin's coordinated tables.
+- Same-thread `REQUIRES_NEW` and `NOT_SUPPORTED` work does not wait for its suspended caller's thread-owned table locks. If both write the same key, the outer commit can replace the inner value; do not treat suspension as independent locking of that key.
+- JDBC and JSON timeouts differ: an exhausted JDBC budget still permits a statement with a one-second query timeout; JSON rejects a post-deadline operation and marks rollback-only. A waiting JSON read also uses the `JSON write failed ...` lock-error prefix. Handle the failure and rollback state, not the word “write” as proof that the call was a write. See [Timeout Configuration](/guide/advanced/transactions#timeout-configuration).
+- JSON keeps raw `<id>.json` names, with no versioned portable encoding or automatic migration. Windows-forbidden characters can be valid on Linux; persisted UltiRemoteBag claim ids containing `:` therefore cannot simply move to Windows. Plan any module-specific data migration separately, without deleting stored claims to bypass the restriction.
+- Case-only ids collide on case-insensitive filesystems. The device-name check does not universally forbid `COM0` or `LPT0`, and support by every Windows tool/provider is not promised. Prefer UUID ids; do not assume character checks alone make arbitrary names portable.
 
 ## Operating JSON Storage <Badge type="tip" text="v6.3.0+" />
 

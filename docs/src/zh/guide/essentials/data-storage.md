@@ -305,6 +305,10 @@ WhereCondition.builder().column("somecol").value(someval).build();
 - `exist(...)` 在 SQLite 上可用；6.2.x 在那里会抛出 `ClassCastException`。
 - 已知限制：在 SQLite 上，默认列中的 `double` 只保存 15 位有效数字，因此 `1/3.0` 读回和比较都按 `0.333333333333333`；要保留全部数字，请声明 `type = "DOUBLE"`。手工写入数值字段列的非数字文本，在 SQLite 上按其开头的数字比较（`'abc'` 为 0，`'12abc'` 为 12），JSON 则按文本比较。在 SQLite 上，与所存 `float` 前 15 位有效数字相同、之后才不同的任何数值（例如 10^15 及以上的整数如 `(1L << 53) + 1`，或有 16 位及以上有效数字的小数）会被视为与它相等，默认列和 `REAL` 列都如此；对 `float` 字段请传 `float` 值。在 SQLite 上，NaN 比较值会被绑定为 NULL，因此含它的条件不匹配任何行，带它的 `updateIf` 也永远不会生效；请勿对 NaN 阈值重试 `updateIf`。
 
+#### 非有限条件值 <Badge type="tip" text="v6.3.2+" />
+
+v6.3.2 文档记录的已知限制，行为不变：不要把 Infinity 或 NaN 作为查询条件值。SQL 与 JSON 对它们没有统一的结果或异常约定：SQL 操作可能正常结束但不匹配任何行，JSON 条件则在求值时抛出 `IllegalArgumentException`，`EQUAL` 也包括在内。JSON 的 `updateIf` 在行不存在时可能先返回 `false`，不求值该条件。框架不将这些情况统一成 `DATA_ENTITY_INVALID` 错误。构造条件前使用 `Float.isFinite` 或 `Double.isFinite` 校验，不要重试 NaN 阈值（[#696](https://github.com/UltiKits/UltiTools-Reborn/issues/696)）。
+
 ### 事务 <Badge type="tip" text="v6.2.0+" />
 
 对于需要同时成功或同时失败的操作，请参阅[事务](/zh/guide/advanced/transactions)指南。
@@ -333,6 +337,19 @@ dataOperator.transaction(() -> {
 - 在 JSON 上，失败的提交不会提交任何内容。
 
 调用方收到原来的异常；事务被标记为仅回滚时收到 `UnexpectedRollbackException`。`transaction(...)` 中抛出的 `Error` 会使事务回滚（JSON 引擎丢弃暂存的写入），并原样抛出同一个实例。
+
+## JSON 存储的取舍 <Badge type="tip" text="v6.3.2+" />
+
+以下记录的是 v6.3.2 保留的行为，不是运行时改动（[#694](https://github.com/UltiKits/UltiTools-Reborn/issues/694)）：
+
+- Windows 和 macOS 上的持久性覆盖服务器进程崩溃，不保证断电或操作系统崩溃后最后几次完整提交不丢失。请按需要的保证选择存储与备份，不要把 Linux 行为推广为跨平台断电保证。
+- 有改动的提交在提交线程上同步强制刷新日志，该线程常是服务器主线程。世界保存等磁盘争用可能增加 tick 延迟；频繁事务选择 JSON 时应计入这一成本。
+- Windows 的移动重试不包括删除：文件被占用会使本次刷新失败，下次刷新再尝试。应查看失败并解除外部占用，不要认为 150 毫秒移动重试覆盖所有文件操作。
+- 直接构造的操作器各有独立的存储身份及相邻的 `<表目录>.ultitools-journal`；共同的父目录不会把分别构造的操作器组成一个事务。需要协调同一插件的多张表时，使用框架管理的操作器。
+- 同线程的 `REQUIRES_NEW` 和 `NOT_SUPPORTED` 工作不会等待被挂起调用方持有的线程级表锁。两者写同一键时，外层提交可能替换内层结果；不要把挂起理解为对该键独立加锁。
+- JDBC 与 JSON 的超时不同：JDBC 预算耗尽后仍允许语句以一秒查询超时执行；JSON 拒绝期限后的操作，并标记仅回滚。等待锁的 JSON 读取也使用 `JSON write failed ...` 错误前缀。应处理失败和回滚状态，不要根据 “write” 一词认定调用就是写入。见[超时配置](/zh/guide/advanced/transactions#超时配置)。
+- JSON 保留原始 `<id>.json` 名称，没有版本化的可移植编码或自动迁移。Windows 禁用的字符在 Linux 上可能有效，因此含 `:` 的 UltiRemoteBag 持久占用记录 id 不能直接迁到 Windows。模块数据迁移应另作安排，不要删除已有占用记录来绕过限制。
+- 只有大小写不同的 id 在不区分大小写的文件系统上会冲突。设备名检查不在所有平台上一律禁止 `COM0` 或 `LPT0`，也不保证所有 Windows 工具或提供者均支持它们。优先使用 UUID id；不要以为字符检查能让任意名称跨平台可用。
 
 ## JSON 存储的运维 <Badge type="tip" text="v6.3.0+" />
 
