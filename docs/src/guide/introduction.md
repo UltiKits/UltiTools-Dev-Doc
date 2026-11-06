@@ -12,7 +12,7 @@ It is committed to making more server owners build servers easily, reducing the 
 
 ## Features
 
-* High Compatibility: As of v6.3.0, the framework supports Paper 1.19.2 build 163 or later, using the Java version required by the chosen Paper line (Java 17 for 1.19.2 to 1.20.4, Java 21 from 1.20.5). Individual modules may require a newer server; UltiKits, UltiLogin, UltiMail, UltiRemoteBag and UltiTrade require Minecraft 1.21+.
+* High Compatibility: As of v6.3.0, the framework supports Paper 1.19.2 build 163 or later, using the Java version required by the chosen Paper line (Java 17 for 1.19.2 to 1.20.4, Java 21 from 1.20.5). In the 6.3.x line, UltiKits, UltiLogin, UltiMail, UltiRemoteBag and UltiTrade require Minecraft 1.21+. As of v6.4.0 (draft), these five modules target the framework's supported floor and require UltiTools 6.4.0+ on Minecraft below 1.21; see [Supporting servers below 1.21](/guide/advanced/older-servers) for module updates and capability limits.
 
 * Advanced GUI: Most features have a graphical user interface, making it easy for players to operate.
 
