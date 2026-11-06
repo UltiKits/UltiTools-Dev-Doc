@@ -8,11 +8,12 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 存储 API 把每个 `@Column` 字段对应到一列（JSON 文件中对应一个字段）。非简单类型的字段会以 JSON 文本存入该列，不能按其内部字段查询，所以尽量使用简单值。
 :::
 
-::: warning Paper 上的 SQLite 与 spark（适用于所有 UltiTools 版本）
-在 Paper 上，spark 的后台分析器默认开启；使用 SQLite 存储时，它会把服务器线程上的数据库调用等待被锁定的数据库文件的时间从约 3 秒缩短到约 0.4 秒，因此只有当另一个线程或进程持有写锁超过这个时间时，调用才会失败（[#645](https://github.com/UltiKits/UltiTools-Reborn/issues/645)）。
-MySQL 不受影响。
-写入会长时间持有 SQLite 锁的服务器应改用 MySQL。
+::: warning v6.3.2 之前的 SQLite 与原生 spark 分析
+较早版本在 Paper 原生 spark 分析器运行时，服务器线程上名义为 3 秒的 SQLite busy 等待可能约 0.4 秒就耗尽，前提是另一线程或进程同时持有该数据库文件的写锁（[#645](https://github.com/UltiKits/UltiTools-Reborn/issues/645)）。
+MySQL 不受影响；写入长时间持有 SQLite 锁的服务器应改用 MySQL。
 :::
+
+自 v6.3.2 起，SQLite busy 等待按单调时钟的真实耗时计算，分析器信号仅打断一次请求的休眠时不再提前消耗等待预算。3000 ms 默认值、DEFERRED 事务和 JDBC 语句超时选择不变。请缩短 SQLite 事务，不要共享或从外部修改运行中的 SQLite 文件。读锁升级为写锁时，若等待会造成死锁，仍可能立即失败；不是每次 `SQLITE_BUSY` 都等待完整超时，也不要盲目重试整个事务。直接修改 SQLite busy handler 或 `PRAGMA busy_timeout` 不属于框架管理的等待策略。
 
 ## 创建实体类
 
@@ -261,6 +262,8 @@ if (!written) {
 在 MySQL 与 SQLite 上，检查与写入是同一条 `UPDATE ... WHERE id = ? AND <条件>` 语句，因此对共用同一个数据库的多台服务器同样成立。在 JSON 后端上，检查与写入在表锁下一起完成；JSON 储存只属于一台服务器。条件的含义与 `getAll(WhereCondition...)` 中相同。
 
 没有任何一行同时具有该实体的 id 并满足全部条件时，`updateIf` 返回 `false`，不写入任何内容；id 为 `null`、条件为 `null`、条件使用了实体没有用 `@Column` 映射的列，或在默认 `EQUAL` 以外的比较下条件的值为 `null` 时，各个后端都抛出 `DataAccessException`。自 v6.3.0 起，默认比较下的 `null` 期望值表示 `IS NULL`（JSON：字段不存在或为 JSON null），因此对读取时仍未设置的列做比较后写入时，若其间另一个写入方已写入该列，本次写入不生效；这一含义只属于 `updateIf`（[#640](https://github.com/UltiKits/UltiTools-Reborn/issues/640)）。框架之外的 `DataOperator` 实现如果没有实现它，会抛出 `UnsupportedOperationException`。
+
+v6.3.2 文档记录的精度限制：MySQL 默认文本列和 JSON 的数值 `EQUAL` 可能同时匹配超出 ±9,007,199,254,740,992（2^53）的相邻整数，因此 `updateIf` 的前提也可能匹配不同于先前读到的值。不要把这类数字用作要求精确匹配的比较后写入（CAS）标记。MySQL 需要精确整数相等时声明 `type = "BIGINT"`；JSON 的条件求值映射已把数字转换为 `double`，声明数值列类型不能恢复精确匹配。
 
 ### 删除
 

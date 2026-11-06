@@ -10,11 +10,12 @@ All you need is an entity class. CRUD operations will be done automatically by U
 The storage API maps each `@Column` field to one column (one field in a JSON file). A field of a non-simple type is stored there as JSON text and cannot be queried by its inner fields, so try to use simple values.
 :::
 
-::: warning SQLite on Paper with spark (all UltiTools versions)
-On Paper, spark's background profiler is on by default, and with SQLite storage it shortens how long a server-thread database call waits for a locked database file from about 3 s to about 0.4 s, so the call fails only when another thread or process holds the write lock longer than that ([#645](https://github.com/UltiKits/UltiTools-Reborn/issues/645)).
-MySQL is not affected.
-Servers whose writes hold the SQLite lock for long should use MySQL.
+::: warning SQLite with native spark profiling before v6.3.2
+Earlier builds can exhaust a nominal 3 s SQLite busy wait in about 0.4 s on the server thread under Paper's native spark profiler, when another thread or process holds a write lock on the same database file ([#645](https://github.com/UltiKits/UltiTools-Reborn/issues/645)).
+MySQL is not affected; servers with long-held SQLite write locks should use MySQL.
 :::
+
+As of v6.3.2, SQLite busy waits use monotonic elapsed time: profiler signals no longer consume the wait budget merely by interrupting requested sleeps. The 3000 ms default, DEFERRED transactions and JDBC statement-timeout selection are unchanged. Keep SQLite transactions short and do not share or externally modify a live SQLite file. A read-to-write lock upgrade can still fail immediately if waiting would deadlock; not every `SQLITE_BUSY` waits for the full timeout, and you should not blindly retry a whole transaction. Direct changes to SQLite busy handlers or `PRAGMA busy_timeout` are outside this managed policy.
 
 ## Create Entity Class
 
@@ -263,6 +264,8 @@ if (!written) {
 On MySQL and SQLite the check and the write are one `UPDATE ... WHERE id = ? AND <conditions>` statement, so the result holds across servers that share one database. On the JSON backend the check and the write run together under the table lock; a JSON store belongs to one server. The conditions mean what they mean in `getAll(WhereCondition...)`.
 
 `updateIf` returns `false`, and writes nothing, when no row with the entity's id matches every condition. It throws `DataAccessException` when the id is `null`, when a condition is `null`, when a condition names a column the entity does not map with `@Column`, or when a condition's value is `null` under a comparison other than the default `EQUAL`, on every backend. As of v6.3.0 a `null` expected value under the default comparison means `IS NULL` (JSON: the field is absent or JSON null), so a compare-and-set against a column that was still unset when you read it misses when another writer has filled it in the meantime; this meaning belongs to `updateIf` alone ([#640](https://github.com/UltiKits/UltiTools-Reborn/issues/640)). A `DataOperator` implementation outside the framework that does not implement it throws `UnsupportedOperationException`.
+
+As documented for v6.3.2, numeric `EQUAL` on a default MySQL text column and on JSON can match neighbouring integers beyond ±9,007,199,254,740,992 (2^53). An `updateIf` precondition can therefore match a value different from the one read. Do not use such numbers as exact compare-and-set (CAS) tokens. On MySQL declare `type = "BIGINT"` for exact integral equality; on JSON the condition-evaluation map has already converted numbers to `double`, so declaring a numeric column type does not restore exact matching.
 
 ### Delete
 
