@@ -245,7 +245,7 @@ As of v6.3.0 an insert directly after a key left with no value (`c:` with nothin
 
 ### Layouts the reader cannot read
 
-As of v6.3.0 two valid YAML layouts cannot be read by the framework's comment-preserving reader (SnakeYAML 2.2, the version Paper ships). The file is treated as unparseable: it is never written, the module runs on its declared defaults at start-up (a reload keeps the running values), and the SEVERE line `Cannot load <file>: <parser location>; file will not be overwritten` names it. The file keeps every byte; its values are used once the layout is changed.
+As clarified for v6.3.2, the following two valid YAML layouts were observed to fail with the framework's comment-preserving reader on SnakeYAML 2.2; this is not a claim about every SnakeYAML version or Paper build. When parsing fails, the file is treated as unparseable: it is never written, the module runs on its declared defaults at start-up (a reload keeps the running values), and the SEVERE line `Cannot load <file>: <parser location>; file will not be overwritten` names it. The file keeps every byte; its values are used once the layout is changed.
 
 - A block anchor with a comment before its first child, such as `defaults: &defaults` followed by `# note` and `setting: inherited`, both indented two spaces ([#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580)). Move the comment above the anchored key, or below the first child.
 - A block scalar (`content: |-` or `>`) followed by a comment indented above column 0, a blank line and another comment ([#617](https://github.com/UltiKits/UltiTools-Reborn/issues/617)). Remove the blank line between the two comments, or one of the comments.
