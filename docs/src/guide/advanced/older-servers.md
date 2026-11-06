@@ -21,7 +21,7 @@ The loader foundation is described in [framework PR #806](https://github.com/Ult
 
 ## Startup diagnostics and limits
 
-As of v6.4.0, each unresolved server-API reference produces a startup `WARNING`, and the module still loads. A warning is not proof that the affected path is usable: calling a missing method can still fail unless the module handles that failure. See [framework PR #810](https://github.com/UltiKits/UltiTools-Reborn/pull/810).
+As of v6.4.0, each unresolved server-API reference in a class within the module's own scanned packages produces a startup `WARNING`. Bundled third-party libraries instead receive one `INFO` summary line per top-level package. In both cases, module loading continues. A warning is not proof that the affected path is usable: calling a missing method can still fail unless the module handles that failure. See [framework PR #810](https://github.com/UltiKits/UltiTools-Reborn/pull/810).
 
 If a bean is skipped because it references an absent server class, a separate consequence warning names the bean, the missing class and the handlers that were not registered. One absent event parameter type can prevent reflection of the whole listener class, so otherwise supported handlers in that same class can also be lost.
 
