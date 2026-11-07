@@ -131,14 +131,17 @@ public List<String> listName(Player player, Command command, String[] args) {
 
 UltiTools will first search for matching method names in the current class and try to call this method.
 
-Your method can contain up to three parameters, corresponding to the types `Player`, `Command` and `String[]`. You can
-choose any amount or order of parameters, but the type can only be these three types, one parameter for each type.
+A provider returns `List<String>`. The existing supported parameter lists are exactly `()`, `(Player)`, `(String)`, `(Player, String)` and `(Player, Command, String[])`; parameter order is not arbitrary. `Player` is the requesting player, `String` is the current partial token, `Command` is the current command, and `String[]` is its argument array.
 
-`Player` represents the player who sent the command, `Command` represents the current command, and `String[]` represents
-the current parameters of the current command.
+#### Sender-aware completion <Badge type="tip" text="v6.3.2+" />
 
-Your method needs to return a value of type `List<String>`, and UltiTools will return this value as a completion list to
-the player.
+As of v6.3.2, console, RCON and other `CommandSender` implementations use the same completion dispatch as players. Providers also accept exactly `(CommandSender)`, `(CommandSender, String)` and `(CommandSender, Command, String[])`. Use the exact `CommandSender` type, not a sender subclass. These forms work both in the executor and in a class named by `@CmdSuggest`.
+
+The same class-level and mapping-level permission and OP checks, and the effective `@CmdTarget`, filter candidates before literals or providers contribute results. `CONSOLE` means any non-player sender, not only `ConsoleCommandSender`. A denied request returns no candidates silently; completion does not execute validators with side effects, cooldowns or usage locks, and does not emit command-denial messages.
+
+A registered custom completer receives the requester through `TabCompletionContext.getSender()`. `getPlayer()` returns that player for a player request and `null` for every non-player request; custom completers must check for `null` before using player-only APIs. Player-only provider methods are skipped for non-player requests, never called with a null player. Zero-argument and String-only providers, built-in completers and registered `@key` completers remain available to both kinds of sender.
+
+The old protected `suggest(Player, Command, String[])` override hook still handles player requests; v6.3.2 adds `suggest(CommandSender, Command, String[])` without removing it. Existing Player overloads, constructors and player-based context factories/builders remain supported; a context built with a player also exposes that player as its sender.
 
 #### Built-in completers (`@key` notation) <Badge type="tip" text="v6.3.0+" />
 

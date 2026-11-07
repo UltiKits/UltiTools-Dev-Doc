@@ -117,6 +117,8 @@ public void onCustomEvent(MyCustomEvent event) {
 - **Cleanup**: On disconnect, all commands, listeners, scheduled tasks, EventBus subscriptions, and PlayerCache beans registered by your plugin are removed.
 - **Refused connection** (as of v6.3.0): if `connect()` throws because the framework refused your plugin after building its container — a command executor whose declared annotations it cannot enforce, or a config-bound `@Scheduled`/`@CmdCD` — nothing it registered for your plugin is left behind, so a fixed build can connect again in the same server session ([issue #537](https://github.com/UltiKits/UltiTools-Reborn/issues/537)).
 
+As of v6.3.2, a failure during subsequent scheduled-task, player-cache, EventBus, command or listener registration also cleans attempted registrations in reverse order, including the partially completed failing stage, before releasing the container, data scope and newly inserted ownership. The same original exception is rethrown; cleanup failures are attached as suppressed exceptions and do not stop later cleanup attempts. If cleanup itself fails, resources may remain until restart: inspect the suppressed exceptions before reconnecting. Arbitrary side effects performed by your plugin during initialization are not rolled back; plugin initialization is not a transaction.
+
 ## Differences from UltiTools Modules
 
 | Feature | UltiTools Module | External Plugin |

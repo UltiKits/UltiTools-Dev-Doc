@@ -10,11 +10,12 @@ All you need is an entity class. CRUD operations will be done automatically by U
 The storage API maps each `@Column` field to one column (one field in a JSON file). A field of a non-simple type is stored there as JSON text and cannot be queried by its inner fields, so try to use simple values.
 :::
 
-::: warning SQLite on Paper with spark (all UltiTools versions)
-On Paper, spark's background profiler is on by default, and with SQLite storage it shortens how long a server-thread database call waits for a locked database file from about 3 s to about 0.4 s, so the call fails only when another thread or process holds the write lock longer than that ([#645](https://github.com/UltiKits/UltiTools-Reborn/issues/645)).
-MySQL is not affected.
-Servers whose writes hold the SQLite lock for long should use MySQL.
+::: warning SQLite with native spark profiling before v6.3.2
+Earlier builds can exhaust a nominal 3 s SQLite busy wait in about 0.4 s on the server thread under Paper's native spark profiler, when another thread or process holds a write lock on the same database file ([#645](https://github.com/UltiKits/UltiTools-Reborn/issues/645)).
+MySQL is not affected; servers with long-held SQLite write locks should use MySQL.
 :::
+
+As of v6.3.2, SQLite busy waits use monotonic elapsed time: profiler signals no longer consume the wait budget merely by interrupting requested sleeps. The 3000 ms default, DEFERRED transactions and JDBC statement-timeout selection are unchanged. Keep SQLite transactions short and do not share or externally modify a live SQLite file. A read-to-write lock upgrade can still fail immediately if waiting would deadlock; not every `SQLITE_BUSY` waits for the full timeout, and you should not blindly retry a whole transaction. Direct changes to SQLite busy handlers or `PRAGMA busy_timeout` are outside this managed policy.
 
 ## Create Entity Class
 
@@ -264,6 +265,8 @@ On MySQL and SQLite the check and the write are one `UPDATE ... WHERE id = ? AND
 
 `updateIf` returns `false`, and writes nothing, when no row with the entity's id matches every condition. It throws `DataAccessException` when the id is `null`, when a condition is `null`, when a condition names a column the entity does not map with `@Column`, or when a condition's value is `null` under a comparison other than the default `EQUAL`, on every backend. As of v6.3.0 a `null` expected value under the default comparison means `IS NULL` (JSON: the field is absent or JSON null), so a compare-and-set against a column that was still unset when you read it misses when another writer has filled it in the meantime; this meaning belongs to `updateIf` alone ([#640](https://github.com/UltiKits/UltiTools-Reborn/issues/640)). A `DataOperator` implementation outside the framework that does not implement it throws `UnsupportedOperationException`.
 
+As documented for v6.3.2, numeric `EQUAL` on a default MySQL text column and on JSON can match neighbouring integers beyond ±9,007,199,254,740,992 (2^53). An `updateIf` precondition can therefore match a value different from the one read. Do not use such numbers as exact compare-and-set (CAS) tokens. On MySQL declare `type = "BIGINT"` for exact integral equality; on JSON the condition-evaluation map has already converted numbers to `double`, so declaring a numeric column type does not restore exact matching.
+
 ### Delete
 
 Delete by ID:
@@ -304,6 +307,10 @@ As of v6.3.0 a comparison other than `EQUAL` means the same in `getAll`, `exist`
 - `exist(...)` works on SQLite; in 6.2.x it threw `ClassCastException` there.
 - Known limitations: on SQLite a `double` in a default column is stored with 15 significant digits, so `1/3.0` reads back and compares as `0.333333333333333`; declare `type = "DOUBLE"` to keep every digit. Non-numeric text written by hand into a numeric field's column compares on SQLite as its leading number (`'abc'` as 0, `'12abc'` as 12), while JSON compares it as text. On SQLite a number that agrees with a stored `float` to 15 significant digits but differs after them (for example a whole number of 10^15 or more such as `(1L << 53) + 1`, or a decimal with 16 or more significant digits) compares as equal to it, in a default and in a `REAL` column; pass a `float` value for a `float` field. On SQLite a NaN comparison value is bound as NULL, so a condition holding it matches no row and an `updateIf` with it never applies; do not retry `updateIf` on a NaN threshold.
 
+#### Non-finite condition values <Badge type="tip" text="v6.3.2+" />
+
+Known limitation documented for v6.3.2, with behavior unchanged: do not pass Infinity or NaN as query-condition values. SQL and JSON do not share a result or exception contract for them: a SQL operation can complete with no matching rows, whereas a JSON condition throws `IllegalArgumentException` when evaluated, including for `EQUAL`. A JSON `updateIf` for a missing row can return `false` before evaluating the condition. The framework does not normalize these cases to one `DATA_ENTITY_INVALID` error. Validate values with `Float.isFinite` or `Double.isFinite` before constructing conditions, and do not retry a NaN threshold ([#696](https://github.com/UltiKits/UltiTools-Reborn/issues/696)).
+
 ### Transactions <Badge type="tip" text="v6.2.0+" />
 
 For operations that need to succeed or fail together, see the [Transactions](/guide/advanced/transactions) guide.
@@ -332,6 +339,19 @@ As of v6.3.0 a transaction whose own failure path fails never ends in an implici
 - On JSON, a commit that fails commits nothing.
 
 The caller gets the original exception, or `UnexpectedRollbackException` for a rollback-only transaction. An `Error` thrown inside `transaction(...)` rolls the transaction back (the JSON engine discards the staged writes) and is rethrown as the same instance.
+
+## JSON Storage Trade-offs <Badge type="tip" text="v6.3.2+" />
+
+The following are retained behavior, documented for v6.3.2 rather than runtime changes ([#694](https://github.com/UltiKits/UltiTools-Reborn/issues/694)):
+
+- On Windows and macOS, durability covers a server-process crash, not loss of the last whole commits after power loss or an OS crash. Choose storage and backups for the guarantee you need; do not infer a cross-platform power-loss guarantee from Linux behavior.
+- A changed commit forces its journal synchronously on the committing thread, often the server main thread. Disk contention, including world saves, can therefore add tick latency; account for this when choosing JSON for frequent transactions.
+- Windows move retries do not extend to deletion: a held file fails that flush and the next flush tries again. Check failures and remove the external lock rather than assuming the 150 ms move retry covers every file operation.
+- Directly constructing an operator gives it a separate identity and a sibling `<table folder>.ultitools-journal`; a common parent folder does not group separately constructed operators into one transaction. Use framework-managed operators for one plugin's coordinated tables.
+- Same-thread `REQUIRES_NEW` and `NOT_SUPPORTED` work does not wait for its suspended caller's thread-owned table locks. If both write the same key, the outer commit can replace the inner value; do not treat suspension as independent locking of that key.
+- JDBC and JSON timeouts differ: an exhausted JDBC budget still permits a statement with a one-second query timeout; JSON rejects a post-deadline operation and marks rollback-only. A waiting JSON read also uses the `JSON write failed ...` lock-error prefix. Handle the failure and rollback state, not the word “write” as proof that the call was a write. See [Timeout Configuration](/guide/advanced/transactions#timeout-configuration).
+- JSON keeps raw `<id>.json` names, with no versioned portable encoding or automatic migration. Windows-forbidden characters can be valid on Linux; persisted UltiRemoteBag claim ids containing `:` therefore cannot simply move to Windows. Plan any module-specific data migration separately, without deleting stored claims to bypass the restriction.
+- Case-only ids collide on case-insensitive filesystems. The device-name check does not universally forbid `COM0` or `LPT0`, and support by every Windows tool/provider is not promised. Prefer UUID ids; do not assume character checks alone make arbitrary names portable.
 
 ## Operating JSON Storage <Badge type="tip" text="v6.3.0+" />
 

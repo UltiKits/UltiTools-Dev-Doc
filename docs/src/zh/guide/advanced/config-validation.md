@@ -134,6 +134,8 @@ private Map<String, OutputItem> recipes = new HashMap<>();
 
 ## 组合使用
 
+v6.3.2 文档记录的已知限制，行为不变：`Object` 设置上的约束必须同时满足，不是按运行时类型择一使用。`@Range` 与 `@Pattern`、`@Size` 或 `@NotEmpty` 组合时，种类不能满足全部注解的普通非空内置值会被拒绝。`@Range + @Pattern` 和 `@Range + @Size` 仍允许 null 加载；`@NotEmpty` 拒绝 null。`Object` 字段中的空容器在 `@NotEmpty` 下会被拒绝，不会改用声明默认值：容器默认值替代依据声明的容器类型，而不是运行时值。需要这种替代时应将字段声明为列表、集合、映射或数组，并选择适用于该值类型的约束（[#635](https://github.com/UltiKits/UltiTools-Reborn/issues/635)）。
+
 可以在同一字段上使用多个校验注解：
 
 ```java

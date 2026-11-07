@@ -100,6 +100,8 @@ public interface PlayerCacheSaver {
 
 ## 多个 Map
 
+v6.3.2 文档记录的已知限制（保持 v6.3.0 行为）：`savePlayerData(UUID)` 按每个标有 `saveBeforeRemove = true` 的字段调用，而不是每个 Bean 只调用一次。同一 Bean 有多个这样的字段时，一次退出会调用多次，前一次调用失败也不例外；每个字段在自己的回调之后移除，因此后续回调可能看到前面的字段已清空。一次逻辑保存的回调应能接受重复调用，或者只为一个字段开启保存。后续字段的回调不保证重试前一次保存（[#647](https://github.com/UltiKits/UltiTools-Reborn/issues/647)）。
+
 一个 Bean 可以有多个 `@PlayerCache` 字段，每个都会独立清理：
 
 <<< @/../examples/src/main/java/com/ultikits/docs/cache/GameService.java
