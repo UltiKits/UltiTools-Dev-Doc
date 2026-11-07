@@ -30,7 +30,7 @@ const navZH = [
     {
         text: '更新说明',
         activeMatch: `/guide/release-notes/`,
-        link: '/zh/guide/release-notes/6.3.0',
+        link: '/zh/guide/release-notes/6.3.2',
         skipVersioning: true
     },
     // 不传 link、不传 activeMatch、也不手传 versioningPlugin：
