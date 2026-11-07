@@ -8,11 +8,12 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 存储 API 把每个 `@Column` 字段对应到一列（JSON 文件中对应一个字段）。非简单类型的字段会以 JSON 文本存入该列，不能按其内部字段查询，所以尽量使用简单值。
 :::
 
-::: warning Paper 上的 SQLite 与 spark（适用于所有 UltiTools 版本）
-在 Paper 上，spark 的后台分析器默认开启；使用 SQLite 存储时，它会把服务器线程上的数据库调用等待被锁定的数据库文件的时间从约 3 秒缩短到约 0.4 秒，因此只有当另一个线程或进程持有写锁超过这个时间时，调用才会失败（[#645](https://github.com/UltiKits/UltiTools-Reborn/issues/645)）。
-MySQL 不受影响。
-写入会长时间持有 SQLite 锁的服务器应改用 MySQL。
+::: warning v6.3.2 之前的 SQLite 与原生 spark 分析
+较早版本在 Paper 原生 spark 分析器运行时，服务器线程上名义为 3 秒的 SQLite busy 等待可能约 0.4 秒就耗尽，前提是另一线程或进程同时持有该数据库文件的写锁（[#645](https://github.com/UltiKits/UltiTools-Reborn/issues/645)）。
+MySQL 不受影响；写入长时间持有 SQLite 锁的服务器应改用 MySQL。
 :::
+
+自 v6.3.2 起，SQLite busy 等待按单调时钟的真实耗时计算，分析器信号仅打断一次请求的休眠时不再提前消耗等待预算。3000 ms 默认值、DEFERRED 事务和 JDBC 语句超时选择不变。请缩短 SQLite 事务，不要共享或从外部修改运行中的 SQLite 文件。读锁升级为写锁时，若等待会造成死锁，仍可能立即失败；不是每次 `SQLITE_BUSY` 都等待完整超时，也不要盲目重试整个事务。直接修改 SQLite busy handler 或 `PRAGMA busy_timeout` 不属于框架管理的等待策略。
 
 ## 创建实体类
 
@@ -262,6 +263,8 @@ if (!written) {
 
 没有任何一行同时具有该实体的 id 并满足全部条件时，`updateIf` 返回 `false`，不写入任何内容；id 为 `null`、条件为 `null`、条件使用了实体没有用 `@Column` 映射的列，或在默认 `EQUAL` 以外的比较下条件的值为 `null` 时，各个后端都抛出 `DataAccessException`。自 v6.3.0 起，默认比较下的 `null` 期望值表示 `IS NULL`（JSON：字段不存在或为 JSON null），因此对读取时仍未设置的列做比较后写入时，若其间另一个写入方已写入该列，本次写入不生效；这一含义只属于 `updateIf`（[#640](https://github.com/UltiKits/UltiTools-Reborn/issues/640)）。框架之外的 `DataOperator` 实现如果没有实现它，会抛出 `UnsupportedOperationException`。
 
+v6.3.2 文档记录的精度限制：MySQL 默认文本列和 JSON 的数值 `EQUAL` 可能同时匹配超出 ±9,007,199,254,740,992（2^53）的相邻整数，因此 `updateIf` 的前提也可能匹配不同于先前读到的值。不要把这类数字用作要求精确匹配的比较后写入（CAS）标记。MySQL 需要精确整数相等时声明 `type = "BIGINT"`；JSON 的条件求值映射已把数字转换为 `double`，声明数值列类型不能恢复精确匹配。
+
 ### 删除
 
 按 ID 删除：
@@ -302,6 +305,10 @@ WhereCondition.builder().column("somecol").value(someval).build();
 - `exist(...)` 在 SQLite 上可用；6.2.x 在那里会抛出 `ClassCastException`。
 - 已知限制：在 SQLite 上，默认列中的 `double` 只保存 15 位有效数字，因此 `1/3.0` 读回和比较都按 `0.333333333333333`；要保留全部数字，请声明 `type = "DOUBLE"`。手工写入数值字段列的非数字文本，在 SQLite 上按其开头的数字比较（`'abc'` 为 0，`'12abc'` 为 12），JSON 则按文本比较。在 SQLite 上，与所存 `float` 前 15 位有效数字相同、之后才不同的任何数值（例如 10^15 及以上的整数如 `(1L << 53) + 1`，或有 16 位及以上有效数字的小数）会被视为与它相等，默认列和 `REAL` 列都如此；对 `float` 字段请传 `float` 值。在 SQLite 上，NaN 比较值会被绑定为 NULL，因此含它的条件不匹配任何行，带它的 `updateIf` 也永远不会生效；请勿对 NaN 阈值重试 `updateIf`。
 
+#### 非有限条件值 <Badge type="tip" text="v6.3.2+" />
+
+v6.3.2 文档记录的已知限制，行为不变：不要把 Infinity 或 NaN 作为查询条件值。SQL 与 JSON 对它们没有统一的结果或异常约定：SQL 操作可能正常结束但不匹配任何行，JSON 条件则在求值时抛出 `IllegalArgumentException`，`EQUAL` 也包括在内。JSON 的 `updateIf` 在行不存在时可能先返回 `false`，不求值该条件。框架不将这些情况统一成 `DATA_ENTITY_INVALID` 错误。构造条件前使用 `Float.isFinite` 或 `Double.isFinite` 校验，不要重试 NaN 阈值（[#696](https://github.com/UltiKits/UltiTools-Reborn/issues/696)）。
+
 ### 事务 <Badge type="tip" text="v6.2.0+" />
 
 对于需要同时成功或同时失败的操作，请参阅[事务](/zh/guide/advanced/transactions)指南。
@@ -330,6 +337,19 @@ dataOperator.transaction(() -> {
 - 在 JSON 上，失败的提交不会提交任何内容。
 
 调用方收到原来的异常；事务被标记为仅回滚时收到 `UnexpectedRollbackException`。`transaction(...)` 中抛出的 `Error` 会使事务回滚（JSON 引擎丢弃暂存的写入），并原样抛出同一个实例。
+
+## JSON 存储的取舍 <Badge type="tip" text="v6.3.2+" />
+
+以下记录的是 v6.3.2 保留的行为，不是运行时改动（[#694](https://github.com/UltiKits/UltiTools-Reborn/issues/694)）：
+
+- Windows 和 macOS 上的持久性覆盖服务器进程崩溃，不保证断电或操作系统崩溃后最后几次完整提交不丢失。请按需要的保证选择存储与备份，不要把 Linux 行为推广为跨平台断电保证。
+- 有改动的提交在提交线程上同步强制刷新日志，该线程常是服务器主线程。世界保存等磁盘争用可能增加 tick 延迟；频繁事务选择 JSON 时应计入这一成本。
+- Windows 的移动重试不包括删除：文件被占用会使本次刷新失败，下次刷新再尝试。应查看失败并解除外部占用，不要认为 150 毫秒移动重试覆盖所有文件操作。
+- 直接构造的操作器各有独立的存储身份及相邻的 `<表目录>.ultitools-journal`；共同的父目录不会把分别构造的操作器组成一个事务。需要协调同一插件的多张表时，使用框架管理的操作器。
+- 同线程的 `REQUIRES_NEW` 和 `NOT_SUPPORTED` 工作不会等待被挂起调用方持有的线程级表锁。两者写同一键时，外层提交可能替换内层结果；不要把挂起理解为对该键独立加锁。
+- JDBC 与 JSON 的超时不同：JDBC 预算耗尽后仍允许语句以一秒查询超时执行；JSON 拒绝期限后的操作，并标记仅回滚。等待锁的 JSON 读取也使用 `JSON write failed ...` 错误前缀。应处理失败和回滚状态，不要根据 “write” 一词认定调用就是写入。见[超时配置](/zh/guide/advanced/transactions#超时配置)。
+- JSON 保留原始 `<id>.json` 名称，没有版本化的可移植编码或自动迁移。Windows 禁用的字符在 Linux 上可能有效，因此含 `:` 的 UltiRemoteBag 持久占用记录 id 不能直接迁到 Windows。模块数据迁移应另作安排，不要删除已有占用记录来绕过限制。
+- 只有大小写不同的 id 在不区分大小写的文件系统上会冲突。设备名检查不在所有平台上一律禁止 `COM0` 或 `LPT0`，也不保证所有 Windows 工具或提供者均支持它们。优先使用 UUID id；不要以为字符检查能让任意名称跨平台可用。
 
 ## JSON 存储的运维 <Badge type="tip" text="v6.3.0+" />
 

@@ -13,15 +13,15 @@ and `debug` level now take effect, and its level filter no longer suppresses err
 from log records; and a module can now observe or answer panel messages without the framework
 growing a second dispatch mechanism beside the existing one.
 
-As of v6.3.1 the connection speaks UltiCloud protocol 2.0.0; [UltiCloud protocol 2.0.0](#ulticloud-protocol-2-0-0)
+As of v6.3.1 the connection speaks UltiCloud protocol 2.1.0; [UltiCloud protocol 2.1.0](#ulticloud-protocol-2-1-0)
 below lists what that changes. Modules can also keep the arguments of secret-carrying commands out of
 everything sent to the cloud ([Sensitive commands](#sensitive-commands)) and answer the panel's module requests
 ([Owning a request/response type](#owning-a-request-response-type-panelresponderregistry)).
 
-## UltiCloud protocol 2.0.0
+## UltiCloud protocol 2.1.0
 
 As of v6.3.1 the server is linked with a device code (see [Cloud Login](/guide/advanced/cloud-login)) and the
-framework speaks UltiCloud protocol 2.0.0 to `wss://api.ultikits.com/v1/agent`. The capability switches, the
+framework speaks UltiCloud protocol 2.1.0 to `wss://api.ultikits.com/v1/agent`. The capability switches, the
 command blocklist, the editable roots with their credential exclusion and the remote action log described on
 this page keep working as described. The 6.3.0 wire messages that some sections below name, such as
 `command_result`, `log_stream`, `update_config` and `set_all`, no longer exist; where a section describes such
@@ -57,7 +57,7 @@ as `power_unsupported` and the server keeps running. A power request is answered
 does not pass through the command blocklist. The panel greys out the power buttons while `power-actions` is off;
 after `/ul reload` a changed value is reported to the panel at once.
 
-The panel can no longer start, stop, pause or reconfigure the log stream, because protocol 2.0.0 has no
+The panel can no longer start, stop, pause or reconfigure the log stream, because protocol 2.1.0 has no
 message for it; the `levels` and `excluded-loggers` keys still apply. Backups are not offered: 6.3.1 never
 declares the capability.
 
@@ -189,7 +189,7 @@ As of v6.3.0, from the moment UltiTools starts disabling, panel requests get no 
 `FINE` line instead of scheduling work for a disabled plugin, so a panel action sent while the server stops
 waits for the panel's own timeout. A remote command caught in the moment the stop begins can be logged in
 the console and in the remote action log as allowed and still never run, with no result reply. As of v6.3.1
-the shutdown window is the one described under [UltiCloud protocol 2.0.0](#ulticloud-protocol-2-0-0).
+the shutdown window is the one described under [UltiCloud protocol 2.1.0](#ulticloud-protocol-2-1-0).
 
 ## Remote file API boundary
 
@@ -644,7 +644,7 @@ request, `deadline_exceeded` when the deadline below passed, and `module_error` 
 result is not valid JSON (`NaN` or an infinite number).
 
 - **Single owner per type.** Registering a type the framework already serves (as of v6.3.1, any message type
-  of UltiCloud protocol 2.0.0) throws immediately, naming the framework as the existing owner. Registering a type
+  of UltiCloud protocol 2.1.0) throws immediately, naming the framework as the existing owner. Registering a type
   another module already owns throws immediately, naming that module. This is checked, not
   advisory — there is no silent second-registration-wins fallback.
 - **Responders return a future of any JSON value (as of v6.3.1).** An object, an array or a primitive is
@@ -675,7 +675,7 @@ result is not valid JSON (`NaN` or an infinite number).
   and connected on the current session and UltiTools still accepts panel messages. It is not sent once
   UltiTools starts disabling, once the cloud session logs out, or once the connection that carried the
   request has closed or been replaced, and it is never redirected to a newer connection. The panel's own
-  timeout then applies. As of v6.3.1 the reply goes on the protocol 2.0.0 connection that carried the request,
+  timeout then applies. As of v6.3.1 the reply goes on the protocol 2.1.0 connection that carried the request,
   under the same rule.
 - **The responder registered on arrival handles the request,** even if the type is reassigned or the
   module unloads before the call runs.
@@ -686,9 +686,9 @@ result is not valid JSON (`NaN` or an infinite number).
   registered later with the three-argument `registerResponder(type, responder, ownerModule)` belongs
   to the instance the framework lists as loaded under `ownerModule`, and to the older one while a
   newer instance of your module is replacing it. When an instance unloads or is replaced, exactly its
-  own responders go. A responder registered by name in your module's constructor, or in
-  `@PostConstruct` code that runs while the framework registers your main class as a bean (the main
-  class's own, and that of beans it injects), belongs to the instance listed under that name at that
+  own responders go. As documented for v6.3.2, the scope opens before component scanning and main-class
+  singleton registration, so `@PostConstruct` on the main class and its injected beans is covered.
+  A responder registered by name in your module's constructor belongs to the instance listed at that
   moment: none at the first load, and the older instance while a newer one is being loaded. Register
   responders in `registerSelf()`, or, if you hold your module instance, use the four-argument
   `registerResponder(type, responder, ownerModule, ownerInstance)`, which records it directly.

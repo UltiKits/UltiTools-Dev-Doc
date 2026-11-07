@@ -134,6 +134,8 @@ A converter builds `OutputItem` from the file, and the framework validates only 
 
 ## Combining Annotations
 
+Known limitation documented for v6.3.2, with behavior unchanged: constraints on an `Object` setting are checked together, not as alternatives selected by its runtime type. `@Range` with `@Pattern`, `@Size` or `@NotEmpty` refuses ordinary non-null built-in values whose kind cannot satisfy every annotation. Null still loads with `@Range + @Pattern` or `@Range + @Size`; `@NotEmpty` refuses null. An empty container held in an `Object` field under `@NotEmpty` is refused rather than replaced by its declared default: container-default substitution uses the declared container type, not the runtime value. Declare a list, set, map or array field when you need that substitution, and choose constraints appropriate to its value kind ([#635](https://github.com/UltiKits/UltiTools-Reborn/issues/635)).
+
 You can use multiple validation annotations on the same field:
 
 ```java

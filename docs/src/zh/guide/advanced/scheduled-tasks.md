@@ -97,6 +97,8 @@ Bukkit.getScheduler().runTask(UltiTools.getInstance(), () -> {
 
 值没有变化的任务不受影响。重载时读到无效的值不会被应用：保留当前正在使用的值，并输出一条指明该键的 WARNING。自 v6.3.0 起，这次重载还会被报告为部分重载，写明该键、被拒绝的值和继续使用的值，因此 `/ul reload <模块名>`、`/ul reload` 的汇总以及基于 `reloadWithReport()` 的模块自有重载命令都不会只回复成功（[#595](https://github.com/UltiKits/UltiTools-Reborn/issues/595)）。通过面板所做的修改在下一次 `/ul reload` 时生效。面板写入如果把被绑定的键设为上述范围之外的值（例如 `0`），会像违反 `@Range` 一样被拒绝，不会写入任何内容。
 
+自 v6.3.2 起，绑定时间刷新到一半失败时，报告会说明此前已应用的更新继续生效，其余更新未完成。任务和冷却逐个更新，不回滚。重载报告中框架自有的规则及配置未完成原因遵循服务器语言，包括中文；其他代码提供的任意异常消息不会被翻译。
+
 ### 绑定的限制
 
 - 只支持同步任务。 被绑定的方法不能设置 `async = true`，这种组合会在加载时被拒绝。请绑定一个同步任务，再在方法体中通过 `Bukkit.getScheduler().runTaskAsynchronously(...)` 执行耗时工作。使用字面量的 `async` 任务不受影响。允许异步绑定的工作由 issue [#535](https://github.com/UltiKits/UltiTools-Reborn/issues/535) 跟踪。

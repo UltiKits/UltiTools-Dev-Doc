@@ -1,10 +1,10 @@
 # 云端登录
 
 ::: info 自 v6.3.1 起
-UltiTools-API v6.3.1 用设备码和 UltiCloud 协议 2.0.0 把服务器接入 UltiCloud。6.3.0 的魔法链接登录及其云端服务在切换时停止。
+UltiTools-API v6.3.1 用设备码和 UltiCloud 协议 2.1.0 把服务器接入 UltiCloud。6.3.0 的魔法链接登录及其云端服务在切换时停止。
 :::
 
-`/ulticloud login`、`/ulticloud logout`、`/ulticloud status` 与 `/ulticloud reconnect` 用于把服务器接入 UltiCloud，从而通过 UltiPanel 面板远程管理。自 v6.3.1 起，已接入的服务器只持有一份属于它自己、可以吊销的凭据，不再持有任何用户账号令牌；框架通过 UltiCloud 协议 2.0.0 连接 `wss://api.ultikits.com/v1/agent`。这些命令在服务器控制台或 RCON 上执行，需要管理员权限。
+`/ulticloud login`、`/ulticloud logout`、`/ulticloud status` 与 `/ulticloud reconnect` 用于把服务器接入 UltiCloud，从而通过 UltiPanel 面板远程管理。自 v6.3.1 起，已接入的服务器只持有一份属于它自己、可以吊销的凭据，不再持有任何用户账号令牌；框架通过 UltiCloud 协议 2.1.0 连接 `wss://api.ultikits.com/v1/agent`。这些命令在服务器控制台或 RCON 上执行，需要管理员权限。
 
 ## 接入服务器
 
@@ -97,4 +97,4 @@ UltiCloud 账号超出套餐时（例如 Pro 套餐到期、服务器数量超�
 
 `CloudAuthManager` 仍是内部类（`@ApiStatus.Internal`）。6.3.0 中替 UltiLogin 发送魔法链接请求的 `UltiCloudRequests` 已弃用，将在 6.4.0 删除。自 v6.3.1 起它的每次调用都返回 `PATH_NOT_ALLOWED`，什么也不发送，因此 UltiLogin 2.0.0 的 `/panel` 无法再使用；UltiLogin 2.1.0 改用[玩家链接 API](/zh/guide/advanced/player-link)。需要让玩家进入面板的模块使用这个 API；带有密码类参数的命令应登记为敏感命令（见[面板集成](/zh/guide/advanced/panel-integration#敏感命令)）。
 
-6.3.1 的完整变更、弃用与已知限制，见 [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md) 的「UltiCloud protocol 2.0.0」一节。
+6.3.1 的完整变更、弃用与已知限制，见 [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md) 的「UltiCloud protocol 2.1.0」一节。

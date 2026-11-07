@@ -27,6 +27,10 @@ UltiTools 拥有自己的 IOC 容器，基于 `SimpleContainer` 构建，使用�
 - `@CmdExecutor` (UltiTools API 内建)
 - `@EventListener` (UltiTools API 内建)
 
+### 上下文连接器
+
+v6.3.2 文档明确：上下文装配时会通过反射单独构造 `@ContextEntry(Connector.class)` 指定的类，不复用扫描得到的 Bean。不要再把该连接器注册为扫描组件（例如标注 `@Component` 或 `@Service`），否则装配会创建另一个实例。请让连接器不参与组件注册；该注解不是单例查找。
+
 ### 手动注册
 
 你可以直接使用容器对象的 `registerType()` 方法进行注册：
