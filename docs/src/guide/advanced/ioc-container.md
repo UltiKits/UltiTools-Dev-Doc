@@ -30,6 +30,10 @@ Supported annotations：
 - `@CmdExecutor` (UltiTools API built-in)
 - `@EventListener` (UltiTools API built-in)
 
+### Context connectors
+
+As documented for v6.3.2, the class named by `@ContextEntry(Connector.class)` is constructed separately by reflection during context assembly; it does not reuse a scanned bean. Do not also register that connector as a scanned component (for example with `@Component` or `@Service`), or assembly creates another instance. Keep the connector outside component registration; this annotation is not a singleton lookup.
+
 ### Manual registration
 
 You can register directly using the `registerType()` method of the container object:

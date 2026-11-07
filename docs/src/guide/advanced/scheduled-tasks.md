@@ -97,6 +97,8 @@ A changed value is applied at `/ul reload`, and the task keeps its place in its 
 
 A task whose value did not change is not touched. An invalid value on reload is not applied: the running value is kept and a WARNING names the key. As of v6.3.0 the reload is also reported as partial, naming the key, the refused value and the value kept, so `/ul reload <name>`, the `/ul reload` summary and a module's own reload command built on `reloadWithReport()` do not reply plain success ([#595](https://github.com/UltiKits/UltiTools-Reborn/issues/595)). An edit made from the panel takes effect at the next `/ul reload`. A panel write that sets a bound key outside the range above, such as `0`, is refused like a `@Range` violation, and nothing is written.
 
+As of v6.3.2, a failure part-way through a bound timing refresh reports that updates already applied remain effective and the remaining updates did not complete. Tasks and cooldowns are updated individually, without rollback. Framework-owned rules and incomplete-config reasons in reload reports follow the server language, including Chinese; arbitrary exception messages from other code are not translated.
+
 ### Binding restrictions
 
 - Sync only. A bound method cannot be `async = true`; that combination is refused at load. Bind a sync task and hand the heavy work to `Bukkit.getScheduler().runTaskAsynchronously(...)` from its body. Literal `async` tasks are unaffected. Issue [#535](https://github.com/UltiKits/UltiTools-Reborn/issues/535) tracks allowing async bindings.

@@ -117,11 +117,17 @@ public List<String> listName(Player player, Command command, String[] args) {
 
 UltiTools会首先在当前类中搜索匹配的方法名，并尝试调用此方法。
 
-你的方法可以包含最多三个参数，分别对应的类型是 `Player`， `Command` 和 `String[]`，你可以选择任意的参数数量和顺序，但是类型只能是这三种，每种类型一个参数。
+提供补全的方法返回 `List<String>`。原有参数列表只支持 `()`、`(Player)`、`(String)`、`(Player, String)` 和 `(Player, Command, String[])`，参数顺序不能任意改变。`Player` 是请求补全的玩家，`String` 是当前尚未输完的参数，`Command` 是当前命令，`String[]` 是其参数数组。
 
-`Player` 代表了发送此命令的玩家，`Command` 代表了当前的命令，`String[]` 代表了当前命令的参数。
+#### 发送者感知补全 <Badge type="tip" text="v6.3.2+" />
 
-你的方法需要返回一个 `List<String>` 类型的值，UltiTools 将会将此值作为补全列表返回给玩家。
+自 v6.3.2 起，控制台、RCON 和其他 `CommandSender` 实现与玩家使用同一套补全分发。提供补全的方法还支持三个精确的参数列表：`(CommandSender)`、`(CommandSender, String)` 和 `(CommandSender, Command, String[])`。类型必须是 `CommandSender` 本身，而不是某种发送者子类。这些形式既可写在命令执行器中，也可写在 `@CmdSuggest` 指定的类中。
+
+候选字面量或补全方法产生结果之前，会先经过同样的类级与映射级权限、OP 检查及生效的 `@CmdTarget` 限制。`CONSOLE` 指所有非玩家发送者，不限于 `ConsoleCommandSender`。请求被拒绝时静默返回空候选；补全过程不执行带副作用的验证器、冷却或使用锁，也不发送命令拒绝消息。
+
+注册的自定义补全器通过 `TabCompletionContext.getSender()` 取得请求者。玩家请求的 `getPlayer()` 返回该玩家，所有非玩家请求均返回 `null`；使用玩家专属 API 前，自定义补全器必须检查是否为 `null`。只接收 Player 的补全方法会跳过非玩家请求，绝不会收到 null 玩家。无参、仅 String 参数的方法、内置补全器和注册的 `@key` 补全器对两类发送者都可用。
+
+原有受保护的 `suggest(Player, Command, String[])` 重写入口仍处理玩家请求；v6.3.2 新增 `suggest(CommandSender, Command, String[])`，不删除旧入口。原有 Player 重载、构造器以及基于玩家的 context 工厂和 builder 仍受支持；以玩家构造的 context 也会将该玩家作为 sender 返回。
 
 #### 内置补全器（`@key` 记法） <Badge type="tip" text="v6.3.0+" />
 

@@ -223,10 +223,10 @@ python3 scripts/symcheck.py 你的模块.jar UltiTools-API-<你声明的下限>.
 - 是。那么它应当出现在移除清单上。如果不在，请提交一个 issue，这属于流程上的疏漏，不只是你这一侧的问题。
 - 否。尝试上面所说的重新构建流程：提高 pin，重新构建，提高 `api-version`。如果重新构建时**编译不通过**，说明这次变更同时破坏了源码兼容性，需要的是迁移而不是重新构建。
 
-自 v6.3.0 起，加载模块声明的主类时，如果框架 API 链接错误点名了 `com.ultikits.ultitools` 下的类型，日志会输出一行英文 `SEVERE`，包含 JAR 名、`plugin.yml` 中声明的 `version` 和 `api-version`（未声明的项不列出），以及 `Cause:` 后的原始异常消息。看到 `built against an older UltiTools-API version` 时，应将模块升级到为当前框架构建的版本，并参照 `COMPATIBILITY.md`；如果声明的 `api-version` 高于已安装框架的版本，提示会改为 `requires a newer UltiTools-API`，此时应升级框架。完整堆栈只在 `FINE` 级别输出（Paper 默认日志配置下不可见），这类拒载也不会作为错误报告发送到面板。缺少第三方类或 Bukkit 类时，仍输出带堆栈的通用 `SEVERE` 报错。例如，UltiLogin 1.0.0 装在 6.3.0 上时：
+自 v6.3.0 起，加载模块声明的主类时，如果框架 API 链接错误点名了 `com.ultikits.ultitools` 下的类型，日志会输出一行英文 `SEVERE`，包含 JAR 名、`plugin.yml` 中声明的 `version` 和 `api-version`（未声明的项不列出），以及 `Cause:` 后的原始异常消息。看到 `built against an older UltiTools-API version` 时，应将模块升级到为当前框架构建的版本，并参照 `COMPATIBILITY.md`；如果声明的 `api-version` 高于已安装框架的版本，提示会改为 `requires a newer UltiTools-API`，此时应升级框架。完整堆栈只在 `FINE` 级别输出（Paper 默认日志配置下不可见），这类拒载也不会作为错误报告发送到面板。缺少第三方类或 Bukkit 类时，仍输出带堆栈的通用 `SEVERE` 报错。自 v6.3.2 起，这条诊断和跳过类摘要都直接链接到公开兼容性记录。例如，UltiLogin 1.0.0 装在 v6.3.2 上时：
 
 ```text
-[UltiTools-API] Module 'UltiLogin-1.0.0.jar' (version 1.0.0, api-version 620) declares main: 'com.ultikits.plugins.login.UltiLogin', but it was built against an older UltiTools-API version and is not compatible with this one -- refusing to load. Upgrade it to a release of the module built for the current UltiTools-API version -- see COMPATIBILITY.md for the list of APIs removed or changed in this release. Cause: java.lang.IncompatibleClassChangeError: class com.ultikits.plugins.login.UltiLogin overrides final method com.ultikits.ultitools.abstracts.UltiToolsPlugin.unregisterSelf()V
+[UltiTools-API] Module 'UltiLogin-1.0.0.jar' (version 1.0.0, api-version 620) declares main: 'com.ultikits.plugins.login.UltiLogin', but it was built against an older UltiTools-API version and is not compatible with this one -- refusing to load. Upgrade it to a release of the module built for the current UltiTools-API version -- see https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md for the list of APIs removed or changed in this release. Cause: java.lang.IncompatibleClassChangeError: class com.ultikits.plugins.login.UltiLogin overrides final method com.ultikits.ultitools.abstracts.UltiToolsPlugin.unregisterSelf()V
 ```
 
 自 v6.3.0 起，这样被拒绝的模块会计入启动摘要 `[UltiTools-API] Succeeded loaded <s>, Failed <f>.` 中的 `Failed`。本次启动中其它未能加载的模块 JAR 也同样计入：读取主类时被拒绝的、因缺少必需插件或依赖成环而被排除的，以及注册失败的。已加载模块的第二个副本不计入。模块目录中的 JAR 全部被拒绝时，摘要为 `Succeeded loaded 0, Failed <n>.`；`No UltiTools plugin found.` 只在目录中没有任何模块 JAR 时出现。v6.3.0 之前，摘要只统计进入注册阶段的模块，所以一次拒绝了模块的启动仍可能打印 `Failed 0`。
@@ -271,6 +271,8 @@ UltiCloud 从发布到它上面的每个 JAR 的 `plugin.yml` 中读取 `api-ver
 | UltiTools-API 6.3.0 之前 | 只有 `api-version` 低于 630 的版本 |
 
 6.3.0 的服务器在每个目录请求中都带上自己的级别（`apiLevel`，以及 `minApiLevel=630`）。6.3.0 之前的框架不带级别，UltiCloud 把这样的请求视为来自 6.3.0 之前的框架，所以已发布的 6.2.x 服务器不会被提供为 6.3.0 构建的版本。这适用于 `/upm install`、`/upm install <模块> <版本>`、`/upm versions`、`/upm update` 以及启动时的更新检查。更新检查只报告本服务器能安装的版本，从不提及需要更新 UltiTools-API 的版本。`/upm list` 仍列出目录中的全部模块；对没有兼容版本的模块点击安装，会回复原因。
+
+自 v6.3.2 起，启动更新检查完成之前（包括管理器尚未创建时），`/upm check`、`/upm update <模块>` 和 `/upm update all` 回复 `更新检查仍在进行，请稍后重试。`。命令不读取部分结果，更新命令不下载或暂存任何内容。它们读取已完成的启动检查结果，不会发起新检查，请等待完成后重试。检查已经完成但部分查询失败时，则报告 `更新检查未完成：无法确认 <名称> 的最新版本。`。
 
 `/upm` 还会检查下载到的文件。`/upm install` 先把 JAR 写入模块目录，文件名是模块加载器永远不读的 `<id>-<version>.jar.part`，然后重新读取其中的 `plugin.yml`；`/upm update` 对它下载到 `.ultikits/upm-transactions/` 的副本做同样的检查。`api-version` 缺失、不是整数、低于 630 或高于框架级别的模块会被拒绝：下载的文件被删除，模块目录不写入任何东西。对 `/upm update` 来说，暂存的下载被丢弃，不记录任何更新。回复会写明模块声明的级别、框架的级别和接受的范围。使用 `language: zh` 时：
 
