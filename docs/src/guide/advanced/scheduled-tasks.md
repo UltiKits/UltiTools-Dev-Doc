@@ -48,7 +48,7 @@ Set `async = true` for tasks that don't need to access the Bukkit API directly (
 
 <<< @/../examples/src/main/java/com/ultikits/docs/scheduled/InterestService.java
 
-`async = true` applies to literal timings only. A task whose timing is [bound to a config key](#config-bound-timing) must be sync, as of v6.3.0.
+As of v6.4.0, `async = true` also supports tasks whose timing is [bound to a config key](#config-bound-timing). Versions from v6.3.0 before v6.4.0 refuse async bindings; literal async tasks are unchanged.
 
 ::: warning Bukkit Thread Safety
 When `async = true`, the task runs off the main server thread. You **must not** call most Bukkit API methods from async threads. If you need to interact with the Bukkit API from an async task, dispatch back to the main thread:
@@ -101,10 +101,16 @@ As of v6.3.2, a failure part-way through a bound timing refresh reports that upd
 
 ### Binding restrictions
 
-- Sync only. A bound method cannot be `async = true`; that combination is refused at load. Bind a sync task and hand the heavy work to `Bukkit.getScheduler().runTaskAsynchronously(...)` from its body. Literal `async` tasks are unaffected. Issue [#535](https://github.com/UltiKits/UltiTools-Reborn/issues/535) tracks allowing async bindings.
+- Async bindings are available as of v6.4.0; earlier versions refuse them at load. The trigger and reload phase follow the contract below. Literal `async` tasks and sync bindings are unchanged.
 - Inherited methods included. As of v6.3.0 the binding is found on the same methods as an unbound `@Scheduled`, including one inherited from a superclass, which is scheduled and checked at load like one the bean class declares. (Before v6.3.0 only the bean class's own declared methods were scanned, and a method inherited from a superclass was neither scheduled nor checked, [#532](https://github.com/UltiKits/UltiTools-Reborn/issues/532).)
 - No `@Range` on a bound field. The binding's range above is the field's range. A module `@Range` on the same field would instead make the configuration reload itself fail when a value is out of range, which stops the rest of that module's reload and reports it as failed (since [#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509), fixed in 6.3.0, a full `/ul reload` still continues with the next module), instead of keeping the running value. If the field already had a `@Range` before you bound it, remove it.
 - Modules only. A binding on a bean of an [External Plugin API](/guide/advanced/external-plugin-api) plugin is refused.
+
+### Config-bound async execution
+
+As of v6.4.0, a bound method may set `async = true`. A synchronous trigger records its fire tick on the main thread, then submits the method body with a one-tick async delay. The body starts one scheduler heartbeat after the trigger, or later under load. The period and reload phase are measured between triggers, not worker starts or completions.
+
+Reload preserves the trigger cycle: last observed fire plus the new period, or the next tick if overdue; before the first fire, the anchor remains the arm tick plus the new delay. Already-dispatched work is left alone. Slow bodies may overlap and must not call thread-unsafe Bukkit APIs. Unload cancels the trigger and queued workers; an already-running body may finish. This does not change literal async scheduling or sync bindings.
 
 ### Required `api-version`
 

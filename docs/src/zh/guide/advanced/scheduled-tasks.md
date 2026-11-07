@@ -48,7 +48,7 @@ Minecraft 以每秒 20 tick 的速率运行：1 秒等于 20 tick，1 分钟等�
 
 <<< @/../examples/src/main/java/com/ultikits/docs/scheduled/InterestService.java
 
-`async = true` 只适用于字面量时间。自 v6.3.0 起，[绑定到配置项](#绑定到配置项的时间)的任务必须是同步任务。
+自 v6.4.0 起，`async = true` 也支持[绑定到配置项](#绑定到配置项的时间)的任务。v6.3.0 起、v6.4.0 之前的版本会拒绝异步绑定；字面量异步任务不变。
 
 ::: warning Bukkit 线程安全
 当 `async = true` 时，任务在非主线程上运行。你**不能**从异步线程调用大多数 Bukkit API 方法。如果需要在异步任务中与 Bukkit API 交互，请切换回主线程：
@@ -101,10 +101,16 @@ Bukkit.getScheduler().runTask(UltiTools.getInstance(), () -> {
 
 ### 绑定的限制
 
-- 只支持同步任务。 被绑定的方法不能设置 `async = true`，这种组合会在加载时被拒绝。请绑定一个同步任务，再在方法体中通过 `Bukkit.getScheduler().runTaskAsynchronously(...)` 执行耗时工作。使用字面量的 `async` 任务不受影响。允许异步绑定的工作由 issue [#535](https://github.com/UltiKits/UltiTools-Reborn/issues/535) 跟踪。
+- 自 v6.4.0 起支持异步绑定；更早版本会在加载时拒绝。触发器和重载相位遵循下文的约定。字面量 `async` 任务与同步绑定不变。
 - 包括继承的方法。 自 v6.3.0 起，绑定与未绑定的 `@Scheduled` 在同样的方法上查找，包括从父类继承的方法，它会像 Bean 类自身声明的方法一样被调度、在加载时被检查。（v6.3.0 之前只查找 Bean 类自身声明的方法，从父类继承的方法既不会被调度，也不会被检查，[#532](https://github.com/UltiKits/UltiTools-Reborn/issues/532)。）
 - 被绑定的字段不要加 `@Range`。上述绑定范围就是该字段的范围。如果同一字段上还有模块自己的 `@Range`，重载时超出范围的值会让配置重载本身失败，停止该模块其余的重载步骤并报告为失败（[#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509) 已在 6.3.0 修复：完整的 `/ul reload` 仍会继续重载下一个模块），而不是保留当前正在使用的值。如果字段在绑定之前已经带有 `@Range`，请将其删除。
 - 只支持 UltiTools 模块。 [外部插件 API](/zh/guide/advanced/external-plugin-api) 插件的 Bean 上的绑定会被拒绝。
+
+### 配置绑定的异步执行
+
+自 v6.4.0 起，被绑定的方法可以设置 `async = true`。同步触发器先在主线程记录触发 tick，再以一 tick 异步延迟提交方法体。方法体在触发后的一个调度心跳开始，负载较高时可能更晚。周期和重载相位按触发器之间的时间计算，不按异步方法体的开始或完成时间计算。
+
+重载保留触发器周期：上次观察到的触发时间加新周期，已过期时为下一 tick；首次触发之前仍以启动 tick 加新延迟为准。已派发的工作不受重载影响。耗时方法体可能重叠运行，不能调用非线程安全的 Bukkit API。卸载会取消触发器和排队的方法体，已经运行的方法体可以完成。字面量异步调度与同步绑定不变。
 
 ### 必需的 `api-version`
 
