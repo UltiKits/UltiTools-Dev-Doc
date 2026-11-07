@@ -232,6 +232,191 @@ const sidebarGuideZH: SidebarItemExt[] = [
     },
 ]
 
+// 与页面和示例共用已发布的 8811051a964d1ece0264415a25b7c302048212eb 快照。
+const sidebarGuideZH_v630: SidebarItemExt[] = [
+    {
+        base: "/guide/",
+        text: '开始',
+        items: [
+            {
+                text: '简介',
+                link: 'introduction'
+            },
+            {
+                text: '快速上手',
+                link: 'quick-start'
+            }
+        ]
+    },
+    {
+        base: "/guide/",
+        text: '核心能力',
+        items: [
+            {
+                text: '命令执行器',
+                link: 'essentials/cmd-executor'
+            },
+            {
+                text: '事件监听器',
+                link: 'essentials/event-listener'
+            },
+            {
+                text: '配置文件',
+                link: 'essentials/config-file'
+            },
+            {
+                text: '数据储存',
+                link: 'essentials/data-storage'
+            },
+            {
+                text: '流式查询 DSL',
+                link: 'essentials/query-dsl'
+            },
+            {
+                text: 'I18n 多语言',
+                link: 'essentials/i18n'
+            },
+            {
+                text: '异常处理',
+                link: 'advanced/exception-handling'
+            },
+            {
+                text: '事务',
+                link: 'advanced/transactions'
+            }
+        ]
+    },
+    {
+        base: "/guide/",
+        text: '框架机制',
+        items: [
+            {
+                text: '自动注册',
+                link: 'advanced/auto-register'
+            },
+            {
+                text: 'IOC 容器',
+                link: 'advanced/ioc-container'
+            },
+            {
+                text: '条件注册',
+                link: 'advanced/conditional-registration'
+            },
+            {
+                text: '配置校验',
+                link: 'advanced/config-validation'
+            },
+            {
+                text: '配置转换器',
+                link: 'advanced/config-converters'
+            },
+            {
+                text: '模块加载顺序',
+                link: 'advanced/module-dependencies'
+            },
+            {
+                text: '外部插件 API',
+                link: 'advanced/external-plugin-api'
+            },
+            {
+                text: 'UltiToolsPlugin 基类',
+                link: 'advanced/ulti-tools-plugin'
+            }
+        ]
+    },
+    {
+        base: "/guide/",
+        text: '运行时',
+        items: [
+            {
+                text: '定时任务',
+                link: 'advanced/scheduled-tasks'
+            },
+            {
+                text: '玩家缓存',
+                link: 'advanced/player-cache'
+            },
+            {
+                text: '模块事件总线',
+                link: 'advanced/module-eventbus'
+            },
+            {
+                text: '面板集成',
+                link: 'advanced/panel-integration'
+            },
+            {
+                text: '经济系统',
+                link: 'advanced/economy'
+            },
+            {
+                text: '云端登录',
+                link: 'advanced/cloud-login'
+            }
+        ]
+    },
+    {
+        base: "/guide/",
+        text: '界面系统',
+        items: [
+            {
+                text: 'GUI 界面',
+                link: 'advanced/gui'
+            },
+            {
+                text: '声明式 GUI',
+                link: 'advanced/declarative-gui'
+            }
+        ]
+    },
+    {
+        base: "/guide/",
+        text: '工具链',
+        items: [
+            {
+                text: 'UltiTools Maven 插件',
+                link: 'advanced/maven-plugin'
+            },
+            {
+                text: 'UltiKits CLI',
+                link: 'advanced/ultikits-cli'
+            }
+        ]
+    },
+    {
+        base: "/guide/",
+        text: '发布',
+        items: [
+            {
+                text: '模块版本规范',
+                link: 'advanced/module-versioning'
+            }
+        ]
+    },
+    // 冻结 6.3.0 API 参考：阻止侧栏插件添加归档前缀，
+    // 并固定 Javadoc 版本，不跟随 /api/ 的当前版本跳转。
+    {
+        text: 'API 参考',
+        skipVersioning: true,
+        items: [
+            {
+                text: 'API 参考',
+                link: '/api/6.3.0/index.html',
+                target: '_self'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: '更新说明',
+        items: [
+            {
+                text: '6.3.0',
+                link: 'release-notes/6.3.0'
+            }
+        ]
+    },
+]
+
 // 与页面和示例共用已发布的 b52a0f952765aa3ac90eaf6444052f7c27407348 快照。
 const sidebarGuideZH_v625: SidebarItemExt[] = [
     {
@@ -736,4 +921,4 @@ const sidebarApiZH: DefaultTheme.SidebarItem[] = [
     },
 ]
 
-export { sidebarGuideZH, sidebarGuideZH_v625, sidebarGuideZH_v624, sidebarGuideZH_v620, sidebarGuideZH_v610, sidebarApiZH }
+export { sidebarGuideZH, sidebarGuideZH_v630, sidebarGuideZH_v625, sidebarGuideZH_v624, sidebarGuideZH_v620, sidebarGuideZH_v610, sidebarApiZH }

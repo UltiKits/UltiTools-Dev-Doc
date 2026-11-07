@@ -1,7 +1,7 @@
 import type { LocaleConfig } from 'vitepress'
 import type { DefaultTheme } from 'vitepress/theme'
 import {navEN} from "./nav.en.mjs";
-import {sidebarApiEN, sidebarGuideEN, sidebarGuideEN_v625, sidebarGuideEN_v624, sidebarGuideEN_v620, sidebarGuideEN_v610} from "./sidebar.en.mjs";
+import {sidebarApiEN, sidebarGuideEN, sidebarGuideEN_v630, sidebarGuideEN_v625, sidebarGuideEN_v624, sidebarGuideEN_v620, sidebarGuideEN_v610} from "./sidebar.en.mjs";
 import {sidebarGuideSnapshotEN, sidebarApiSnapshotEN} from "./sidebar-snapshot.generated.mjs";
 import {textEN} from "./text.en.mjs";
 import {socialEN} from "./social.en.mjs";
@@ -21,6 +21,9 @@ const localeEN: LocaleConfig<DefaultTheme.Config> = {
                 '/guide/': sidebarGuideEN,
                 'v6.3.0-SNAPSHOT/guide/': sidebarGuideSnapshotEN,
                 'v6.3.0-SNAPSHOT/api/': sidebarApiSnapshotEN,
+                'v6.3.0/guide/': sidebarGuideEN_v630,
+                // The 6.3.0 release tree contains no archived API pages.
+                'v6.3.0/api/': [],
                 'v6.2.5/guide/': sidebarGuideEN_v625,
                 // The 6.2.5 release tree contains no archived API pages.
                 'v6.2.5/api/': [],
