@@ -686,9 +686,9 @@ result is not valid JSON (`NaN` or an infinite number).
   registered later with the three-argument `registerResponder(type, responder, ownerModule)` belongs
   to the instance the framework lists as loaded under `ownerModule`, and to the older one while a
   newer instance of your module is replacing it. When an instance unloads or is replaced, exactly its
-  own responders go. A responder registered by name in your module's constructor, or in
-  `@PostConstruct` code that runs while the framework registers your main class as a bean (the main
-  class's own, and that of beans it injects), belongs to the instance listed under that name at that
+  own responders go. As documented for v6.3.2, the scope opens before component scanning and main-class
+  singleton registration, so `@PostConstruct` on the main class and its injected beans is covered.
+  A responder registered by name in your module's constructor belongs to the instance listed at that
   moment: none at the first load, and the older instance while a newer one is being loaded. Register
   responders in `registerSelf()`, or, if you hold your module instance, use the four-argument
   `registerResponder(type, responder, ownerModule, ownerInstance)`, which records it directly.
