@@ -1,0 +1,776 @@
+# Command Executor
+
+In traditional Bukkit plugin development, we usually use the `CommandExecutor` interface of Bukkit to handle commands.
+
+However, in some cases, we need to determine whether the sender of the command is a player, whether it has certain
+permissions, and determine the parameters, etc.
+
+If a plugin has multiple commands, then these judgment logic will be repeated in the processing method of each command,
+such code is very redundant.
+
+In addition, we may also need to handle command errors, output help information, etc.
+
+UltiTools-API offers a more concise way to handle commands by encapsulating the native `CommandExecutor` interface.
+
+## Create a command executor
+
+Starting with v6.2.0, you should inherit the `BaseCommandExecutor` class and override the `handleHelp` method. The `@CmdTarget`
+and `@CmdExecutor` annotations here represent the target type and executor information of the command.
+
+::: danger Removed in v6.3.0
+`AbstractCommandExecutor` (and the empty `AbstractCommendExecutor` shim) was deprecated since v6.2.0 and deleted outright in v6.3.0.
+Use `BaseCommandExecutor` instead — same annotation-driven features, plus a pluggable validation chain and custom type parsers.
+See [the migration guide](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/COMPATIBILITY.md#migrating-off-abstractcommandexecutor) in `COMPATIBILITY.md`.
+:::
+
+::: tip `/cmd help` is gated the same as any other invocation <Badge type="tip" text="v6.3.0+" />
+Before v6.3.0, the help subcommand ran ahead of the validator chain, so `handleHelp` could still run for a console sender on a `@CmdTarget(PLAYER)` command, or for a sender missing the required permission. As of v6.3.0, `handleGatedHelp` runs `SenderTypeValidator` and `PermissionValidator` first, so a wrong sender type or a missing permission is refused before your `handleHelp` implementation ever runs. A custom validator subclass whose `shouldValidate` reports the context does not apply is skipped here too, the same as during normal command dispatch.
+:::
+
+<<< @/../examples-archive/v6.3.0/src/main/java/com/ultikits/docs/command/ExampleCommand.java
+
+You have completed an empty command executor that does nothing! The `@CmdTarget` and `@CmdExecutor` annotations here
+represent the sender type and executor information of the command. We will introduce these two annotations in detail in
+the next section.
+
+## Register command
+
+::: info Connector constructor as of v6.3.0
+The six-parameter constructor has been removed. The connector below uses the seven-parameter constructor and receives `resourceFolderPath` from its caller.
+For a new standalone Bukkit plugin, prefer `UltiToolsAPI.connect(this)` in your own `JavaPlugin`; see the [External Plugin API](/guide/advanced/external-plugin-api).
+:::
+
+The same as spigot development, with the executor, you need to register it. We can use
+the `getCommandManager().register()` method to register the command in the `registerSelf` method.
+
+If your module has a large number of command executors and you don't want to register them manually, you can also use
+the automatic registration provided by UltiTools, for details, please refer
+to [this article](/guide/advanced/auto-register).
+
+<<< @/../examples-archive/v6.3.0/src/main/java/com/ultikits/docs/command/UltiToolsConnector.java
+
+## Mapping-based command executor
+
+### Quick start
+
+Assuming that your plugin has a function to set the teleport point, you want the player to enter a command with the
+teleport point name, so as to set up a teleport point.
+
+Then this command should look like this: `/point add name`
+
+If you use the traditional method, you need to judge the legality of the parameter input, the sender and permissions,
+etc. If there are other functions, you also need to write a lot of `switch ... case` and `if ... else` statements, crazy
+nesting.
+
+However, with UltiTools, you only need to write the main logic, and the rest will be handled by UltiTools.
+
+First, you need to create an executor class that inherits `BaseCommandExecutor`.
+
+Then create a method named `addPoint` and add the parameters you want:
+
+```java
+public void addPoint(@CmdSender Player player, String name) {
+  ...
+}
+```
+
+Yes, each of your functions uses a separate function without extra judgment.
+
+If you want to get the `Player` object instead of the `CommandSender` object, then you get the `Player`, you don't need
+to judge and convert at all. You only need to add the `@CmdSender` annotation in front of the parameter you want to get
+the sender object.
+
+Then, you only need to add the `@CmdMapping` annotation so that UltiTools can match your method according to the input
+command:
+
+```java
+@CmdMapping(format = "add <name>")
+public void addPoint(@CmdSender Player player, String name) {
+  ...
+}
+```
+
+Finally, use `@CmdParam` to bind command parameters:
+
+```java
+@CmdMapping(format = "add <name>")
+public void addPoint(@CmdSender Player player, @CmdParam("name") String name) {
+  ...
+}
+``` 
+
+Till now, you only need to register the command executor to complete all the work.
+
+### Tab completion
+
+::: tip Tab completion is wired into BaseCommandExecutor <Badge type="tip" text="v6.3.0+" />
+As of v6.3.0, `suggest(Player, Command, String[])` resolves the first-argument literal from the `@CmdMapping` format list *and* the `suggest` attribute of `@CmdParam` for parameter slots, through the shared `commands/tabcomplete/` dispatch — the sections below describe the full resolution order. You can still override `suggest(...)` yourself if you want different behaviour; the method remains `protected`.
+
+For a later argument, a literal token is suggested only from mappings whose earlier tokens match what the player has already typed, and each literal is offered once; a mapping the player may not use (permission or OP) never contributes a suggestion.
+:::
+
+Need Tab suggestion for each command parameter, but don't want to write a lot of code?
+
+It is a disaster to generate a completion list by judging the length of each command and the previous parameters.
+
+Now you only need to write a method for each parameter to return a completion list! This method can be reused, and all
+the complicated parameter quantity judgments are left to UltiTools to complete.
+
+What you need to do is just add the `suggest` attribute in the `@CmdParam` annotation and specify a method name.
+
+```java
+@CmdMapping(format = "add <name>")
+public void addPoint(@CmdSender Player player, @CmdParam(value = "name", suggest = "listName") String name) {
+  ...
+}
+
+public List<String> listName(Player player, Command command, String[] args) {
+  ...
+}
+```
+
+UltiTools will first search for matching method names in the current class and try to call this method.
+
+Your method can contain up to three parameters, corresponding to the types `Player`, `Command` and `String[]`. You can
+choose any amount or order of parameters, but the type can only be these three types, one parameter for each type.
+
+`Player` represents the player who sent the command, `Command` represents the current command, and `String[]` represents
+the current parameters of the current command.
+
+Your method needs to return a value of type `List<String>`, and UltiTools will return this value as a completion list to
+the player.
+
+#### Built-in completers (`@key` notation) <Badge type="tip" text="v6.3.0+" />
+
+As of v6.3.0, a `suggest` value starting with `@` resolves through a registered completer instead of a method name — no method to write at all:
+
+```java
+@CmdMapping(format = "tp <target>")
+public void tp(@CmdSender Player player, @CmdParam(value = "target", suggest = "@players") String target) {
+  ...
+}
+```
+
+Four built-in keys are available: `@players` (online players), `@worlds` (loaded worlds), `@materials` (also `@blocks`/`@items`), and `@boolean` (also `@toggle`). A module can also register its own key at runtime via `TabCompletionManager.register(String, TabCompleter)`.
+
+`@` is not a legal Java identifier start, so this notation can never collide with a method-name value — every example on this page using a plain method name needs no change. An **unknown** `@key` refuses the declaring module to load, naming the class, the method and the key; it does not fall through to the plain-string prompt behaviour described next.
+
+::: tip A fixed string can be given in suggest
+
+If you just want to return a simple prompt string, then you only need to write the string you want in the `suggest`
+field. The string here also supports internationalization.
+
+```java
+@CmdMapping(format = "add <name>")
+public void addPoint(@CmdSender Player player,
+                     @CmdParam(value = "name", suggest = "[name]") String name) {
+  ...
+}
+
+```
+
+:::
+
+::: tip Override suggest to build the completion list yourself
+
+If you are not satisfied with the completion list generated by UltiTools, you can override the `suggest` method to
+generate the completion list yourself.
+
+```java
+@Override
+protected List<String> suggest(Player player, Command command, String[] strings) {
+    ...
+}
+```
+
+:::
+
+#### @CmdSuggest
+
+::: tip @CmdSuggest is read on BaseCommandExecutor <Badge type="tip" text="v6.3.0+" />
+As of v6.3.0, the class in the example below is read through the shared `commands/tabcomplete/` dispatch, so the methods in `PointSuggest` are looked up and called exactly as shown.
+:::
+
+If you want a completion method to be shared with other command classes, you can create a class and write methods which
+you want to reuse in other class.
+
+Add the `@CmdSuggest` annotation to the class which need to use suggestion method, and specify the suggestion class.
+
+```java
+@CmdSuggest({PointSuggest.class})
+public class PointCommand extends BaseCommandExecutor {
+
+    @CmdMapping(format = "add <name>")
+    public void addPoint(@CmdSender Player player, @CmdParam(value = "name", suggest = "listName") String name) {
+        ...
+    }
+}
+```
+
+```java
+public class PointSuggest {
+    public List<String> listName(Player player, Command command, String[] args) {
+        ...
+    }
+}
+```
+
+### Parameters
+
+#### Command without Parameters
+
+If a command does not require any parameters, simply leave the `format` value empty.
+
+```java
+@CmdMapping(format="")
+```
+
+This type of command can have at most one occurrence.
+
+#### Variable Parameters
+
+For the last parameter in a method, you can use an array type by adding `...` to the last parameter in the `format`. Here's an example:
+
+```java
+@CmdMapping(format = "add <name...>")
+public void addPoint(@CmdSender Player player, @CmdParam("name") String[] name) {
+  ...
+}
+```
+
+In this example, when a player enters `/somecmd add aa bb cc`, the `name` will be `['aa', 'bb', 'cc']`.
+
+#### Type Parsing
+
+Before passing parameters to a method, UltiTools converts the command's variable parameters based on the types required by the method.
+
+All parsers are stored in a map called `parsers`, and you can use `getParser()` to access it.
+
+For some types, `BaseCommandExecutor` provides default parsers via `TypeParserRegistry.getInstance()` (including base types and arrays):
+
+- String (Java built-in)
+- Float (Java built-in)
+- Double (Java built-in)
+- Integer (Java built-in)
+- Short (Java built-in)
+- Byte (Java built-in)
+- Long (Java built-in)
+- OfflinePlayer (Bukkit API)
+- Player (Bukkit API)
+- Material (Bukkit API)
+- UUID (Java built-in)
+- Boolean (Java built-in)
+
+If you want to use a custom parser, you need to create a method that can be used with the `Function` interface.
+
+Supported parser types are `<String, ?>`, meaning the method has exactly one parameter of type `String` and returns a value of any type.
+
+```java
+public static SomeType toSomeType(String s) {
+  //do something...
+  return result;
+}
+```
+
+### Permission
+
+#### Method permission
+
+If you need to specify permissions for a method, you need to add the `permission` attribute in the `@CmdMapping`
+annotation.
+
+```java
+@CmdMapping(..., permission = "point.set.add")
+```
+
+::: tip Class-level and method-level permissions are both required
+The permissions from `@CmdExecutor` and `@CmdMapping` are **additive** — both are checked independently. The player must have **both** the class-level `@CmdExecutor(permission=...)` and the method-level `@CmdMapping(permission=...)` to execute the command.
+:::
+
+#### OP Required
+
+If you want all methods to be executed by OP only, you need to set the `requireOp` attribute in `@CmdExecutor` to `true`
+
+```java
+@CmdExecutor(..., requireOp = true)
+```
+
+If you want a method to be executed by OP only, you need to set the `requireOp` attribute in `@CmdMapping` to `true`
+
+```java
+@CmdMapping(..., requireOp = true)
+```
+
+### Sender Limitation
+
+If you want to specify the sender for all methods, you need to add the `@CmdTarget` annotation in front of your
+class.
+
+If you want to specify the sender for a method, just add it in front of the method.
+
+```java
+@CmdTarget(CmdTarget.CmdTargetType.BOTH)
+```
+
+::: warning A method-level `@CmdTarget` may only narrow the class-level one
+A method-level `@CmdTarget` may only narrow the class-level one (`BOTH` to `PLAYER` or `CONSOLE`). A widening (`PLAYER` or `CONSOLE` to `BOTH`) or a lateral switch (`PLAYER` to `CONSOLE` or back) refuses the command class at load, naming the class and method.
+As of v6.3.0 this includes mappings the class inherits from a base executor class: a `@CmdTarget(CONSOLE)` class that inherits a `@CmdTarget(BOTH)` mapping is refused, and the log also names the class that declared the mapping.
+:::
+
+### Asynchronous Execution
+
+If a command needs to execute a task that takes a long time, you need to add `@RunAsync` in front of the corresponding
+
+```java
+@CmdMapping(format = "list")
+@RunAsync
+public void listPoint(@CmdSender Player player) {
+    //do query
+}
+```
+
+This will create a new asynchronous thread to execute the method, avoiding blocking in the Bukkit main thread.
+
+Since the Bukkit API does not allow asynchronous calls, if you need to call the Bukkit API, you need to create a
+synchronous task:
+
+```java
+@CmdMapping(format = "list")
+@RunAsync
+public void listPoint(@CmdSender Player player) {
+    //do query
+    new BukkitRunnable() {
+        @Override
+        public void run() {
+            //call bukkit api
+        }
+    }.runTask(PluginMain.getInstance());
+}
+```
+
+::: danger An `@RunAsync` body must not touch world, entity, block or chunk state directly. <Badge type="danger" text="v6.3.0+" />
+Asynchrony here is reserved for pure-CPU or I/O work. Any world, entity, block or chunk access an async body needs must be scheduled back onto the main thread as a synchronous task, `BukkitRunnable#runTask(...)` as in the example above or any other synchronous scheduler method such as `runTaskLater(...)`; the annotation never grants safe access to those APIs by itself. A handler whose body consists only of such state access has no reason to carry the annotation at all.
+:::
+
+An unannotated command body runs on the main thread. As of v6.3.0 it runs at the moment the command is dispatched when that happens on the main thread, and is deferred through `runTask()` only when the dispatch comes from another thread (before v6.3.0 every such body was deferred by one tick; see [When a command body runs](#when-a-command-body-runs) below). Either way the timing only changes when the body starts, not whether it can block the server: the whole body (including any expensive CPU or I/O work inside it) still runs synchronously on the main thread. Removing `@RunAsync` restores safe dispatch only for a handler that was never doing expensive work in the first place; a handler that mixes expensive work with Bukkit access keeps the expensive part off-thread and schedules only the Bukkit-touching part back onto the main thread through `runTask(...)`, the pattern shown above, rather than simply removing the annotation. Paper also does not guard every world, entity, block or chunk access from an async body: its asynchronous-operation checks cover a limited set of unsafe operations, so breaking the rule above can leave a handler running on unsafe or inconsistent state instead of crashing outright, and the absence of an exception is not evidence the code is safe. `@RunAsync` remains the right tool for a body that genuinely belongs off-thread and needs nothing more; when that body also needs a processing message, a timeout, or configurable behaviour around the boundary, use `@AsyncCommand` instead.
+
+### When a command body runs <Badge type="tip" text="v6.3.0+" />
+
+As of v6.3.0, a command body without `@RunAsync` or `@AsyncCommand` runs at the moment the command is dispatched, inside the dispatch, whenever that happens on the server's main thread. That is where Bukkit dispatches every command a player, the console, a command block, a command minecart, RCON or the panel's remote command sends. The body is deferred to the main thread with `runTask()` only when `onCommand` is called from another thread, as Bukkit's own commands behave. Before v6.3.0 every such body ran one tick after the dispatch, so its replies to a command block, a command minecart and RCON were lost: those senders read their output when the dispatch returns. The panel's remote command is not one of them: it runs as the server console, so its replies reach the panel through the log stream (see [Panel Integration](/guide/advanced/panel-integration#remote-command-results)). This applies to every module, including third-party ones.
+
+What to check in your module:
+
+- **Code that relied on the one-tick delay** must schedule that work itself with `runTask()`.
+- **An `InventoryClickEvent` handler**, including a GUI library's click callback, must not open or close an inventory directly, and must not call `performCommand` or `Bukkit.dispatchCommand` directly either. A module command dispatched there now runs its body, which may open or close an inventory, inside the click event, which Paper does not allow. Defer the call:
+
+```java
+icon.onClick(event -> {
+    event.setCancelled(true);
+    Bukkit.getScheduler().runTask(plugin, () -> player.performCommand("menu open shop"));
+});
+```
+
+- **A body that dispatches another command** runs the nested body on the same thread before its own has finished. The audit user that `AuditableDataEntity` writes into `created_by` and `updated_by` is saved before each body and restored after it: the nested body sees its own sender (none for a sender that is not a player), and the outer body sees its own sender again afterwards.
+- **A body that dispatches its own command** while it holds its `@UsageLimit` lock gets the nested dispatch refused; see [Execution lock](#execution-lock).
+- **Two dispatches of a `@CmdCD` command in the same tick** meet the cooldown: the second is refused, because the cooldown is recorded before the first dispatch returns.
+
+### Command cooldown
+
+If you don't want a command to be executed in large quantities and consume server resources, then you can add
+`@CmdCD` in front of the corresponding method:
+
+```java
+@CmdCD(60)
+```
+
+Parameter type is integer, in second.
+
+If the command is executed before the cooldown ends, the message `操作频繁，请 %d 秒后再试` will be sent, with the remaining seconds substituted for `%d`. As of v6.3.0, `en.json` carries this parameterized key, so English-locale servers see the translated `Frequent operations, please try again in %d seconds` instead of the raw Chinese string.
+
+This restriction only takes effect on **players**.
+
+**The cooldown applies after every invocation attempt, not only after a successful one.** A mapped
+method that throws still starts the cooldown, exactly as if it had returned normally — the validator
+does not distinguish success from failure. This is intentional: a command that errors out is still a
+server-resource cost, and a caller retrying an erroring command in a tight loop is exactly the pattern
+the cooldown exists to prevent.
+
+As of v6.3.0 an active cooldown is kept per executor instance as well as per mapping. One
+`CooldownValidator` shared by two executors of the same class, which happens when module code passes
+one `ValidatorChain` to both, no longer makes a player wait on executor B after using executor A. A
+dispatch refused before the method runs, for example by a wrong argument count, starts no cooldown.
+
+As of v6.3.0, a class-level `@CmdCD` on a shared base executor class applies to the mappings that base class declares, including mappings intercepted by AOP annotations such as `@ExceptionCatch`. A mapping overridden in a subclass follows the subclass's annotations.
+
+As of v6.3.0, when a module unloads, the `CooldownValidator` and `UsageLockValidator` in the chain its executors used are released, whether that chain came from `super(chain)` or from an overridden `createDefaultValidatorChain()`. A validator that another loaded executor still uses keeps its cooldowns, locks and quit cleanup until the last such executor unloads.
+
+::: tip A `@CmdCD` your validator chain cannot enforce now refuses to load <Badge type="tip" text="v6.3.0+" />
+As of v6.3.0, a class or method carrying `@CmdCD` whose validator chain has no `CooldownValidator` — most commonly a custom `ValidatorChain` that omits it, see [Creating Custom Validators](#creating-custom-validators) below — is refused at plugin load, naming the offending class and method. This closes the gap where the annotation looked declared but enforced nothing.
+:::
+
+#### Binding the cooldown to a config key <Badge type="tip" text="v6.3.0+" />
+
+::: info As of v6.3.0
+Instead of a literal, `@CmdCD` can read the cooldown from a key in your module's own config file, so a server owner can tune it.
+:::
+
+Name a `@ConfigEntry` path with `key` and give the config entity class with `config`. The value is in seconds, like `value`, and the default lives only in the config field:
+
+<<< @/../examples-archive/v6.3.0/src/main/java/com/ultikits/docs/command/BoundCooldownConfig.java
+
+<<< @/../examples-archive/v6.3.0/src/main/java/com/ultikits/docs/command/BoundCooldownCommand.java
+
+A bound value of `0` means no cooldown, the same as `value = 0`. The key is matched against `@ConfigEntry(path = ...)` as declared, or against the field name when `path` is empty. Like a literal `@CmdCD`, a bound one may sit on the executor class or on a mapping method, and the most-derived declaration wins.
+
+The binding is checked at load. The module alone is refused, and the log names the key and the value, when:
+
+- `value` is set together with `key`;
+- the config class is not registered exactly once for the module;
+- the key matches no `@ConfigEntry` path;
+- the bound field is not an `int`, `long`, `Integer` or `Long`;
+- the value is negative, `null` or above `Integer.MAX_VALUE`.
+
+A negative bound value refuses the module, while a literal `@CmdCD` value of 0 or less still disables the cooldown for that mapping.
+
+A changed value takes effect at `/ul reload`. The resolved seconds are cached per executor and refreshed only after a successful configuration reload, so a panel edit also waits for the next `/ul reload`. An invalid value on reload keeps the running one, logs a WARNING and, as of v6.3.0, reports the reload as partial, naming the key, the refused value and the value kept ([#595](https://github.com/UltiKits/UltiTools-Reborn/issues/595)). A cooldown that is already running keeps the end time it was stamped with, whatever the new value is: a reload to `0` stamps no new cooldown, and the running ones expire on their own. A panel write that sets the bound key outside its range, such as a negative value, is refused like a `@Range` violation, and nothing is written.
+
+Do not put a module `@Range` on a bound field; the binding's range is the field's range. With a `@Range` on the same field, an out-of-range reload makes the configuration reload itself fail, which stops the rest of that module's reload and reports it as failed (since [#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509), fixed in 6.3.0, a full `/ul reload` still continues with the next module), instead of keeping the running value.
+
+A binding in an [External Plugin API](/guide/advanced/external-plugin-api) executor is refused. A module that uses a binding must declare `api-version: 630` in its `plugin.yml`: a 6.2.x framework silently ignores the new attributes and would enforce no cooldown at all, and 6.3.0 refuses a module that uses a binding while declaring a lower `api-version`. `@Scheduled` accepts the same kind of binding, see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing).
+
+### Execution lock
+
+If you want a command to be executed only one by one, you can add `@UsageLimit` in front of the corresponding method:
+
+```java
+@UsageLimit(ContainConsole = false, value = LimitType.SENDER)
+```
+
+`ContainConsole` is whether the restriction is applied to the console, and `value` is the restriction type. As of v6.3.0, `ContainConsole` defaults to `true` — a console sender is now subject to a limit unless a mapping opts out explicitly with `ContainConsole = false` as shown above.
+
+Available types are:
+
+- `LimitType.SENDER` limits that each sender can only have one command of this type executed at a time
+- `LimitType.ALL` limits that only one command of this type can be executed in the whole server
+- `LimitType.NONE` no limit
+
+As of v6.3.0, `@UsageLimit` may also be placed on the executor class, or on the base class that declares the mappings. A mapping without its own `@UsageLimit` uses the class-level one; a method-level annotation governs its own mapping.
+
+Under the `LimitType.SENDER` strategy, the player will receive a prompt: `Please wait for last Command Processing!`
+
+Under the `LimitType.ALL` strategy, the player will receive a
+prompt: `Please wait for last Command Processing which sent by other players!`
+
+As of v6.3.0 a command body runs at dispatch on the main thread, so a body that dispatches its own
+command while holding its lock gets the nested dispatch refused with the message above (`SENDER`: from
+the same sender; `ALL`: from any sender). Acquiring the lock never waits, so nothing blocks, and the
+outer body's lock is released when it returns, normally or by throwing. Schedule the nested call with
+`runTask()` if it must run. Also as of v6.3.0, a lock taken during validation is released when the
+dispatch is then refused before the method runs: by the cooldown, which is checked after the lock, by
+a wrong argument count, by a parameter that does not parse, or by an exception thrown from a later validator's `shouldValidate` or `validate` or from a module's parameter parser; such an exception then propagates unchanged. Before v6.3.0 the lock stayed held until
+the player quit, and every later call of that mapping was refused.
+
+::: tip @UsageLimit now genuinely serialises <Badge type="tip" text="v6.3.0+" />
+As of v6.3.0, acquisition is the gate: the lock is taken inside validation itself, so a blocked sender's invocation is rejected before the method runs, and an `ALL`-scope lock is released only by the sender who acquired it — a different sender's completion can no longer free it. Like `@CmdCD` above, a `@UsageLimit(SENDER|ALL)` whose chain has no `UsageLockValidator` refuses to load, naming the offending class and method; `LimitType.NONE` is exempt.
+:::
+
+## Command Context <Badge type="tip" text="v6.2.0+" />
+
+The `CommandContext` is an immutable object that encapsulates all information about a command invocation. It is passed to validators and is useful for accessing command metadata during execution.
+
+### Accessing Context Information
+
+```java
+// Check if sender is a player
+boolean isPlayer = context.isPlayer();
+
+// Get the player (returns null if sender is not a player)
+Player player = context.getPlayer();
+
+// Get the raw command sender
+CommandSender sender = context.getSender();
+
+// Get the command and its alias
+Command command = context.getCommand();
+String alias = context.getAlias();
+
+// Get raw arguments
+String[] args = context.getRawArgs();
+int argCount = context.getArgCount();
+String firstArg = context.getArg(0);
+
+// Get parsed parameters by name
+String[] nameValues = context.getParam("name");
+String singleValue = context.getParamValue("name");
+
+// Get the matched method and format
+Method method = context.getMatchedMethod();
+String format = context.getMatchedFormat();
+
+// Get command invocation timestamp
+long timestamp = context.getTimestamp();
+```
+
+## Command Validation Chain <Badge type="tip" text="v6.2.0+" />
+
+The validation chain implements the Chain of Responsibility pattern, allowing you to compose multiple validators that execute in order. Built-in validators handle common requirements like permissions, sender type, cooldowns, and execution locks.
+
+### Built-in Validators
+
+#### SenderTypeValidator
+
+Validates that the command sender matches the expected target type (player, console, or both):
+
+<<< @/../examples-archive/v6.3.0/src/main/java/com/ultikits/docs/command/PlayerOnlyCommand.java
+
+#### PermissionValidator
+
+Validates that the sender has required permissions:
+
+```java
+@CmdExecutor(
+    alias = {"admin"},
+    permission = "myadmin.use",  // Base permission for all commands
+    requireOp = false
+)
+@CmdMapping(format = "reload", permission = "myadmin.reload")  // Method-specific permission
+public void reload(@CmdSender CommandSender sender) {
+    // Only users with "myadmin.reload" can execute this
+}
+```
+
+#### CooldownValidator
+
+Manages per-player command cooldowns using `@CmdCD`:
+
+```java
+@CmdMapping(format = "expensive")
+@CmdCD(30)  // 30 second cooldown
+public void expensiveOperation(@CmdSender Player player) {
+    // Performs expensive operation
+    // Player must wait 30 seconds before executing again
+}
+```
+
+Access cooldown state programmatically:
+
+```java
+public void checkCooldown(UUID playerId, String methodKey) {
+    long remaining = getCooldownValidator().getRemainingCooldown(playerId, methodKey);
+    if (remaining > 0) {
+        // Player is on cooldown
+    }
+}
+```
+
+The cooldown validator is obtained through `getCooldownValidator()`, an instance field on `BaseCommandExecutor`. Each command executor holds its own instance, so this call only reports cooldown state for the current executor. `methodKey` is `method.toString()` of the mapping method. When you pass one validator to several executors through a custom `ValidatorChain`, the string-keyed `getRemainingCooldown(UUID, String)` and `clearCooldown(UUID, String)` span all of them; as of v6.3.0 the overloads `getRemainingCooldown(UUID, Object executor, String methodKey)` and `clearCooldown(UUID, Object executor, String methodKey)` address one executor.
+
+#### UsageLockValidator
+
+Prevents concurrent execution using `@UsageLimit`:
+
+```java
+@CmdMapping(format = "backup")
+@UsageLimit(value = UsageLimit.LimitType.ALL)  // Only one per server
+public void backup(@CmdSender CommandSender sender) {
+    // Only one player can run this at a time
+}
+
+@CmdMapping(format = "download")
+@UsageLimit(value = UsageLimit.LimitType.SENDER)  // One per player
+public void download(@CmdSender Player player) {
+    // Each player can only run one at a time
+}
+```
+
+### Creating Custom Validators
+
+Implement `CommandValidator` to create custom validation logic. As of v6.3.0, a validator that acquires something in `validate` should release it in `onRefused`, which also runs when a later validator throws:
+
+<<< @/../examples-archive/v6.3.0/src/main/java/com/ultikits/docs/command/WorldRestrictionValidator.java
+
+Register the validator in your command executor:
+
+<<< @/../examples-archive/v6.3.0/src/main/java/com/ultikits/docs/command/ValidatorCommand.java
+
+::: warning A custom chain replaces all four default validators
+Passing a `ValidatorChain` to `super(...)` skips `createDefaultValidatorChain()`, so `SenderTypeValidator` (the class-level `@CmdTarget`), `PermissionValidator` (`requireOp` and the method-level `@CmdMapping` permissions, though the class-level `permission` is still enforced by Bukkit), `UsageLockValidator` (`@UsageLimit`) and `CooldownValidator` (`@CmdCD`) are all absent from the chain unless you add them yourself.
+Use the form shown just above instead: call `super()` and register your validator with `addValidator(...)`, which keeps the four defaults and orders yours by `getOrder()`.
+As of v6.3.0, a class or method whose `@CmdCD`/`@UsageLimit` has no matching validator in the custom chain is refused at plugin load rather than silently recording state without enforcing anything — see the tips under [Command cooldown](#command-cooldown) and [Execution lock](#execution-lock) above.
+:::
+
+Or use a custom validator chain:
+
+<<< @/../examples-archive/v6.3.0/src/main/java/com/ultikits/docs/command/ChainCommand.java
+
+### Validator Execution Order
+
+Validators execute in order by their `getOrder()` value (lower values first):
+
+1. **100** - SenderTypeValidator (ensure right user type)
+2. **200** - PermissionValidator (check permissions)
+3. **250** - UsageLockValidator (prevent concurrent execution)
+4. **300** - CooldownValidator (check cooldown state)
+5. **400+** - Custom validators
+
+## Async Commands <Badge type="tip" text="v6.2.0+" />
+
+Use `@AsyncCommand` to execute commands asynchronously without blocking the server thread. It offers more configuration options than `@RunAsync`:
+
+```java
+@CmdMapping(format = "backup")
+@AsyncCommand
+public void backupWorld(@CmdSender Player player) {
+    // Runs asynchronously - safe for I/O operations
+    performBackupLogic();
+
+    // Sync back to main thread for Bukkit operations
+    Bukkit.getScheduler().runTask(UltiTools.getInstance(), () -> {
+        player.sendMessage("Backup completed!");
+    });
+}
+```
+
+### Async Command Options
+
+::: tip timeout on @AsyncCommand is now honoured <Badge type="tip" text="v6.3.0+" />
+As of v6.3.0, `timeout()` is a deadline on how long the framework *waits*, not a cancellation of the method body: when the configured duration elapses with the body still running, the framework stops waiting and sends the sender one timeout message, but the body itself is never interrupted and keeps running to completion. `timeout = 0` disables the watcher entirely — the framework waits indefinitely and never reports a timeout.
+:::
+
+```java
+@AsyncCommand(
+    showProcessing = true,                      // Show "Processing..." message
+    processingMessageKey = "command.backup.processing",  // Custom i18n message
+    timeout = 60                                // 60 second timeout (0 = no timeout, defaults to 30 if omitted)
+)
+@CmdMapping(format = "backup")
+public void backupWorld(@CmdSender Player player) {
+    // Configuration above:
+    // - Shows "处理中..." while executing
+    // - Uses custom i18n key instead of default
+}
+```
+
+## Custom Type Parsers <Badge type="tip" text="v6.2.0+" />
+
+Type parsers convert command argument strings into the types your methods require. UltiTools provides built-in parsers for primitive types, Bukkit entities, and arrays.
+
+### Built-in Parsers
+
+- **Primitive types**: String, Integer, Double, Float, Long, Short, Byte, Boolean
+- **Bukkit entities**: Player, OfflinePlayer, Material, World
+- **Other types**: UUID, Location, GameMode, Enchantment
+- **Arrays**: All types above support array syntax
+
+### Creating Custom Parsers
+
+Implement `TypeParser<T>`:
+
+<<< @/../examples-archive/v6.3.0/src/main/java/com/ultikits/docs/command/ColorParser.java
+
+Register the parser:
+
+```java
+@Autowired
+private UltiToolsPlugin plugin;
+
+@PostConstruct
+public void init() {
+    TypeParserRegistry.getInstance().register(new ColorParser());
+}
+```
+
+Use in your command:
+
+```java
+@CmdMapping(format = "setcolor <color>")
+public void setColor(@CmdSender Player player, @CmdParam("color") Color color) {
+    // color is parsed automatically
+}
+```
+
+Advanced parser with array support:
+
+<<< @/../examples-archive/v6.3.0/src/main/java/com/ultikits/docs/command/RangeParser.java
+
+```java
+// Usage
+@CmdMapping(format = "random <range>")
+public void randomNumber(@CmdSender Player player,
+                         @CmdParam("range") IntRange range) {
+    int value = ThreadLocalRandom.current().nextInt(range.min, range.max + 1);
+    player.sendMessage("Random: " + value);
+}
+```
+
+## Vanilla Bukkit Command Executor Wrapper
+
+### Player Command
+
+If you want a command to be executed only in the game (executed by the player), you can inherit the
+`AbstractPlayerCommandExecutor` class and override the `onPlayerCommand` method.
+
+<<< @/../examples-archive/v6.3.0/src/main/java/com/ultikits/docs/command/PlayerCommandExample.java
+
+Except for the `Player` type parameter, this method is the same as the `CommandExecutor#onCommand` method.
+
+If you try to execute this command in the console, you will receive an error
+message: `This command can only be performed in GAME!`
+
+If you want this command to use Tab completion, please see the next section.
+
+### Command Completion
+
+From Minecraft 1.13, the Bukkit API provides a new `TabCompleter` interface for command completion.
+
+UltiTools has encapsulated this interface to provide a more concise way of command completion.
+
+You need to inherit the `AbstractTabExecutor` class and override the `onPlayerTabComplete` method.
+
+```java
+@Override
+protected List<String> onPlayerTabComplete(Command command, String[] strings, Player player) {
+    // your code
+    return null;
+}
+```
+
+Except for the `Player` type parameter, this method is the same as the `TabCompleter#onTabComplete` method.
+
+The rest of the usage is the same as the `AbstractPlayerCommandExecutor` class.
+
+### Console Command
+
+If you want a command to be executed only in the console, you can inherit the `AbstractConsoleCommandExecutor` class and
+override the `onConsoleCommand` method.
+
+<<< @/../examples-archive/v6.3.0/src/main/java/com/ultikits/docs/command/ConsoleCommandExample.java
+
+This method is the same as the `CommandExecutor#onCommand` method.
+
+If you try to execute this command in the game, you will receive an error
+message: `This command can only be performed in CONSOLE!`
+
+### Help Message
+
+All three classes above inherit `sendHelpMessage` from `AbstractCommand`, where it is declared
+`protected abstract`. It is **not** provided for you — every subclass has to implement it, which is why
+both examples above override it:
+
+```java
+@Override
+protected void sendHelpMessage(CommandSender sender) {
+    // send help message
+}
+```
+
+When sending the `/somecommand help` command, this method will be called.
+
+### Error Message
+
+You may find that the `onCommand` method of the three classes above returns a `boolean` type value.
+
+It is the same as the native `CommandExecutor` interface, this value is used to indicate whether the command was
+executed successfully.
+
+When the command execution returns `false`, the command sender will be automatically prompted with an error message.
