@@ -24,7 +24,7 @@ A `@PlayerCache` map works best as a read cache for data that is stored elsewher
 
 ## Save Before Remove
 
-Set `saveBeforeRemove = true` and implement the `PlayerCacheSaver` interface to have the framework call `savePlayerData(playerUuid)` just before it removes the entry. This suits state that exists only in this server's memory and must be written once when the player leaves. It does not suit a cached copy of a stored row, because the copy can be older than the row.
+Set `saveBeforeRemove = true` and implement the `PlayerCacheSaver` interface to have the framework call `savePlayerData(playerUuid)` just before it removes the entry. This suits state that exists only in this server's memory and must be written when the player leaves. It does not suit a cached copy of a stored row, because the copy can be older than the row.
 
 The time a player joined this server is such state: no stored row holds it. The service below appends one new row for the finished session when the player quits, and reads or overwrites no stored row:
 
@@ -99,6 +99,8 @@ public interface PlayerCacheSaver {
 This interface is optional. Only implement it when you use `saveBeforeRemove = true`.
 
 ## Multiple Maps
+
+Known limitation documented for v6.3.2 (unchanged v6.3.0 behavior): `savePlayerData(UUID)` is called once per field marked `saveBeforeRemove = true`, not once per bean. With several such fields, the callback can run several times on one quit, including after an earlier invocation failed; each field is removed after its own callback, so later callbacks can see earlier fields already cleared. A callback that performs one logical save must tolerate repeated calls, or the bean should mark only one field for saving. A later field's callback is not an automatic retry guarantee for the earlier save ([#647](https://github.com/UltiKits/UltiTools-Reborn/issues/647)).
 
 A single bean can have multiple `@PlayerCache` fields. Each is cleaned up independently:
 
