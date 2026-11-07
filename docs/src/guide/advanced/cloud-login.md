@@ -1,13 +1,13 @@
 # Cloud Login
 
 ::: info As of v6.3.1
-UltiTools-API v6.3.1 links a server to UltiCloud with a device code and UltiCloud protocol 2.0.0. The 6.3.0 magic-link login and its cloud service stop at the cut-over.
+UltiTools-API v6.3.1 links a server to UltiCloud with a device code and UltiCloud protocol 2.1.0. The 6.3.0 magic-link login and its cloud service stop at the cut-over.
 :::
 
 `/ulticloud login`, `/ulticloud logout`, `/ulticloud status` and `/ulticloud reconnect` connect a server to
 UltiCloud for remote management through the UltiPanel dashboard. As of v6.3.1 a linked server holds only a
 revocable credential of its own, never a user account token, and the framework speaks UltiCloud protocol
-2.0.0 to `wss://api.ultikits.com/v1/agent`. The commands run from the server console or over RCON and need
+2.1.0 to `wss://api.ultikits.com/v1/agent`. The commands run from the server console or over RCON and need
 operator rights.
 
 ## Linking a server
@@ -135,5 +135,5 @@ UltiLogin's magic-link requests, is deprecated and removed in 6.4.0. As of v6.3.
 that API; one with secret-carrying commands registers them as sensitive (see
 [Panel Integration](/guide/advanced/panel-integration#sensitive-commands)).
 
-The complete list of 6.3.1 changes, deprecations and known limitations is the "UltiCloud protocol 2.0.0" section
+The complete list of 6.3.1 changes, deprecations and known limitations is the "UltiCloud protocol 2.1.0" section
 of [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md).

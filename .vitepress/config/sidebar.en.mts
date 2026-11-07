@@ -237,6 +237,10 @@ const sidebarGuideEN: SidebarItemExt[] = [
         text: 'Release Notes',
         items: [
             {
+                text: '6.3.1',
+                link: 'release-notes/6.3.1'
+            },
+            {
                 text: '6.3.0',
                 link: 'release-notes/6.3.0'
             }
