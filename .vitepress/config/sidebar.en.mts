@@ -252,6 +252,198 @@ const sidebarGuideEN: SidebarItemExt[] = [
     },
 ]
 
+// Frozen with the pages and examples from published commit a3a9c67f2b0f7b59ac301f7fbc2d78f3f46982c4.
+const sidebarGuideEN_v631: SidebarItemExt[] = [
+    {
+        base: '/guide/',
+        text: 'Get Started',
+        items: [
+            {
+                text: 'Introduction',
+                link: 'introduction'
+            },
+            {
+                text: 'Quick Start',
+                link: 'quick-start'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'Core Capabilities',
+        items: [
+            {
+                text: 'Command Executor',
+                link: 'essentials/cmd-executor'
+            },
+            {
+                text: 'Event Listener',
+                link: 'essentials/event-listener'
+            },
+            {
+                text: 'Config File',
+                link: 'essentials/config-file'
+            },
+            {
+                text: 'Data Storage',
+                link: 'essentials/data-storage'
+            },
+            {
+                text: 'Query DSL',
+                link: 'essentials/query-dsl'
+            },
+            {
+                text: 'Internationalization',
+                link: 'essentials/i18n'
+            },
+            {
+                text: 'Exception Handling',
+                link: 'advanced/exception-handling'
+            },
+            {
+                text: 'Transactions',
+                link: 'advanced/transactions'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'Framework Mechanisms',
+        items: [
+            {
+                text: 'Auto Register',
+                link: 'advanced/auto-register'
+            },
+            {
+                text: 'IOC Container',
+                link: 'advanced/ioc-container'
+            },
+            {
+                text: 'Conditional Registration',
+                link: 'advanced/conditional-registration'
+            },
+            {
+                text: 'Config Validation',
+                link: 'advanced/config-validation'
+            },
+            {
+                text: 'Config Converters',
+                link: 'advanced/config-converters'
+            },
+            {
+                text: 'Module Load Ordering',
+                link: 'advanced/module-dependencies'
+            },
+            {
+                text: 'External Plugin API',
+                link: 'advanced/external-plugin-api'
+            },
+            {
+                text: 'UltiToolsPlugin Base Class',
+                link: 'advanced/ulti-tools-plugin'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'Runtime',
+        items: [
+            {
+                text: 'Scheduled Tasks',
+                link: 'advanced/scheduled-tasks'
+            },
+            {
+                text: 'Player Cache',
+                link: 'advanced/player-cache'
+            },
+            {
+                text: 'Module EventBus',
+                link: 'advanced/module-eventbus'
+            },
+            {
+                text: 'Panel Integration',
+                link: 'advanced/panel-integration'
+            },
+            {
+                text: 'Economy',
+                link: 'advanced/economy'
+            },
+            {
+                text: 'Cloud Login',
+                link: 'advanced/cloud-login'
+            },
+            {
+                text: 'Player Link',
+                link: 'advanced/player-link'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'UI System',
+        items: [
+            {
+                text: 'GUI Interface',
+                link: 'advanced/gui'
+            },
+            {
+                text: 'Declarative GUI',
+                link: 'advanced/declarative-gui'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'Toolchain',
+        items: [
+            {
+                text: 'UltiTools Maven Plugin',
+                link: 'advanced/maven-plugin'
+            },
+            {
+                text: 'UltiKits CLI',
+                link: 'advanced/ultikits-cli'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'Releasing',
+        items: [
+            {
+                text: 'Module Versioning',
+                link: 'advanced/module-versioning'
+            }
+        ]
+    },
+    // Archived API navigation bypasses locale/version rewriting and pins Javadoc to 6.3.1.
+    {
+        text: 'API Reference',
+        skipVersioning: true,
+        items: [
+            {
+                text: 'API Reference',
+                link: '/api/6.3.1/index.html',
+                target: '_self'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'Release Notes',
+        items: [
+            {
+                text: '6.3.1',
+                link: 'release-notes/6.3.1'
+            },
+            {
+                text: '6.3.0',
+                link: 'release-notes/6.3.0'
+            }
+        ]
+    },
+]
+
 // 与页面和示例共用已发布的 8811051a964d1ece0264415a25b7c302048212eb 快照。
 const sidebarGuideEN_v630: SidebarItemExt[] = [
     {
@@ -943,4 +1135,4 @@ const sidebarApiEN: DefaultTheme.SidebarItem[] = [
     },
 ]
 
-export { sidebarGuideEN, sidebarGuideEN_v630, sidebarGuideEN_v625, sidebarGuideEN_v624, sidebarGuideEN_v620, sidebarGuideEN_v610, sidebarApiEN }
+export { sidebarGuideEN, sidebarGuideEN_v631, sidebarGuideEN_v630, sidebarGuideEN_v625, sidebarGuideEN_v624, sidebarGuideEN_v620, sidebarGuideEN_v610, sidebarApiEN }

@@ -136,7 +136,7 @@ export default withPwa(
         ...viteConfig,
 
         versionsConfig: {
-            current: 'v6.3.1',
+            current: 'v6.3.2',
             sources: 'src',
             archive: 'archive',
             // `false`, not an object and not omitted. @viteplus/versions'

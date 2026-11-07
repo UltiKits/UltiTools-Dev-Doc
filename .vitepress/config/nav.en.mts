@@ -34,7 +34,7 @@ const navEN = [
     {
         text: 'Release Notes',
         activeMatch: `/guide/release-notes/`,
-        link: '/guide/release-notes/6.3.0',
+        link: '/guide/release-notes/6.3.2',
         skipVersioning: true
     },
     // No link, no activeMatch, no versioningPlugin prop supplied by hand:
