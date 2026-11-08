@@ -60,7 +60,7 @@ UltiTools 通过 `@ExceptionCatch` 注解提供声明式异常处理。无需在
 支持的默认值表达式：
 - `"null"` — 返回 null（对象的默认值）
 - `"true"` / `"false"` — 返回布尔值
-- 数字字面量 — `"0"`、`"100"`、`"-5"`、`"3.14"` — 返回该数字
+- 数字字面量（如 `"0"`、`"100"`、`"-5"`、`"3.14"`）只在返回类型为 `int`、`long`、`float`、`double`（及其包装类）时解析；无法按返回类型解析的字面量，或其他数值类型，回退为类型默认值
 - `"empty"` — 根据返回类型返回空集合/数组/字符串
 
 如果未指定 `defaultValue`，会使用类型默认值：
@@ -86,8 +86,7 @@ UltiTools 通过 `@ExceptionCatch` 注解提供声明式异常处理。无需在
 
 ::: tip 处理器接口
 自定义处理器实现 `ExceptionHandler` 接口，其中 `handleException(Throwable, Object, Method, Object[])` 承载主处理逻辑，可以返回替换值，也可以重新抛出异常。
-`supports(Class)` 是可选方法，用于表示该处理器是否支持某个异常类型，默认对所有类型返回 true。
-`getOrder()` 同样可选，用于设置优先级，数值越低优先级越高，默认值为 0。
+`supports(Class)` 与 `getOrder()` 有默认实现，但通过 `@ExceptionCatch(handler = …)` 指定的处理器不会查询它们：注解 `value` 捕获到的每个异常都会交给该处理器。
 :::
 
 ## 方法要求
@@ -116,7 +115,7 @@ public class NonManagedClass {
 支持的 Bean 类型：
 - `@Service` — 服务
 - `@Component` — 通用 Bean
-- 任何手动注册到 IoC 容器中的类
+- 通过 `registerBean(Class, …)` 以定义方式注册的类。自行构造的实例不会被代理：`registerSingleton` 会拒绝它，`registerType` 注册后不拦截。
 
 ## 完整示例
 

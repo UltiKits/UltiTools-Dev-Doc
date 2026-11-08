@@ -21,10 +21,9 @@ enableWarp: true
 
 如果 `enableWarp` 为 `false` 或缺失，`WarpCommands` 类将**完全不被注册**——没有命令注册、没有内存占用、没有副作用。
 
-::: warning 只有连接器入口点仍然跳过这个条件
-标准 `@UltiToolsModule` 路径把命令类当容器 bean 解析，条件为 `false` 的类从一开始就不会被构造成 bean，这条路径在 v6.3.0 之前就已经生效。
-v6.3.0 起，监听器包扫描路径也会检查这个条件，补上了唯一真实存在的缺口。
-只有连接器入口点（`PluginManager.register(UltiToolsPlugin)`）完全不做组件扫描，那里目前还没有任何地方检查这个条件——跟踪于 [issue #334](https://github.com/UltiKits/UltiTools-Reborn/issues/334)。
+::: tip 自 v6.3.0 起所有入口都检查该条件
+自 v6.3.0 起，所有入口（标准模块、监听器包扫描以及连接器 `PluginManager.register(UltiToolsPlugin)`）都会在组件扫描时检查该条件。
+到 v6.2.5 为止，连接器入口不做组件扫描，那里没有任何地方检查这个条件（[issue #334](https://github.com/UltiKits/UltiTools-Reborn/issues/334)）。
 :::
 
 ## 重载漂移报告 <Badge type="tip" text="v6.3.0+" />
@@ -61,7 +60,7 @@ v6.3.0 起，漂移消息会说明容器里实际持有什么，而不只是条�
 
 ### 嵌套配置键
 
-使用点号或斜杠来访问嵌套键：
+使用点号访问嵌套键：
 
 ```yaml
 # config/config.yml

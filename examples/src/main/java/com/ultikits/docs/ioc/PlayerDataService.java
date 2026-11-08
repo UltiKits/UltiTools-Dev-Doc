@@ -15,7 +15,7 @@ public class PlayerDataService {
     }
 
     public void syncPlayerData(UUID playerId) {
-        // Use plugin.getServer(), plugin.getLogger(), etc.
+        // Use plugin.getLogger(), plugin.getDataOperator(...), etc.
         plugin.getLogger().info("Syncing data for: " + playerId);
     }
 }

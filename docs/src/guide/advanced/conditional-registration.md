@@ -21,10 +21,9 @@ enableWarp: true
 
 If `enableWarp` is `false` or missing, the `WarpCommands` class is **not registered** at all — no command, no memory usage, no side effects.
 
-::: warning Only the connector entry point still skips the condition
-The standard `@UltiToolsModule` path resolves command classes as container beans, so a class whose condition is `false` was never constructed as a bean, and this already worked before v6.3.0.
-As of v6.3.0 the listener package-scan path evaluates the condition too, closing the one gap that was real.
-Only the connector entry point (`PluginManager.register(UltiToolsPlugin)`) performs no component scan at all, so nothing there evaluates the condition yet -- tracked in [issue #334](https://github.com/UltiKits/UltiTools-Reborn/issues/334).
+::: tip Every entry point evaluates the condition since v6.3.0
+As of v6.3.0, every entry point (standard modules, the listener package scan and the connector `PluginManager.register(UltiToolsPlugin)`) evaluates the condition during the component scan.
+Through v6.2.5 the connector entry point performed no component scan, so nothing there evaluated the condition ([issue #334](https://github.com/UltiKits/UltiTools-Reborn/issues/334)).
 :::
 
 ## Reload Drift Reporting <Badge type="tip" text="v6.3.0+" />
@@ -61,7 +60,7 @@ The message used to advise "a restart is required" unconditionally, even when no
 
 ### Nested Config Keys
 
-Use dots or slashes for nested keys:
+Use dots for nested keys:
 
 ```yaml
 # config/config.yml

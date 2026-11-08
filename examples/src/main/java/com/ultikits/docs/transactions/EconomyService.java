@@ -18,9 +18,9 @@ public class EconomyService {
         try {
             dataOperator.transaction(() -> {
                 AccountEntity from = dataOperator.query()
-                    .where("playerId").eq(fromUuid).first();
+                    .where("player_id").eq(fromUuid).first();
                 AccountEntity to = dataOperator.query()
-                    .where("playerId").eq(toUuid).first();
+                    .where("player_id").eq(toUuid).first();
 
                 if (from == null || to == null) {
                     throw new RuntimeException("Account not found");

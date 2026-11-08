@@ -18,9 +18,9 @@ public class AccountService {
             plugin.getDataOperator(AccountEntity.class);
 
         AccountEntity from = dataOperator.query()
-            .where("playerId").eq(fromPlayerId).first();
+            .where("player_id").eq(fromPlayerId).first();
         AccountEntity to = dataOperator.query()
-            .where("playerId").eq(toPlayerId).first();
+            .where("player_id").eq(toPlayerId).first();
 
         from.setBalance(from.getBalance() - amount);
         to.setBalance(to.getBalance() + amount);

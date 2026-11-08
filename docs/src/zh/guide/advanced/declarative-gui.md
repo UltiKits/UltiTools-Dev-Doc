@@ -94,7 +94,7 @@ ItemDisplay.builder(itemStack)
 ### 4.4 GridView (网格布局)
 ::: tip 任意 widget 类型都能正确定位 <Badge type="tip" text="v6.3.0+" />
 自 v6.3.0 起，`GridView` 会在渲染时把每个子组件计算出的槽位作为父数据写入，因此任意 widget 类型——不只是 `ItemDisplay`——都能自动定位到自己的行列槽位；`Widget` 自身的 API 未变，下游自定义 widget 不需要任何改动。
-子组件在 `GridView` 内显式声明的 `.slot(...)` 会被覆盖，并发出一条点名该子组件的 `WARNING`；没有显式槽位、或合法声明在槽位 `0` 的子组件，不会产生警告。
+子组件在 `GridView` 内显式声明的 `.slot(...)` 会被覆盖，并发出一条 `WARNING`，写明该子组件的序号和前后两个槽位；没有显式槽位、或合法声明在槽位 `0` 的子组件，不会产生警告。
 :::
 
 非常适合用于展示列表数据（如商店商品、背包内容）。任意 widget 类型都会被自动计算行列位置并写入槽位。
@@ -177,7 +177,7 @@ Navigator.of(context).push("settings");
 ```
 
 ### 6.3 性能优化
-*   **避免在 build 中做耗时操作**: `build` 方法可能会被频繁调用（每秒多次），不要在里面读写数据库或进行复杂计算。
+*   **避免在 build 中做耗时操作**: `build` 方法可能会被频繁调用，不要在里面读写数据库或进行复杂计算。
 *   **提取常量 Widget**: 如果一个组件（如背景板）永远不会变，可以将其定义为 `static final` 字段，直接复用。
 *   **局部刷新**: 尽量将状态下沉到叶子节点。例如，只有一个按钮需要变色，就只把那个按钮做成 `StatefulWidget`，而不是刷新整个页面。
 
@@ -189,7 +189,7 @@ Navigator.of(context).push("settings");
 
 ## 7. 完整示例：商店页面
 
-1.  **布局**: 使用 `Container` + `GridView`。
+1.  **布局**: 嵌套 `Container`，商品槽位用 `SlotUtils.toSlotIndex` 计算。
 2.  **分页**: 使用 `currentPage` 状态控制数据切片。
 3.  **单选**: 使用 `selectedSlot` 状态控制高亮显示。
 4.  **交互**: 购买按钮根据选中状态动态显示/隐藏。

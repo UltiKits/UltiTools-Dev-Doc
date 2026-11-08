@@ -21,9 +21,9 @@ DataOperator<AccountEntity> dataOperator = plugin.getDataOperator(AccountEntity.
 
 dataOperator.transaction(() -> {
     AccountEntity from = dataOperator.query()
-        .where("playerId").eq(fromPlayer).first();
+        .where("player_id").eq(fromPlayer).first();
     AccountEntity to = dataOperator.query()
-        .where("playerId").eq(toPlayer).first();
+        .where("player_id").eq(toPlayer).first();
 
     from.setBalance(from.getBalance() - amount);
     to.setBalance(to.getBalance() + amount);
@@ -49,7 +49,7 @@ DataOperator<AccountEntity> dataOperator = plugin.getDataOperator(AccountEntity.
 try {
     double newBalance = dataOperator.transaction(() -> {
         AccountEntity account = dataOperator.query()
-            .where("playerId").eq(playerUuid).first();
+            .where("player_id").eq(playerUuid).first();
         account.setBalance(account.getBalance() + depositAmount);
         dataOperator.update(account);
         return account.getBalance();
@@ -169,7 +169,7 @@ UUID 字符串作为 id 总是可用。小写字母、数字、`-` 和 `_` 是�
 
 ### 前置条件
 
-`@Transactional` 注解仅适用于 `@Service` Bean 中的方法，因为事务是通过生成的子类代理实现的
+`@Transactional` 注解适用于由容器自己创建的 Bean（`@Service`、`@Component` 等被扫描的组件）中的方法，因为事务是通过生成的子类代理实现的
 （自 v6.3.0 起是 ByteBuddy；更早的 CGLIB 引擎是同样的子类代理形态）：
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/PaymentService.java
@@ -237,13 +237,13 @@ Jakarta Transactions 2.0 的 `TxType` 集合：
 
 `isolation` 属性控制事务的隔离级别：
 
-| 级别 | 防止问题 | 数据库支持 |
-|------|----------|-----------|
-| `DEFAULT` | 使用数据库默认 | 所有数据库 |
-| `READ_UNCOMMITTED` | 无（允许脏读） | 大多数数据库 |
-| `READ_COMMITTED` | 脏读 | 大多数数据库 |
-| `REPEATABLE_READ` | 脏读、不可重复读 | 大多数数据库 |
-| `SERIALIZABLE` | 所有问题 | 所有数据库 |
+| 级别 | 防止问题 |
+|------|----------|
+| `DEFAULT` | 使用数据库默认 |
+| `READ_UNCOMMITTED` | 无（允许脏读） |
+| `READ_COMMITTED` | 脏读 |
+| `REPEATABLE_READ` | 脏读、不可重复读 |
+| `SERIALIZABLE` | 所有问题 |
 
 在 JSON 后端上，自 v6.3.0 起，`REPEATABLE_READ` 与 `SERIALIZABLE` 在事务第一次读取某张表时就锁住该表，得到表粒度的可重复读；其他级别在第一次写入时锁表，`READ_UNCOMMITTED` 按 `READ_COMMITTED` 处理。由 `DataOperator#transaction(...)` 开启的事务无论级别如何，都像 `REPEATABLE_READ` 一样在第一次读取时锁表；加入活动事务的 `transaction(...)` 沿用该事务的隔离级别。
 
@@ -367,7 +367,7 @@ public void bulkProcessing() {
 ### 使用编程式事务（`dataOperator.transaction()`）当：
 - 需要对事务边界进行细粒度控制
 - 事务跨越多个服务调用
-- 在 `@Service` Bean 外工作
+- 在容器创建的 Bean 之外工作
 - 需要手动处理嵌套事务
 
 ### 使用声明式事务（`@Transactional`）当：

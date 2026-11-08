@@ -217,7 +217,7 @@ public class MyService {
 // 在 PluginManager 中的插件初始化期间
 UltiToolsPlugin plugin = new YourPlugin();
 pluginContext.registerType(UltiToolsPlugin.class, plugin);  // 按父类类型注册
-pluginContext.registerType(YourPlugin.class, plugin);       // 也按具体类型注册
+pluginContext.getBeanFactory().registerSingleton(YourPlugin.class.getSimpleName(), plugin); // 按类简单名注册；按具体类型也能解析
 ```
 
 这意味着两种注入方式都有效：
@@ -238,10 +238,9 @@ private YourPlugin plugin;       // 通过具体类型
 
 ## 服务优先级
 
-::: warning getBean(Class) 返回首个可赋值的 Bean，而不是优先级最高的
-`getBean(Class)` 遍历 bean 定义并返回首个可赋值的匹配项，随后把结果写进 `typeMappings` 供后续所有查询复用，而 `priority` 只被 `getServicePriority` 读取，后者服务于 `getOrderedBeansOfType` 与 `getHighestPriorityBean`。
-需要按优先级取实现的地方改调 `context.getHighestPriorityBean(PaymentProcessor.class)`；下面演示的 `@Autowired` 字段注入无法改变，`AutowireFactory` 直接委托 `getBean(field.getType())`，没有任何注解或开关可以影响它。
-让 `getBean` 在类型歧义时委托 `getHighestPriorityBean` 的修法跟踪于 [issue #202](https://github.com/UltiKits/UltiTools-Reborn/issues/202)。
+::: tip 自 v6.3.0 起 getBean(Class) 取优先级最高的 Bean
+自 v6.3.0 起，`getBean(Class)`（以及 `@Autowired`）按 `@Service(priority)` 取优先级最高的候选；最高的两个优先级相同时直接报歧义错误，而不是任取一个。
+到 v6.2.5 为止它返回首个可赋值的 Bean（[issue #202](https://github.com/UltiKits/UltiTools-Reborn/issues/202)）。
 :::
 
 当同一接口存在多个实现时，使用 `@Service` 注解的 `priority` 属性来控制 `getBean(Class)` 返回哪一个。
@@ -267,8 +266,8 @@ public class DirectBankProcessor implements PaymentProcessor {
 **行为：**
 - 更高的 `priority` 值优先
 - 默认优先级为 0
-- 仅影响接口类型的 `getBean(Class)` 查找
-- 当多个 Bean 匹配时，返回优先级最高的 Bean
+- 适用于所有存在多个可赋值候选（接口或父类）的按类型查找
+- 优先级最高者胜出；最高两个优先级相同时抛出类型歧义错误
 - 只有 `getOrderedBeansOfType()` 按优先级排序返回（最高优先级在前）；`getBeansOfType()` 返回的是无序 map。
 
 ```java

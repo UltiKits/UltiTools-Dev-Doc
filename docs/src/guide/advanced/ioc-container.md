@@ -220,7 +220,7 @@ The container automatically performs this registration:
 // Inside PluginManager during plugin initialization
 UltiToolsPlugin plugin = new YourPlugin();
 pluginContext.registerType(UltiToolsPlugin.class, plugin);  // Registered by parent class type
-pluginContext.registerType(YourPlugin.class, plugin);       // Also by concrete type
+pluginContext.getBeanFactory().registerSingleton(YourPlugin.class.getSimpleName(), plugin); // By name; resolvable by its concrete type
 ```
 
 This means both injection styles work:
@@ -241,10 +241,9 @@ private YourPlugin plugin;       // Via concrete type
 
 ## Service Priority
 
-::: warning getBean(Class) returns the first assignable bean, not the highest priority one
-`getBean(Class)` walks the bean definitions and returns the first assignable match, then caches that result in `typeMappings` for every later lookup, while `priority` is read only by `getServicePriority`, which serves `getOrderedBeansOfType` and `getHighestPriorityBean`.
-Call `context.getHighestPriorityBean(PaymentProcessor.class)` wherever the priority matters; the `@Autowired` field injection shown below cannot be redirected, because `AutowireFactory` delegates to `getBean(field.getType())` and no annotation or switch changes that.
-Making `getBean` delegate to `getHighestPriorityBean` on ambiguity is tracked in [issue #202](https://github.com/UltiKits/UltiTools-Reborn/issues/202).
+::: tip getBean(Class) picks the highest priority since v6.3.0
+As of v6.3.0, `getBean(Class)` (and therefore `@Autowired`) picks the candidate with the highest `@Service(priority)`. If the two highest candidates have the same priority, the lookup fails with an ambiguous-bean error instead of picking one.
+Through v6.2.5 it returned the first assignable bean ([issue #202](https://github.com/UltiKits/UltiTools-Reborn/issues/202)).
 :::
 
 When multiple implementations of the same interface exist, use the `priority` attribute of the `@Service` annotation to control which one is returned by `getBean(Class)`.
@@ -270,8 +269,8 @@ public class DirectBankProcessor implements PaymentProcessor {
 **Behavior:**
 - Higher `priority` value takes precedence
 - Default priority is 0
-- Only affects `getBean(Class)` lookup of interface types
-- When multiple beans match, the highest priority bean is returned
+- Applies to every by-type lookup with more than one assignable candidate (interface or superclass)
+- The highest priority wins; a tie between the two highest throws an ambiguous-bean error
 - Only `getOrderedBeansOfType()` returns results ordered by priority (highest first); `getBeansOfType()` returns an unordered map.
 
 ```java
