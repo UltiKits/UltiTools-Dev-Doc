@@ -140,7 +140,33 @@ def run_javap(flags, root, names):
     return "\n".join(out)
 
 
-KEYWORD = re.compile(r"(?:^|\s)(?:class|interface|enum|record|@interface)\s+([\w.$]+)")
+KEYWORD = re.compile(r"(?:^|\s)(class|interface|enum|record|@interface)\s+([\w.$]+)")
+
+# java.lang.Object's methods, by name and descriptor. `javap` never prints
+# `extends java.lang.Object`, so no walk over the index ever reaches Object, and a
+# call such as `operator.getClass()` would otherwise come back "missing". The JVM
+# finds these anyway: a class inherits all of them (JVMS 5.4.3.3), and interface
+# method resolution falls back to Object's *public* methods (JVMS 5.4.3.4), which
+# is why the protected pair is listed apart.
+# `javap` 从不打印 `extends java.lang.Object`，索引上的上溯永远到不了 Object，于是
+# `operator.getClass()` 这类调用会被报成「缺失」。JVM 照样解析得到：类继承 Object 的全部
+# 方法（JVMS 5.4.3.3），接口方法解析回落到 Object 的 public 方法（JVMS 5.4.3.4），
+# 所以 protected 的两个单独列出。
+OBJECT_PUBLIC = {
+    ("getClass", "()Ljava/lang/Class;"),
+    ("hashCode", "()I"),
+    ("equals", "(Ljava/lang/Object;)Z"),
+    ("toString", "()Ljava/lang/String;"),
+    ("notify", "()V"),
+    ("notifyAll", "()V"),
+    ("wait", "()V"),
+    ("wait", "(J)V"),
+    ("wait", "(JI)V"),
+}
+OBJECT_PROTECTED = {
+    ("clone", "()Ljava/lang/Object;"),
+    ("finalize", "()V"),
+}
 
 
 def strip_generics(line):
@@ -192,7 +218,7 @@ def parse_decl(line):
     m = KEYWORD.search(flat)
     if not m:
         return None
-    name = m.group(1)
+    kind, name = m.group(1), m.group(2)
     rest = flat[m.end():].rstrip("{ ").strip()
 
     marks = [(mm.start(), mm.group(1)) for mm in re.finditer(r"\b(extends|implements)\b", rest)]
@@ -201,19 +227,19 @@ def parse_decl(line):
         end = marks[idx + 1][0] if idx + 1 < len(marks) else len(rest)
         chunk = rest[pos + len(keyword):end]
         supers += [s.strip() for s in chunk.split(",") if s.strip()]
-    return name, supers
+    return name, supers, kind in ("interface", "@interface")
 
 
 def index(root, names):
-    """{fqcn: (supertypes, {(member_name, descriptor)})} for every class in the JAR."""
+    """{fqcn: (supertypes, {(member_name, descriptor)}, is_interface)} for every class in the JAR."""
     text = run_javap(["-p", "-s"], root, names)
     table, current, pending = {}, None, None
     for raw in text.splitlines():
         line = raw.strip()
         decl = parse_decl(line)
         if decl:
-            current, supers = decl
-            table[current] = (supers, set())
+            current, supers, is_interface = decl
+            table[current] = (supers, set(), is_interface)
             pending = None
             continue
         if current is None:
@@ -247,7 +273,7 @@ def declares(table, fqcn, member):
         entry = table.get(cls)
         if entry is None:
             continue
-        supers, members = entry
+        supers, members = entry[0], entry[1]
         if member in members:
             return cls
         stack.extend(supers)
@@ -260,6 +286,7 @@ def resolve(merged, fw_index, owner, member):
     Returns one of:
       ("module", cls)  the module declares it — not a framework question
       ("framework", cls)
+      ("java", "java.lang.Object")  inherited from Object, which is always present
       ("missing", None)      the walk stayed inside known classes and found nothing
       ("unknown", cls)       the walk left both JARs, so the answer is not knowable
                              from these two inputs alone
@@ -289,10 +316,16 @@ def resolve(merged, fw_index, owner, member):
             if not cls.startswith(("java.", "javax.")):
                 hit_unknown = hit_unknown or cls
             continue
-        supers, members = entry
+        supers, members = entry[0], entry[1]
         if member in members:
             return ("framework" if cls in fw_index else "module"), cls
         stack.extend(supers)
+    # Every walk ends at java.lang.Object, which the index never contains.
+    # 每条上溯最终都到 java.lang.Object，而索引里没有它。
+    owner_entry = merged.get(owner)
+    owner_is_interface = bool(owner_entry and owner_entry[2])
+    if member in OBJECT_PUBLIC or (member in OBJECT_PROTECTED and not owner_is_interface):
+        return "java", "java.lang.Object"
     return ("unknown", hit_unknown) if hit_unknown else ("missing", None)
 
 
@@ -374,7 +407,7 @@ def main():
             if owner in missing_type_set:
                 continue
             kind, where = resolve(merged, fw_index, owner, (name, desc))
-            if kind in ("module", "framework"):
+            if kind in ("module", "framework", "java"):
                 continue
             if kind == "unknown":
                 inconclusive.append(f"{owner}.{name}:{desc}  （链上有本次比对之外的类 "

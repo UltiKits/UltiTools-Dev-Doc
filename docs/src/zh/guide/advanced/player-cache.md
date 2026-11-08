@@ -24,7 +24,7 @@
 
 ## 移除前保存
 
-设置 `saveBeforeRemove = true` 并实现 `PlayerCacheSaver` 接口，框架会在移除条目之前调用 `savePlayerData(playerUuid)`。它适用于只存在于本服务器内存中、需要在玩家离开时写入一次的状态。它不适用于已存储的行的缓存副本，因为副本可能比数据库里的行更旧。
+设置 `saveBeforeRemove = true` 并实现 `PlayerCacheSaver` 接口，框架会在移除条目之前调用 `savePlayerData(playerUuid)`。它适用于只存在于本服务器内存中、需要在玩家离开时写入的状态。它不适用于已存储的行的缓存副本，因为副本可能比数据库里的行更旧。
 
 玩家加入本服务器的时间就是这类状态：没有任何已存储的行保存它。下面的服务在玩家退出时为已结束的会话追加一行新记录，不读取也不覆盖任何已存储的行：
 
@@ -86,7 +86,7 @@ public boolean addCoins(UUID playerId, int amount) {
 
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `saveBeforeRemove` | `boolean` | `false` | 如果为 `true`，在移除条目前调用 Bean 的 `savePlayerData(UUID)` 方法。Bean 必须实现 `PlayerCacheSaver` 接口。 |
+| `saveBeforeRemove` | `boolean` | `false` | 如果为 `true`，在移除条目前调用 Bean 的 `savePlayerData(UUID)` 方法。Bean 必须实现 `PlayerCacheSaver` 接口；未实现时框架直接移除条目，不保存，也不记录日志。 |
 
 ## PlayerCacheSaver 接口
 
@@ -109,8 +109,10 @@ v6.3.2 文档记录的已知限制（保持 v6.3.0 行为）：`savePlayerData(U
 ## 使用要求
 
 - 字段必须是以 `UUID` 为键的 `Map`（自 v6.3.0 起也可以是 `Set<UUID>`，或值为 `UUID` 的 `Map`）
-- 字段必须在容器管理的 Bean 中（`@Service`、`@CmdExecutor`、`@EventListener`）
-- 使用 `saveBeforeRemove = true` 时，Bean 必须实现 `PlayerCacheSaver`
+- `Map<UUID, UUID>` 按键处理：只移除退出玩家自己的键，不移除值为该玩家的条目
+- 自 v6.3.0 起，其他形状的 `@PlayerCache` 字段会在注册 Bean 时被拒绝（`PluginModuleException`），不再被忽略
+- 字段必须在模块容器中的单例 Bean 里（例如 `@Service`、`@CmdExecutor`、`@EventListener`，或通过 `registerSingleton(...)` 添加的对象），且在 `registerSelf()` 返回 `true` 时已存在；通过 `registerType(...)` 添加的对象不会被扫描
+- 使用 `saveBeforeRemove = true` 时，Bean 必须实现 `PlayerCacheSaver`，否则条目会被直接移除而不保存
 - 如果 Map 会被异步线程访问，请使用 `ConcurrentHashMap`
 
 ## 完整示例

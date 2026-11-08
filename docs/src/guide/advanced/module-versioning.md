@@ -27,7 +27,7 @@ The fourth item covers a case the first three miss, because nothing about the mo
 
 ## Differences from the framework's version
 
-`UltiTools-API`'s [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/COMPATIBILITY.md) states that its version number is a product-stage signal rather than a strict semver contract, and that a MINOR release of the framework may remove an API.
+`UltiTools-API`'s [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md) states that its version number is a product-stage signal rather than a strict semver contract, and that a MINOR release of the framework may remove an API.
 
 ::: tip Contributing to the framework itself, not just consuming it
 If you plan to open a pull request against `UltiTools-Reborn`, note its contribution language policy differs from this site's: new comments, javadoc, workflow comments, and PR titles/bodies must be English-first with Chinese as a supplement.
@@ -51,7 +51,7 @@ All three go through `VersionComparatorUtil.compare` and ask whether A is greate
 
 Two JARs of one module in the modules folder do not reach the first two. All module JARs share one class loader, so both copies resolve to the same class and are never loaded side by side. Which copy supplies the classes is decided by file name, not by version, as described in [Two copies of one module](#two-copies-of-one-module).
 
-Nor does anything resolve one module from Maven for another module to use. None of the official modules declares a dependency on a sibling module in its pom. A module built as a multi-module project, such as `UltiBot`, depends on its own submodules, which is internal to that build rather than one module depending on another. The linkage argument that constrains the framework's version number therefore does not apply to a module's. If you publish your own module for others to compile and link against, that argument starts applying to yours: your version number now has to answer a compatibility question, so what you need is a stricter contract that preserves compatibility, not the framework's looser one.
+Nor does anything resolve one module from Maven for another module to use. None of the official modules declares a dependency on a sibling module in its pom. A module built as a multi-module project, such as the discontinued `UltiBot`, depends on its own submodules, which is internal to that build rather than one module depending on another. The linkage argument that constrains the framework's version number therefore does not apply to a module's. If you publish your own module for others to compile and link against, that argument starts applying to yours: your version number now has to answer a compatibility question, so what you need is a stricter contract that preserves compatibility, not the framework's looser one.
 
 So the split is that the order of a module's version is machine-consumed while the meaning of MAJOR, MINOR and PATCH is not. That produces one mandatory rule and leaves the rest to the author's judgement.
 
@@ -129,7 +129,7 @@ The way to handle this situation is to follow deprecation notices and migrate be
 ::: tip Reading a deprecation notice for its deadline
 As of v6.3.0, every `@Deprecated(forRemoval = true)` member carries a machine-checked `{@removeIn X.Y.Z}` javadoc tag naming the concrete removal version.
 A build-time check fails the framework's own CI if the member is still declared once the project version reaches that target, so the tag is an enforced promise, not just documentation.
-See [`compatibility/DEPRECATIONS.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/compatibility/DEPRECATIONS.md) for every currently `ANNOUNCED` removal and its deadline in one place.
+See [`compatibility/DEPRECATIONS.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/compatibility/DEPRECATIONS.md) for every currently `ANNOUNCED` removal and its deadline in one place.
 :::
 
 ### Changed descriptors
@@ -270,7 +270,7 @@ Which versions a server is offered and installs depends on the framework it runs
 | UltiTools-API 6.3.0 or later | `api-version` from 630 up to the framework's own API level (630 for 6.3.0) |
 | UltiTools-API before 6.3.0 | `api-version` below 630 only |
 
-A 6.3.0 server sends its level with every catalogue request (`apiLevel`, and `minApiLevel=630`). A framework before 6.3.0 sends none, and UltiCloud treats such a request as coming from a framework before 6.3.0, so released 6.2.x servers are not offered a 6.3.0 build. This applies to `/upm install`, `/upm install <module> <version>`, `/upm versions`, `/upm update` and the update check at start-up. The update check reports only a version this server can install and never mentions one that needs a newer UltiTools-API. `/upm list` still lists every module in the catalogue; Install on a module with no compatible version replies with the reason.
+A server on 6.3.0 or later sends its level (`apiLevel`, and `minApiLevel=630`) when it looks up a module's versions: in 6.3.0 with every catalogue request, as of v6.3.1 only on the module versions route. A framework before 6.3.0 sends none, and UltiCloud treats such a request as coming from a framework before 6.3.0, so released 6.2.x servers are not offered a 6.3.0 build. This applies to `/upm install`, `/upm install <module> <version>`, `/upm versions`, `/upm update` and the update check at start-up. The update check reports only a version this server can install and never mentions one that needs a newer UltiTools-API. `/upm list` still lists every module in the catalogue; Install on a module with no compatible version replies with the reason.
 
 As of v6.3.2, `/upm check`, `/upm update <module>` and `/upm update all` reply `Update check still running; try again in a few seconds.` until the startup check completes, including before its manager exists. They do not consume partial results; update commands download and stage nothing during this time. These commands read the completed startup result, not a new check: wait for completion and retry. A completed check with failed lookups instead reports `Update check incomplete: could not confirm the latest version of <names>.`.
 
@@ -320,4 +320,4 @@ If a module's own unload hook throws, including a checked exception it does not 
 
 ## Current state of the modules
 
-Most modules are still on `1.0.0`, because they have had no release requiring this decision. Two of them made a decision before this page existed and reached opposite conclusions: one used MINOR for a bug fix, the other MAJOR for a new feature, and neither matches the table above. They are being reconciled module by module rather than renumbered retroactively, because a published version number may already have been written down by server owners.
+For UltiTools-API 6.3.0 every first-party module released a new MAJOR version: `2.0.0`, and `3.0.0` for UltiEconomy. Before that, two of them had made a decision before this page existed and reached opposite conclusions: one used MINOR for a bug fix, the other MAJOR for a new feature, and neither matches the table above. Those earlier versions were not renumbered retroactively, because a published version number may already have been written down by server owners.

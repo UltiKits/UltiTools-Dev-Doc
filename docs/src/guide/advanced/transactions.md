@@ -19,9 +19,9 @@ DataOperator<AccountEntity> dataOperator = plugin.getDataOperator(AccountEntity.
 
 dataOperator.transaction(() -> {
     AccountEntity from = dataOperator.query()
-        .where("playerId").eq(fromPlayer).first();
+        .where("player_id").eq(fromPlayer).first();
     AccountEntity to = dataOperator.query()
-        .where("playerId").eq(toPlayer).first();
+        .where("player_id").eq(toPlayer).first();
 
     from.setBalance(from.getBalance() - amount);
     to.setBalance(to.getBalance() + amount);
@@ -47,7 +47,7 @@ DataOperator<AccountEntity> dataOperator = plugin.getDataOperator(AccountEntity.
 try {
     double newBalance = dataOperator.transaction(() -> {
         AccountEntity account = dataOperator.query()
-            .where("playerId").eq(playerUuid).first();
+            .where("player_id").eq(playerUuid).first();
         account.setBalance(account.getBalance() + depositAmount);
         dataOperator.update(account);
         return account.getBalance();
@@ -162,7 +162,7 @@ The `@Transactional` annotation provides declarative transaction management on s
 
 ### Prerequisites
 
-The `@Transactional` annotation only works on methods within `@Service` beans, since transactions are implemented via generated subclass proxies (ByteBuddy since v6.3.0; the earlier CGLIB engine had the same subclass-proxy shape):
+The `@Transactional` annotation works on methods of beans the container creates itself (`@Service`, `@Component` and other scanned components), since transactions are implemented via generated subclass proxies (ByteBuddy since v6.3.0; the earlier CGLIB engine had the same subclass-proxy shape):
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/PaymentService.java
 
@@ -225,13 +225,13 @@ The same rule applies to a nested `DataOperator#transaction(...)` call. As of v6
 
 The `isolation` attribute controls the isolation level for the transaction:
 
-| Level | Prevents | Database Support |
-|-------|----------|------------------|
-| `DEFAULT` | Uses database default | All databases |
-| `READ_UNCOMMITTED` | None (dirty reads possible) | Most databases |
-| `READ_COMMITTED` | Dirty reads | Most databases |
-| `REPEATABLE_READ` | Dirty reads, non-repeatable reads | Most databases |
-| `SERIALIZABLE` | All consistency issues | All databases |
+| Level | Prevents |
+|-------|----------|
+| `DEFAULT` | Uses database default |
+| `READ_UNCOMMITTED` | None (dirty reads possible) |
+| `READ_COMMITTED` | Dirty reads |
+| `REPEATABLE_READ` | Dirty reads, non-repeatable reads |
+| `SERIALIZABLE` | All consistency issues |
 
 On the JSON backend, as of v6.3.0, `REPEATABLE_READ` and `SERIALIZABLE` lock a table at the transaction's first read of it, which gives repeatable reads at table granularity. The other levels lock a table at the first write and serve `READ_UNCOMMITTED` as `READ_COMMITTED`. A transaction begun by `DataOperator#transaction(...)` locks at the first read like `REPEATABLE_READ`, whatever the level; a `transaction(...)` that joins an active transaction keeps that transaction's isolation.
 
@@ -346,7 +346,7 @@ Both approaches achieve the same result. Choose based on your use case:
 ### Use Programmatic Transactions (`dataOperator.transaction()`) when:
 - You need fine-grained control over transaction boundaries
 - The transaction spans multiple service calls
-- You're working outside a `@Service` bean
+- You're working outside a bean the container creates
 - You need to handle nested transactions manually
 
 ### Use Declarative Transactions (`@Transactional`) when:

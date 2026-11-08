@@ -4,7 +4,7 @@
 Available in UltiTools-API 6.2.2 and later.
 :::
 
-The External Plugin API allows **any regular Bukkit/Spigot plugin** to use UltiTools framework features without extending `UltiToolsPlugin`. Your plugin stays a normal `JavaPlugin` — just call `UltiToolsAPI.connect(this)` and the framework scans your package for `@Service`, `@CmdExecutor`, `@EventListener`, `@Scheduled`, and more.
+The External Plugin API allows **any regular Bukkit plugin running on a Paper server** to use UltiTools framework features without extending `UltiToolsPlugin`. Your plugin stays a normal `JavaPlugin` — just call `UltiToolsAPI.connect(this)` and the framework scans your package for `@Service`, `@CmdExecutor`, `@EventListener`, `@Scheduled`, and more.
 
 ## Quick Start
 
@@ -15,7 +15,7 @@ The External Plugin API allows **any regular Bukkit/Spigot plugin** to use UltiT
 <dependency>
     <groupId>com.ultikits</groupId>
     <artifactId>UltiTools-API</artifactId>
-    <version>6.3.0</version>
+    <version>6.3.2</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -74,7 +74,7 @@ Command descriptions use the raw `description` attribute from `@CmdExecutor`. Th
 
 ## Data Storage
 
-Use `UltiToolsAPI.getDataOperator()` to get a `DataOperator` for your data entities. Data is stored in **your plugin's own data folder**, not UltiTools' folder.
+Use `UltiToolsAPI.getDataOperator()` to get a `DataOperator` for your data entities. With the JSON or SQLite backend the data is stored in **your plugin's own data folder**, not UltiTools' folder. With MySQL it is stored in the server's configured MySQL database, in the table named by `@Table`, so choose a table name that no other plugin or module uses. `getDataOperator` refuses an entity class that is neither in your plugin's JAR nor passed to `connect`.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/StatsEntity.java
 
@@ -105,9 +105,10 @@ public void onCustomEvent(MyCustomEvent event) {
 | Method | Description |
 |--------|-------------|
 | `UltiToolsAPI.connect(JavaPlugin)` | Connect plugin to UltiTools framework |
+| `UltiToolsAPI.connect(JavaPlugin, Class<?>...)` (v6.3.0+) | Connect, and also register entity classes your plugin owns that live outside its own JAR |
 | `UltiToolsAPI.disconnect(JavaPlugin)` | Disconnect plugin from framework |
 | `UltiToolsAPI.isConnected(JavaPlugin)` | Check if a plugin is connected |
-| `UltiToolsAPI.getDataOperator(JavaPlugin, Class)` | Get a DataOperator scoped to the plugin's data folder |
+| `UltiToolsAPI.getDataOperator(JavaPlugin, Class)` | Get a DataOperator scoped to the plugin (its data folder on JSON and SQLite) |
 | `UltiToolsAPI.getEventBus()` | Get the shared EventBus instance |
 
 ## Lifecycle
@@ -129,7 +130,7 @@ As of v6.3.2, a failure during subsequent scheduled-task, player-cache, EventBus
 | Config entities | Full support (`@ConfigEntity`) | **Not available** — use Bukkit `getConfig()` |
 | Config-bound `@Scheduled` / `@CmdCD` (v6.3.0+) | Supported, see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing) | Refused, use literal `period` / `delay` / `value` |
 | Data storage | `plugin.getDataOperator(Class)` | `UltiToolsAPI.getDataOperator(plugin, Class)` |
-| Hot reload | Supported via `ul reload` | Not supported — requires server restart |
+| Reload | `/ul reload` reloads module configs and language; a changed JAR still needs a server restart | Not available; implement your own reload command, and restart for a changed JAR |
 | plugin.yml | `api-version: 630` for a module built for 6.3.0 (a config-bound `@Scheduled` / `@CmdCD` requires `630`) | `depend: [UltiTools]` |
 
 ## Complete Working Example

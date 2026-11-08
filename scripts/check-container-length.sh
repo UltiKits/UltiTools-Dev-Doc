@@ -43,14 +43,19 @@
 #        - 只认行首、恰好三个冒号的 `:::`；缩进的容器（例如嵌在列表项里）和四个及以上
 #          冒号的开启行（`:::: warning` 这类嵌套写法）不会被识别，也不会被检查
 #          （目前全站为 0 处）。
-#        - 围栏代码块之外的 ::: 行一律按容器开启行处理；写在围栏里的示例不在容器内时
-#          会被当成真容器（目前全站为 0 处）。
+#        - 围栏代码块（``` 或 ~~~，三个及以上，行首最多缩进三格）内的 ::: 行一律不算：
+#          既不开启容器，也不关闭容器。关闭围栏要用同一种字符、长度不短于开启围栏。
+#          A ::: line inside a fenced code block (``` or ~~~, three or more, up to
+#          three spaces of indent) neither opens nor closes a container; a fence
+#          closes only on the same character at no shorter a length.
+#        - 文件结束时仍未关闭的容器按 UNCLOSED 报告并以 1 退出。
+#          A container still open at end of file is reported as UNCLOSED and exits 1.
 #        - 标题规则与 API 页的长度豁免互相独立：被豁免长度的 info 仍需要标题
 #          （tabs 不在标题规则内）。
 #
 # 沿用 Phase 7 的三处既有修正：
 #   1. 先 tr -d '\r' —— 原脚本的 /^:::$/ 在 CRLF 文件上永不匹配，失效表现为零输出（= 通过）
-#   2. 跳过容器体内的 ``` 代码块 —— 原脚本在含代码的容器上误报
+#   2. 跳过围栏代码块 —— 原脚本在含代码的容器上误报（现覆盖 ``` 与 ~~~、任意长度，见上文第 7 条）
 #   3. 按句判定 —— 剥离列表前缀与行内代码跨度后，每个非空散文行至少算 1 句
 #
 # 用法：find docs/src -name '*.md' -print0 | xargs -0 bash scripts/check-container-length.sh
@@ -69,8 +74,30 @@ for f in "$@"; do
     docs/src/guide/advanced/ulti-tools-plugin.md|docs/src/zh/guide/advanced/ulti-tools-plugin.md) is_api=1 ;;
   esac
   tr -d '\r' < "$f" | awk -v F="$f" -v MODE="$mode" -v IS_API="$is_api" '
+    # 围栏跟踪（容器内外都做）。fch/flen 是当前开启围栏的字符与长度；fence=0 表示不在围栏内。
+    # Fence tracking, inside and outside containers. A ::: line inside a fence is
+    # code, so it must neither open nor close a container.
+    {
+      if (match($0, /^ ? ? ?(```+|~~~+)/)) {
+        run = substr($0, RSTART, RLENGTH)
+        sub(/^ +/, "", run)
+        ch = substr(run, 1, 1)
+        if (!fence) {
+          # 反引号围栏的信息串不能含反引号（CommonMark 4.5），否则这行不是围栏
+          after = substr($0, RSTART + RLENGTH)
+          if (!(ch == "`" && after ~ /`/)) {
+            fence = 1; fch = ch; flen = length(run)
+            next
+          }
+        } else if (ch == fch && length(run) >= flen && substr($0, RSTART + RLENGTH) ~ /^[ \t]*$/) {
+          fence = 0
+          next
+        }
+      }
+      if (fence) next
+    }
     /^:::[ ]?[a-z]/ && !inb {
-      inb=1; start=NR; kind=$0; lines=0; sent=0; fence=0; bold=0; dash=0
+      inb=1; start=NR; kind=$0; lines=0; sent=0; bold=0; dash=0
       ctype = kind
       sub(/^:::[ ]?/, "", ctype)
       sub(/[ \t].*/, "", ctype)
@@ -90,7 +117,6 @@ for f in "$@"; do
       }
       next
     }
-    inb && /^```/ { fence = !fence; next }
     inb && /^:::[[:space:]]*$/ {
       if (!skip) {
         if (lines==0) { if (MODE=="all") printf "%s:%d  STRUCT  %s\n", F, start, kind }
@@ -103,7 +129,7 @@ for f in "$@"; do
       }
       inb=0; next
     }
-    inb && !fence {
+    inb {
       if (NF==0) next
       lines++
       t=$0
@@ -118,7 +144,13 @@ for f in "$@"; do
       n += gsub(/[.!?]([[:space:]]|$)/, "&", t)
       sent += (n>0 ? n : 1)
     }
-    END { exit (found ? 1 : 0) }
+    END {
+      if (inb) {
+        printf "%s:%d  UNCLOSED  容器没有关闭 / container is never closed  %s\n", F, start, kind
+        found=1
+      }
+      exit (found ? 1 : 0)
+    }
   '
   if [ $? -ne 0 ]; then overall=1; fi
 done

@@ -15,7 +15,7 @@ import java.util.Map;
 public class SomeConfig extends AbstractConfigEntity {
     @ConfigEntry(path = "somepath", comment = "somecomment")
     private boolean something = false;
-    @ConfigEntry(path = "someMapPath", comment = "somecomment2", parser = StringHashMapParser.class)
+    @ConfigEntry(path = "someMapPath", comment = "somecomment2")
     private Map<String, String> someMap = new HashMap<>();
 
     public SomeConfig(String configFilePath) {

@@ -16,7 +16,7 @@ UltiTools-API 对原生的 `CommandExecutor` 接口进行了封装，提供了�
 
 ::: danger v6.3.0 起已移除
 `AbstractCommandExecutor`（以及空壳 `AbstractCommendExecutor`）自 v6.2.0 起已弃用，并在 **v6.3.0 中被彻底删除**——不是不可达，而是这个类在 jar 里已经不存在了。请使用 `BaseCommandExecutor`，它提供了相同的注解驱动功能，同时支持可插拔的验证链、改进的上下文管理和自定义类型解析器支持。完整迁移指南见
-`COMPATIBILITY.md` 的 [Migrating off `AbstractCommandExecutor`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/COMPATIBILITY.md#migrating-off-abstractcommandexecutor)（该文件为英文，是仓库的权威版本对照文档）一节。
+`COMPATIBILITY.md` 的 [Migrating off `AbstractCommandExecutor`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md#migrating-off-abstractcommandexecutor)（该文件为英文，是仓库的权威版本对照文档）一节。
 :::
 
 ::: tip `/命令 help` 现在与其他调用一样受同一套校验 <Badge type="tip" text="v6.3.0+" />
@@ -123,7 +123,7 @@ UltiTools会首先在当前类中搜索匹配的方法名，并尝试调用此�
 
 自 v6.3.2 起，控制台、RCON 和其他 `CommandSender` 实现与玩家使用同一套补全分发。提供补全的方法还支持三个精确的参数列表：`(CommandSender)`、`(CommandSender, String)` 和 `(CommandSender, Command, String[])`。类型必须是 `CommandSender` 本身，而不是某种发送者子类。这些形式既可写在命令执行器中，也可写在 `@CmdSuggest` 指定的类中。
 
-候选字面量或补全方法产生结果之前，会先经过同样的类级与映射级权限、OP 检查及生效的 `@CmdTarget` 限制。`CONSOLE` 指所有非玩家发送者，不限于 `ConsoleCommandSender`。请求被拒绝时静默返回空候选；补全过程不执行带副作用的验证器、冷却或使用锁，也不发送命令拒绝消息。
+候选字面量或补全方法产生结果之前，会先经过同样的类级与映射级权限、OP 检查及生效的 `@CmdTarget` 限制。`CONSOLE` 指所有非玩家发送者，不限于 `ConsoleCommandSender`。请求被拒绝时静默返回空候选。对控制台或 RCON 发送者，`suggest` 返回 `null` 而不是空列表，服务器随之回退到默认补全，即在线玩家名。补全过程不执行带副作用的验证器、冷却或使用锁，也不发送命令拒绝消息。
 
 注册的自定义补全器通过 `TabCompletionContext.getSender()` 取得请求者。玩家请求的 `getPlayer()` 返回该玩家，所有非玩家请求均返回 `null`；使用玩家专属 API 前，自定义补全器必须检查是否为 `null`。只接收 Player 的补全方法会跳过非玩家请求，绝不会收到 null 玩家。无参、仅 String 参数的方法、内置补全器和注册的 `@key` 补全器对两类发送者都可用。
 
@@ -227,7 +227,7 @@ public void addPoint(@CmdSender Player player, @CmdParam("name") String[] name) 
 
 在对方法进行传参之前，UltiTools 会根据方法所需参数的类型对命令的可变参数进行转换。
 
-所有的解析器被储存在一个名为 `parsers` 的 Map 中，你可以使用 `getParser()` 获取。
+解析器保存在共享的 `TypeParserRegistry` 中，可用 `TypeParserRegistry.getInstance().getParser(SomeType.class)` 查询。
 
 对于部分类型，`BaseCommandExecutor` 通过 `TypeParserRegistry.getInstance()` 提供了默认的解析器（包括基类与数组）：
 
@@ -243,17 +243,12 @@ public void addPoint(@CmdSender Player player, @CmdParam("name") String[] name) 
 - Material (Bukkit API)
 - UUID (Java 内建)
 - Boolean (Java 内建)
+- World (Bukkit API)
+- GameMode (Bukkit API)
+- Location (Bukkit API)
+- Enchantment (Bukkit API)
 
-如果你希望使用自定义的解析器，那么你需要创建一个可以使用 ` Function ` 接口的方法。
-
-支持的解析器类型为 `<String, ?>`, 即方法有且仅有一个 `String` 类型的参数，并返回一个任意类型的值。
-
-```java
-public static SomeType toSomeType(String s) {
-  //do something...
-  return result;
-}
-```
+要支持新的类型，请实现 `TypeParser<T>` 并用 `TypeParserRegistry.getInstance().register(...)` 注册，见[自定义类型解析器](#自定义类型解析器)。
 
 ### 权限
 
@@ -362,7 +357,7 @@ icon.onClick(event -> {
 
 参数类型为整数，单位为秒。
 
-冷却结束之前执行该指令将会发送消息：`操作频繁，请 %d 秒后再试`（`%d` 会替换为剩余秒数）。
+冷却结束之前执行该指令将会发送消息：`操作频繁，请 %d 秒后再试`（`%d` 会替换为剩余秒数）。自 v6.3.0 起 `en.json` 含此带参数的键，英文服务器显示 `Frequent operations, please try again in %d seconds`。
 
 此限制仅对**玩家**生效。
 
@@ -524,7 +519,7 @@ public void checkCooldown(UUID playerId, String methodKey) {
 }
 ```
 
-冷却校验器通过 `getCooldownValidator()` 获取，它是 `BaseCommandExecutor` 上的一个实例字段。每个命令执行器各持有自己的一份，因此该调用只能取到当前执行器的冷却状态。`methodKey` 是映射方法的 `method.toString()`。通过自定义 `ValidatorChain` 把同一个校验器交给多个执行器时，以字符串为键的 `getRemainingCooldown(UUID, String)` 与 `clearCooldown(UUID, String)` 作用于其中全部执行器；自 v6.3.0 起，重载 `getRemainingCooldown(UUID, Object executor, String methodKey)` 与 `clearCooldown(UUID, Object executor, String methodKey)` 只作用于一个执行器。
+冷却校验器通过 `getCooldownValidator()` 获取，它是 `BaseCommandExecutor` 上的一个实例字段。每个命令执行器各持有自己的一份，因此该调用只能取到当前执行器的冷却状态。`methodKey` 是映射方法的 `method.toString()`。向 `super(...)` 传入自定义验证链时，`getCooldownValidator()` 返回的实例不在链中，始终报告没有冷却；请保留你放进链中的 `CooldownValidator` 的引用并查询它。通过自定义 `ValidatorChain` 把同一个校验器交给多个执行器时，以字符串为键的 `getRemainingCooldown(UUID, String)` 与 `clearCooldown(UUID, String)` 作用于其中全部执行器；自 v6.3.0 起，重载 `getRemainingCooldown(UUID, Object executor, String methodKey)` 与 `clearCooldown(UUID, Object executor, String methodKey)` 只作用于一个执行器。
 
 #### UsageLockValidator
 
@@ -572,7 +567,7 @@ public void download(@CmdSender Player player) {
 2. **200** - PermissionValidator（检查权限）
 3. **250** - UsageLockValidator（防止并发执行）
 4. **300** - CooldownValidator（检查冷却状态）
-5. **400+** - 自定义验证器
+5. 自定义验证器按其 `getOrder()` 返回值排序；默认值为 `0`，会排在所有内置验证器之前，如需在其后执行请返回大于 300 的值（示例用 400）
 
 ## 异步命令 <Badge type="tip" text="v6.2.0+" />
 
@@ -607,7 +602,8 @@ public void backupWorld(@CmdSender Player player) {
 @CmdMapping(format = "backup")
 public void backupWorld(@CmdSender Player player) {
     // 上述配置的作用：
-    // - 执行时显示"处理中..."
+    // - 执行时显示 command.backup.processing 对应的文本
+    //   （只有键为空时才使用默认的 处理中... / Processing...）
     // - 使用自定义 i18n 键而不是默认值
 }
 ```
@@ -672,7 +668,7 @@ public void randomNumber(@CmdSender Player player,
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerCommandExample.java
 
-除 `Player` 类型的参数外，该方法与 `CommandExecutor#onCommand` 方法相同。
+该方法接收命令、参数和玩家；与 `CommandExecutor#onCommand` 不同，没有别名（label）参数。
 
 如果尝试在控制台执行该命令，将会收到一条错误消息：`只有游戏内可以执行这个指令！`
 
@@ -680,7 +676,7 @@ public void randomNumber(@CmdSender Player player,
 
 ### 命令补全
 
-自Minecraft 1.13起，Bukkit API提供了一个新的 `TabCompleter` 接口，用于处理命令补全。
+Bukkit API 提供了 `TabCompleter` 接口用于命令补全。
 
 UltiTools 对该接口进行了封装，提供了一个更加简洁的命令补全方式。
 
@@ -694,7 +690,7 @@ protected List<String> onPlayerTabComplete(Command command, String[] strings, Pl
 }
 ```
 
-除 `Player` 类型的参数外，该方法与 `TabCompleter#onTabComplete` 方法相同。
+该方法接收命令、参数和玩家；与 `TabCompleter#onTabComplete` 不同，没有别名（label）参数。
 
 其余的用法与 `AbstractPlayerCommandExecutor` 类相同。
 
@@ -704,7 +700,7 @@ protected List<String> onPlayerTabComplete(Command command, String[] strings, Pl
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ConsoleCommandExample.java
 
-该方法与 `CommandExecutor#onCommand` 方法相同。
+该方法接收发送者、命令和参数；与 `CommandExecutor#onCommand` 不同，没有别名（label）参数。
 
 如果尝试在游戏内执行该命令，将会收到一条错误消息：`只可以在后台执行这个指令！`
 

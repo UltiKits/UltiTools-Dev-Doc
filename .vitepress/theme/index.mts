@@ -24,8 +24,6 @@ import 'virtual:group-icons.css'
 import 'viewerjs/dist/viewer.min.css';
 import './styles/main.css'
 
-// @ts-ignore
-import vImageViewer from 'vitepress-plugin-image-viewer/lib/vImageViewer.vue';
 // This site's own wrapper (04-03-PLAN.md), not @viteplus/versions' own
 // version-switcher.component.vue — that upstream component's path builder
 // emits a measured-404 shape on this site's Chinese pages and its mobile
@@ -44,6 +42,10 @@ export default {
     ...DefaultTheme,
     Layout,
     enhanceApp: (ctx: EnhanceAppContext) => {
+        // This object replaces DefaultTheme.enhanceApp, which is where VitePress
+        // registers the global Badge component; run it first or every <Badge>
+        // renders as an empty comment node.
+        DefaultTheme.enhanceApp?.(ctx)
         vitepressNprogress(ctx)
         enhanceAppWithTabs(ctx.app)
         vitepressBackToTop()
@@ -55,7 +57,6 @@ export default {
         // 往每个 markdown 里插的是字面量 <NolebaseGitChangelog />，所以覆盖点
         // 就是这个名字。
         ctx.app.component('NolebaseGitChangelog', GitChangelogClientOnly);
-        ctx.app.component('vImageViewer', vImageViewer);
         ctx.app.component('VersionSwitcher', VersionSwitcher);
     },
     setup() {
@@ -66,12 +67,12 @@ export default {
         codeblocksFold({ route, frontmatter }, false, 400);
         imageViewer(route);
 
-        const { lang } = useData()
-        let language = lang.value.split('-')[0];
-        if (language === 'zh') {
-            language = 'zh-CN'
-        }
-        // Obtain configuration from: https://giscus.app/
+        // The one giscus setup for the whole site (Layout.vue used to run a second
+        // one). giscusTalk() reads its props once, so a `lang` computed here would
+        // stay at the first page's language after an in-app locale switch. The
+        // plugin instead re-reads <html lang> through `locales` every time it
+        // re-creates the widget, which it does on every route change.
+        // Configuration from https://giscus.app/
         giscusTalk({
             repo: 'UltiKits/UltiTools-Dev-Doc',
             repoId: 'R_kgDOKHynCA',
@@ -79,10 +80,10 @@ export default {
             categoryId: 'DIC_kwDOKHynCM4Cb4Le',
             mapping: 'pathname',
             inputPosition: 'top',
-            lang: `${language}`,
+            lang: 'en',
+            locales: { 'zh-CN': 'zh-CN', 'en-US': 'en' },
             lightTheme: 'light',
             darkTheme: 'transparent_dark',
-            // ...
         }, {
             frontmatter, route
         },

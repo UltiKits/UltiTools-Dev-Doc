@@ -3,8 +3,13 @@ name: Examples
 on:
   push:
     branches: [ "**" ]
+  # `alpha` as well as `master`: most documentation PRs target `alpha`, and
+  # without it those PRs never compiled the examples before merging. `push`
+  # already covers every branch. On an `alpha` PR the version-consistency job
+  # checks the same invariant a push to `alpha` already does; the issue writes
+  # stay limited to schedule, workflow_dispatch and pushes to master.
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "alpha" ]
   # A new release on Maven Central produces no push and no PR here, so nothing
   # would notice that every downstream pin just fell one release further behind
   # — or that the docs invariant broke without anyone touching this repository.
@@ -17,26 +22,43 @@ on:
   # For the manual run before cutting a release.
   workflow_dispatch:
 
+# Three kinds of run, three groups:
+#   - Status-updating runs (schedule, workflow_dispatch, push to master) share
+#     the one fixed group `release-sync-status-light`, never cancelled. The lock
+#     has to cover the whole run, from the version check in version-consistency
+#     to the issue writes in status-lights: if only status-lights were locked,
+#     run A could pass its check, run B could then see a newer Central release,
+#     fail and open `release-sync`, and A's status-lights would close it again
+#     from A's stale success. Whole-run serialization makes each run's check
+#     and writes adjacent. (Same three triggers and the same group name as the
+#     job-level lock this replaces; see the status-lights comment below.)
+#   - A pull request run is cancelled by a newer push to the same pull request.
+#   - Every other run (pushes to other branches, alpha included) gets a group
+#     keyed by its own run id, so it is never cancelled and never displaces a
+#     pending status-updating run.
+concurrency:
+  group: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/master')) && 'release-sync-status-light' || (github.event_name == 'pull_request' && format('examples-ci-pr-{0}', github.ref) || format('examples-ci-{0}-{1}', github.ref, github.run_id)) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   compile:
     name: Compile documentation examples
     runs-on: ubuntu-latest
     # Only checks out the repo and runs `mvn compile` — no GitHub API writes
     # happen here, so this job gets nothing beyond read access to contents.
-    # It does NOT inherit version-consistency's `issues: write`; permissions
-    # declared per job, not once at the top of this file (see that job's
-    # permissions block for why a top-level declaration would be wrong here).
+    # Permissions are declared per job, not once at the top of this file:
+    # only the status-lights job needs `issues: write`.
     permissions:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # 构建期会执行仓库外的代码，不持久化凭据可避免 token 落到 .git/config
           persist-credentials: false
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -48,69 +70,6 @@ jobs:
   version-consistency:
     name: Docs version matches latest release
     runs-on: ubuntu-latest
-    # WR-01 fix: without this, two runs of this job can execute in parallel —
-    # e.g. a `push` to master landing at the same wall-clock moment as the
-    # weekly `schedule` cron, or two pushes to master in quick succession.
-    # Both runs would query `gh issue list --state open --label release-sync`
-    # before either has created one, both see an empty result, and both call
-    # `gh issue create` — this is the actual mechanism that produces the
-    # duplicate-issue scenario CR-01's fix has to clean up after the fact.
-    #
-    # PR #39 round-3 review fix (replaces the earlier fixed-string
-    # `group: release-sync-status-light`): a single fixed group covers EVERY
-    # trigger of this job, not just the three that can mutate the
-    # `release-sync` issue. The "Open or update"/"Close if recovered" steps
-    # below both gate on event via `if:` and intentionally do nothing for a
-    # feature-branch `push` or a `pull_request` run — but a fixed-string
-    # `concurrency.group` does not know that. GitHub Actions allows at most
-    # one PENDING run per group, and queuing a new run into an occupied
-    # group CANCELS whatever was already pending there. So a feature-branch
-    # push queued behind a pending `schedule` run would cancel that
-    # scheduled run outright — the mutating run silently never executes, a
-    # drift that week opens no issue, a recovery that week closes none, and
-    # nothing in the Actions log calls this out as a failure because the
-    # cancelled run's steps never even started. That is strictly worse than
-    # the duplicate-issue bug this block was added to fix: a duplicate issue
-    # is visible and self-correcting (CR-01's own dedupe/close-all logic
-    # cleans it up on the next green run); a silently skipped mutation is
-    # invisible and does not self-correct — GATE-07's whole premise is that
-    # this status light's state can be trusted, and "did the check even run"
-    # failing silently breaks that premise more fundamentally than a stray
-    # duplicate ever did.
-    #
-    # Fix: only the three event/ref combinations that can reach the mutating
-    # steps below share the fixed group; every other event computes a group
-    # name unique to its own run (`github.run_id`), so it is alone in its
-    # own group — nothing else can be pending there to cancel, and it can
-    # never displace a pending mutating run either. The mutating events
-    # (`schedule`, `workflow_dispatch`, `push` to `refs/heads/master`) still
-    # funnel into the one shared `release-sync-status-light` group, so
-    # WR-01's original guarantee — those three still serialize against each
-    # other — holds unchanged.
-    #
-    # Alternatives considered and rejected:
-    #   - Scope the group by `github.ref` (e.g.
-    #     `release-sync-status-light-${{ github.ref }}`). Rejected: this
-    #     stops feature branches from cancelling the scheduled run, but it
-    #     also un-serializes the three mutating triggers from each other
-    #     whenever, say, `workflow_dispatch` is run against a non-master ref
-    #     — the exact race WR-01 exists to close would reopen for that
-    #     combination.
-    #   - Drop `concurrency` from this job entirely and rely on the existing
-    #     dedupe logic (CR-01's sort-by-number-and-close-all, D-02/D-03's
-    #     open-issue dedupe) to clean up after races instead of preventing
-    #     them. Rejected: dedupe cleans up *duplicate* issues; it does
-    #     nothing for the cancelled-run case, which produces no issue and no
-    #     signal at all — there is nothing to deduplicate.
-    #   - Set `cancel-in-progress: true` on the shared group. Rejected: the
-    #     comment on `cancel-in-progress: false` below already establishes
-    #     why a mid-`run:` cancellation is unacceptable here (a cancelled
-    #     run can leave an issue open/created/edited with no later step ever
-    #     closing it) — switching it to `true` would make that failure mode
-    #     the common case instead of a rare one.
-    concurrency:
-      group: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/master')) && 'release-sync-status-light' || format('release-sync-status-light-solo-{0}', github.run_id) }}
-      cancel-in-progress: false
     # This file had no `permissions` block before this Phase, so both jobs
     # inherited the repository's default token permissions (confirmed via
     # `gh api repos/UltiKits/UltiTools-Dev-Doc/actions/permissions/workflow`:
@@ -119,21 +78,29 @@ jobs:
     # this job need different capabilities, and one shared top-level block
     # would hand `compile` a write scope it never uses.
     #
-    # `issues: write` is here because this job's entire output IS a GitHub
-    # issue object — opening/updating/closing `release-sync`.
-    # `contents: read` has to be declared right alongside it: once ANY
-    # permission key is declared, every other permission implicitly becomes
-    # `none`, and dropping `contents: read` here would silently break
-    # `actions/checkout@v4` two lines below with no obvious error pointing
-    # back at this block.
-    # These two keys are the whole of what this job needs — no
-    # `pull-requests`, no `contents: write`.
+    # Read-only. This job checks out the repository and runs repository
+    # scripts, and on a pull request those scripts are whatever the pull
+    # request says they are, so it must not hold a write scope. The issue
+    # writes that used to live here (opening, updating and closing the
+    # `release-sync` and `javadoc-index` status lights) moved to the
+    # `status-lights` job below, which never checks out code and runs only on
+    # schedule, workflow_dispatch and pushes to master. The results it needs
+    # cross over as the job outputs declared here.
     permissions:
       contents: read
-      issues: write
+    # `check_outcome` carries steps.check.outcome so the status-lights job can
+    # tell "the invariant failed" apart from "a later step failed", which the
+    # old in-job `failure()`/`success()` guards relied on.
+    outputs:
+      doc_ver: ${{ steps.check.outputs.doc_ver }}
+      pom_ver: ${{ steps.check.outputs.pom_ver }}
+      central_ver: ${{ steps.check.outputs.central_ver }}
+      kind: ${{ steps.check.outputs.kind }}
+      check_outcome: ${{ steps.check.outcome }}
+      index_result: ${{ steps.index.outputs.index_result }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # 构建期会执行仓库外的代码，不持久化凭据可避免 token 落到 .git/config
           persist-credentials: false
@@ -211,6 +178,86 @@ jobs:
               ;;
           esac
 
+  status-lights:
+    name: Update release-sync and javadoc-index status lights
+    runs-on: ubuntu-latest
+    needs: version-consistency
+    # Runs after version-consistency whether it passed or failed (a failed
+    # invariant is exactly when the release-sync issue opens), but not when the
+    # run was cancelled, and only on the three events that may mutate issues.
+    # Pull requests never reach this job, so no pull-request-controlled code
+    # ever runs next to `issues: write`; the job has no checkout step at all.
+    if: |
+      !cancelled() &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && github.ref == 'refs/heads/master'))
+    permissions:
+      issues: write
+    # The lock that used to sit on this job now sits at the top of the file as
+    # a workflow-level group, so it covers the version check as well as the
+    # issue writes. The history below explains the group's shape and still
+    # applies to it; read "this job" as "this workflow run".
+    # WR-01 fix: without this, two runs of this job can execute in parallel —
+    # e.g. a `push` to master landing at the same wall-clock moment as the
+    # weekly `schedule` cron, or two pushes to master in quick succession.
+    # Both runs would query `gh issue list --state open --label release-sync`
+    # before either has created one, both see an empty result, and both call
+    # `gh issue create` — this is the actual mechanism that produces the
+    # duplicate-issue scenario CR-01's fix has to clean up after the fact.
+    #
+    # PR #39 round-3 review fix (replaces the earlier fixed-string
+    # `group: release-sync-status-light`): a single fixed group covers EVERY
+    # trigger of this job, not just the three that can mutate the
+    # `release-sync` issue. The "Open or update"/"Close if recovered" steps
+    # below both gate on event via `if:` and intentionally do nothing for a
+    # feature-branch `push` or a `pull_request` run — but a fixed-string
+    # `concurrency.group` does not know that. GitHub Actions allows at most
+    # one PENDING run per group, and queuing a new run into an occupied
+    # group CANCELS whatever was already pending there. So a feature-branch
+    # push queued behind a pending `schedule` run would cancel that
+    # scheduled run outright — the mutating run silently never executes, a
+    # drift that week opens no issue, a recovery that week closes none, and
+    # nothing in the Actions log calls this out as a failure because the
+    # cancelled run's steps never even started. That is strictly worse than
+    # the duplicate-issue bug this block was added to fix: a duplicate issue
+    # is visible and self-correcting (CR-01's own dedupe/close-all logic
+    # cleans it up on the next green run); a silently skipped mutation is
+    # invisible and does not self-correct — GATE-07's whole premise is that
+    # this status light's state can be trusted, and "did the check even run"
+    # failing silently breaks that premise more fundamentally than a stray
+    # duplicate ever did.
+    #
+    # Fix: only the three event/ref combinations that can reach the mutating
+    # steps below share the fixed group; every other event computes a group
+    # name unique to its own run (`github.run_id`), so it is alone in its
+    # own group — nothing else can be pending there to cancel, and it can
+    # never displace a pending mutating run either. The mutating events
+    # (`schedule`, `workflow_dispatch`, `push` to `refs/heads/master`) still
+    # funnel into the one shared `release-sync-status-light` group, so
+    # WR-01's original guarantee — those three still serialize against each
+    # other — holds unchanged.
+    #
+    # Alternatives considered and rejected:
+    #   - Scope the group by `github.ref` (e.g.
+    #     `release-sync-status-light-${{ github.ref }}`). Rejected: this
+    #     stops feature branches from cancelling the scheduled run, but it
+    #     also un-serializes the three mutating triggers from each other
+    #     whenever, say, `workflow_dispatch` is run against a non-master ref
+    #     — the exact race WR-01 exists to close would reopen for that
+    #     combination.
+    #   - Drop `concurrency` from this job entirely and rely on the existing
+    #     dedupe logic (CR-01's sort-by-number-and-close-all, D-02/D-03's
+    #     open-issue dedupe) to clean up after races instead of preventing
+    #     them. Rejected: dedupe cleans up *duplicate* issues; it does
+    #     nothing for the cancelled-run case, which produces no issue and no
+    #     signal at all — there is nothing to deduplicate.
+    #   - Set `cancel-in-progress: true` on the shared group. Rejected: the
+    #     comment on `cancel-in-progress: false` below already establishes
+    #     why a mid-`run:` cancellation is unacceptable here (a cancelled
+    #     run can leave an issue open/created/edited with no later step ever
+    #     closing it) — switching it to `true` would make that failure mode
+    #     the common case instead of a rare one.
+    steps:
       # D-32/D-34: one status light, mutually exclusive causes, worded
       # differently so neither ever asserts something false — mirrors the
       # release-sync issue's own D-12 handling of `mismatch`/`ahead` needing
@@ -236,13 +283,13 @@ jobs:
           always() &&
           (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
            (github.event_name == 'push' && github.ref == 'refs/heads/master')) &&
-          (steps.index.outputs.index_result == 'timeout' || steps.index.outputs.index_result == 'broken' ||
-           steps.index.outputs.index_result == 'post-failed' || steps.index.outputs.index_result == 'fetch-failed')
+          (needs.version-consistency.outputs.index_result == 'timeout' || needs.version-consistency.outputs.index_result == 'broken' ||
+           needs.version-consistency.outputs.index_result == 'post-failed' || needs.version-consistency.outputs.index_result == 'fetch-failed')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          TARGET_VERSION: ${{ steps.check.outputs.central_ver }}
-          INDEX_RESULT: ${{ steps.index.outputs.index_result }}
+          TARGET_VERSION: ${{ needs.version-consistency.outputs.central_ver }}
+          INDEX_RESULT: ${{ needs.version-consistency.outputs.index_result }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           gh label create javadoc-index \
@@ -327,14 +374,14 @@ jobs:
       # that looks indistinguishable from a genuine `broken`/`timeout`.
       - name: Close javadoc-index issue if recovered
         if: |
-          success() &&
+          success() && needs.version-consistency.result == 'success' &&
           (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
            (github.event_name == 'push' && github.ref == 'refs/heads/master')) &&
-          (steps.index.outputs.index_result == 'ready' || steps.index.outputs.index_result == 'skipped')
+          (needs.version-consistency.outputs.index_result == 'ready' || needs.version-consistency.outputs.index_result == 'skipped')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          TARGET_VERSION: ${{ steps.check.outputs.central_ver }}
+          TARGET_VERSION: ${{ needs.version-consistency.outputs.central_ver }}
         run: |
           if ! existing_numbers=$(gh issue list --state open --label javadoc-index \
               --limit 100 --json number --jq '.[].number'); then
@@ -361,30 +408,30 @@ jobs:
         # instead of `github.event_name` would make the branch drill required
         # by GATE-08 unable to ever reach this step (D-15).
         #
-        # Why the status function must be spelled out explicitly: Actions
-        # only implicitly appends `success()` when a step has NO `if:` at
-        # all. Once a custom `if:` is written, that implicit append stops —
-        # omitting `failure()` here would let this step also run when Step 2
-        # succeeds (RESEARCH Anti-Pattern 3).
+        # Why the status must be spelled out explicitly: Actions only
+        # implicitly appends `success()` when a step has NO `if:` at all.
+        # Since this step moved to the status-lights job, the check step's own
+        # outcome (`check_outcome == 'failure'`) replaces the in-job
+        # `failure()` it used before (RESEARCH Anti-Pattern 3).
         #
-        # Why `steps.check.outputs.kind` must be non-empty and non-`unknown`:
+        # Why `needs.version-consistency.outputs.kind` must be non-empty and non-`unknown`:
         # exit code 2 (the three values couldn't even be parsed) still turns
         # the job red, but must NOT open a status light — a single curl
         # timeout opening an issue that says "still unresolved until closed"
         # would be a false statement, and GATE-07's entire value rests on
         # that sentence being trustworthy (D-11).
         if: |
-          failure() &&
+          !cancelled() && needs.version-consistency.outputs.check_outcome == 'failure' &&
           (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
            (github.event_name == 'push' && github.ref == 'refs/heads/master')) &&
-          steps.check.outputs.kind != '' && steps.check.outputs.kind != 'unknown'
+          needs.version-consistency.outputs.kind != '' && needs.version-consistency.outputs.kind != 'unknown'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          DOC_VER: ${{ steps.check.outputs.doc_ver }}
-          POM_VER: ${{ steps.check.outputs.pom_ver }}
-          CENTRAL_VER: ${{ steps.check.outputs.central_ver }}
-          KIND: ${{ steps.check.outputs.kind }}
+          DOC_VER: ${{ needs.version-consistency.outputs.doc_ver }}
+          POM_VER: ${{ needs.version-consistency.outputs.pom_ver }}
+          CENTRAL_VER: ${{ needs.version-consistency.outputs.central_ver }}
+          KIND: ${{ needs.version-consistency.outputs.kind }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           # D-04: idempotent label create. Fails non-zero when the label
@@ -608,11 +655,11 @@ jobs:
         # fail-loud 的）会造成同样的连坐——索引步骤不是唯一能触发这条耦合的
         # 例子，只是第一个被发现的。
         #
-        # 新守卫改用 `steps.check.outputs.kind`（不变式检查步骤自身的输出）
+        # 新守卫改用 `needs.version-consistency.outputs.kind`（不变式检查步骤自身的输出）
         # 判定这一件事是否发生了不变式已恢复：把它作为「已恢复」的信号会需要
         # 额外论证「退出码为 0 时 kind 必定为空」这条隐含关系——`outputs.kind`
         # 本来就只在 exit 1 时被脚本写入。这里直接使用
-        # `steps.check.outcome == 'success'`：`check` 这一步的契约就是
+        # `needs.version-consistency.outputs.check_outcome == 'success'`：`check` 这一步的契约就是
         # 「exit 0 等于三个版本号相等」，`outcome` 直接就是那个脚本的退出结果，
         # 不需要绕一层去论证与 kind 的关系。checkout 失败、`check` 被跳过、
         # 或退出码非 0，四种情形下 `outcome` 都不等于 `success`，这条守卫在
@@ -636,15 +683,15 @@ jobs:
         # 在 step 完全没有 if: 时才隐式附加 success()，一旦写了自定义 if:，
         # 隐式附加就不再生效。
         if: |
-          !cancelled() && steps.check.outcome == 'success' &&
+          !cancelled() && needs.version-consistency.outputs.check_outcome == 'success' &&
           (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
            (github.event_name == 'push' && github.ref == 'refs/heads/master'))
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          DOC_VER: ${{ steps.check.outputs.doc_ver }}
-          POM_VER: ${{ steps.check.outputs.pom_ver }}
-          CENTRAL_VER: ${{ steps.check.outputs.central_ver }}
+          DOC_VER: ${{ needs.version-consistency.outputs.doc_ver }}
+          POM_VER: ${{ needs.version-consistency.outputs.pom_ver }}
+          CENTRAL_VER: ${{ needs.version-consistency.outputs.central_ver }}
         run: |
           # D-02/D-03: 查询姿态与开 issue 那一步同一个姿态——不用 `|| true`
           # 兜底。一次查询失败如果被吞掉，existing_numbers 会变成空，代码就会
@@ -714,7 +761,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # 构建期会执行仓库外的代码，不持久化凭据可避免 token 落到 .git/config
           persist-credentials: false
@@ -725,6 +772,8 @@ jobs:
   javadoc-index-assertions:
     name: javadoc-io-index.sh structural assertions
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     # 这些 fixture 从 Phase 02 起就在仓库里，但在此之前没有任何东西跑它们：
     # 本工作流只在发版路径上调用 javadoc-io-index.sh 的真实运行，fixture 只在
     # 人工排查时被手动喂进 --check-forms-only。断言因此可以写松而无人发现——
@@ -736,10 +785,34 @@ jobs:
     # 在 pull_request 上跑，而不必像那一条那样排除 PR 事件。
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # 构建期会执行仓库外的代码，不持久化凭据可避免 token 落到 .git/config
           persist-credentials: false
 
       - name: Run javadoc-io-index.sh fixture assertions
         run: bash scripts/check-javadoc-index-assertions.sh
+
+  symcheck-regression:
+    name: symcheck.py regression test
+    runs-on: ubuntu-latest
+    # module-versioning.md tells readers to run scripts/symcheck.py on their
+    # own JARs, so a false "missing" there sends a reader after a removal that
+    # never happened. The test compiles a small framework/module pair from
+    # scripts/fixtures/symcheck/ and needs no network beyond the JDK setup.
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Run symcheck.py regression test
+        run: bash scripts/test-symcheck.sh

@@ -90,7 +90,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
 The connector constructor in this example is the same seven-parameter overload described under `@EnableAutoRegister`.
 
-Add this annotation above the class that extends `UltiToolsPlugin`; it only takes effect on the `register(UltiToolsPlugin)` connector and adapter path described above, not when UltiTools loads your module as a standard JAR. Standard modules should register beans with `@Service` or `@Bean` instead.
+Add this annotation above the class that extends `UltiToolsPlugin`. The named class is constructed with its no-argument constructor and registered as a singleton under its simple name, and the main class is then autowired again. As of v6.3.0 this happens both when UltiTools loads your module as a standard JAR and on the `register(UltiToolsPlugin)` connector path described above; through v6.2.5 only the connector path read it. Standard modules should still prefer `@Service` or `@Bean`.
 
 ```java
 @ContextEntry(MyBean.class)

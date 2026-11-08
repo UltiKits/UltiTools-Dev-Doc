@@ -1,7 +1,7 @@
 # Module Load Ordering
 
 ::: info Ordering takes effect as of v6.3.0
-`@PluginDependency` has existed since v6.2.0 as declarative metadata with no reader. As of v6.3.0, both it and `plugin.yml`'s `loadAfter` participate in the actual load order.
+In 6.2.x `@PluginDependency` already ordered modules, but a cycle or a missing `depends` only logged an error and loaded every module in unsorted order. As of v6.3.0, `plugin.yml`'s `name:` and `loadAfter` also take part, and a missing dependency or a cycle refuses the affected modules.
 :::
 
 ## Declaring dependencies
@@ -39,7 +39,7 @@ No `loadAfter` attribute was added to `@PluginDependency` itself. The two mechan
 
 ## Cycles and missing dependencies
 
-As of v6.3.0, a `depends` entry naming a module that is not installed refuses the declaring module and every module that requires it through `depends`, directly or transitively. A module that only lists the refused module under `softDepends`, `loadBefore` or `plugin.yml`'s `loadAfter` still loads, in the order the remaining declarations give. A dependency cycle refuses its members and the modules ordered after them, as before. Every unrelated module still loads.
+As of v6.3.0, a `depends` entry naming a module that is not installed refuses the declaring module and every module that requires it through `depends`, directly or transitively. A module that only lists the refused module under `softDepends`, `loadBefore` or `plugin.yml`'s `loadAfter` still loads, in the order the remaining declarations give. A dependency cycle refuses its members and the modules ordered after them (before v6.3.0 a cycle only fell back to unsorted order and loaded every module). Every unrelated module still loads.
 
 The console names the full cycle as a path, `A -> B -> C -> A`, and says which module's author to contact. This mirrors how Paper itself reports a plugin load cycle.
 
@@ -55,11 +55,11 @@ A required plugin that is installed but not enabled yet is not refused early, be
 
 ## Duplicate `plugin.yml` names
 
-As of v6.3.0: dependency resolution looks a module up by either its simple class name or its `plugin.yml` `name:` value. If two installed modules declare the SAME `name:`, only one of them can claim that name in the dependency graph — whichever module is discovered first wins, and the console logs a WARNING naming both modules and the shared name so this is not silent. Which module wins depends on load order (currently filesystem-dependent — not something this page's ordering rules control), so treat this WARNING as a signal to rename one module's `plugin.yml` `name:`, not as something to rely on resolving the same way every restart.
+As of v6.3.0: dependency resolution looks a module up by either its simple class name or its `plugin.yml` `name:` value. If two installed modules declare the SAME `name:`, only one of them can claim that name in the dependency graph — whichever module is discovered first wins, and the console logs a WARNING naming both modules and the shared name so this is not silent. Which module wins follows discovery order, which as of v6.3.0 is file-name order, so it is the same for a given modules folder on every file system; a module whose main class has that simple name takes the name first. Even so, treat this WARNING as a signal to rename one module's `plugin.yml` `name:`, not as a resolution to rely on.
 
 ## Falling back to the legacy order
 
-`-Dultitools.useLegacyPluginLoading=true` restores the pre-6.3.0 behavior: every module loads in filesystem order with no dependency resolution at all, including no cycle detection. This is a JVM system property, consumed once at server startup, not a reloadable config key — the same shape as Paper's own `-Dpaper.useLegacyPluginLoading=true`.
+`-Dultitools.useLegacyPluginLoading=true` restores the pre-6.3.0 behavior: every module loads in file-name order with no dependency resolution at all, including no cycle detection. This is a JVM system property, consumed once at server startup, not a reloadable config key — the same shape as Paper's own `-Dpaper.useLegacyPluginLoading=true`.
 
 ::: warning Cost of the legacy switch
 With dependency resolution skipped entirely, a module that relies on load order may fail to initialize, unpredictably, with no error naming the cause. Use this switch only as a temporary escape hatch while fixing the underlying cycle or missing dependency.

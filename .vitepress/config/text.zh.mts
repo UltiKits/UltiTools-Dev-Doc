@@ -1,4 +1,5 @@
 import {DefaultTheme} from "vitepress/theme";
+import {editLinkPattern} from "./text.en.mjs";
 
 const textCN: DefaultTheme.Config = {
 
@@ -8,7 +9,7 @@ const textCN: DefaultTheme.Config = {
     },
 
     editLink: {
-        pattern: 'https://github.com/UltiKits/UltiTools-Dev-Doc/edit/master/docs/:path',
+        pattern: editLinkPattern,
         text: '在 GitHub 上编辑此页面'
     },
 

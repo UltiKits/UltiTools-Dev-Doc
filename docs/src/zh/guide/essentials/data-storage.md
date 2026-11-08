@@ -5,7 +5,7 @@ UltiTools 封装了一套数据储存 API，它支持 MySQL 数据库、SQLite �
 你需要的仅仅只是一个实体类。CRUD 操作将由 UltiTools 自动完成。
 
 ::: warning 尽量不要嵌套对象
-存储 API 把每个 `@Column` 字段对应到一列（JSON 文件中对应一个字段）。非简单类型的字段会以 JSON 文本存入该列，不能按其内部字段查询，所以尽量使用简单值。
+存储 API 把每个 `@Column` 字段对应到一列（JSON 文件中对应一个字段）。使用 SQLite 和 MySQL 时，非简单类型的字段会以 JSON 文本存入该列，不能按其内部字段查询（只有 JSON 存储可以），所以尽量使用简单值。
 :::
 
 ::: warning v6.3.2 之前的 SQLite 与原生 spark 分析
@@ -305,7 +305,7 @@ WhereCondition.builder().column("somecol").value(someval).build();
 - `exist(...)` 在 SQLite 上可用；6.2.x 在那里会抛出 `ClassCastException`。
 - 已知限制：在 SQLite 上，默认列中的 `double` 只保存 15 位有效数字，因此 `1/3.0` 读回和比较都按 `0.333333333333333`；要保留全部数字，请声明 `type = "DOUBLE"`。手工写入数值字段列的非数字文本，在 SQLite 上按其开头的数字比较（`'abc'` 为 0，`'12abc'` 为 12），JSON 则按文本比较。在 SQLite 上，与所存 `float` 前 15 位有效数字相同、之后才不同的任何数值（例如 10^15 及以上的整数如 `(1L << 53) + 1`，或有 16 位及以上有效数字的小数）会被视为与它相等，默认列和 `REAL` 列都如此；对 `float` 字段请传 `float` 值。在 SQLite 上，NaN 比较值会被绑定为 NULL，因此含它的条件不匹配任何行，带它的 `updateIf` 也永远不会生效；请勿对 NaN 阈值重试 `updateIf`。
 
-#### 非有限条件值 <Badge type="tip" text="v6.3.2+" />
+#### 非有限条件值 <Badge type="tip" text="v6.3.0+" />
 
 v6.3.2 文档记录的已知限制，行为不变：不要把 Infinity 或 NaN 作为查询条件值。SQL 与 JSON 对它们没有统一的结果或异常约定：SQL 操作可能正常结束但不匹配任何行，JSON 条件则在求值时抛出 `IllegalArgumentException`，`EQUAL` 也包括在内。JSON 的 `updateIf` 在行不存在时可能先返回 `false`，不求值该条件。框架不将这些情况统一成 `DATA_ENTITY_INVALID` 错误。构造条件前使用 `Float.isFinite` 或 `Double.isFinite` 校验，不要重试 NaN 阈值（[#696](https://github.com/UltiKits/UltiTools-Reborn/issues/696)）。
 
@@ -338,7 +338,7 @@ dataOperator.transaction(() -> {
 
 调用方收到原来的异常；事务被标记为仅回滚时收到 `UnexpectedRollbackException`。`transaction(...)` 中抛出的 `Error` 会使事务回滚（JSON 引擎丢弃暂存的写入），并原样抛出同一个实例。
 
-## JSON 存储的取舍 <Badge type="tip" text="v6.3.2+" />
+## JSON 存储的取舍 <Badge type="tip" text="v6.3.0+" />
 
 以下记录的是 v6.3.2 保留的行为，不是运行时改动（[#694](https://github.com/UltiKits/UltiTools-Reborn/issues/694)）：
 

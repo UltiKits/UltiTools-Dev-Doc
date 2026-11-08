@@ -1,10 +1,12 @@
 package com.ultikits.docs.gui;
 
 import com.ultikits.ultitools.abstracts.gui.BaseConfirmationPage;
+import com.ultikits.ultitools.UltiTools;
 import com.ultikits.ultitools.abstracts.gui.BasePaginationPage;
 import mc.obliviate.inventory.Icon;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -87,10 +89,11 @@ public class WarpListGui extends BasePaginationPage {
         protected void onConfirm(InventoryClickEvent event) {
             warpService.delete(warp.getId());
             player.sendMessage("Warp deleted");
-            // Qualify the outer instance. A bare refresh() would resolve to the
-            // one this dialog inherits from BaseInventoryPage and re-open the
-            // dialog instead of the list behind it.
-            WarpListGui.this.refresh();
+            // The OK button closes the inventory after onConfirm returns, so
+            // re-open the list one tick later. Qualify the outer instance: a bare
+            // refresh would resolve to the one this dialog inherits from
+            // BaseInventoryPage and re-open the dialog instead of the list.
+            Bukkit.getScheduler().runTask(UltiTools.getInstance(), WarpListGui.this::refresh);
         }
     }
 }

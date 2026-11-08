@@ -7,29 +7,40 @@ import { localeEN } from "./config/locale.en.mjs";
 import { viteConfig } from "./config/vite.mjs";
 import { markdownConfig } from "./config/markdown.mjs";
 import { themeConfig } from "./config/theme.mjs";
+import { snapshotVersion } from "./config/sidebar-snapshot.generated.mjs";
+import { labelArchiveLocales } from "./config/locale.archive-labels.mjs";
+import { dropVersionRoutes } from "./config/version-routes.mjs";
+import { fileURLToPath } from 'node:url'
+
+const locales = { ...localeZH, ...localeEN }
+
+// Any alpha snapshot label (v<X.Y.Z>-SNAPSHOT). The live label itself is derived
+// at injection time (scripts/inject-alpha.mjs) and exported as snapshotVersion.
+const SNAPSHOT_SEGMENT = /(^|\/)v\d+\.\d+\.\d+-SNAPSHOT\//;
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export default withPwa(
-    // 依赖树里有两份 vitepress：根上的 1.6.4，与 @viteplus/versions 自带的
-    // 2.0.0-alpha.16（它把 vitepress 同时写进 dependencies 与 peerDependencies，
-    // 前者强制了那份嵌套副本）。本文件的配置用根上那份的类型写成，而
-    // defineVersionedConfig 的参数类型来自嵌套那份，两个 UserConfig 是不同的
-    // 名义类型，TypeScript 因此拒绝。运行时没有这个问题：@viteplus/versions 的
-    // 运行时产物 dist/index.js 里没有任何 vitepress 引用（实测），那份嵌套副本
-    // 只参与类型解析。
-    //
-    // 去重不可行，四种 npm overrides 写法实测：
-    //   {"vitepress": "1.6.4"}                     → EOVERRIDE，与直接依赖冲突
-    //   {"vitepress": "$vitepress"}                → 退 0，嵌套副本纹丝不动
-    //   {"@viteplus/versions": {"vitepress": ...}} → 退 0，静默忽略；连删掉嵌套
-    //                                                目录后完整安装也会装回来
-    // 对照组：给 nanoid 加同样形式的 override 生效了，所以不是 overrides 在这个
-    // 项目里整体失效，而是这一条被 npm 忽略。真正的修法在上游。
+    // @viteplus/versions 自 2.0.9 起只把 vitepress 写成 peerDependency，依赖树里
+    // 只剩根上那一份 1.6.4（2.0.6 曾在 dependencies 里强装一份嵌套的
+    // 2.0.0-alpha.16，两份 UserConfig 是不同的名义类型）。那条错误消失了，但
+    // defineVersionedConfig 的参数类型 PartialConfigurationType 是对整个
+    // UserConfig 做的 DeepPartialType，tsc 仍在下一行报两条错误（2.3.0 实测）：
+    //   TS2589 类型实例化过深；
+    //   TS2345 rewrites 不兼容：DeepPartialType 把 UserConfig 里
+    //          「Record<string, string> | 函数」这个联合映射成了纯对象类型。
+    // 两条都出在上游的类型声明里，本文件并不设置 rewrites（由插件自己生成），
+    // 运行时不受影响。
     //
     // 用 @ts-expect-error 而不是 as any：前者会在错误消失时自己报
     // 「未使用的指令」，逼人回来删掉；后者会永远沉默。它也只作用于下一行，
     // 本文件其余部分照常被检查。
-    // @ts-expect-error 两份 vitepress 的 UserConfig 是不同的名义类型
-    defineVersionedConfig({
+    // labelArchiveLocales gives archived-version locales the human label of
+    // their language, see config/locale.archive-labels.mts. It sits on the same
+    // line as defineVersionedConfig, so the directive below covers that line.
+    // dropVersionRoutes removes the per-page route table the plugin copies
+    // into every versioned nav item, see config/version-routes.mts.
+    // @ts-expect-error 上游 DeepPartialType 的两条错误（TS2589、rewrites 的 TS2345）
+    dropVersionRoutes(labelArchiveLocales(defineVersionedConfig({
         srcDir: 'docs',
         lastUpdated: true,
         // /api/ is proxied at request time by the Cloudflare Pages Function
@@ -38,7 +49,7 @@ export default withPwa(
         // The dead-link checker resolves a trailing-slash link to "<path>/index",
         // so this ignores exactly that one resolved path and nothing deeper under /api/.
         //
-        // v6.3.0-SNAPSHOT is alpha's own content, injected at build time
+        // The alpha snapshot (e.g. v6.4.0-SNAPSHOT) is alpha's own content, injected at build time
         // (scripts/inject-alpha.mjs). Defects in that content are alpha's own —
         // they're fixed via the framework repo's doc-sync flow, not this site's
         // build — so they must not block a site-class deploy that has nothing to
@@ -79,9 +90,16 @@ export default withPwa(
         // which matters precisely now, because 6.3.0 is the release that removed
         // VersionWrapper, and a pin to the last release that had it is the only
         // target that still resolves at all.
-        ignoreDeadLinks: [/^\/api\/version-wrapper$/, /^\/api\/index$/, /^\/(?:[a-z]{2}\/)?v6\.3\.0-SNAPSHOT\//],
+        // The SNAPSHOT exemption uses the exact label this build injected (none when
+        // nothing was injected), not any -SNAPSHOT label: a link from released
+        // content to a retired label must still be reported.
+        ignoreDeadLinks: [
+            /^\/api\/version-wrapper$/,
+            /^\/api\/index$/,
+            ...(snapshotVersion ? [new RegExp(`^\\/(?:[a-z]{2}\\/)?${escapeRegExp(snapshotVersion)}\\/`)] : []),
+        ],
         head: [['link', { rel: 'icon', href: '/favicon.ico' }]],
-        // v6.3.0-SNAPSHOT is unreleased content injected at build time
+        // The alpha snapshot is unreleased content injected at build time
         // (scripts/inject-alpha.mjs) — it may change tomorrow, and a reader
         // landing on it from a search result has no way to tell that (D-48,
         // 03-CONTEXT.md), the same direction as Phase 1's D-05 (`/api/*`
@@ -119,21 +137,49 @@ export default withPwa(
         sitemap: {
             hostname: 'https://dev.ultikits.com',
             transformItems: (items) => {
-                const isSnapshot = (url: string) => /(^|\/)v6\.3\.0-SNAPSHOT\//.test(url);
+                const isSnapshot = (url: string) => SNAPSHOT_SEGMENT.test(url);
+
+                // Pages serves foo.html with a 308 to /foo, so list the extensionless
+                // URL a crawler lands on. Done here rather than with cleanUrls, which
+                // would rewrite every internal link on the site as well.
+                const canonical = (url: string) => url.replace(/\.html$/, '');
 
                 return items
                     .filter((item) => !isSnapshot(item.url))
                     .map((item) => item.links
                         ? { ...item, links: item.links.filter((link) => !isSnapshot(link.url)) }
                         : item
-                    );
+                    )
+                    .map((item) => ({
+                        ...item,
+                        url: canonical(item.url),
+                        ...(item.links && { links: item.links.map((link) => ({ ...link, url: canonical(link.url) })) }),
+                    }));
             },
         },
-        locales: { ...localeZH, ...localeEN },
+        locales,
         markdown: markdownConfig,
         pwa: pwaConfig,
         themeConfig: themeConfig,
         ...viteConfig,
+        vite: {
+            ...viteConfig.vite,
+            resolve: {
+                ...viteConfig.vite?.resolve,
+                // VitePress's useLangs() lists one language entry per archived
+                // version and links to pages that do not exist; every default-theme
+                // component that imports it gets this site's version instead
+                // (theme/composables/versioned-langs.ts). The pattern matches the
+                // relative specifier those components use ('../composables/langs',
+                // and './composables/langs' in NotFound.vue) and nothing else.
+                alias: [
+                    {
+                        find: /^\.{1,2}\/composables\/langs(\.js)?$/,
+                        replacement: fileURLToPath(new URL('./theme/composables/versioned-langs.ts', import.meta.url)),
+                    },
+                ],
+            },
+        },
 
         versionsConfig: {
             current: 'v6.3.2',
@@ -150,5 +196,5 @@ export default withPwa(
             // UtVersionSwitcher in nav.en.mts/nav.zh.mts replaces it instead.
             versionSwitcher: false
         }
-    })
+    }), locales))
 )

@@ -131,3 +131,30 @@ export function buildPath(
   if (!isIndex) return base + '.html';
   return base.endsWith('/') ? base : base + '/';
 }
+
+/**
+ * Ascending order for version names such as `v6.2.4`, `v6.10.0` and
+ * `v6.3.0-SNAPSHOT`: numeric per component, so v6.10.0 sorts after v6.9.0,
+ * and a pre-release suffix sorts before the release it precedes. Names that do
+ * not parse fall back to a plain string comparison after every parsed name.
+ */
+export function compareVersions(a: string, b: string): number {
+  const parse = (v: string) => {
+    const m = /^v?(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/.exec(v);
+    return m ? { nums: [Number(m[1]), Number(m[2]), Number(m[3])], pre: m[4] ?? '' } : null;
+  };
+  const pa = parse(a);
+  const pb = parse(b);
+  if (!pa || !pb) {
+    if (pa) return -1;
+    if (pb) return 1;
+    return a < b ? -1 : a > b ? 1 : 0;
+  }
+  for (let i = 0; i < 3; i++) {
+    if (pa.nums[i] !== pb.nums[i]) return pa.nums[i] - pb.nums[i];
+  }
+  if (pa.pre === pb.pre) return 0;
+  if (!pa.pre) return 1;
+  if (!pb.pre) return -1;
+  return pa.pre < pb.pre ? -1 : 1;
+}

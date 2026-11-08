@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # curl-only verification for the alpha SNAPSHOT injection
-# (docs/archive/v6.3.0-SNAPSHOT/, scripts/inject-alpha.mjs's output) against
+# (docs/archive/v*-SNAPSHOT/, scripts/inject-alpha.mjs's output) against
 # a real deployed URL (a PR preview or production). Cloudflare Pages has no
 # local emulator that reproduces the edge routing layer faithfully — same
 # constraint documented in scripts/verify-api-proxy.sh's head comment —
@@ -58,7 +58,22 @@ fi
 
 BASE_URL="${1%/}"
 
+# The snapshot label is not hard-coded: the deployment's own
+# snapshot-status.json carries the label scripts/inject-alpha.mjs derived from
+# the framework's pom.xml. SNAPSHOT_VERSION overrides it for a deployment that
+# predates the version field.
+if [ -z "${SNAPSHOT_VERSION:-}" ]; then
+  SNAPSHOT_VERSION="$(curl -sS --fail --max-time 30 --connect-timeout 10 "$BASE_URL/snapshot-status.json" \
+    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const v=JSON.parse(s).version;if(typeof v!=="string"||!/^v\d+\.\d+\.\d+-SNAPSHOT$/.test(v))process.exit(1);console.log(v)})')" || SNAPSHOT_VERSION=""
+fi
+if [ -z "$SNAPSHOT_VERSION" ]; then
+  echo "verify-snapshot: 读不到 $BASE_URL/snapshot-status.json 的 version 字段；可用 SNAPSHOT_VERSION=vX.Y.Z-SNAPSHOT 显式指定" >&2
+  exit 2
+fi
+SNAP="$SNAPSHOT_VERSION"
+
 echo "base url : $BASE_URL"
+echo "snapshot : $SNAP"
 echo
 
 record() {
@@ -114,22 +129,23 @@ snapshot_guide_sidebar_links() {
     try {
       data = JSON.parse(JSON.parse(m[1]));
     } catch (e) { process.exit(1); }
-    const locale = data.locales && data.locales["v6.3.0-SNAPSHOT"];
+    const snap = process.argv[2];
+    const locale = data.locales && data.locales[snap];
     const sidebar = locale && locale.themeConfig && locale.themeConfig.sidebar;
     if (!sidebar) { process.exit(1); }
-    const guide = sidebar["v6.3.0-SNAPSHOT/guide"] || [];
+    const guide = sidebar[snap + "/guide"] || [];
     for (const group of guide) {
       for (const item of (group.items || [])) {
         console.log(item.link);
       }
     }
-  ' "$1"
+  ' "$1" "$SNAP"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. /v6.3.0-SNAPSHOT/guide/introduction 返回 200（取回的 HTML 供第 4/5/6/8 条复用）
 # ─────────────────────────────────────────────────────────────────────────────
-url_intro_en="$BASE_URL/v6.3.0-SNAPSHOT/guide/introduction"
+url_intro_en="$BASE_URL/$SNAP/guide/introduction"
 fetch "$url_intro_en"
 r=0
 [ "$HTTP_STATUS" = "200" ] || r=1
@@ -139,7 +155,7 @@ INTRO_EN_FILE="$BODY_FILE"
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. /zh/v6.3.0-SNAPSHOT/guide/introduction 返回 200（取回的 HTML 供第 8 条复用）
 # ─────────────────────────────────────────────────────────────────────────────
-url_intro_zh="$BASE_URL/zh/v6.3.0-SNAPSHOT/guide/introduction"
+url_intro_zh="$BASE_URL/zh/$SNAP/guide/introduction"
 fetch "$url_intro_zh"
 r=0
 [ "$HTTP_STATUS" = "200" ] || r=1
@@ -150,7 +166,7 @@ INTRO_ZH_FILE="$BODY_FILE"
 # 3. /v6.3.0-SNAPSHOT/api/version-wrapper 返回 200——证明 api/ 这条 sidebar
 #    key 确实接了线，不是只接了 guide（D-45 的 api 侧接线）
 # ─────────────────────────────────────────────────────────────────────────────
-url_api="$BASE_URL/v6.3.0-SNAPSHOT/api/version-wrapper"
+url_api="$BASE_URL/$SNAP/api/version-wrapper"
 fetch "$url_api"
 r=0
 [ "$HTTP_STATUS" = "200" ] || r=1
@@ -215,7 +231,7 @@ record "6 SNAPSHOT 页面含 noindex meta 标签" "$([ "$r" -eq 0 ] && echo '命
 #    04-UI-SPEC.md § Copywriting Contract 的 alpha row-1（VersionNoticeBar.vue
 #    的 stateSentence，不含动态版本号那半，因此断言稳定）。
 # ─────────────────────────────────────────────────────────────────────────────
-url_home_en="$BASE_URL/v6.3.0-SNAPSHOT/"
+url_home_en="$BASE_URL/$SNAP/"
 fetch "$url_home_en"
 r=0
 [ "$HTTP_STATUS" = "200" ] || r=1
@@ -223,7 +239,7 @@ grep -q 'data-ut-version-state="alpha"' "$BODY_FILE" || r=1
 grep -q 'This page describes the alpha branch and may change at any time' "$BODY_FILE" || r=1
 record "7a SNAPSHOT 首页（英）含提示条 alpha 态" "status=$HTTP_STATUS" "$r"
 
-url_home_zh="$BASE_URL/zh/v6.3.0-SNAPSHOT/"
+url_home_zh="$BASE_URL/zh/$SNAP/"
 fetch "$url_home_zh"
 r=0
 [ "$HTTP_STATUS" = "200" ] || r=1
@@ -261,7 +277,7 @@ record "9 snapshot-status.json 可读且 commit 形状正确" "status=$HTTP_STAT
 fetch "$BASE_URL/sitemap.xml"
 r=0
 [ "$HTTP_STATUS" = "200" ] || r=1
-grep -q '6.3.0-SNAPSHOT' "$BODY_FILE" && r=1
+grep -qE 'v[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT' "$BODY_FILE" && r=1
 record "10 sitemap.xml 不含 SNAPSHOT" "status=$HTTP_STATUS" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────

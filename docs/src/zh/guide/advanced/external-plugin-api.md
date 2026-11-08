@@ -4,7 +4,7 @@
 UltiTools-API 6.2.2 及更高版本可用。
 :::
 
-外部插件 API 允许**任何普通的 Bukkit/Spigot 插件**使用 UltiTools 框架功能，无需继承 `UltiToolsPlugin`。你的插件保持普通的 `JavaPlugin` 不变——只需调用 `UltiToolsAPI.connect(this)`，框架就会扫描你的包中的 `@Service`、`@CmdExecutor`、`@EventListener`、`@Scheduled` 等注解。
+外部插件 API 允许**运行在 Paper 服务器上的任何普通 Bukkit 插件**使用 UltiTools 框架功能，无需继承 `UltiToolsPlugin`。你的插件保持普通的 `JavaPlugin` 不变——只需调用 `UltiToolsAPI.connect(this)`，框架就会扫描你的包中的 `@Service`、`@CmdExecutor`、`@EventListener`、`@Scheduled` 等注解。
 
 ## 快速开始
 
@@ -15,7 +15,7 @@ UltiTools-API 6.2.2 及更高版本可用。
 <dependency>
     <groupId>com.ultikits</groupId>
     <artifactId>UltiTools-API</artifactId>
-    <version>6.3.0</version>
+    <version>6.3.2</version>
     <scope>provided</scope>
 </dependency>
 ```
@@ -74,7 +74,7 @@ depend: [UltiTools]
 
 ## 数据存储
 
-使用 `UltiToolsAPI.getDataOperator()` 获取数据操作器。数据存储在**你插件自己的数据文件夹**中，而不是 UltiTools 的文件夹。
+使用 `UltiToolsAPI.getDataOperator()` 获取数据操作器。使用 JSON 或 SQLite 后端时，数据存储在**你插件自己的数据文件夹**中，而不是 UltiTools 的文件夹。使用 MySQL 时，数据存放在服务器配置的 MySQL 数据库中、以 `@Table` 命名的表里，因此请选用其他插件和模块都不使用的表名。`getDataOperator` 会拒绝既不在你插件 JAR 中、也未传给 `connect` 的实体类。
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/StatsEntity.java
 
@@ -105,9 +105,10 @@ public void onCustomEvent(MyCustomEvent event) {
 | 方法 | 描述 |
 |------|------|
 | `UltiToolsAPI.connect(JavaPlugin)` | 将插件连接到 UltiTools 框架 |
+| `UltiToolsAPI.connect(JavaPlugin, Class<?>...)`（v6.3.0+） | 连接，并同时登记插件拥有但不在其 JAR 中的实体类 |
 | `UltiToolsAPI.disconnect(JavaPlugin)` | 断开插件与框架的连接 |
 | `UltiToolsAPI.isConnected(JavaPlugin)` | 检查插件是否已连接 |
-| `UltiToolsAPI.getDataOperator(JavaPlugin, Class)` | 获取限定在插件数据文件夹的 DataOperator |
+| `UltiToolsAPI.getDataOperator(JavaPlugin, Class)` | 获取限定于该插件的 DataOperator（JSON 与 SQLite 下即其数据文件夹） |
 | `UltiToolsAPI.getEventBus()` | 获取共享的 EventBus 实例 |
 
 ## 生命周期
@@ -129,7 +130,7 @@ public void onCustomEvent(MyCustomEvent event) {
 | 配置实体 | 完整支持（`@ConfigEntity`） | **不可用** — 请使用 Bukkit `getConfig()` |
 | 绑定到配置项的 `@Scheduled` / `@CmdCD`（v6.3.0+） | 支持，见[绑定到配置项的时间](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间) | 会被拒绝，请使用字面量 `period` / `delay` / `value` |
 | 数据存储 | `plugin.getDataOperator(Class)` | `UltiToolsAPI.getDataOperator(plugin, Class)` |
-| 热重载 | 支持 `ul reload` | 不支持——需要重启服务器 |
+| 重载 | `/ul reload` 重新加载模块配置与语言；JAR 变化仍需重启服务器 | 不可用；请自行实现重载命令，JAR 变化需重启 |
 | plugin.yml | 为 6.3.0 构建的模块写 `api-version: 630`（使用绑定到配置项的 `@Scheduled` / `@CmdCD` 时必须为 `630`） | `depend: [UltiTools]` |
 
 ## 完整示例项目

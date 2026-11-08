@@ -106,7 +106,7 @@ ItemDisplay.builder(itemStack)
 
 ::: tip Any widget type positions correctly <Badge type="tip" text="v6.3.0+" />
 As of v6.3.0, `GridView` writes each child's computed slot as parent data at render time, so any widget type — not only `ItemDisplay` — auto-positions into its row/column slot; `Widget`'s own API is unchanged, so no downstream custom widget needs a change.
-An explicit `.slot(...)` on a child inside a `GridView` is overridden and a `WARNING` names the child; a child with no explicit slot, or legitimately declared at slot `0`, produces no warning.
+An explicit `.slot(...)` on a child inside a `GridView` is overridden and a `WARNING` names the child's index and both slots; a child with no explicit slot, or legitimately declared at slot `0`, produces no warning.
 :::
 
 Ideal for rendering lists (shop items, inventories). Any widget type is automatically positioned into row/column slots.
@@ -210,7 +210,7 @@ page.
 
 ## 7. Full example: shop page
 
-- Layout: `Container` + `GridView`
+- Layout: nested `Container`s; item slots computed with `SlotUtils.toSlotIndex`
 - Pagination: `currentPage` controls data slicing
 - Single-select: `selectedSlot` highlights selection
 - Interaction: buy button shows/hides based on selection

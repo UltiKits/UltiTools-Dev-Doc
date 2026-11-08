@@ -220,7 +220,7 @@ The container automatically performs this registration:
 // Inside PluginManager during plugin initialization
 UltiToolsPlugin plugin = new YourPlugin();
 pluginContext.registerType(UltiToolsPlugin.class, plugin);  // Registered by parent class type
-pluginContext.registerType(YourPlugin.class, plugin);       // Also by concrete type
+pluginContext.getBeanFactory().registerSingleton(YourPlugin.class.getSimpleName(), plugin); // By name; resolvable by its concrete type
 ```
 
 This means both injection styles work:
@@ -241,10 +241,9 @@ private YourPlugin plugin;       // Via concrete type
 
 ## Service Priority
 
-::: warning getBean(Class) returns the first assignable bean, not the highest priority one
-`getBean(Class)` walks the bean definitions and returns the first assignable match, then caches that result in `typeMappings` for every later lookup, while `priority` is read only by `getServicePriority`, which serves `getOrderedBeansOfType` and `getHighestPriorityBean`.
-Call `context.getHighestPriorityBean(PaymentProcessor.class)` wherever the priority matters; the `@Autowired` field injection shown below cannot be redirected, because `AutowireFactory` delegates to `getBean(field.getType())` and no annotation or switch changes that.
-Making `getBean` delegate to `getHighestPriorityBean` on ambiguity is tracked in [issue #202](https://github.com/UltiKits/UltiTools-Reborn/issues/202).
+::: tip getBean(Class) uses priority since v6.3.0
+As of v6.3.0, `getBean(Class)` (and therefore `@Autowired`) uses `@Service(priority)` only after an explicit type binding and an exact-class bean, in the lookup order listed under Behavior below.
+Through v6.2.5 it returned the first assignable bean ([issue #202](https://github.com/UltiKits/UltiTools-Reborn/issues/202)).
 :::
 
 When multiple implementations of the same interface exist, use the `priority` attribute of the `@Service` annotation to control which one is returned by `getBean(Class)`.
@@ -270,8 +269,9 @@ public class DirectBankProcessor implements PaymentProcessor {
 **Behavior:**
 - Higher `priority` value takes precedence
 - Default priority is 0
-- Only affects `getBean(Class)` lookup of interface types
-- When multiple beans match, the highest priority bean is returned
+- `getBean(Class)` and `@Autowired` resolve a type in this order: an explicit type binding (`registerType`) first; then the bean registered for that exact class (or under the name the type declares in its own `@Component`/`@Service`); only then the highest priority among all assignable candidates (interface or superclass)
+- In that last step a tie between the two highest priorities throws an ambiguous-bean error
+- So with `BaseProcessor` (priority 0) and `PreferredProcessor extends BaseProcessor` (priority 10) both registered, `getBean(BaseProcessor.class)` still returns `BaseProcessor`
 - Only `getOrderedBeansOfType()` returns results ordered by priority (highest first); `getBeansOfType()` returns an unordered map.
 
 ```java

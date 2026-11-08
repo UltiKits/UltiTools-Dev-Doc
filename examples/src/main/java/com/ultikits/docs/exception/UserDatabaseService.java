@@ -50,11 +50,11 @@ public class UserDatabaseService {
     // Safe with custom handler: detailed error reporting
     @ExceptionCatch(
         value = {SQLException.class, IOException.class},
-        handler = "detailedErrorHandler",
+        handler = "loggingExceptionHandler",
         defaultValue = "null"
     )
     public String exportUsers() {
-        // If SQLException or IOException occurs, detailedErrorHandler is invoked
+        // If SQLException or IOException occurs, loggingExceptionHandler is invoked
         return performExport();
     }
 

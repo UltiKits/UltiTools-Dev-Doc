@@ -3,7 +3,7 @@
 <Badge type="tip" text="v6.2.0+" />
 
 ::: info Modern GUI System
-The GUI system has been rebuilt with `BaseInventoryPage`, `BasePaginationPage`, and `BaseConfirmationPage` base classes. These replace the deprecated `PagingPage` and `OkCancelPage` from earlier versions.
+The GUI system has been rebuilt with `BaseInventoryPage`, `BasePaginationPage`, and `BaseConfirmationPage` base classes. They replace `PagingPage` and `OkCancelPage`, which were removed in v6.3.0.
 :::
 
 UltiTools provides a comprehensive GUI system built on top of the [obliviate-invs](https://github.com/hamza-cskn/obliviate-invs) library. This integration allows you to create rich, interactive inventory-based interfaces without worrying about low-level Bukkit inventory management.
@@ -112,7 +112,7 @@ int[] contentSlots = getContentSlots();    // Slots excluding toolbar (if enable
 
 // Filling areas
 fillRow(icon, rowIndex);                   // Fill entire row
-fillArea(icon, startSlot, endSlot);        // Fill rectangular area
+fillArea(icon, startSlot, endSlot);        // Fill every slot from startSlot to endSlot in reading order (row by row), not a rectangle
 fillBorder(icon);                          // Fill inventory border
 
 // Chaining methods
@@ -277,18 +277,18 @@ Override button creation methods to customize appearance:
 
 <<< @/../examples/src/main/java/com/ultikits/docs/gui/CustomPaginationGui.java
 
-## Deprecated API
+## Removed API
 
-::: warning Deprecated Classes
-`PagingPage` and `OkCancelPage` are no longer maintained; migrate `PagingPage` usage to `BasePaginationPage`, `OkCancelPage` usage to `BaseConfirmationPage`, and any other custom base class to `BaseInventoryPage`.
-The new API gives better structure, testing support, and consistency with the rest of the v6.2.0 framework.
+::: warning Removed in v6.3.0
+`PagingPage` and `OkCancelPage` were removed in v6.3.0 (they were deprecated in 6.2.x); code that still extends them no longer compiles.
+Migrate `PagingPage` to `BasePaginationPage`, `OkCancelPage` to `BaseConfirmationPage`, and any other custom base class to `BaseInventoryPage`.
 :::
 
 ## Tips & Best Practices
 
-### Responsive Design
+### Positioning
 
-Keep inventory layouts consistent across servers with different resolutions:
+Use `getBottomCenterSlot()`, `getSlotFromEnd()` and `addToBottomRow()` instead of hard-coded slot numbers so the layout follows the page's row count:
 
 ```java
 // Always use getBottomCenterSlot() and getSlotFromEnd() for positioning

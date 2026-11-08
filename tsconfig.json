@@ -25,16 +25,16 @@
     "types": ["node"],
 
     // ── 为什么要把 vite 钉到一份 ────────────────────────────────────────────
-    // 依赖树里有三份 vite，而且这不是打包事故，是结构上必需的：
+    // 依赖树里有两份 vite，而且这不是打包事故，是结构上必需的：
     //
     //   vitepress@1.6.4                    dependencies  vite ^5.4.14  → 5.4.21
-    //   @vitejs/plugin-vue 等的 peer        peer          vite ^5||^6   → 6.4.1
-    //   @viteplus/versions 自带的 vitepress dependencies  vite ^7.3.1   → 7.3.1
+    //   @vitejs/plugin-vue 等的 peer        peer          vite ^5||^6   → 6.4.5
     //
     // vitepress 1.6.4 硬依赖 vite 5，所以强制统一到某一个版本会违反它自己的
-    // 声明。三份共存是这套依赖的正确形态。
+    // 声明。两份共存是这套依赖的正确形态。（@viteplus/versions 2.0.6 曾经带来
+    // 第三份 vite 7，2.0.9 起已不再安装。）
     //
-    // 但对**类型检查**而言，这三份的 Plugin 接口是同一个东西的三个副本：
+    // 但对**类型检查**而言，这两份的 Plugin 接口是同一个东西的两个副本：
     // vite.mts 里 GitChangelog() 返回根上 vite 6 的 Plugin，而 vitepress 的
     // UserConfig.vite 期望的是 vitepress/node_modules/vite@5 的 PluginOption，
     // TypeScript 因此报三条 TS2322——它报的是名义类型不同，不是真的接口不兼容
@@ -43,11 +43,9 @@
     // 下面这条 paths 只影响 TypeScript 的模块解析，不影响 Node 与 Vite 的运行时
     // 解析，因此不改变任何运行时行为。它消掉的正是那三条名义差异。
     //
-    // 刻意**不**给 vitepress 加同样的映射：实测那样做会引入两条新错误
-    // （TS2589「类型实例化过深」，以及 @viteplus/versions 与 vitepress 之间
-    // rewrites 类型的真实冲突），等于用两条换两条并打开一个新的检查面。
-    // 两份 vitepress 造成的两条错误保留在原地，用两处会自失效的
-    // @ts-expect-error 标出来，见 .vitepress/config.mts。
+    // 依赖树里只有一份 vitepress（1.6.4），不需要同样的映射。.vitepress/config.mts
+    // 里仍有一处 @ts-expect-error，标的是 @viteplus/versions 自己类型声明里的
+    // 两条错误（TS2589 与 rewrites 的 TS2345），见那里的注释。
     "baseUrl": ".",
     "paths": {
       "vite": ["./node_modules/vite"],

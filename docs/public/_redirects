@@ -38,20 +38,17 @@
 # the locale keys the plugin generates internally. The old shape was live and
 # publicly reachable, so each archived version keeps a rule.
 #
-# v6.3.0-SNAPSHOT gets one too: the nightly alpha deploy publishes to this same
-# dev.ultikits.com hostname and therefore serves this same file, so
-# /v6.3.0-SNAPSHOT/zh/* is a real URL today that people share while reviewing
-# alpha docs. Sitemap exclusion keeps SNAPSHOT out of search results; it does
-# not keep it out of links pasted into issues. Once 6.3.0 releases and the
-# directory is renamed, the rule redirects one non-existent path to another and
-# is inert, so leaving it costs nothing.
+# Alpha snapshot URLs are not listed here. Their label follows the framework's
+# pom.xml, so the rules for retired labels (/v6.3.0-SNAPSHOT/*,
+# /zh/v6.3.0-SNAPSHOT/*, the old /v6.3.0-SNAPSHOT/zh/* shape, and every later
+# release's label) are appended to the built copy of this file by
+# scripts/generate-redirects.mjs, which sends them to the latest docs.
 /v6.1.0/zh/* /zh/v6.1.0/:splat 301
 /v6.2.0/zh/* /zh/v6.2.0/:splat 301
 /v6.2.1/zh/* /zh/v6.2.1/:splat 301
 /v6.2.2/zh/* /zh/v6.2.2/:splat 301
 /v6.2.3/zh/* /zh/v6.2.3/:splat 301
 /v6.2.4/zh/* /zh/v6.2.4/:splat 301
-/v6.3.0-SNAPSHOT/zh/* /zh/v6.3.0-SNAPSHOT/:splat 301
 
 # 只有中文版的归档页，其语言切换器指向的英文地址。
 #

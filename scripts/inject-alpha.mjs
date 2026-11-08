@@ -1,7 +1,7 @@
 // Downloads the alpha branch's docs/src, examples/src, and sidebar.{en,zh}.mts,
 // rewrites the injected markdown's code-snippet references to point at a
 // SNAPSHOT-only examples mirror, and lands everything under
-// docs/archive/v6.3.0-SNAPSHOT/, examples-snapshot/, and
+// docs/archive/v<framework snapshot>/ (e.g. v6.4.0-SNAPSHOT), examples-snapshot/, and
 // .vitepress/config/.snapshot-source/.
 //
 // Why this matters: alpha's docs/src references 76 unique example paths, 12 of
@@ -23,7 +23,7 @@
 // this side's own infrastructure; if it fails silently, nobody would notice
 // the deployed site is missing a version (D-44, 03-CONTEXT.md).
 //
-// Every path this script writes to (docs/archive/v6.3.0-SNAPSHOT/,
+// Every path this script writes to (docs/archive/v*-SNAPSHOT/,
 // examples-snapshot/, .vitepress/config/.snapshot-source/) is gitignored, not
 // committed — a committed copy would be byte-identical to a stale run and
 // would silently mask a failed build-time injection instead of failing
@@ -44,6 +44,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { compareVersions } from './version-compare.mjs';
 
 // ALPHA_REPO / ALPHA_REF exist solely to let a fault-injection run point this
 // script at a ref/repo that cannot resolve, so D-44's fail-closed posture and
@@ -54,7 +55,18 @@ import path from 'node:path';
 const ALPHA_REPO = process.env.ALPHA_REPO || 'UltiKits/UltiTools-Dev-Doc';
 const ALPHA_REF = process.env.ALPHA_REF || 'alpha';
 
-const SNAPSHOT_VERSION = 'v6.3.0-SNAPSHOT';
+// The snapshot label (v<X.Y.Z>-SNAPSHOT) is not written in this repository.
+// It is read from the framework's own pom.xml on its main branch, pinned to
+// the sha git ls-remote resolved, and handed to every consumer through
+// .vitepress/config/.snapshot-source/snapshot-version.json (step 4) and
+// docs/public/snapshot-status.json (step 8). Before this, the label was
+// hard-coded in seven places and kept saying v6.3.0-SNAPSHOT after 6.3.0
+// shipped. FRAMEWORK_REPO / FRAMEWORK_REF exist for fault injection only,
+// like ALPHA_REPO / ALPHA_REF above.
+const FRAMEWORK_REPO = process.env.FRAMEWORK_REPO || 'UltiKits/UltiTools-Reborn';
+const FRAMEWORK_REF = process.env.FRAMEWORK_REF || 'main';
+const framework = resolveFrameworkSnapshot();
+const SNAPSHOT_VERSION = framework.label;
 const ARCHIVE_DEST = path.join('docs', 'archive', SNAPSHOT_VERSION);
 const EXAMPLES_DEST = path.join('examples-snapshot', 'src');
 const SIDEBAR_SOURCE_DEST = path.join('.vitepress', 'config', '.snapshot-source');
@@ -65,6 +77,74 @@ const NEW_SNIPPET_PREFIX = '@/../examples-snapshot/';
 function fail(reason) {
   console.error(`inject-alpha: ${reason}`);
   process.exit(1);
+}
+
+// Returns the text content of every <version> element that is a direct child
+// of <project>. A regex over the whole file would also match <parent>,
+// dependency and plugin versions; tracking element depth does not.
+function topLevelProjectVersions(xml) {
+  const body = xml.replace(/<!--[\s\S]*?-->/g, '').replace(/<\?[\s\S]*?\?>/g, '');
+  const tag = /<(\/?)([A-Za-z_][\w.:-]*)[^>]*?(\/?)>/g;
+  const found = [];
+  let depth = 0;
+  let m;
+  while ((m = tag.exec(body)) !== null) {
+    const [, closing, name, selfClosing] = m;
+    if (closing) { depth -= 1; continue; }
+    if (selfClosing) continue;
+    depth += 1;
+    if (depth === 2 && name === 'version') {
+      const end = body.indexOf('</version>', tag.lastIndex);
+      if (end === -1) return found;
+      found.push(body.slice(tag.lastIndex, end).trim());
+    }
+  }
+  return found;
+}
+
+// Fail-closed like every other step here: an unreachable framework repo, a
+// pom without exactly one top-level <version>, a release version (the window
+// between a release commit and the next -SNAPSHOT bump), or a snapshot that is
+// not newer than this site's current release all stop the injection. A guessed
+// label would publish alpha content under a wrong version.
+function resolveFrameworkSnapshot() {
+  let out;
+  try {
+    out = execFileSync('git', ['ls-remote', `https://github.com/${FRAMEWORK_REPO}.git`, `refs/heads/${FRAMEWORK_REF}`], { encoding: 'utf-8' });
+  } catch (err) {
+    fail(`git ls-remote failed for ref "${FRAMEWORK_REF}" of ${FRAMEWORK_REPO}: ${err.message}`);
+  }
+  const sha = out.split('\t')[0].trim();
+  if (!/^[0-9a-f]{40}$/.test(sha)) {
+    fail(`ref "${FRAMEWORK_REF}" not found in ${FRAMEWORK_REPO} (git ls-remote returned "${out.trim()}")`);
+  }
+  const pomUrl = `https://raw.githubusercontent.com/${FRAMEWORK_REPO}/${sha}/pom.xml`;
+  let pom;
+  try {
+    pom = execFileSync('curl', ['-sS', '--fail', '--location', '--connect-timeout', '10', '--max-time', '60', pomUrl], { encoding: 'utf-8' });
+  } catch (err) {
+    fail(`curl download of ${pomUrl} failed: ${err.message}`);
+  }
+  const versions = topLevelProjectVersions(pom);
+  if (versions.length !== 1) {
+    fail(`expected exactly one top-level <version> in ${pomUrl}, found ${versions.length}: ${JSON.stringify(versions)}`);
+  }
+  const pomVersion = versions[0];
+  const match = /^(\d+\.\d+\.\d+)-SNAPSHOT$/.exec(pomVersion);
+  if (!match) {
+    fail(`${FRAMEWORK_REPO}@${FRAMEWORK_REF} pom version is "${pomVersion}", not X.Y.Z-SNAPSHOT. ` +
+      'The framework is between a release commit and its next -SNAPSHOT bump; refusing to invent a label.');
+  }
+  const config = readFileSync(path.join('.vitepress', 'config.mts'), 'utf-8');
+  const current = [...config.matchAll(/^\s*current:\s*['"]v?(\d+\.\d+\.\d+)['"]/gm)];
+  if (current.length !== 1) {
+    fail(`expected exactly one versionsConfig "current:" key in .vitepress/config.mts, found ${current.length}`);
+  }
+  if (compareVersions(match[1], current[0][1]) <= 0) {
+    fail(`framework snapshot ${pomVersion} is not newer than this site's current release v${current[0][1]}; ` +
+      'a snapshot label at or below a released version would collide with or precede a release tree.');
+  }
+  return { label: `v${pomVersion}`, pomVersion, repo: FRAMEWORK_REPO, ref: FRAMEWORK_REF, sha };
 }
 
 // ── 1. Resolve the alpha commit sha ────────────────────────────────────────
@@ -241,8 +321,15 @@ for (const rel of ['.vitepress/config/sidebar.en.mts', '.vitepress/config/sideba
 }
 
 // ── 4. Land the three destinations, replacing whatever was there before ────
-rmSync(ARCHIVE_DEST, { recursive: true, force: true });
+// Every SNAPSHOT tree goes, not only this run's label: after a framework
+// version bump the previous label's directory would otherwise stay on disk and
+// be built as an extra, sidebar-less version.
 mkdirSync(path.dirname(ARCHIVE_DEST), { recursive: true });
+for (const entry of readdirSync(path.dirname(ARCHIVE_DEST), { withFileTypes: true })) {
+  if (entry.isDirectory() && /^v\d+\.\d+\.\d+-SNAPSHOT$/.test(entry.name)) {
+    rmSync(path.join(path.dirname(ARCHIVE_DEST), entry.name), { recursive: true, force: true });
+  }
+}
 cpSync(path.join(extractDir, 'docs', 'src'), ARCHIVE_DEST, { recursive: true });
 
 rmSync(EXAMPLES_DEST, { recursive: true, force: true });
@@ -258,6 +345,19 @@ cpSync(
 cpSync(
   path.join(extractDir, '.vitepress', 'config', 'sidebar.zh.mts'),
   path.join(SIDEBAR_SOURCE_DEST, 'sidebar.zh.mts')
+);
+// The one place the snapshot label is written down for the build.
+// scripts/generate-snapshot-sidebar.mjs turns it into the snapshotVersion
+// export; scripts/snapshot-version.mjs prints it for shell checks.
+writeFileSync(
+  path.join(SIDEBAR_SOURCE_DEST, 'snapshot-version.json'),
+  `${JSON.stringify({
+    version: SNAPSHOT_VERSION,
+    frameworkRepo: framework.repo,
+    frameworkRef: framework.ref,
+    frameworkCommit: framework.sha,
+    pomVersion: framework.pomVersion,
+  }, null, 2)}\n`
 );
 
 // ── 5. Rewrite code-snippet references, then assert zero residual + every
@@ -424,7 +524,7 @@ function findUnprefixedAbsoluteLinks(content) {
 // detector itself is broken and the zero-residual assertion below cannot
 // be trusted either way.
 const controlProbeMatches = findUnprefixedAbsoluteLinks(
-  '[control probe](/this-should-be-flagged)\n<a href="/this-too">also flagged</a>\n[already prefixed](/v6.3.0-SNAPSHOT/x)\n[already prefixed, zh](/zh/v6.3.0-SNAPSHOT/x)\n![asset](/pic.png)\n'
+  `[control probe](/this-should-be-flagged)\n<a href="/this-too">also flagged</a>\n[already prefixed](/${SNAPSHOT_VERSION}/x)\n[already prefixed, zh](/zh/${SNAPSHOT_VERSION}/x)\n![asset](/pic.png)\n`
 );
 if (controlProbeMatches.length !== 2) {
   fail(
@@ -555,6 +655,11 @@ mkdirSync('docs/public', { recursive: true });
 const snapshotStatus = {
   commit: commitSha,
   ref: ALPHA_REF,
+  version: SNAPSHOT_VERSION,
+  // The nightly workflow compares this with the framework main sha it
+  // resolves, so a framework version bump redeploys even when docs alpha
+  // has not moved.
+  frameworkCommit: framework.sha,
   injectedAt: INJECTED_AT,
   generator: 'scripts/inject-alpha.mjs',
 };
@@ -615,5 +720,6 @@ console.log(
   `rewrote ${replacedCount} snippet reference(s) across ${touchedFiles} file(s), ` +
   `rewrote ${bodyLinkRewriteCount} absolute body link(s), ` +
   `frontmatter metadata on ${frontmatterProcessedCount} file(s), ` +
-  `commit ${commitSha.slice(0, 7)}, snapshot-status.json written`
+  `commit ${commitSha.slice(0, 7)}, label ${SNAPSHOT_VERSION} (${framework.repo}@${framework.sha.slice(0, 7)}), ` +
+  `snapshot-status.json written`
 );

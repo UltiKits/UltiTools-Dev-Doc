@@ -20,7 +20,7 @@ and `@CmdExecutor` annotations here represent the target type and executor infor
 ::: danger Removed in v6.3.0
 `AbstractCommandExecutor` (and the empty `AbstractCommendExecutor` shim) was deprecated since v6.2.0 and deleted outright in v6.3.0.
 Use `BaseCommandExecutor` instead — same annotation-driven features, plus a pluggable validation chain and custom type parsers.
-See [the migration guide](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/COMPATIBILITY.md#migrating-off-abstractcommandexecutor) in `COMPATIBILITY.md`.
+See [the migration guide](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md#migrating-off-abstractcommandexecutor) in `COMPATIBILITY.md`.
 :::
 
 ::: tip `/cmd help` is gated the same as any other invocation <Badge type="tip" text="v6.3.0+" />
@@ -137,7 +137,7 @@ A provider returns `List<String>`. The existing supported parameter lists are ex
 
 As of v6.3.2, console, RCON and other `CommandSender` implementations use the same completion dispatch as players. Providers also accept exactly `(CommandSender)`, `(CommandSender, String)` and `(CommandSender, Command, String[])`. Use the exact `CommandSender` type, not a sender subclass. These forms work both in the executor and in a class named by `@CmdSuggest`.
 
-The same class-level and mapping-level permission and OP checks, and the effective `@CmdTarget`, filter candidates before literals or providers contribute results. `CONSOLE` means any non-player sender, not only `ConsoleCommandSender`. A denied request returns no candidates silently; completion does not execute validators with side effects, cooldowns or usage locks, and does not emit command-denial messages.
+The same class-level and mapping-level permission and OP checks, and the effective `@CmdTarget`, filter candidates before literals or providers contribute results. `CONSOLE` means any non-player sender, not only `ConsoleCommandSender`. A denied request returns no candidates silently. For a console or RCON sender, `suggest` returns `null` instead of an empty list, so the server falls back to its default completion of online player names. Completion does not execute validators with side effects, cooldowns or usage locks, and does not emit command-denial messages.
 
 A registered custom completer receives the requester through `TabCompletionContext.getSender()`. `getPlayer()` returns that player for a player request and `null` for every non-player request; custom completers must check for `null` before using player-only APIs. Player-only provider methods are skipped for non-player requests, never called with a null player. Zero-argument and String-only providers, built-in completers and registered `@key` completers remain available to both kinds of sender.
 
@@ -247,7 +247,7 @@ In this example, when a player enters `/somecmd add aa bb cc`, the `name` will b
 
 Before passing parameters to a method, UltiTools converts the command's variable parameters based on the types required by the method.
 
-All parsers are stored in a map called `parsers`, and you can use `getParser()` to access it.
+Parsers live in the shared `TypeParserRegistry`; look one up with `TypeParserRegistry.getInstance().getParser(SomeType.class)`.
 
 For some types, `BaseCommandExecutor` provides default parsers via `TypeParserRegistry.getInstance()` (including base types and arrays):
 
@@ -263,17 +263,12 @@ For some types, `BaseCommandExecutor` provides default parsers via `TypeParserRe
 - Material (Bukkit API)
 - UUID (Java built-in)
 - Boolean (Java built-in)
+- World (Bukkit API)
+- GameMode (Bukkit API)
+- Location (Bukkit API)
+- Enchantment (Bukkit API)
 
-If you want to use a custom parser, you need to create a method that can be used with the `Function` interface.
-
-Supported parser types are `<String, ?>`, meaning the method has exactly one parameter of type `String` and returns a value of any type.
-
-```java
-public static SomeType toSomeType(String s) {
-  //do something...
-  return result;
-}
-```
+To add a type, implement `TypeParser<T>` and register it with `TypeParserRegistry.getInstance().register(...)`; see [Custom Type Parsers](#custom-type-parsers).
 
 ### Permission
 
@@ -566,7 +561,7 @@ public void checkCooldown(UUID playerId, String methodKey) {
 }
 ```
 
-The cooldown validator is obtained through `getCooldownValidator()`, an instance field on `BaseCommandExecutor`. Each command executor holds its own instance, so this call only reports cooldown state for the current executor. `methodKey` is `method.toString()` of the mapping method. When you pass one validator to several executors through a custom `ValidatorChain`, the string-keyed `getRemainingCooldown(UUID, String)` and `clearCooldown(UUID, String)` span all of them; as of v6.3.0 the overloads `getRemainingCooldown(UUID, Object executor, String methodKey)` and `clearCooldown(UUID, Object executor, String methodKey)` address one executor.
+The cooldown validator is obtained through `getCooldownValidator()`, an instance field on `BaseCommandExecutor`. Each command executor holds its own instance, so this call only reports cooldown state for the current executor. `methodKey` is `method.toString()` of the mapping method. With a custom chain passed to `super(...)`, `getCooldownValidator()` returns an instance that is not in the chain and always reports no cooldown; keep a reference to the `CooldownValidator` you put in the chain and query that. When you pass one validator to several executors through a custom `ValidatorChain`, the string-keyed `getRemainingCooldown(UUID, String)` and `clearCooldown(UUID, String)` span all of them; as of v6.3.0 the overloads `getRemainingCooldown(UUID, Object executor, String methodKey)` and `clearCooldown(UUID, Object executor, String methodKey)` address one executor.
 
 #### UsageLockValidator
 
@@ -614,7 +609,7 @@ Validators execute in order by their `getOrder()` value (lower values first):
 2. **200** - PermissionValidator (check permissions)
 3. **250** - UsageLockValidator (prevent concurrent execution)
 4. **300** - CooldownValidator (check cooldown state)
-5. **400+** - Custom validators
+5. Custom validators, at the value their `getOrder()` returns. The default is `0`, which runs before all built-ins, so return a value above 300 (the example uses 400) to run after them
 
 ## Async Commands <Badge type="tip" text="v6.2.0+" />
 
@@ -649,7 +644,8 @@ As of v6.3.0, `timeout()` is a deadline on how long the framework *waits*, not a
 @CmdMapping(format = "backup")
 public void backupWorld(@CmdSender Player player) {
     // Configuration above:
-    // - Shows "处理中..." while executing
+    // - Shows the text of command.backup.processing while executing
+    //   (the default 处理中... / Processing... is used only when the key is empty)
     // - Uses custom i18n key instead of default
 }
 ```
@@ -715,7 +711,7 @@ If you want a command to be executed only in the game (executed by the player), 
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerCommandExample.java
 
-Except for the `Player` type parameter, this method is the same as the `CommandExecutor#onCommand` method.
+It receives the command, its arguments and the player; unlike `CommandExecutor#onCommand`, there is no alias (label) parameter.
 
 If you try to execute this command in the console, you will receive an error
 message: `This command can only be performed in GAME!`
@@ -724,7 +720,7 @@ If you want this command to use Tab completion, please see the next section.
 
 ### Command Completion
 
-From Minecraft 1.13, the Bukkit API provides a new `TabCompleter` interface for command completion.
+The Bukkit API provides the `TabCompleter` interface for command completion.
 
 UltiTools has encapsulated this interface to provide a more concise way of command completion.
 
@@ -738,7 +734,7 @@ protected List<String> onPlayerTabComplete(Command command, String[] strings, Pl
 }
 ```
 
-Except for the `Player` type parameter, this method is the same as the `TabCompleter#onTabComplete` method.
+It receives the command, its arguments and the player; unlike `TabCompleter#onTabComplete`, there is no alias (label) parameter.
 
 The rest of the usage is the same as the `AbstractPlayerCommandExecutor` class.
 
@@ -749,7 +745,7 @@ override the `onConsoleCommand` method.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ConsoleCommandExample.java
 
-This method is the same as the `CommandExecutor#onCommand` method.
+It receives the sender, the command and its arguments; unlike `CommandExecutor#onCommand`, there is no alias (label) parameter.
 
 If you try to execute this command in the game, you will receive an error
 message: `This command can only be performed in CONSOLE!`

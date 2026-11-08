@@ -1,0 +1,13 @@
+# Cloudflare Pages response headers. Copied verbatim into the build output.
+#
+# Everything under /assets/ is emitted by Vite with a content hash in the file
+# name, so a given URL never changes content and can be cached for a year.
+# Pages' default for these is "public, max-age=14400, must-revalidate" on the
+# custom domain, which makes returning readers revalidate every chunk.
+#
+# Not listed here on purpose, so they keep the Pages default (revalidate):
+# HTML pages, /sw.js (the self-destroying worker must always be re-fetched,
+# see CACHING.md), /manifest.webmanifest, /sitemap.xml, /robots.txt and the
+# unhashed files copied from docs/public/.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

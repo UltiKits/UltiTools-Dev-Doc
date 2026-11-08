@@ -1,10 +1,15 @@
 import {PwaOptions} from "@vite-pwa/vitepress";
 
+// The site has no offline mode; see CACHING.md. selfDestroying makes the build
+// emit a small /sw.js that unregisters itself and deletes its caches, which
+// rescues readers whose browsers still run the old workbox worker
+// (scripts/verify-sw.sh asserts this on every build). With selfDestroying the
+// plugin never runs workbox, so workbox, includeAssets, registerType,
+// devOptions and experimental.includeAllowlist had no effect and were removed.
+// The manifest is kept on purpose (CACHING.md, "为什么 manifest 与图标保留").
 const pwaConfig: PwaOptions = {
-    registerType: 'prompt',
     selfDestroying: true,
     outDir: '../.vitepress/dist',
-    includeAssets: ['favicon.ico'],
     manifest: {
         name: 'UltiKits Dev Doc',
         short_name: 'UltiKitsDevDoc',
@@ -17,18 +22,6 @@ const pwaConfig: PwaOptions = {
             },
         ],
     },
-    workbox: {
-        globPatterns: ['**/*.{css,js,html,svg,png,ico,txt,woff2}'],
-    },
-    devOptions: {
-        type: 'module',
-        enabled: true,
-        suppressWarnings: true,
-        navigateFallback: '/',
-    },
-    experimental: {
-        includeAllowlist: true
-    }
 }
 
 export { pwaConfig }

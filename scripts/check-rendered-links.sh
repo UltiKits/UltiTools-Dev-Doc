@@ -10,14 +10,14 @@
 # test runner is out of contract.
 #
 # ── The mode argument is not cosmetic ───────────────────────────────────────
-# docs/archive/v6.3.0-SNAPSHOT/ is gitignored. A plain local `npm run build`
+# docs/archive/v*-SNAPSHOT/ is gitignored. A plain local `npm run build`
 # picks it up whenever an earlier `npm run build:with-alpha` left it on disk,
 # while a clean CI checkout never has it. The same assertion suite therefore has
 # two different correct answers depending on which side it runs on, and getting
 # that wrong reads as a defect when it is only a difference in inputs.
 #
 #   --clean       asserts the six committed archived versions, and additionally
-#                 asserts that dist/v6.3.0-SNAPSHOT does not exist at all. This
+#                 asserts that no dist/v*-SNAPSHOT tree exists at all. This
 #                 is the clean-checkout side — what CI sees. Reproduce it
 #                 locally with `npm run clean:snapshot` before `npm run build`.
 #   --with-alpha  asserts all seven versions plus the alpha-specific checks.
@@ -92,7 +92,11 @@ OLD_SWITCHER_CLASS='VP(Screen)?VersionSwitcher'
 # Present in every built page, whatever this phase does — the control for the
 # zero-hit assertions below.
 CONTROL_MARKER='__VP_SITE_DATA__'
-SNAPSHOT_DIR_NAME='v6.3.0-SNAPSHOT'
+# The snapshot label is derived (scripts/inject-alpha.mjs reads it from the
+# framework's main-branch pom.xml) and resolved after the mode is known: only
+# --with-alpha has one. --clean asserts that no v*-SNAPSHOT tree exists at all.
+SNAPSHOT_DIR_NAME=''
+SNAPSHOT_DIR_GLOB='v*-SNAPSHOT'
 # Chinese archived pages are served at /<locale>/<version>/..., not
 # /<version>/<locale>/.... Every per-version scan below has to look in both
 # places or it silently sees only the English half.
@@ -121,7 +125,7 @@ usage() {
 用法: check-rendered-links.sh <--clean|--with-alpha>
 
   --clean       断言干净检出（CI）那一侧的产物：六个已提交的归档版本，
-                且 dist/v6.3.0-SNAPSHOT 必须不存在。
+                且 dist 里不得有任何 v*-SNAPSHOT 目录。
                 本地复现方式：npm run clean:snapshot && npm run build
   --with-alpha  断言本地 build:with-alpha 那一侧的产物：七个版本，
                 外加 alpha 专有断言（commit 令牌、SNAPSHOT 覆盖数）。
@@ -164,7 +168,14 @@ if [ ! -d "$DIST" ]; then
   exit 2
 fi
 
-echo "check-rendered-links: mode=$MODE dist=$DIST"
+if [ "$MODE" = "--with-alpha" ]; then
+  if ! SNAPSHOT_DIR_NAME="$(node scripts/snapshot-version.mjs)" || [ -z "$SNAPSHOT_DIR_NAME" ]; then
+    echo "check-rendered-links: --with-alpha 需要注入时写下的快照版本标签（见上一行），先跑 npm run build:with-alpha" >&2
+    exit 2
+  fi
+fi
+
+echo "check-rendered-links: mode=$MODE dist=$DIST snapshot=${SNAPSHOT_DIR_NAME:-(none)}"
 echo "----------------------------------------"
 
 # ── 1. Per-version notice-bar coverage ──────────────────────────────────────
@@ -176,7 +187,8 @@ for src_dir in docs/archive/*/; do
   [ -d "$src_dir" ] || continue
   version="$(basename "$src_dir")"
 
-  if [ "$MODE" = "--clean" ] && [ "$version" = "$SNAPSHOT_DIR_NAME" ]; then
+  # shellcheck disable=SC2053 # glob match on purpose
+  if [ "$MODE" = "--clean" ] && [[ "$version" == $SNAPSHOT_DIR_GLOB ]]; then
     skip "  $version 源码目录仍在磁盘上，但 --clean 断言的是不含它的那一侧；下面第 4 条断言它不在产物里"
     continue
   fi
@@ -468,12 +480,12 @@ fi
 # ── 5. Mode-specific alpha assertions ───────────────────────────────────────
 
 if [ "$MODE" = "--clean" ]; then
-  echo "5. --clean：产物里不含 SNAPSHOT"
-  if [ -d "$DIST/$SNAPSHOT_DIR_NAME" ]; then
-    n="$(find "$DIST/$SNAPSHOT_DIR_NAME" -type f -name '*.html' | wc -l)"
-    fail "  dist/$SNAPSHOT_DIR_NAME observed=存在（$n 个页面） expected=不存在 —— 这次断言跑在本地那一侧，不是 CI 那一侧；先跑 npm run clean:snapshot"
+  echo "5. --clean：产物里不含任何 SNAPSHOT"
+  snap_found="$(find "$DIST" "$DIST/$LOCALE_SEGMENT" -maxdepth 1 -type d -name "$SNAPSHOT_DIR_GLOB" 2>/dev/null | sort -u)"
+  if [ -n "$snap_found" ]; then
+    fail "  dist/$SNAPSHOT_DIR_GLOB observed=存在（$(printf '%s' "$snap_found" | tr '\n' ' ')） expected=不存在 —— 这次断言跑在本地那一侧，不是 CI 那一侧；先跑 npm run clean:snapshot"
   else
-    pass "  dist/$SNAPSHOT_DIR_NAME observed=不存在 expected=不存在"
+    pass "  dist/$SNAPSHOT_DIR_GLOB observed=不存在 expected=不存在"
   fi
 else
   echo "5. --with-alpha：SNAPSHOT 覆盖与 commit 元数据"
@@ -598,7 +610,7 @@ if [ "$MODE" = "--with-alpha" ]; then
 
   # 路径原本只有 docs/src，于是「注入溢出进某个已发布的归档树」既不被这条覆盖，
   # 也不被 verify-snapshot.sh 第 12 条覆盖。加上 docs/archive 不花任何代价：
-  # 唯一会被注入写入的归档子目录 docs/archive/v6.3.0-SNAPSHOT 本身就是
+  # 唯一会被注入写入的归档子目录 docs/archive/v*-SNAPSHOT 本身就是
   # gitignore 的（.gitignore:156），所以正常注入不会让这条变红。
   porcelain_paths="docs/src docs/archive"
   porcelain_dirty="$(git status --porcelain -- $porcelain_paths | wc -l)"

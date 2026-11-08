@@ -1,99 +1,101 @@
 <script setup lang="ts">
+// Language switch shown at the bottom of the sidebar (and, on pages without a
+// sidebar, in the nav bar). The language list and links come from
+// ../composables/versioned-langs.ts, the same code that config.mts substitutes
+// for VitePress's own useLangs(), so this switch and the default theme's
+// language menus always agree. See that file for why VitePress's version
+// does not work with archived versions.
 import { useData } from 'vitepress'
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useLangs } from '../composables/versioned-langs'
 
-const { site, localeIndex, page, theme, hash } = useData()
+const props = withDefaults(defineProps<{ placement?: 'top' | 'bottom' }>(), { placement: 'top' })
+
+const { page, theme } = useData()
+const { currentLang, localeLinks } = useLangs({ correspondingLink: true })
 
 const open = ref(false)
+const root = ref<HTMLElement | null>(null)
 
-function ensureStartingSlash(path: string): string {
-  return /^\//.test(path) ? path : `/${path}`
+const relativePath = computed(() => page.value.relativePath)
+
+function close() {
+  open.value = false
 }
 
-function normalizeLink(
-  link: string,
-  addPath: boolean,
-  path: string,
-  addExt: boolean
-) {
-  return addPath
-    ? link.replace(/\/$/, '') +
-    ensureStartingSlash(
-      path
-        .replace(/(^|\/)index\.md$/, '$1')
-        .replace(/\.md$/, addExt ? '.html' : '')
-    )
-    : link
-}
-
-const currentLang = computed(() => {
-  return {
-    label: site.value.locales[localeIndex.value]?.label,
-    link:
-      site.value.locales[localeIndex.value]?.link ||
-      (localeIndex.value === 'root' ? '/' : `/${localeIndex.value}/`)
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && open.value) {
+    close()
+    root.value?.querySelector<HTMLElement>('.trigger')?.focus()
   }
+}
+
+function onFocusOut(e: FocusEvent) {
+  const next = e.relatedTarget as Node | null
+  if (!next || !root.value?.contains(next)) close()
+}
+
+function onPointerDown(e: PointerEvent) {
+  if (root.value && !root.value.contains(e.target as Node)) close()
+}
+
+watch(open, (isOpen) => {
+  if (typeof document === 'undefined') return
+  if (isOpen) document.addEventListener('pointerdown', onPointerDown, true)
+  else document.removeEventListener('pointerdown', onPointerDown, true)
 })
 
-const localeLinks = computed(() => {
-  const links: any[] = Object.entries(site.value.locales).flatMap(([key, value]) =>
-    currentLang.value.label === value.label
-      ? []
-      : {
-        text: value.label,
-        link:
-          normalizeLink(
-            value.link || (key === 'root' ? '/' : `/${key}/`),
-            theme.value.i18nRouting !== false,
-            page.value.relativePath.slice(
-              currentLang.value.link.length - 1
-            ),
-            !site.value.cleanUrls
-          ) + hash.value
-      }
-  )
+watch(relativePath, close)
 
-  // 过滤掉 text 为空的项目
-  const filteredLinks = links.filter(item => item.text && item.text.trim() !== '')
-
-  // 添加当前语言（不可点击）
-  if (currentLang.value.label) {
-    filteredLinks.unshift({
-      text: currentLang.value.label,
-      link: '',
-      isCurrent: true
-    })
-  }
-
-  return filteredLinks
+onBeforeUnmount(() => {
+  if (typeof document !== 'undefined') document.removeEventListener('pointerdown', onPointerDown, true)
 })
 </script>
 
 <template>
-  <div class="sidebar-translations" @mouseleave="open = false">
-    <button class="trigger" @click="open = !open">
+  <div
+    v-if="currentLang.label && localeLinks.length"
+    ref="root"
+    class="sidebar-translations"
+    :class="`placement-${props.placement}`"
+    @mouseleave="close"
+    @keydown="onKeydown"
+    @focusout="onFocusOut"
+  >
+    <button
+      class="trigger"
+      type="button"
+      aria-haspopup="true"
+      :aria-expanded="open"
+      :aria-label="theme.langMenuLabel || 'Change language'"
+      @click="open = !open"
+    >
       <span class="vpi-languages icon"></span>
       <span class="text">{{ currentLang.label }}</span>
     </button>
 
     <div class="menu" :class="{ open }">
       <div class="menu-content">
-        <template v-for="item in localeLinks" :key="item.text">
-          <span v-if="item.isCurrent" class="item current">
-            {{ item.text }}
-            <span class="vpi-check icon-check"></span>
-          </span>
-          <a v-else :href="item.link" class="item">
-            {{ item.text }}
-          </a>
-        </template>
+        <span class="item current">
+          {{ currentLang.label }}
+          <span class="vpi-check icon-check"></span>
+        </span>
+        <a
+          v-for="item in localeLinks"
+          :key="item.text"
+          :href="item.link"
+          :tabindex="open ? 0 : -1"
+          class="item"
+          @click="close"
+        >
+          {{ item.text }}
+        </a>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* ... existing styles ... */
 .icon-check {
   margin-left: auto;
   font-size: 14px;
@@ -136,7 +138,7 @@ const localeLinks = computed(() => {
 
 .trigger:hover {
   color: var(--vp-c-text-1);
-  background-color: var(--vp-c-bg-alt);
+  background-color: var(--vp-c-default-soft);
 }
 
 .icon {
@@ -158,6 +160,19 @@ const localeLinks = computed(() => {
 .menu.open {
   opacity: 1;
   visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* nav-bar variant: the trigger sits at the top of the page, so open downwards */
+.placement-bottom .menu {
+  bottom: auto;
+  top: 100%;
+  padding-bottom: 0;
+  padding-top: 10px;
+  transform: translateX(-50%) translateY(-10px);
+}
+
+.placement-bottom .menu.open {
   transform: translateX(-50%) translateY(0);
 }
 
@@ -183,6 +198,6 @@ const localeLinks = computed(() => {
 
 .item:hover {
   color: var(--vp-c-brand);
-  background-color: var(--vp-c-bg-alt);
+  background-color: var(--vp-c-default-soft);
 }
 </style>

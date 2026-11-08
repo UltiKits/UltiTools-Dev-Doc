@@ -60,7 +60,7 @@ Control what value is returned when an exception is caught:
 Supported default value expressions:
 - `"null"` — returns null (default for objects)
 - `"true"` / `"false"` — returns boolean
-- Numeric literals — `"0"`, `"100"`, `"-5"`, `"3.14"` — returns the number
+- Numeric literals such as `"0"`, `"100"`, `"-5"`, `"3.14"` are parsed for `int`, `long`, `float` and `double` return types (and their wrappers); a literal that does not parse for the return type, or any other numeric type, falls back to the type default
 - `"empty"` — returns empty collection/array/string based on return type
 
 If `defaultValue` is not specified, a type-appropriate default is used:
@@ -86,8 +86,7 @@ Register the handler and reference it by name:
 
 ::: tip Handler Interface
 Custom handlers implement the `ExceptionHandler` interface, whose `handleException(Throwable, Object, Method, Object[])` method holds the main logic and can return a replacement value or re-throw.
-`supports(Class)` is optional and reports whether the handler covers a given exception type, defaulting to true for all types.
-`getOrder()` is optional too and sets priority, where lower values run first and the default is 0.
+`supports(Class)` and `getOrder()` have default implementations but are not consulted for a handler named in `@ExceptionCatch(handler = …)`: that handler is called for every exception the annotation's `value` catches.
 :::
 
 ## Method Requirements
@@ -116,7 +115,7 @@ public class NonManagedClass {
 Supported bean types:
 - `@Service` — services
 - `@Component` — general-purpose beans
-- Any class registered manually in the IoC container
+- A class registered as a definition with `registerBean(Class, …)`. An instance you construct yourself is not proxied: `registerSingleton` refuses it and `registerType` registers it without interception.
 
 ## Complete Example
 

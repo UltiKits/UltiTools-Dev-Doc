@@ -3,7 +3,7 @@
 <Badge type="tip" text="v6.2.0+" />
 
 ::: info 现代 GUI 系统
-GUI 系统已使用 `BaseInventoryPage`、`BasePaginationPage` 和 `BaseConfirmationPage` 重建。这些类取代了早期版本中不推荐使用的 `PagingPage` 和 `OkCancelPage`。
+GUI 系统已使用 `BaseInventoryPage`、`BasePaginationPage` 和 `BaseConfirmationPage` 重建。这些类取代了 `PagingPage` 和 `OkCancelPage`，后两者已在 v6.3.0 删除。
 :::
 
 UltiTools 提供了基于 [obliviate-invs](https://github.com/hamza-cskn/obliviate-invs) 库的全面 GUI 系统。这个集成使您无需担心低级 Bukkit 背包管理，就能创建丰富、交互式的背包界面。
@@ -112,7 +112,7 @@ int[] contentSlots = getContentSlots();    // 排除工具栏的槽位（如果�
 
 // 填充区域
 fillRow(icon, rowIndex);                   // 填充整行
-fillArea(icon, startSlot, endSlot);        // 填充矩形区域
+fillArea(icon, startSlot, endSlot);        // 按阅读顺序逐行填充 startSlot 到 endSlot 之间的所有槽位（不是矩形）
 fillBorder(icon);                          // 填充背包边框
 
 // 链式调用
@@ -277,18 +277,18 @@ ItemStack glass = XVersionUtils.getColoredPlaneGlass(Colors.CYAN);
 
 <<< @/../examples/src/main/java/com/ultikits/docs/gui/CustomPaginationGui.java
 
-## 弃用的 API
+## 已删除的 API
 
-::: warning 弃用的类
-`PagingPage` 和 `OkCancelPage` 不再维护：`PagingPage` 请迁移到 `BasePaginationPage`，`OkCancelPage` 请迁移到 `BaseConfirmationPage`，其他自定义基类请迁移到 `BaseInventoryPage`。
-新 API 提供更好的结构、测试支持和与 v6.2.0 框架其他部分的一致性。
+::: warning v6.3.0 已删除
+`PagingPage` 与 `OkCancelPage` 已在 v6.3.0 删除（6.2.x 中已弃用），仍继承它们的代码无法编译。
+`PagingPage` 请迁移到 `BasePaginationPage`，`OkCancelPage` 请迁移到 `BaseConfirmationPage`，其他自定义基类请迁移到 `BaseInventoryPage`。
 :::
 
 ## 提示与最佳实践
 
-### 响应式设计
+### 槽位定位
 
-在不同分辨率的服务器上保持背包布局的一致性：
+使用 `getBottomCenterSlot()`、`getSlotFromEnd()` 和 `addToBottomRow()` 代替硬编码的槽位号，使布局随页面行数变化：
 
 ```java
 // 始终使用 getBottomCenterSlot() 和 getSlotFromEnd() 来定位
