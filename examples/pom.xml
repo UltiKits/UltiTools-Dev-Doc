@@ -27,6 +27,13 @@
              and the latest <release> on Maven Central. Verified by CI. -->
         <ultitools.version>6.3.2</ultitools.version>
         <java.version>1.8</java.version>
+        <!-- No `maven.compiler.release` 8 on purpose. With source/target alone,
+             javac 9+ compiles against the running JDK's class library, so Java
+             9+ APIs are accepted. That matches what readers run: Paper 1.21
+             needs Java 21 and HikariCP 5 needs Java 11, and the IoC example
+             (ioc/HttpClientConfiguration.java) uses java.net.http.HttpClient
+             from Java 11. Setting release 8 fails that example; whether the
+             example or this setting should change is a documentation decision. -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -47,7 +54,16 @@
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <version>1.21.11-R0.1-SNAPSHOT</version>
+            <!-- A timestamped build, not `1.21.11-R0.1-SNAPSHOT`: a moving
+                 SNAPSHOT lets the compile result change without any change in
+                 this repository. Paper publishes paper-api only as snapshots
+                 (its non-snapshot `*.build.N-stable` versions start at 26.x, a
+                 different Minecraft line), so a dated snapshot build is the
+                 closest thing to a release. The framework pins Paper the same
+                 way. If Paper ever prunes this build, the compile fails loudly
+                 and the pin moves to the newest build in
+                 paper-api/1.21.11-R0.1-SNAPSHOT/maven-metadata.xml. -->
+            <version>1.21.11-R0.1-20260511.115010-91</version>
             <scope>provided</scope>
         </dependency>
         <!-- Only present so the @Configuration/@Bean example can wrap a real
