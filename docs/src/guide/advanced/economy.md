@@ -68,7 +68,7 @@ up the module's one warning for the session. Put the main class in a package of 
 
 ## What this does not change
 
-Vault stays an optional, soft dependency of UltiTools: `plugin.yml` still declares
-`softdepend: [Vault]`, and the Maven dependency on Vault's API is still `provided` scope. No module
+Vault stays an optional, soft dependency of UltiTools: `plugin.yml` still lists
+`Vault` under `softdepend`, and the Maven dependency on Vault's API is still `provided` scope. No module
 needs to change how it calls `EconomyUtils`. A public, multi-currency economy interface is under
 design for a future release; it is not part of v6.3.0, and no code in this release depends on it.
