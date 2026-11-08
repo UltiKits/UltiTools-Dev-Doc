@@ -17,7 +17,7 @@
     "@nolebase/vitepress-plugin-inline-link-preview": "^2.18.2",
     "@types/node": "20.19.9",
     "@vite-pwa/vitepress": "^0.3.1",
-    "@viteplus/versions": "^2.0.6",
+    "@viteplus/versions": "^2.3.0",
     "sass": "^1.83.4",
     "typescript": "5.6.3",
     "vitepress": "^1.6.4",
