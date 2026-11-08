@@ -49,6 +49,12 @@ cat .vitepress/dist/sw.js
 
 **「一致」不是两个数字相等：** HTML 是 `max-age=0`、`sw.js` 是 `max-age=14400`，本来就不同。它指的是两者都受 `must-revalidate` 约束、都没有边缘持有一份比源站更旧的字节的证据。反例：若 `/sw.js` 的 cache-busted 请求返回了与 plain 请求不同的 etag，就说明边缘有一份陈旧副本尚未被替换，那条结论必须单独呈报、记为未决，而不是被本次的「一致」掩盖。本次实测两者相同（均为 `055009153767a7455aba1820e28ebe37`），不需要呈报。
 
+## 带 hash 的资源长缓存（docs/public/_headers）
+
+`/assets/*` 下的文件由 Vite 按内容 hash 命名，同一个 URL 的内容不会变，因此 `docs/public/_headers` 给它们 `Cache-Control: public, max-age=31536000, immutable`。此前线上返回的是 `public, max-age=14400, must-revalidate`，回访读者每 4 小时要对每个 chunk 重新校验一次（`脚本实测`：`curl -sI https://dev.ultikits.com/assets/chunks/<任一 chunk>.js`）。
+
+这条规则不改变上面的承重关系：HTML、`/sw.js`、`/manifest.webmanifest`、`/sitemap.xml`、`/robots.txt` 都不在 `/assets/` 下，仍是 Pages 默认的必须重新校验。新内容上线时 HTML 引用新的 hash 文件名，旧文件的长缓存不会让读者看到旧内容。生效与否需要合并部署后再用同一条 `curl` 观测（`待观测（human_needed）`）。
+
 ## 为什么曾经有离线能力，为什么撤掉
 
 依据三条：
