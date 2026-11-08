@@ -111,7 +111,7 @@ A single bean can have multiple `@PlayerCache` fields. Each is cleaned up indepe
 - The field must be a `Map` with `UUID` keys (as of v6.3.0 also a `Set<UUID>`, or a `Map` whose values are `UUID`s)
 - A `Map<UUID, UUID>` is treated as UUID-keyed: only the quitting player's key is removed, not entries whose value is that player
 - As of v6.3.0, a `@PlayerCache` field of any other shape is refused when the bean is registered (`PluginModuleException`) instead of being ignored
-- The field must be in a singleton bean in the module's container (for example `@Service`, `@CmdExecutor`, `@EventListener`)
+- The field must be in a singleton bean in the module's container (for example `@Service`, `@CmdExecutor`, `@EventListener`, or an object added with `registerSingleton(...)`) when `registerSelf()` returns `true`; an object added with `registerType(...)` is not scanned
 - For `saveBeforeRemove = true`, the bean must implement `PlayerCacheSaver`; otherwise the entry is removed without saving
 - Use `ConcurrentHashMap` if the map is accessed from async threads
 

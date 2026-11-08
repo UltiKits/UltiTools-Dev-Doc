@@ -146,7 +146,7 @@ public void onAnyEvent(ModuleEvent event) {
 
 ## 自动生命周期
 
-- **注册**：模块容器中任意 Bean 上的 `@ModuleEventHandler` 方法，会在模块加载完成后（`registerSelf()` 返回 `true` 之后）注册
+- **注册**：`registerSelf()` 返回 `true` 之后，模块容器中每个单例上的 `@ModuleEventHandler` 方法都会被注册。通过 `registerType(...)` 添加的对象不会被扫描：手动创建的处理器对象请用 `registerSingleton(...)` 注册，或通过 `EventBus#subscribe(...)` 订阅
 - **清理**：当模块卸载时，该模块拥有的所有处理器会被自动注销
 
 自 v6.3.0 起，每个处理器都属于某一个模块实例，实例卸载或被替换时只注销它自己的处理器。`@ModuleEventHandler` 方法，以及框架加载模块期间（容器刷新，即 `@PostConstruct` 运行时，和 `registerSelf()` 中）的编程式订阅，属于该实例。v6.3.2 文档明确：登记范围在组件扫描和主类单例注册之前打开，覆盖主类及其注入 Bean 的 `@PostConstruct`。加载之后用带 `ownerModule` 的重载订阅的，属于框架以该名称列为已加载的那个实例；新实例正在替换旧实例时，属于旧实例。在模块构造器中按名称订阅的，属于此时以该名称列出的实例：首次加载时没有这样的实例，新实例加载期间则是旧实例。请在 `registerSelf()` 中订阅；如果你手上有模块实例，也可以使用 `subscribe(eventType, priority, ignoreCancelled, ownerModule, ownerInstance, consumer)`，直接记下实例。加载之后不带所属模块名的订阅不属于任何模块，不会被自动注销，需要你自己取消。
