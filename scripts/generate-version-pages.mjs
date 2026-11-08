@@ -53,6 +53,7 @@
 
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
+import { compareVersions } from './version-compare.mjs';
 
 const CONFIG_PATH = path.join('.vitepress', 'config.mts');
 const SRC_DIR = path.join('docs', 'src');
@@ -105,7 +106,7 @@ function collectPageKeys(rootDir) {
 const KNOWN_VERSIONS = readdirSync(ARCHIVE_DIR, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
-  .sort();
+  .sort(compareVersions);
 
 const VERSION_PAGES = { [CURRENT_VERSION]: collectPageKeys(SRC_DIR) };
 

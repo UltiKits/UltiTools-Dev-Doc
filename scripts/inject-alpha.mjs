@@ -44,6 +44,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { compareVersions } from './version-compare.mjs';
 
 // ALPHA_REPO / ALPHA_REF exist solely to let a fault-injection run point this
 // script at a ref/repo that cannot resolve, so D-44's fail-closed posture and
@@ -101,15 +102,6 @@ function topLevelProjectVersions(xml) {
   return found;
 }
 
-function compareSemver(a, b) {
-  const pa = a.split('.').map(Number);
-  const pb = b.split('.').map(Number);
-  for (let i = 0; i < 3; i += 1) {
-    if (pa[i] !== pb[i]) return pa[i] - pb[i];
-  }
-  return 0;
-}
-
 // Fail-closed like every other step here: an unreachable framework repo, a
 // pom without exactly one top-level <version>, a release version (the window
 // between a release commit and the next -SNAPSHOT bump), or a snapshot that is
@@ -148,7 +140,7 @@ function resolveFrameworkSnapshot() {
   if (current.length !== 1) {
     fail(`expected exactly one versionsConfig "current:" key in .vitepress/config.mts, found ${current.length}`);
   }
-  if (compareSemver(match[1], current[0][1]) <= 0) {
+  if (compareVersions(match[1], current[0][1]) <= 0) {
     fail(`framework snapshot ${pomVersion} is not newer than this site's current release v${current[0][1]}; ` +
       'a snapshot label at or below a released version would collide with or precede a release tree.');
   }

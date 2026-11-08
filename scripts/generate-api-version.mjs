@@ -50,6 +50,7 @@
 // doesn't require a matching edit here.
 
 import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
+import { compareVersions } from './version-compare.mjs';
 
 const POM_PATH = 'examples/pom.xml';
 const ARCHIVE_DIR = 'docs/archive';
@@ -76,7 +77,7 @@ const ARCHIVED_VERSIONS = readdirSync(ARCHIVE_DIR, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
   .filter((name) => !name.endsWith('-SNAPSHOT'))
-  .sort();
+  .sort(compareVersions);
 
 mkdirSync('functions/api/_shared', { recursive: true });
 
