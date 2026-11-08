@@ -15,7 +15,7 @@
     "@nolebase/vitepress-plugin-git-changelog": "^2.18.2",
     "@nolebase/vitepress-plugin-highlight-targeted-heading": "^2.18.2",
     "@nolebase/vitepress-plugin-inline-link-preview": "^2.18.2",
-    "@types/node": "20.19.9",
+    "@types/node": "26.6.6",
     "@vite-pwa/vitepress": "^0.3.1",
     "@viteplus/versions": "^2.3.0",
     "sass": "^1.83.4",
