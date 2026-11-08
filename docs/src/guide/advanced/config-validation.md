@@ -18,7 +18,7 @@ Validates that a numeric value falls within a specified range (inclusive).
 
 <<< @/../examples/src/main/java/com/ultikits/docs/validation/MyConfig.java
 
-If a server admin sets `maxHomes: 999`, the module is refused at load. The console error names the module, the config file, the field `maxHomes`, the actual value `999`, and the violated constraint (`@Range(min = 1, max = 10)`); the file itself is left untouched.
+If a server admin sets `maxHomes: 999`, the module is refused at load. The console error names the module, the config file and the field, for example `field 'maxHomes' value 999 is out of range [1.0, 10.0]`; the file itself is left untouched.
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -161,7 +161,7 @@ A config class registers successfully as soon as either constructor shape resolv
 When a field's live value violates its constraint:
 
 1. The module is refused at load. The value is not reset, and the file is not rewritten. Other modules continue loading normally. An empty list, set or map under `@NotEmpty` is the exception: it runs its declared default, as described under [@NotEmpty](#notempty).
-2. The console error names the module, the config file, the field, the actual value, and the constraint that was violated, so the operator can fix the file without guessing.
+2. The console error names the module, the config file, the field and the violated bound (with the actual value for `@Range`, `@Size` and `@Pattern`), so the operator can fix the file without guessing.
 3. Nothing about the file itself changes. The value the operator wrote stays exactly as they wrote it until they edit it themselves.
 
-This is different from a typo silently working around itself: a config file belongs to the server operator, and only the operator's own edit changes it. Restart the server, or reload the module, after correcting the value.
+This is different from a typo silently working around itself: a config file belongs to the server operator, and only the operator's own edit changes it. After correcting the value, restart the server: a module refused at load is not loaded, so it cannot be reloaded. A value refused by `/ul reload` leaves the running values in place; correct it and reload again.

@@ -27,7 +27,7 @@
 
 ## 与框架版本号的区别
 
-`UltiTools-API` 的 [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/COMPATIBILITY.md) 说明，它的版本号是产品阶段的标识，而不是严格的 semver 约定，框架的 MINOR 版本可能移除 API。
+`UltiTools-API` 的 [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md) 说明，它的版本号是产品阶段的标识，而不是严格的 semver 约定，框架的 MINOR 版本可能移除 API。
 
 ::: tip 向框架本身贡献代码，而不只是使用它
 如果你打算向 `UltiTools-Reborn` 提交 pull request，请注意它的贡献语言政策和本文档站不同：新增的注释、javadoc、workflow 注释与 PR 标题正文都要求以英文为主、中文作为补充。
@@ -51,7 +51,7 @@ CI 会对 `src/main` 的注释与 javadoc、workflow 文件与一个测试包强
 
 模块目录里同一个模块的两个 JAR 不会走到前两项。所有模块 JAR 共用一个类加载器，两个副本解析到的是同一个类，不会并排加载。由哪个副本提供类取决于文件名而不是版本号，见[同一模块的两个副本](#同一模块的两个副本)。
 
-也没有任何机制从 Maven 解析一个模块供另一个模块使用。官方模块中没有一个在 pom 中声明对兄弟模块的依赖；以多模块工程构建的模块（例如 `UltiBot`）依赖的是它自己的子模块，那属于该构建的内部结构，不是模块之间的依赖。因此约束框架版本号的那条理由不适用于模块的版本号。如果你把自己的模块发布出去供他人编译和链接，这条理由就同样适用于你的模块：你的版本号从此需要回答兼容性问题，此时需要的是一套比框架更严格、能够保证兼容性的约定，而不是框架那套更宽松的约定。
+也没有任何机制从 Maven 解析一个模块供另一个模块使用。官方模块中没有一个在 pom 中声明对兄弟模块的依赖；以多模块工程构建的模块（例如已停止维护的 `UltiBot`）依赖的是它自己的子模块，那属于该构建的内部结构，不是模块之间的依赖。因此约束框架版本号的那条理由不适用于模块的版本号。如果你把自己的模块发布出去供他人编译和链接，这条理由就同样适用于你的模块：你的版本号从此需要回答兼容性问题，此时需要的是一套比框架更严格、能够保证兼容性的约定，而不是框架那套更宽松的约定。
 
 所以两者的区别在于：版本号的顺序会被程序使用，而 MAJOR、MINOR、PATCH 的含义不会。由此产生一条强制要求，其余部分交给编写者判断。
 
@@ -129,7 +129,7 @@ pin 不是模块的运行时下限。这是两个互相独立的数字，其中�
 ::: tip 从废弃通告里读出移除期限
 自 v6.3.0 起，框架里每一个 `@Deprecated(forRemoval = true)` 成员都携带一个 `{@removeIn X.Y.Z}` javadoc 标签，指明移除会落在哪个具体版本。
 一旦项目版本到达该目标而成员仍在源码中声明，框架自己的 CI 就会在构建期失败，这个标签是被强制执行的承诺。
-完整列表见框架仓库的 [`compatibility/DEPRECATIONS.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/alpha/compatibility/DEPRECATIONS.md)，一次性查看所有 `ANNOUNCED` 状态的移除项及其期限。
+完整列表见框架仓库的 [`compatibility/DEPRECATIONS.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/compatibility/DEPRECATIONS.md)，一次性查看所有 `ANNOUNCED` 状态的移除项及其期限。
 :::
 
 ### 描述符变更
@@ -270,7 +270,7 @@ UltiCloud 从发布到它上面的每个 JAR 的 `plugin.yml` 中读取 `api-ver
 | UltiTools-API 6.3.0 及以后 | `api-version` 从 630 到框架自身的 API 级别（6.3.0 为 630） |
 | UltiTools-API 6.3.0 之前 | 只有 `api-version` 低于 630 的版本 |
 
-6.3.0 的服务器在每个目录请求中都带上自己的级别（`apiLevel`，以及 `minApiLevel=630`）。6.3.0 之前的框架不带级别，UltiCloud 把这样的请求视为来自 6.3.0 之前的框架，所以已发布的 6.2.x 服务器不会被提供为 6.3.0 构建的版本。这适用于 `/upm install`、`/upm install <模块> <版本>`、`/upm versions`、`/upm update` 以及启动时的更新检查。更新检查只报告本服务器能安装的版本，从不提及需要更新 UltiTools-API 的版本。`/upm list` 仍列出目录中的全部模块；对没有兼容版本的模块点击安装，会回复原因。
+6.3.0 及以后的服务器在查询模块版本时带上自己的级别（`apiLevel`，以及 `minApiLevel=630`）：6.3.0 在每个目录请求中都带，自 v6.3.1 起只在模块版本路由上带。6.3.0 之前的框架不带级别，UltiCloud 把这样的请求视为来自 6.3.0 之前的框架，所以已发布的 6.2.x 服务器不会被提供为 6.3.0 构建的版本。这适用于 `/upm install`、`/upm install <模块> <版本>`、`/upm versions`、`/upm update` 以及启动时的更新检查。更新检查只报告本服务器能安装的版本，从不提及需要更新 UltiTools-API 的版本。`/upm list` 仍列出目录中的全部模块；对没有兼容版本的模块点击安装，会回复原因。
 
 自 v6.3.2 起，启动更新检查完成之前（包括管理器尚未创建时），`/upm check`、`/upm update <模块>` 和 `/upm update all` 回复 `更新检查仍在进行，请稍后重试。`。命令不读取部分结果，更新命令不下载或暂存任何内容。它们读取已完成的启动检查结果，不会发起新检查，请等待完成后重试。检查已经完成但部分查询失败时，则报告 `更新检查未完成：无法确认 <名称> 的最新版本。`。
 
@@ -320,4 +320,4 @@ ultirecipe 没有可以安装在本服务器上的版本。本 UltiTools-API 的
 
 ## 各模块的现状
 
-大部分模块仍然是 `1.0.0`，因为它们还没有过需要作这个判断的发布。有两个模块在本页存在之前各自作了判断，而且结论相反：一个用 MINOR 表示 bug 修复，另一个用 MAJOR 表示新功能，都不符合上面的表格。它们会按模块逐个校正，而不是回溯修改版本号，因为已经发布的版本号服主可能已经记录在某处。
+为 UltiTools-API 6.3.0，每个官方模块都发布了新的 MAJOR 版本：`2.0.0`，UltiEconomy 为 `3.0.0`。在此之前，有两个模块在本页存在之前各自作了判断，而且结论相反：一个用 MINOR 表示 bug 修复，另一个用 MAJOR 表示新功能，都不符合上面的表格。这些较早的版本没有回溯修改版本号，因为已经发布的版本号服主可能已经记录在某处。

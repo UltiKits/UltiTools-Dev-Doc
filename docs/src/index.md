@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: "UltiTools API"
-  text: "<span id=\"typing\">Base on Module</span><br>Paper Plugin Framework"
+  text: "<span id=\"typing\">Module Based</span><br>Paper Plugin Framework"
   tagline: Enjoy developing Minecraft plugins with UltiTools API
   actions:
     - theme: brand
@@ -23,7 +23,7 @@ hero:
 features:
   - title: All-In-One
     icon: 📦
-    details: The UltiTools-API packages a multitude of commonly used libraries, allowing you to directly utilize these libraries in your development without worrying about the size of the plugins.
+    details: The UltiTools-API provides commonly used libraries at runtime (bundled, or downloaded by Paper), so your module can use them with <code>provided</code> scope without growing its own JAR.
   - title: Powered by Annotation
     icon: 🚀
     details: The UltiTools-API offers an advanced annotation system, enabling you to develop Minecraft plugins in a manner similar to developing Spring Boot applications.

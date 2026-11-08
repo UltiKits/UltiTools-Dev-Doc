@@ -23,7 +23,7 @@ hero:
 features:
   - title: 多包和一
     icon: 📦
-    details: UltiTools API 打包了很多常用的库，您可以在开发中直接使用这些库而无需担心插件的体量。
+    details: UltiTools API 在运行时提供常用库（自带或由 Paper 下载），模块以 <code>provided</code> 作用域使用即可，不必增大自身 JAR。
   - title: 注解驱动
     icon: 🚀
     details: UltiTools API 提供了高级的注解系统，您可以像开发 Spring Boot 应用一样开发 Minecraft 插件。
