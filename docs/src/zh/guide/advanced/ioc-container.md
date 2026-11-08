@@ -238,8 +238,8 @@ private YourPlugin plugin;       // 通过具体类型
 
 ## 服务优先级
 
-::: tip 自 v6.3.0 起 getBean(Class) 取优先级最高的 Bean
-自 v6.3.0 起，`getBean(Class)`（以及 `@Autowired`）按 `@Service(priority)` 取优先级最高的候选；最高的两个优先级相同时直接报歧义错误，而不是任取一个。
+::: tip 自 v6.3.0 起 getBean(Class) 参考优先级
+自 v6.3.0 起，`getBean(Class)`（以及 `@Autowired`）在显式类型绑定与精确类匹配之后才按 `@Service(priority)` 选择，查找顺序见下方「行为」。
 到 v6.2.5 为止它返回首个可赋值的 Bean（[issue #202](https://github.com/UltiKits/UltiTools-Reborn/issues/202)）。
 :::
 
@@ -266,8 +266,9 @@ public class DirectBankProcessor implements PaymentProcessor {
 **行为：**
 - 更高的 `priority` 值优先
 - 默认优先级为 0
-- 适用于所有存在多个可赋值候选（接口或父类）的按类型查找
-- 优先级最高者胜出；最高两个优先级相同时抛出类型歧义错误
+- `getBean(Class)` 与 `@Autowired` 按以下顺序解析类型：先取显式类型绑定（`registerType`）；再取以该类本身注册的 Bean（或该类型在自己的 `@Component`/`@Service` 中声明的名称）；最后才在所有可赋值候选（接口或父类）中取优先级最高者
+- 最后一步中，最高的两个优先级相同时抛出类型歧义错误
+- 因此同时注册 `BaseProcessor`（优先级 0）与 `PreferredProcessor extends BaseProcessor`（优先级 10）时，`getBean(BaseProcessor.class)` 仍返回 `BaseProcessor`
 - 只有 `getOrderedBeansOfType()` 按优先级排序返回（最高优先级在前）；`getBeansOfType()` 返回的是无序 map。
 
 ```java

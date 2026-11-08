@@ -241,8 +241,8 @@ private YourPlugin plugin;       // Via concrete type
 
 ## Service Priority
 
-::: tip getBean(Class) picks the highest priority since v6.3.0
-As of v6.3.0, `getBean(Class)` (and therefore `@Autowired`) picks the candidate with the highest `@Service(priority)`. If the two highest candidates have the same priority, the lookup fails with an ambiguous-bean error instead of picking one.
+::: tip getBean(Class) uses priority since v6.3.0
+As of v6.3.0, `getBean(Class)` (and therefore `@Autowired`) uses `@Service(priority)` only after an explicit type binding and an exact-class bean, in the lookup order listed under Behavior below.
 Through v6.2.5 it returned the first assignable bean ([issue #202](https://github.com/UltiKits/UltiTools-Reborn/issues/202)).
 :::
 
@@ -269,8 +269,9 @@ public class DirectBankProcessor implements PaymentProcessor {
 **Behavior:**
 - Higher `priority` value takes precedence
 - Default priority is 0
-- Applies to every by-type lookup with more than one assignable candidate (interface or superclass)
-- The highest priority wins; a tie between the two highest throws an ambiguous-bean error
+- `getBean(Class)` and `@Autowired` resolve a type in this order: an explicit type binding (`registerType`) first; then the bean registered for that exact class (or under the name the type declares in its own `@Component`/`@Service`); only then the highest priority among all assignable candidates (interface or superclass)
+- In that last step a tie between the two highest priorities throws an ambiguous-bean error
+- So with `BaseProcessor` (priority 0) and `PreferredProcessor extends BaseProcessor` (priority 10) both registered, `getBean(BaseProcessor.class)` still returns `BaseProcessor`
 - Only `getOrderedBeansOfType()` returns results ordered by priority (highest first); `getBeansOfType()` returns an unordered map.
 
 ```java
