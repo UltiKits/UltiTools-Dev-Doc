@@ -1,75 +1,23 @@
 <script setup lang="ts">
 // Language switch shown at the bottom of the sidebar (and, on pages without a
-// sidebar, in the nav bar).
-//
-// It does not use VitePress's useLangs(). @viteplus/versions adds one locale
-// per archived version (`v6.2.0`, `zh/v6.2.0`, ...) whose label is a single
-// space, and VitePress resolves an archived page to that version locale, so
-// useLangs() returns a blank current label and lists blank entries. It also
-// builds the other-language link by prefix substitution without checking that
-// the page exists there: v6.2.0-v6.2.4 have zh/guide/essentials/version-wrapper
-// but no English counterpart, and the generated link was a 404.
-//
-// Here the languages are the locales whose label is not blank (no hand list of
-// versions), the reader's language is taken from the page path, and the target
-// page is checked against the build-time page manifest that the version switcher
-// and the notice bar already use. A missing counterpart falls back to the same
-// version's homepage in the other language. Every value derives from route data
-// and site data, so server render and hydration agree.
+// sidebar, in the nav bar). The language list and links come from
+// ../composables/versioned-langs.ts, the same code that config.mts substitutes
+// for VitePress's own useLangs(), so this switch and the default theme's
+// language menus always agree. See that file for why VitePress's version
+// does not work with archived versions.
 import { useData } from 'vitepress'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-// @ts-ignore generated at build time by scripts/generate-version-pages.mjs
-import { CURRENT_VERSION, KNOWN_VERSIONS, VERSION_PAGES } from '../../config/version-pages.generated.mjs'
-import { activeVersion, buildPath, pageExists } from './versioning'
+import { useLangs } from '../composables/versioned-langs'
 
 const props = withDefaults(defineProps<{ placement?: 'top' | 'bottom' }>(), { placement: 'top' })
 
-const { site, page, hash, lang, theme } = useData()
+const { page, theme } = useData()
+const { currentLang, localeLinks } = useLangs({ correspondingLink: true })
 
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
 
-interface Lang {
-  key: string
-  label: string
-  // path prefix of this locale inside relativePath: '' for root, 'zh/' for zh
-  prefix: string
-}
-
-const languages = computed<Lang[]>(() =>
-  Object.entries(site.value.locales)
-    .filter(([, value]) => typeof value.label === 'string' && value.label.trim() !== '')
-    .map(([key, value]) => ({ key, label: value.label as string, prefix: key === 'root' ? '' : `${key}/` }))
-)
-
 const relativePath = computed(() => page.value.relativePath)
-
-const currentLang = computed<Lang | undefined>(() => {
-  const langs = languages.value
-  // longest prefix wins; the root locale has the empty prefix and matches last
-  const byPath = [...langs]
-    .sort((a, b) => b.prefix.length - a.prefix.length)
-    .find((l) => relativePath.value.startsWith(l.prefix))
-  return byPath ?? langs.find((l) => site.value.locales[l.key]?.lang === lang.value)
-})
-
-const version = computed(() => activeVersion(relativePath.value, KNOWN_VERSIONS, CURRENT_VERSION))
-
-const localeLinks = computed(() => {
-  const current = currentLang.value
-  if (!current) return []
-  const rest = relativePath.value.slice(current.prefix.length)
-  return languages.value
-    .filter((l) => l.key !== current.key)
-    .map((l) => {
-      const target = l.prefix + rest
-      const exists = pageExists(version.value, target, KNOWN_VERSIONS, VERSION_PAGES)
-      const link = exists
-        ? buildPath(version.value, target, KNOWN_VERSIONS, CURRENT_VERSION) + hash.value
-        : buildPath(version.value, `${l.prefix}index.md`, KNOWN_VERSIONS, CURRENT_VERSION)
-      return { text: l.label, link }
-    })
-})
 
 function close() {
   open.value = false
@@ -106,7 +54,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    v-if="currentLang && localeLinks.length"
+    v-if="currentLang.label && localeLinks.length"
     ref="root"
     class="sidebar-translations"
     :class="`placement-${props.placement}`"
