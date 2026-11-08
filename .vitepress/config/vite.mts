@@ -11,13 +11,19 @@ const viteConfig: UserConfig = {
             GitChangelogMarkdownSection(),
             groupIconVitePlugin(),
         ],
+        css: {
+            preprocessorOptions: {
+                scss: {
+                    api: 'modern-compiler',
+                },
+            },
+        },
         ssr: {
             noExternal: [
                 '@nolebase/vitepress-plugin-enhanced-readabilities',
                 '@nolebase/vitepress-plugin-highlight-targeted-heading',
                 '@nolebase/vitepress-plugin-inline-link-preview',
                 '@nolebase/vitepress-plugin-git-changelog',
-                '@nolebase/markdown-it-bi-directional-links',
             ],
         }
     }
