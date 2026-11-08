@@ -8,6 +8,10 @@ import { viteConfig } from "./config/vite.mjs";
 import { markdownConfig } from "./config/markdown.mjs";
 import { themeConfig } from "./config/theme.mjs";
 import { snapshotVersion } from "./config/sidebar-snapshot.generated.mjs";
+import { labelArchiveLocales } from "./config/locale.archive-labels.mjs";
+import { fileURLToPath } from 'node:url'
+
+const locales = { ...localeZH, ...localeEN }
 
 // Any alpha snapshot label (v<X.Y.Z>-SNAPSHOT). The live label itself is derived
 // at injection time (scripts/inject-alpha.mjs) and exported as snapshotVersion.
@@ -34,8 +38,12 @@ export default withPwa(
     // 用 @ts-expect-error 而不是 as any：前者会在错误消失时自己报
     // 「未使用的指令」，逼人回来删掉；后者会永远沉默。它也只作用于下一行，
     // 本文件其余部分照常被检查。
+    // labelArchiveLocales gives archived-version locales the human label of
+    // their language, see config/locale.archive-labels.mts. It sits on the same
+    // line as defineVersionedConfig so the directive below also covers its
+    // result, which carries the nested copy's type into withPwa.
     // @ts-expect-error 两份 vitepress 的 UserConfig 是不同的名义类型
-    defineVersionedConfig({
+    labelArchiveLocales(defineVersionedConfig({
         srcDir: 'docs',
         lastUpdated: true,
         // /api/ is proxied at request time by the Cloudflare Pages Function
@@ -152,11 +160,29 @@ export default withPwa(
                     }));
             },
         },
-        locales: { ...localeZH, ...localeEN },
+        locales,
         markdown: markdownConfig,
         pwa: pwaConfig,
         themeConfig: themeConfig,
         ...viteConfig,
+        vite: {
+            ...viteConfig.vite,
+            resolve: {
+                ...viteConfig.vite?.resolve,
+                // VitePress's useLangs() lists one language entry per archived
+                // version and links to pages that do not exist; every default-theme
+                // component that imports it gets this site's version instead
+                // (theme/composables/versioned-langs.ts). The pattern matches the
+                // relative specifier those components use ('../composables/langs',
+                // and './composables/langs' in NotFound.vue) and nothing else.
+                alias: [
+                    {
+                        find: /^\.{1,2}\/composables\/langs(\.js)?$/,
+                        replacement: fileURLToPath(new URL('./theme/composables/versioned-langs.ts', import.meta.url)),
+                    },
+                ],
+            },
+        },
 
         versionsConfig: {
             current: 'v6.3.2',
@@ -173,5 +199,5 @@ export default withPwa(
             // UtVersionSwitcher in nav.en.mts/nav.zh.mts replaces it instead.
             versionSwitcher: false
         }
-    })
+    }), locales)
 )
