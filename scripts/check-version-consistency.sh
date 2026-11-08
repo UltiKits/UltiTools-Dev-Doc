@@ -117,12 +117,14 @@ UltiLogin UltiMail UltiMenu UltiRecipe UltiRemoteBag UltiSideBar UltiSocial
 UltiTrade UltiWorlds"
 
 # Released versions in publication order, used to express a gap as "N releases
-# behind" rather than as a bare inequality. Snapshots are excluded: a pin can
-# never point at one.
+# behind" rather than as a bare inequality. Only whole X.Y.Z values count:
+# Central also lists early timestamped builds such as `6.0.0.202307282119`, and
+# cutting those down to their X.Y.Z prefix would turn ten builds into ten extra
+# copies of `6.0.0`, overstating every gap by ten. Snapshots drop out the same way.
 released=$(printf '%s' "$metadata" \
            | grep -oE '<version>[^<]+</version>' \
-           | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' \
-           | grep -vE '\-' || true)
+           | sed -E 's#</?version>##g' \
+           | grep -xE '[0-9]+\.[0-9]+\.[0-9]+' || true)
 
 index_of() {
   local needle="$1" i=0
