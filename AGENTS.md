@@ -164,7 +164,7 @@ t=$(wc -l < "$f"); cr=$(grep -c $'\r' "$f" || echo 0)
 
 ## 容器块检查的能力边界
 
-`scripts/check-container-length.sh` 在 `docs-ci.yml` 的 `container-length` job 中对 `docs/src` 下的每个页面运行。红绿演练用 `scripts/fixtures/container-title-missing.md`（四种类型各有一个无标题块，必须以 1 退出并在第 6、10、14、18 行报出四条 `TITLE`）和 `scripts/fixtures/container-title-present.md`（必须以 0 退出），同一个 job 先跑这两份样例，再跑全站。
+`scripts/check-container-length.sh` 在 `docs-ci.yml` 的 `container-length` job 中对 `docs/src` 下的每个页面运行。红绿演练用 `scripts/fixtures/container-title-missing.md`（四种类型各有一个无标题块，必须以 1 退出并在第 6、10、14、18 行报出四条 `TITLE`）和 `scripts/fixtures/container-title-present.md`（必须以 0 退出）；围栏与未关闭容器用另外三份样例：`container-fence-closer.md`（围栏里的 `:::` 不能关闭容器，必须以 1 退出并报出 `OVER`）、`container-unclosed.md`（必须以 1 退出并报出 `UNCLOSED`）、`container-fenced-example.md`（容器之外围栏里的 `::: tip` 不算容器，必须以 0 退出）。同一个 job 先跑这些样例，再跑全站。
 
 它检查：
 
@@ -172,6 +172,8 @@ t=$(wc -l < "$f"); cr=$(grep -c $'\r' "$f" || echo 0)
 |---|---|
 | 标题 | `tip`、`info`、`warning`、`danger` 的开启行 `::: <类型>` 之后必须还有非空内容；违规按 `文件:行号  TITLE` 报告 |
 | 长度 | 正文不超过 3 行、3 句；围栏代码块内的行不计 |
+| 围栏 | ```` ``` ```` 与 `~~~` 围栏（三个及以上，行首最多缩进三格）内的 `:::` 行既不开启也不关闭容器；关闭围栏要用同一种字符、长度不短于开启围栏 |
+| 未关闭的容器 | 文件结束时仍未关闭的容器按 `文件:行号  UNCLOSED` 报告 |
 
 它检查不到：
 
@@ -181,12 +183,11 @@ t=$(wc -l < "$f"); cr=$(grep -c $'\r' "$f" || echo 0)
 | 其他容器类型 | `details`、`tabs`、`code-group` 不要求标题 |
 | 缩进的容器 | 只识别行首的 `:::`；嵌在列表项里的容器不会被识别，也不会被检查 |
 | 四个及以上冒号的容器 | 只识别恰好三个冒号开头的 `:::`；`:::: warning` 这类嵌套写法不会被识别，也不会被检查（目前全站为 0 处） |
-| 写在围栏代码块里的示例 | 容器之外的围栏内如果出现 `::: tip` 这样的行，会被当成真正的容器（目前全站为 0 处） |
 | 正文的行文问题 | 比喻、元评论、破折号和粗体密度不在这个脚本里，见上文「提交前自检」 |
 
 API 页（`docs/src/api/`、`docs/src/zh/api/` 以及 `ulti-tools-plugin.md` 的两个页面）的 `info` 容器只豁免长度，仍然需要标题；`tabs` 只豁免长度，本来就不在标题规则内。
 
-脚本通过只说明「它检查」表中的标题和长度两项没有违规。
+脚本通过只说明「它检查」表中的各项没有违规。
 
 ## 本规范的由来
 
