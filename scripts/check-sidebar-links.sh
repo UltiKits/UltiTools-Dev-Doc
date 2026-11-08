@@ -59,8 +59,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 SIDEBAR_EN="$ROOT/.vitepress/config/sidebar.en.mts"
 SIDEBAR_ZH="$ROOT/.vitepress/config/sidebar.zh.mts"
-NAV_EN="$ROOT/.vitepress/config/nav.en.mts"
-NAV_ZH="$ROOT/.vitepress/config/nav.zh.mts"
+# NAV_EN / NAV_ZH may be overridden from the environment so CI can rehearse
+# the nav extraction on a fixture (scripts/fixtures/nav-trailing-close.mts).
+NAV_EN="${NAV_EN:-$ROOT/.vitepress/config/nav.en.mts}"
+NAV_ZH="${NAV_ZH:-$ROOT/.vitepress/config/nav.zh.mts}"
 
 # Exact link values that are Cloudflare Pages Function routes, not files.
 # See the header comment above for why this must stay an exact-match list.
@@ -223,12 +225,17 @@ check_api_constant() {
   done
 }
 
-# nav.{en,zh}.mts: three entries per language. One resolves to a real page
-# (/guide/introduction), one is the Function route (/api/, exempt), one is an
-# external http(s) address (skipped entirely — not counted, not a
-# violation). Chinese nav's link value carries no /zh/ prefix; VitePress
-# resolves it against the zh locale root, which is what root_for_lang below
-# mirrors.
+# nav.{en,zh}.mts: each entry is checked on its own. An external http(s)
+# address is skipped entirely (not counted, not a violation); an exact
+# RUNTIME_ROUTE_EXEMPT value such as the Function route /api/ is counted but
+# not resolved. Every other link must resolve to a page. Without
+# skipVersioning, a link carries no /zh/ prefix: the versioning helper adds it
+# on the site, so a zh link is resolved against docs/src/zh. An entry with
+# skipVersioning: true bypasses that helper; a zh entry of that kind that
+# carries /zh/ itself is resolved from docs/src (see the per-entry rule in the
+# loop below). A zh skipVersioning entry without /zh/ is still resolved
+# against docs/src/zh and passes, although the site sends Chinese readers to
+# the English page; that case is known and not checked.
 check_nav() {
   local file="$1" lang="$2"
   local links
@@ -237,7 +244,9 @@ check_nav() {
   # still treats an empty result as a script failure, not zero violations.
   # One "link<TAB>skip" line per nav entry, where skip is 1 when the same
   # entry declares skipVersioning: true. Nav entries are flat objects with one
-  # property per line, so the entry ends at its closing brace.
+  # property per line. An entry ends on any line that starts with its closing
+  # brace, including `}, // note`; scripts/fixtures/nav-trailing-close.mts
+  # covers that layout.
   links="$(awk -v q="'" '
     function strip_link(s) {
       sub(/^[[:space:]]*link:[[:space:]]*/, "", s)
@@ -248,7 +257,7 @@ check_nav() {
     /^[[:space:]]*\{/ { inobj = 1; link = ""; skip = 0 }
     inobj && /^[[:space:]]*link:[[:space:]]*/ { link = strip_link($0) }
     inobj && /^[[:space:]]*skipVersioning:[[:space:]]*true/ { skip = 1 }
-    /^[[:space:]]*\},?[[:space:]]*$/ {
+    /^[[:space:]]*\}/ {
       if (inobj && link != "") print link "\t" skip
       inobj = 0
     }
