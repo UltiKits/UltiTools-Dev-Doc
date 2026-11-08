@@ -7,6 +7,12 @@ import { localeEN } from "./config/locale.en.mjs";
 import { viteConfig } from "./config/vite.mjs";
 import { markdownConfig } from "./config/markdown.mjs";
 import { themeConfig } from "./config/theme.mjs";
+import { snapshotVersion } from "./config/sidebar-snapshot.generated.mjs";
+
+// Any alpha snapshot label (v<X.Y.Z>-SNAPSHOT). The live label itself is derived
+// at injection time (scripts/inject-alpha.mjs) and exported as snapshotVersion.
+const SNAPSHOT_SEGMENT = /(^|\/)v\d+\.\d+\.\d+-SNAPSHOT\//;
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export default withPwa(
     // 依赖树里有两份 vitepress：根上的 1.6.4，与 @viteplus/versions 自带的
@@ -38,7 +44,7 @@ export default withPwa(
         // The dead-link checker resolves a trailing-slash link to "<path>/index",
         // so this ignores exactly that one resolved path and nothing deeper under /api/.
         //
-        // v6.3.0-SNAPSHOT is alpha's own content, injected at build time
+        // The alpha snapshot (e.g. v6.4.0-SNAPSHOT) is alpha's own content, injected at build time
         // (scripts/inject-alpha.mjs). Defects in that content are alpha's own —
         // they're fixed via the framework repo's doc-sync flow, not this site's
         // build — so they must not block a site-class deploy that has nothing to
@@ -79,9 +85,16 @@ export default withPwa(
         // which matters precisely now, because 6.3.0 is the release that removed
         // VersionWrapper, and a pin to the last release that had it is the only
         // target that still resolves at all.
-        ignoreDeadLinks: [/^\/api\/version-wrapper$/, /^\/api\/index$/, /^\/(?:[a-z]{2}\/)?v6\.3\.0-SNAPSHOT\//],
+        // The SNAPSHOT exemption uses the exact label this build injected (none when
+        // nothing was injected), not any -SNAPSHOT label: a link from released
+        // content to a retired label must still be reported.
+        ignoreDeadLinks: [
+            /^\/api\/version-wrapper$/,
+            /^\/api\/index$/,
+            ...(snapshotVersion ? [new RegExp(`^\\/(?:[a-z]{2}\\/)?${escapeRegExp(snapshotVersion)}\\/`)] : []),
+        ],
         head: [['link', { rel: 'icon', href: '/favicon.ico' }]],
-        // v6.3.0-SNAPSHOT is unreleased content injected at build time
+        // The alpha snapshot is unreleased content injected at build time
         // (scripts/inject-alpha.mjs) — it may change tomorrow, and a reader
         // landing on it from a search result has no way to tell that (D-48,
         // 03-CONTEXT.md), the same direction as Phase 1's D-05 (`/api/*`
@@ -119,7 +132,7 @@ export default withPwa(
         sitemap: {
             hostname: 'https://dev.ultikits.com',
             transformItems: (items) => {
-                const isSnapshot = (url: string) => /(^|\/)v6\.3\.0-SNAPSHOT\//.test(url);
+                const isSnapshot = (url: string) => SNAPSHOT_SEGMENT.test(url);
 
                 return items
                     .filter((item) => !isSnapshot(item.url))

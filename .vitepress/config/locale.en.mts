@@ -2,7 +2,8 @@ import type { LocaleConfig } from 'vitepress'
 import type { DefaultTheme } from 'vitepress/theme'
 import {navEN} from "./nav.en.mjs";
 import {sidebarApiEN, sidebarGuideEN, sidebarGuideEN_v631, sidebarGuideEN_v630, sidebarGuideEN_v625, sidebarGuideEN_v624, sidebarGuideEN_v620, sidebarGuideEN_v610} from "./sidebar.en.mjs";
-import {sidebarGuideSnapshotEN, sidebarApiSnapshotEN} from "./sidebar-snapshot.generated.mjs";
+import {sidebarGuideSnapshotEN, sidebarApiSnapshotEN, snapshotVersion} from "./sidebar-snapshot.generated.mjs";
+import {archiveSidebarEntries} from "./archive-sidebars.mjs";
 import {textEN} from "./text.en.mjs";
 import {socialEN} from "./social.en.mjs";
 
@@ -14,34 +15,33 @@ const localeEN: LocaleConfig<DefaultTheme.Config> = {
         title: 'UltiKits Dev Doc',
         label: 'English',
         lang: 'en-US',
-        description: 'Spigot Development Framework',
+        description: 'Paper Plugin Framework',
         themeConfig: {
             nav: navEN,
             sidebar: {
                 '/guide/': sidebarGuideEN,
-                'v6.3.0-SNAPSHOT/guide/': sidebarGuideSnapshotEN,
-                'v6.3.0-SNAPSHOT/api/': sidebarApiSnapshotEN,
-                'v6.3.1/guide/': sidebarGuideEN_v631,
-                // The 6.3.1 release tree contains no archived API pages.
-                'v6.3.1/api/': [],
-                'v6.3.0/guide/': sidebarGuideEN_v630,
-                // The 6.3.0 release tree contains no archived API pages.
-                'v6.3.0/api/': [],
-                'v6.2.5/guide/': sidebarGuideEN_v625,
-                // The 6.2.5 release tree contains no archived API pages.
-                'v6.2.5/api/': [],
-                'v6.2.4/guide/': sidebarGuideEN_v624,
-                'v6.2.4/api/': sidebarApiEN,
-                'v6.2.3/guide/': sidebarGuideEN_v624,
-                'v6.2.3/api/': sidebarApiEN,
-                'v6.2.2/guide/': sidebarGuideEN_v624,
-                'v6.2.2/api/': sidebarApiEN,
-                'v6.2.1/guide/': sidebarGuideEN_v620,
-                'v6.2.1/api/': sidebarApiEN,
-                'v6.2.0/guide/': sidebarGuideEN_v620,
-                'v6.2.0/api/': sidebarApiEN,
-                'v6.1.0/guide/': sidebarGuideEN_v610,
-                'v6.1.0/api/': sidebarApiEN,
+                // The alpha snapshot label is derived at injection time from the
+                // framework's main-branch pom (scripts/inject-alpha.mjs); with
+                // nothing injected there is no snapshot tree and no key.
+                ...(snapshotVersion ? {
+                    [`${snapshotVersion}/guide/`]: sidebarGuideSnapshotEN,
+                    [`${snapshotVersion}/api/`]: sidebarApiSnapshotEN,
+                } : {}),
+                // Archived versions: the version -> sidebar mapping lives only in
+                // archive-sidebars.mjs, which scripts/check-sidebar-links.sh reads too.
+                // It throws when a docs/archive/v* directory has no row.
+                ...archiveSidebarEntries({
+                    guideConstants: {
+                        v631: sidebarGuideEN_v631,
+                        v630: sidebarGuideEN_v630,
+                        v625: sidebarGuideEN_v625,
+                        v624: sidebarGuideEN_v624,
+                        v620: sidebarGuideEN_v620,
+                        v610: sidebarGuideEN_v610,
+                    },
+                    apiShared: sidebarApiEN,
+                    snapshotVersion,
+                }),
             },
             ...textEN,
             // socialLinks，不是展开。socialEN 的类型是 DefaultTheme.SocialLink[]——

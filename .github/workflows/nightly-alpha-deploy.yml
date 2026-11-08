@@ -80,6 +80,21 @@ jobs:
           fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
+      # The alpha snapshot's version label comes from the framework's main
+      # pom.xml (scripts/inject-alpha.mjs), so a framework version bump must
+      # redeploy even when docs alpha has not moved. Fail-closed like the
+      # step above: an unresolvable framework ref stops the run instead of
+      # silently falling back to the docs-only comparison.
+      - name: Resolve framework main HEAD via git ls-remote
+        id: framework-head
+        run: |
+          sha=$(git ls-remote https://github.com/UltiKits/UltiTools-Reborn.git refs/heads/main | cut -f1)
+          if [ -z "$sha" ] || ! printf '%s' "$sha" | grep -qE '^[0-9a-f]{40}$'; then
+            echo "nightly-alpha: framework main ref not found or malformed" >&2
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
       # Fail-OPEN direction, the opposite of the step above, and this
       # asymmetry is intentional: debouncing is purely a build-count
       # optimization. Letting an unreadable status file permanently wedge
@@ -96,6 +111,10 @@ jobs:
             echo "nightly-alpha: snapshot-status unreadable, triggering unconditionally"
           fi
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          # Absent in a status file written before the field existed: then it
+          # reads as changed and the run triggers, never as unchanged.
+          framework_commit=$(printf '%s' "$body" | grep -oE '"frameworkCommit"[[:space:]]*:[[:space:]]*"[0-9a-f]{40}"' | grep -oE '[0-9a-f]{40}' || true)
+          echo "framework_commit=$framework_commit" >> "$GITHUB_OUTPUT"
 
       - name: Decide whether to trigger a rebuild
         id: decide
@@ -107,13 +126,19 @@ jobs:
         env:
           ALPHA_SHA: ${{ steps.alpha-head.outputs.sha }}
           INJECTED_COMMIT: ${{ steps.injected.outputs.commit }}
+          FRAMEWORK_SHA: ${{ steps.framework-head.outputs.sha }}
+          INJECTED_FRAMEWORK_COMMIT: ${{ steps.injected.outputs.framework_commit }}
           FORCE_INPUT: ${{ github.event.inputs.force }}
         run: |
           alpha_sha="$ALPHA_SHA"
           injected_commit="$INJECTED_COMMIT"
           force="$FORCE_INPUT"
-          if [ -n "$injected_commit" ] && [ "$alpha_sha" = "$injected_commit" ] && [ "$force" != "true" ]; then
-            echo "nightly-alpha: alpha unchanged at ${alpha_sha:0:7}, skipping"
+          framework_sha="$FRAMEWORK_SHA"
+          injected_framework="$INJECTED_FRAMEWORK_COMMIT"
+          if [ -n "$injected_commit" ] && [ "$alpha_sha" = "$injected_commit" ] \
+             && [ -n "$framework_sha" ] && [ -n "$injected_framework" ] && [ "$framework_sha" = "$injected_framework" ] \
+             && [ "$force" != "true" ]; then
+            echo "nightly-alpha: alpha unchanged at ${alpha_sha:0:7} and framework unchanged at ${framework_sha:0:7}, skipping"
             echo "trigger=false" >> "$GITHUB_OUTPUT"
           else
             echo "trigger=true" >> "$GITHUB_OUTPUT"

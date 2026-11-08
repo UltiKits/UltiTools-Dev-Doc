@@ -2,7 +2,8 @@ import type { LocaleConfig } from 'vitepress'
 import type { DefaultTheme } from 'vitepress/theme'
 import {navZH} from "./nav.zh.mjs";
 import {sidebarApiZH, sidebarGuideZH, sidebarGuideZH_v631, sidebarGuideZH_v630, sidebarGuideZH_v625, sidebarGuideZH_v624, sidebarGuideZH_v620, sidebarGuideZH_v610} from "./sidebar.zh.mjs";
-import {sidebarGuideSnapshotZH, sidebarApiSnapshotZH} from "./sidebar-snapshot.generated.mjs";
+import {sidebarGuideSnapshotZH, sidebarApiSnapshotZH, snapshotVersion} from "./sidebar-snapshot.generated.mjs";
+import {archiveSidebarEntries} from "./archive-sidebars.mjs";
 import {textCN} from "./text.zh.mjs";
 import {socialZH} from "./social.zh.mjs";
 
@@ -14,34 +15,33 @@ const localeZH: LocaleConfig<DefaultTheme.Config> = {
         title: 'UltiKits 开发文档',
         label: '简体中文',
         lang: 'zh-CN',
-        description: 'Spigot 开发框架',
+        description: 'Paper 插件框架',
         themeConfig: {
             nav: navZH,
             sidebar: {
                 '/guide/': sidebarGuideZH,
-                'v6.3.0-SNAPSHOT/guide/': sidebarGuideSnapshotZH,
-                'v6.3.0-SNAPSHOT/api/': sidebarApiSnapshotZH,
-                'v6.3.1/guide/': sidebarGuideZH_v631,
-                // 6.3.1 发布源树不包含可归档的 API 页面。
-                'v6.3.1/api/': [],
-                'v6.3.0/guide/': sidebarGuideZH_v630,
-                // 6.3.0 发布源树不包含可归档的 API 页面。
-                'v6.3.0/api/': [],
-                'v6.2.5/guide/': sidebarGuideZH_v625,
-                // 6.2.5 发布源树不包含可归档的 API 页面。
-                'v6.2.5/api/': [],
-                'v6.2.4/guide/': sidebarGuideZH_v624,
-                'v6.2.4/api/': sidebarApiZH,
-                'v6.2.3/guide/': sidebarGuideZH_v624,
-                'v6.2.3/api/': sidebarApiZH,
-                'v6.2.2/guide/': sidebarGuideZH_v624,
-                'v6.2.2/api/': sidebarApiZH,
-                'v6.2.1/guide/': sidebarGuideZH_v620,
-                'v6.2.1/api/': sidebarApiZH,
-                'v6.2.0/guide/': sidebarGuideZH_v620,
-                'v6.2.0/api/': sidebarApiZH,
-                'v6.1.0/guide/': sidebarGuideZH_v610,
-                'v6.1.0/api/': sidebarApiZH,
+                // The alpha snapshot label is derived at injection time from the
+                // framework's main-branch pom (scripts/inject-alpha.mjs); with
+                // nothing injected there is no snapshot tree and no key.
+                ...(snapshotVersion ? {
+                    [`${snapshotVersion}/guide/`]: sidebarGuideSnapshotZH,
+                    [`${snapshotVersion}/api/`]: sidebarApiSnapshotZH,
+                } : {}),
+                // Archived versions: the version -> sidebar mapping lives only in
+                // archive-sidebars.mjs, which scripts/check-sidebar-links.sh reads too.
+                // It throws when a docs/archive/v* directory has no row.
+                ...archiveSidebarEntries({
+                    guideConstants: {
+                        v631: sidebarGuideZH_v631,
+                        v630: sidebarGuideZH_v630,
+                        v625: sidebarGuideZH_v625,
+                        v624: sidebarGuideZH_v624,
+                        v620: sidebarGuideZH_v620,
+                        v610: sidebarGuideZH_v610,
+                    },
+                    apiShared: sidebarApiZH,
+                    snapshotVersion,
+                }),
             },
             ...textCN,
             // socialLinks，不是展开。socialZH 的类型是 DefaultTheme.SocialLink[]——

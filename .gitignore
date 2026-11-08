@@ -153,19 +153,19 @@ functions/api/_shared/version.generated.js
 # Must NOT be committed: a committed copy would be byte-identical to a stale
 # injection and would silently mask a failed build-time refresh of alpha's
 # content instead of failing closed. See .planning/phases/03-alpha/03-01-PLAN.md.
-docs/archive/v6.3.0-SNAPSHOT/
+docs/archive/v*-SNAPSHOT/
 
 # Generated at build time by scripts/inject-alpha.mjs (npm run build:with-alpha).
 # SNAPSHOT-only mirror of alpha's examples/src, kept separate from examples/
 # so that latest and the six archived versions can never be made to render
 # alpha's example code. Must NOT be committed for the same reason as
-# docs/archive/v6.3.0-SNAPSHOT/ above.
+# docs/archive/v*-SNAPSHOT/ above.
 examples-snapshot/
 
 # Generated at build time by scripts/inject-alpha.mjs (npm run build:with-alpha).
 # Raw sidebar.en.mts/sidebar.zh.mts landed from alpha, consumed only by
 # scripts/generate-snapshot-sidebar.mjs. Must NOT be committed for the same
-# reason as docs/archive/v6.3.0-SNAPSHOT/ above.
+# reason as docs/archive/v*-SNAPSHOT/ above.
 .vitepress/config/.snapshot-source/
 
 # Generated at build time by scripts/generate-snapshot-sidebar.mjs (npm run
@@ -178,7 +178,7 @@ examples-snapshot/
 # Copied into the deployed site root via docs/public/ (same mechanism as the
 # existing docs/public/_redirects), read by the nightly workflow (03-02) to
 # decide whether alpha has moved since the last injection. Must NOT be
-# committed for the same reason as docs/archive/v6.3.0-SNAPSHOT/ above.
+# committed for the same reason as docs/archive/v*-SNAPSHOT/ above.
 docs/public/snapshot-status.json
 
 # Generated at build time by scripts/generate-version-pages.mjs (npm run build

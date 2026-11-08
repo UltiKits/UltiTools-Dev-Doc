@@ -473,9 +473,21 @@ jobs:
 
       - name: Assert SNAPSHOT artifact exists with zero residual snippet references
         run: |
-          test -f .vitepress/dist/v6.3.0-SNAPSHOT/guide/introduction.html
-          test -f .vitepress/dist/zh/v6.3.0-SNAPSHOT/guide/introduction.html
-          if grep -rn '@/\.\./examples/' docs/archive/v6.3.0-SNAPSHOT/; then
+          # The label is derived from the framework's main-branch pom.xml at
+          # injection time; snapshot-version.mjs exits non-zero when it is absent.
+          snap="$(node scripts/snapshot-version.mjs)"
+          echo "build-with-alpha: snapshot label $snap"
+          test -f ".vitepress/dist/$snap/guide/introduction.html"
+          test -f ".vitepress/dist/zh/$snap/guide/introduction.html"
+          if grep -qF "/$snap/* /:splat 301" .vitepress/dist/_redirects; then
+            echo "::error::live snapshot label $snap is redirected away"
+            exit 1
+          fi
+          if ! grep -qF '/v6.3.0-SNAPSHOT/* /:splat 301' .vitepress/dist/_redirects; then
+            echo "::error::retired snapshot redirects missing from dist/_redirects"
+            exit 1
+          fi
+          if grep -rn '@/\.\./examples/' "docs/archive/$snap/"; then
             echo "::error::residual @/../examples/ reference found in injected tree after rewrite"
             exit 1
           fi
