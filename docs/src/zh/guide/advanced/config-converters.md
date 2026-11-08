@@ -54,7 +54,7 @@ fromPlain(toPlain(fromPlain(q))) equals fromPlain(q)
 完整继承泛型在读取或创建任何选中配置文件前检查。配方值不支持时诊断结构如下（名称来自相关模块）：
 
 ```text
-Module UltiRecipe, file config/recipes.yml, key "recipes": no config converter for ...RecipeDefinition (declared as java.util.Map<java.lang.String, ...RecipeDefinition>). Register one with @ConfigConverterFor in the module scan packages, or declare a supported plain-data type.
+Module UltiRecipe, file config/recipes.yml, key "recipes": no config converter for ...RecipeDefinition (declared as java.util.Map<java.lang.String, ...RecipeDefinition>). Register one with @ConfigConverterFor(RecipeDefinition.class) in the module's scan packages, or declare the value type as Map<String, Object>.
 ```
 
 实际消息列完整类型。声明类型可转换但整个值无效时使用最初声明默认值，无效列表/映射元素跳过并定位警告。未知运行对象在保存时拒绝且不改目标。绑定警告隐藏密钥形状值。

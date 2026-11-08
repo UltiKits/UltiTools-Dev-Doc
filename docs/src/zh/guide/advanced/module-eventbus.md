@@ -4,7 +4,7 @@
 模块事件总线从 UltiTools-API v6.2.2 开始可用。
 :::
 
-UltiTools 提供了一套解耦的发布/订阅事件系统，用于模块间通信。模块可以发布事件并订阅来自其他模块的事件，而无需模块之间的直接依赖。
+UltiTools 提供了一套解耦的发布/订阅事件系统，用于模块间通信。模块可以发布事件并订阅来自其他模块的事件，而无需相互直接调用。订阅方只需要事件类，由发布事件的模块（或一个小型共享 API JAR）提供。
 
 ## 定义事件
 
@@ -89,14 +89,14 @@ Subscription sub = eventBus.subscribe(
 ```java
 EventBus eventBus = UltiTools.getInstance().getEventBus();
 
-BalanceChangeEvent event = new BalanceChangeEvent(player, 100.0);
+BalanceChangeEvent event = new BalanceChangeEvent(player.getUniqueId(), 100.0);
 event.setSourceModule("UltiEconomy");
 eventBus.publish(event);
 ```
 
 ### 异步发布
 
-处理器在后台线程池上执行：
+处理器在后台线程池上执行（2 到 4 个线程，队列容量 256）。队列已满时，处理器改在发布事件的线程上执行，因此 `publishAsync` 可能阻塞调用方：
 
 ```java
 eventBus.publishAsync(event);
@@ -146,7 +146,7 @@ public void onAnyEvent(ModuleEvent event) {
 
 ## 自动生命周期
 
-- **注册**：`@Service` Bean 中的 `@ModuleEventHandler` 方法在插件模块加载时被发现并注册
+- **注册**：模块容器中任意 Bean 上的 `@ModuleEventHandler` 方法，会在模块加载完成后（`registerSelf()` 返回 `true` 之后）注册
 - **清理**：当模块卸载时，该模块拥有的所有处理器会被自动注销
 
 自 v6.3.0 起，每个处理器都属于某一个模块实例，实例卸载或被替换时只注销它自己的处理器。`@ModuleEventHandler` 方法，以及框架加载模块期间（容器刷新，即 `@PostConstruct` 运行时，和 `registerSelf()` 中）的编程式订阅，属于该实例。v6.3.2 文档明确：登记范围在组件扫描和主类单例注册之前打开，覆盖主类及其注入 Bean 的 `@PostConstruct`。加载之后用带 `ownerModule` 的重载订阅的，属于框架以该名称列为已加载的那个实例；新实例正在替换旧实例时，属于旧实例。在模块构造器中按名称订阅的，属于此时以该名称列出的实例：首次加载时没有这样的实例，新实例加载期间则是旧实例。请在 `registerSelf()` 中订阅；如果你手上有模块实例，也可以使用 `subscribe(eventType, priority, ignoreCancelled, ownerModule, ownerInstance, consumer)`，直接记下实例。加载之后不带所属模块名的订阅不属于任何模块，不会被自动注销，需要你自己取消。
@@ -189,7 +189,7 @@ public class EconomyService {
 }
 ```
 
-**独立的审计模块**无需依赖经济模块即可接收事件：
+**独立的审计模块**无需调用经济模块即可接收事件，它只需要事件类：
 
 <<< @/../examples/src/main/java/com/ultikits/docs/eventbus/complete/AuditLogService.java
 

@@ -54,7 +54,7 @@ Lookup order is:
 Full inherited generic types are checked before any selected config file is read or created. For example an unsupported recipe value produces a diagnostic with this structure (names reflect the affected module):
 
 ```text
-Module UltiRecipe, file config/recipes.yml, key "recipes": no config converter for ...RecipeDefinition (declared as java.util.Map<java.lang.String, ...RecipeDefinition>). Register one with @ConfigConverterFor in the module scan packages, or declare a supported plain-data type.
+Module UltiRecipe, file config/recipes.yml, key "recipes": no config converter for ...RecipeDefinition (declared as java.util.Map<java.lang.String, ...RecipeDefinition>). Register one with @ConfigConverterFor(RecipeDefinition.class) in the module's scan packages, or declare the value type as Map<String, Object>.
 ```
 
 The actual message names the complete type. During binding, a convertible declared type with an invalid whole value uses its initially declared default, and invalid list/map elements are skipped with a located warning. Unknown runtime objects on save refuse the write before changing the target. Secret-shaped values are redacted in binding warnings.

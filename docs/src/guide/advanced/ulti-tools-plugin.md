@@ -21,7 +21,7 @@ Use `XVersionUtils`'s static methods instead; the retired [`VersionWrapper` API]
 
 代表一个 UltiTools 模块及其主类. 其包含了模块正常加载并工作所需的基础方法和字段. 这是一个 IPlugin 的间接实现.
 
-> 作者: wisdomme, qianmo
+> 作者: wisdomme
 >
 > 自 6.0.0 可用
 > 
@@ -37,10 +37,13 @@ As of v6.3.0, the six-parameter constructor is removed. Use the no-argument cons
 
 :::tabs
 == 构造器
-`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
+`protected UltiToolsPlugin()`<br>`public UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
 :::
 
 ## 方法概要
+
+The tables below list only part of the public API. The class also has `getConfigs(Class)`, `getConfiguredLanguage()`, `reloadWithReport()`, `isNewerVersionThan(...)`, the protected hooks `onUnregister()`, `onReload()` and `onReload(ReloadReport)`, and getters such as `getPluginName()`, `getVersion()` and `getContext()`. See the [Javadoc](/api/) for the full list.
+
 :::tabs
 == 所有方法
 
@@ -50,13 +53,13 @@ As of v6.3.0, the six-parameter constructor is removed. Use the no-argument cons
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.Class\<T> configType)                                  |
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
 | `static ConfigManager `                         | getConfigManager\()                                                         |
-| `<T extends BaseDataEntity<String>>DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
-| `Language`                                      | getLanguage\()                                                              |
-| `java.lang.String`                              | getLanguageCode()                                                           |
+| `final <T extends BaseDataEntity<String>> DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
+| `final Language`                                | getLanguage\()                                                              |
+| `final java.lang.String`                        | getLanguageCode()                                                           |
 | `static ListenerManager`                        | getListenerManager\()                                                       |
 | `static PluginManager`                          | getPluginManager\()                                                         |
 | `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
-| `java.lang.String`                              | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
+| `final java.lang.String`                        | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
 | `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
 
 == 静态方法
@@ -74,11 +77,11 @@ As of v6.3.0, the six-parameter constructor is removed. Use the no-argument cons
 |-------------------------------------------------|-----------------------------------------------------------------------------|
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.Class\<T> configType)                                  |
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
-| `<T extends BaseDataEntity<String>>DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
-| `Language`                                      | getLanguage\()                                                              |
-| `java.lang.String`                              | getLanguageCode()                                                           |
+| `final <T extends BaseDataEntity<String>> DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
+| `final Language`                                | getLanguage\()                                                              |
+| `final java.lang.String`                        | getLanguageCode()                                                           |
 | `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
-| `java.lang.String`                              | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
+| `final java.lang.String`                        | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
 | `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
 
 == 具体方法
@@ -89,13 +92,13 @@ As of v6.3.0, the six-parameter constructor is removed. Use the no-argument cons
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.Class\<T> configType)                                  |
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
 | `static ConfigManager `                         | getConfigManager\()                                                         |
-| `<T extends BaseDataEntity<String>>DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
-| `Language`                                      | getLanguage\()                                                              |
-| `java.lang.String`                              | getLanguageCode()                                                           |
+| `final <T extends BaseDataEntity<String>> DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
+| `final Language`                                | getLanguage\()                                                              |
+| `final java.lang.String`                        | getLanguageCode()                                                           |
 | `static ListenerManager`                        | getListenerManager\()                                                       |
 | `static PluginManager`                          | getPluginManager\()                                                         |
 | `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
-| `java.lang.String`                              | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
+| `final java.lang.String`                        | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
 | `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
 
 :::
@@ -120,5 +123,5 @@ getAllConfigs, getConfig, saveConfig
 
 ## 构造器详细资料
 ::: info UltiToolsPlugin
-`protected UltiToolsPlugin()`<br>`UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
+`protected UltiToolsPlugin()`<br>`public UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
 :::

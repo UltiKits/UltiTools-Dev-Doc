@@ -4,7 +4,7 @@
 The Module EventBus is available starting from UltiTools-API v6.2.2.
 :::
 
-UltiTools provides a decoupled publish/subscribe event system for inter-module communication. Modules can publish events and subscribe to events from other modules without any direct dependency between them.
+UltiTools provides a decoupled publish/subscribe event system for inter-module communication. Modules can publish events and subscribe to events from other modules without calling each other directly. The subscriber only needs the event class, which the publishing module (or a small shared API JAR) provides.
 
 ## Defining Events
 
@@ -89,14 +89,14 @@ Handlers run on the calling thread in priority order:
 ```java
 EventBus eventBus = UltiTools.getInstance().getEventBus();
 
-BalanceChangeEvent event = new BalanceChangeEvent(player, 100.0);
+BalanceChangeEvent event = new BalanceChangeEvent(player.getUniqueId(), 100.0);
 event.setSourceModule("UltiEconomy");
 eventBus.publish(event);
 ```
 
 ### Asynchronous
 
-Handlers run on a background thread pool:
+Handlers run on a background thread pool (2 to 4 threads, with a queue of 256). When the queue is full, the handlers run on the publishing thread instead, so `publishAsync` can block the caller:
 
 ```java
 eventBus.publishAsync(event);
@@ -146,7 +146,7 @@ If a handler throws an exception, it is logged and other handlers continue to ex
 
 ## Automatic Lifecycle
 
-- **Registration**: `@ModuleEventHandler` methods in `@Service` beans are discovered and registered when the plugin module loads
+- **Registration**: `@ModuleEventHandler` methods on any bean in the module's container are registered once the module has finished loading (after `registerSelf()` returns `true`)
 - **Cleanup**: All handlers owned by a module are automatically unregistered when the module is unloaded
 
 As of v6.3.0 every handler belongs to one module instance, and unloading or replacing an instance releases exactly its own handlers. `@ModuleEventHandler` methods and programmatic subscriptions made while the framework loads your module (its container refresh, where `@PostConstruct` runs, and `registerSelf()`) belong to that instance. As documented for v6.3.2, the registration scope opens before component scanning and main-class singleton registration, covering `@PostConstruct` on the main class and its injected beans. A programmatic subscription made later with the `ownerModule` overload belongs to the instance the framework lists as loaded under that name, and to the older one while a newer instance is replacing it. A subscription made by name in your module's constructor belongs to the instance listed under that name at that moment: none at the first load, and the older instance while a newer one is being loaded. Subscribe in `registerSelf()`, or, if you hold your module instance, use `subscribe(eventType, priority, ignoreCancelled, ownerModule, ownerInstance, consumer)`, which records it directly. A subscription made after load without an owner name belongs to no module and is never released automatically; unsubscribe it yourself.
@@ -189,7 +189,7 @@ public class EconomyService {
 }
 ```
 
-**Separate audit module** receives it without depending on the economy module:
+**Separate audit module** receives it without calling the economy module; it only needs the event class:
 
 <<< @/../examples/src/main/java/com/ultikits/docs/eventbus/complete/AuditLogService.java
 
