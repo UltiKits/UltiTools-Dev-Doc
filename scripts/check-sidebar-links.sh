@@ -7,6 +7,11 @@
 # (.planning/todos/pending/sidebar-nav-link-gate-blind-spot.md) — this is
 # that script.
 #
+# For archived versions it also checks page -> sidebar: every page in
+# docs/archive/<version>/{,zh/}guide must be linked from the sidebar that
+# .vitepress/config/archive-sidebars.mjs assigns to that version, so a wrong
+# version -> sidebar mapping fails even when every link it does have resolves.
+#
 # set -uo pipefail, not -e: this is a multi-unit scan across many constants
 # and many prefixes. One bad resolution must not abort the scan before the
 # rest are checked — same posture as check-container-length.sh, which is a
@@ -72,6 +77,27 @@ RUNTIME_ROUTE_EXEMPT=(
   '/api/6.3.0/index.html'
   '/api/6.2.5/index.html'
 )
+
+# Archived pages that were published without a sidebar entry and stay that
+# way, because archives are frozen. Exact paths, same reasoning as
+# RUNTIME_ROUTE_EXEMPT. These five Chinese-only version-wrapper pages are the
+# ones docs/public/_redirects already documents (their English counterpart
+# never existed); they were reachable only by in-page links.
+ARCHIVE_ORPHAN_EXEMPT=(
+  'docs/archive/v6.2.4/zh/guide/essentials/version-wrapper.md'
+  'docs/archive/v6.2.3/zh/guide/essentials/version-wrapper.md'
+  'docs/archive/v6.2.2/zh/guide/essentials/version-wrapper.md'
+  'docs/archive/v6.2.1/zh/guide/essentials/version-wrapper.md'
+  'docs/archive/v6.2.0/zh/guide/essentials/version-wrapper.md'
+)
+
+is_orphan_exempt() {
+  local val="$1" e
+  for e in "${ARCHIVE_ORPHAN_EXEMPT[@]}"; do
+    [ "$val" = "$e" ] && return 0
+  done
+  return 1
+}
 
 total=0
 bad=0
@@ -145,6 +171,7 @@ check_guide_constant() {
   for version in "${versions[@]}"; do
     local root
     root="$(guide_root "$lang" "$version")"
+    local -A linked=()
     while IFS='|' read -r base link; do
       [ -z "$link" ] && continue
       case "$link" in
@@ -174,10 +201,28 @@ check_guide_constant() {
         path="$root/$link.md"
       fi
       total=$((total + 1))
+      linked["$path"]=1
       if [ ! -f "$path" ]; then
         fail_line "$const_name -> ${version:-latest} -> $(rel_path "$path")"
       fi
     done <<<"$pairs"
+    # Reverse direction, archived versions only (the latest side is
+    # check-bilingual-parity.sh's job): every page in the archived guide tree
+    # must be reachable from the sidebar the mapping assigns to it. Without
+    # this, mapping v6.2.4 to the 6.2.0 sidebar passed: all of that sidebar's
+    # links exist in v6.2.4 too, and the two pages 6.2.4 added simply had no
+    # navigation entry.
+    if [ -n "$version" ] && [ -d "$root/guide" ]; then
+      local page
+      while IFS= read -r page; do
+        is_orphan_exempt "$(rel_path "$page")" && continue
+        total=$((total + 1))
+        if [ -z "${linked[$page]+x}" ]; then
+          fail_line "$const_name -> $version -> $(rel_path "$page") has no entry in the mapped sidebar"
+        fi
+      done < <(find "$root/guide" -type f -name '*.md' | sort)
+    fi
+    unset linked
   done
 }
 
@@ -299,24 +344,42 @@ check_nav() {
   done <<<"$links"
 }
 
+# Latest sidebars resolve against docs/src.
 check_guide_constant "sidebarGuideEN" "$SIDEBAR_EN" en ""
-check_guide_constant "sidebarGuideEN_v631" "$SIDEBAR_EN" en v6.3.1
-check_guide_constant "sidebarGuideEN_v630" "$SIDEBAR_EN" en v6.3.0
-check_guide_constant "sidebarGuideEN_v625" "$SIDEBAR_EN" en v6.2.5
-check_guide_constant "sidebarGuideEN_v624" "$SIDEBAR_EN" en v6.2.4 v6.2.3 v6.2.2
-check_guide_constant "sidebarGuideEN_v620" "$SIDEBAR_EN" en v6.2.1 v6.2.0
-check_guide_constant "sidebarGuideEN_v610" "$SIDEBAR_EN" en v6.1.0
-# v6.3.1, v6.3.0 and v6.2.5 map API navigation to []: their release trees have no API pages.
-check_api_constant "sidebarApiEN" "$SIDEBAR_EN" en v6.2.4 v6.2.3 v6.2.2 v6.2.1 v6.2.0 v6.1.0
-
 check_guide_constant "sidebarGuideZH" "$SIDEBAR_ZH" zh ""
-check_guide_constant "sidebarGuideZH_v631" "$SIDEBAR_ZH" zh v6.3.1
-check_guide_constant "sidebarGuideZH_v630" "$SIDEBAR_ZH" zh v6.3.0
-check_guide_constant "sidebarGuideZH_v625" "$SIDEBAR_ZH" zh v6.2.5
-check_guide_constant "sidebarGuideZH_v624" "$SIDEBAR_ZH" zh v6.2.4 v6.2.3 v6.2.2
-check_guide_constant "sidebarGuideZH_v620" "$SIDEBAR_ZH" zh v6.2.1 v6.2.0
-check_guide_constant "sidebarGuideZH_v610" "$SIDEBAR_ZH" zh v6.1.0
-check_api_constant "sidebarApiZH" "$SIDEBAR_ZH" zh v6.2.4 v6.2.3 v6.2.2 v6.2.1 v6.2.0 v6.1.0
+
+# Archived versions: which frozen constant resolves against which
+# docs/archive/<version> tree comes from .vitepress/config/archive-sidebars.mjs,
+# the same table the locale configs build their sidebar keys from. It used to
+# be written out here a second time, so a wrong mapping in the locale config
+# (v6.2.4 pointed at the 6.2.0 sidebar renders 10 dead links) still passed, and
+# a version missing from this list was not checked at all.
+# archive-sidebars-plan.mjs exits 2 when any docs/archive/v* directory has no
+# row (or a row has no directory); that is a self-failure here, not a pass.
+# Versions whose row has api: null have no api/ pages; the plan asserts that
+# too and emits no api line for them.
+if ! plan="$(node "$ROOT/scripts/archive-sidebars-plan.mjs")"; then
+  echo "FAIL: scripts/archive-sidebars-plan.mjs could not produce the archived sidebar plan (see the message above)"
+  self_check_failed=1
+  plan=""
+fi
+plan_lines=0
+while IFS=$'\t' read -r kind const_name lang versions; do
+  [ -z "$kind" ] && continue
+  plan_lines=$((plan_lines + 1))
+  file="$SIDEBAR_EN"
+  [ "$lang" = "zh" ] && file="$SIDEBAR_ZH"
+  # shellcheck disable=SC2086 # versions is a space-separated list by design
+  case "$kind" in
+    guide) check_guide_constant "$const_name" "$file" "$lang" $versions ;;
+    api) check_api_constant "$const_name" "$file" "$lang" $versions ;;
+    *) echo "FAIL: unknown plan line kind '$kind'"; self_check_failed=1 ;;
+  esac
+done <<<"$plan"
+if [ "$self_check_failed" -eq 0 ] && [ "$plan_lines" -eq 0 ]; then
+  echo "FAIL: archived sidebar plan was empty — treating as script self-failure, not zero violations"
+  self_check_failed=1
+fi
 
 check_nav "$NAV_EN" en
 check_nav "$NAV_ZH" zh
