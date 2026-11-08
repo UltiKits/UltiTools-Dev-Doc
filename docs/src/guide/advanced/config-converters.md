@@ -44,12 +44,11 @@ As of v6.3.0, a discovered converter must be a public top-level class with a pub
 
 Lookup order is:
 
-1. An explicit non-default `@ConfigEntry(parser = X.class)` selects the legacy adapter.
-2. The module registry: exact class, non-exact superclass chain, then non-exact interfaces.
-3. The framework registry, in the same order.
-4. Generic collection/map/array/enum and `Object` conversion.
-5. Bukkit `ConfigurationSerializable` fallback with a registered alias.
-6. No converter: selected configuration type check refuses module load.
+1. The module registry: exact class, non-exact superclass chain, then non-exact interfaces.
+2. The framework registry, in the same order.
+3. Generic collection/map/array/enum and `Object` conversion.
+4. Bukkit `ConfigurationSerializable` fallback with a registered alias.
+5. No converter: selected configuration type check refuses module load.
 
 Full inherited generic types are checked before any selected config file is read or created. For example an unsupported recipe value produces a diagnostic with this structure (names reflect the affected module):
 
@@ -121,24 +120,10 @@ public class TokenConverter implements ConfigConverter<Token> {
 
 ## Legacy parser migration
 
-As of v6.3.0, these six announcements first carry `@Deprecated(since = "6.3.0", forRemoval = true)`: `ConfigEntry#parser()`, `interfaces.Parser`, `interfaces.ObjectConfigSerializer`, `interfaces.impl.pasers.ConfigParser`, `DefaultConfigParser`, `StringHashMapParser`. The announced next-MINOR removal is 6.4.0. The published package spelling `pasers` is unchanged.
+::: warning Removed in v6.4.0
+The legacy parser API is gone: `ConfigEntry#parser()`, `interfaces.Parser`, `interfaces.ObjectConfigSerializer`, `interfaces.impl.pasers.ConfigParser`, `DefaultConfigParser` and `StringHashMapParser`. They were deprecated for removal in v6.3.0. Replace each with a public top-level `ConfigConverter<T>` annotated `@ConfigConverterFor(T.class)` in a scanned package, as in the example above.
+:::
 
-A `DefaultConfigParser` subclass previously used the inherited section reader and reflective writer. For the `Token` above, a legacy declaration could be:
-
-```java
-import java.util.Map;
-
-public static class TokenParser extends
-        com.ultikits.ultitools.interfaces.impl.pasers.DefaultConfigParser {
-    @Override public Object parse(Object raw) {
-        Map<?, ?> values = (Map<?, ?>) super.parse(raw);
-        return new Token((String) values.get("text"));
-    }
-}
-@ConfigEntry(path = "token", parser = TokenParser.class)
-private Token oldToken = new Token("hello");
-```
-
-Replace the old field/parser with the converter example's field and class. An explicit legacy override still receives detached Bukkit sections for maps (including old dotted-key splitting), while its serialized output must cross the plain boundary. The default `DefaultConfigParser.class` annotation value instead means registry conversion. No arbitrary custom-class raw passthrough exception is added.
+Delete `parser = ...` from the field. A declaration that only named `DefaultConfigParser` or `StringHashMapParser` needs no replacement, because the built-in conversions cover those types.
 
 See [Configuration](/guide/essentials/config-file) for whole map keys, file protection, edited emission, atomic/backed saves, reload and the removed entity accessor. The storage limits that still apply are recorded in [#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578) (see Configuration for which ones); [#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580) is a documented reader limitation.
