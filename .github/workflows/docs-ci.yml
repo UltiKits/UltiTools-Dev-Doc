@@ -524,6 +524,21 @@ jobs:
       - name: Check Pages build command exists on master and alpha
         run: bash scripts/check-pages-build-command.sh
 
+  version-sort-regression-test:
+    name: Version names sort numerically
+    runs-on: ubuntu-latest
+    # scripts/test-version-sort.sh runs the real generate-version-pages.mjs on a
+    # fixture tree and checks that v6.10.0 sorts after v6.2.5 and that a
+    # -SNAPSHOT label sorts just before its release. It needs only Node.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Run version sort regression test
+        run: bash scripts/test-version-sort.sh
+
   root-doc-links:
     name: Root-level docs are reachable from README
     runs-on: ubuntu-latest
