@@ -134,12 +134,22 @@ export default withPwa(
             transformItems: (items) => {
                 const isSnapshot = (url: string) => SNAPSHOT_SEGMENT.test(url);
 
+                // Pages serves foo.html with a 308 to /foo, so list the extensionless
+                // URL a crawler lands on. Done here rather than with cleanUrls, which
+                // would rewrite every internal link on the site as well.
+                const canonical = (url: string) => url.replace(/\.html$/, '');
+
                 return items
                     .filter((item) => !isSnapshot(item.url))
                     .map((item) => item.links
                         ? { ...item, links: item.links.filter((link) => !isSnapshot(link.url)) }
                         : item
-                    );
+                    )
+                    .map((item) => ({
+                        ...item,
+                        url: canonical(item.url),
+                        ...(item.links && { links: item.links.map((link) => ({ ...link, url: canonical(link.url) })) }),
+                    }));
             },
         },
         locales: { ...localeZH, ...localeEN },
