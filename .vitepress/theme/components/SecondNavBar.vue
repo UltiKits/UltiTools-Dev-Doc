@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useData, useRoute } from 'vitepress'
 import { useSidebar } from 'vitepress/theme'
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 // @ts-ignore
 import VPNavBarMenuLink from 'vitepress/dist/client/theme-default/components/VPNavBarMenuLink.vue'
 // @ts-ignore
@@ -79,6 +79,10 @@ watch(() => route.path, () => {
 onMounted(() => {
   updateIndicator()
   window.addEventListener('resize', updateIndicator)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateIndicator)
 })
 </script>
 

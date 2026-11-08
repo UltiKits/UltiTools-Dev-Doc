@@ -41,7 +41,7 @@ import VPMenuLink from 'vitepress/dist/client/theme-default/components/VPMenuLin
 // manifest VersionNoticeBar.vue reads, so the notice bar and this switcher
 // cannot disagree about whether a given target page exists.
 import { VERSION_PAGES } from '../../config/version-pages.generated.mjs';
-import { activeVersion, buildPath, pageExists, versionState } from './versioning';
+import { activeVersion, buildPath, compareVersions, pageExists, versionState } from './versioning';
 
 interface VersioningPlugin {
   versions: string[];
@@ -80,11 +80,11 @@ const active = computed(() =>
 // directory being recreated. Ascending is chosen because it is what this site
 // already renders on the machines where readdir happens to return sorted
 // names, so making the order deterministic changes no reader's view.
-// scripts/generate-version-pages.mjs sorts the same names the same way; like
-// that one, this is a lexicographic sort and would place a future v6.10.0
-// before v6.9.0.
+// The comparison is numeric per version component (compareVersions in
+// ./versioning), so a future v6.10.0 sorts after v6.9.0 rather than before it
+// as a plain string sort would place it.
 const rowVersions = computed(() =>
-  [current.value, ...[...versions.value].sort()].filter((v) => v !== active.value)
+  [current.value, ...[...versions.value].sort(compareVersions)].filter((v) => v !== active.value)
 );
 
 interface VersionRow {
