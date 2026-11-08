@@ -1,6 +1,7 @@
 import {UserConfig} from "vitepress";
 import {GitChangelog, GitChangelogMarkdownSection} from "@nolebase/vitepress-plugin-git-changelog/vite";
 import {groupIconVitePlugin} from "vitepress-plugin-group-icons";
+import {archiveLocaleSearchPlugin} from "./archive-locale-search.mjs";
 
 const viteConfig: UserConfig = {
     vite: {
@@ -10,6 +11,7 @@ const viteConfig: UserConfig = {
             }),
             GitChangelogMarkdownSection(),
             groupIconVitePlugin(),
+            archiveLocaleSearchPlugin(),
         ],
         css: {
             preprocessorOptions: {
