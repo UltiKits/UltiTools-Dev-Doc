@@ -111,7 +111,9 @@ const updateActiveOutline = () => {
             // 自动修改 hash，但不触发滚动（replaceState）
             // 避免重复 replace
             if (decodeURIComponent(window.location.hash) !== decodedActive) {
-                history.replaceState(null, '', activeLink)
+                // 保留 history.state：VitePress 路由在 popstate 时遇到 state 为 null 会直接忽略，
+                // 传 null 会让后退/前进后 URL 与页面内容不一致
+                history.replaceState(history.state, '', activeLink)
             }
         } else {
             link.classList.remove('active')

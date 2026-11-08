@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useData, useRoute } from 'vitepress'
 import { useSidebar } from 'vitepress/theme'
-import { ref, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 // @ts-ignore
 import VPNavBarMenuLink from 'vitepress/dist/client/theme-default/components/VPNavBarMenuLink.vue'
 // @ts-ignore
@@ -25,6 +25,15 @@ const indicatorStyle = ref({
   width: '0px',
   left: '0px',
   opacity: 0
+})
+
+// The current release comes from versionsConfig.current in config.mts: the
+// versions plugin injects it into every nav entry that has a `component`
+// (see populateNav in @viteplus/versions), so nothing here is hand-edited per release.
+const currentVersion = computed(() => {
+  const items = (theme.value.nav ?? []) as any[]
+  const raw: string | undefined = items.find((i) => i?.props?.versioningPlugin)?.props.versioningPlugin.currentVersion
+  return raw ? raw.replace(/^v/, '') : ''
 })
 
 const navContentRef = ref<HTMLElement | null>(null)
@@ -87,7 +96,7 @@ onMounted(() => {
 
       <a class="announcement" href="https://github.com/UltiKits/UltiTools-Reborn" target="_blank">
         <span class="badge">NEW</span>
-        <span class="text">{{ lang.startsWith('zh') ? 'UltiTools 6.2.0 已发布！更加现代化的开发体验！→' : 'UltiTools 6.2.0 Released! A more modern dev experience! →' }}</span>
+        <span class="text">{{ lang.startsWith('zh') ? `UltiTools ${currentVersion} 已发布！更加现代化的开发体验！→` : `UltiTools ${currentVersion} Released! A more modern dev experience! →` }}</span>
       </a>
     </div>
   </div>
