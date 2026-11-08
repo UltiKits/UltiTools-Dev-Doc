@@ -352,6 +352,20 @@ jobs:
           # 只读本地脚本与本地配置文件，不需要持久化凭据
           persist-credentials: false
 
+      - name: Rehearse the nav extraction on a fixture
+        # The fixture's broken entry closes with `}, // note`. The checker must
+        # report that entry and exit 1; exit 0 means it skipped the entry.
+        run: |
+          set +e
+          out=$(NAV_EN=scripts/fixtures/nav-trailing-close.mts bash scripts/check-sidebar-links.sh 2>&1)
+          code=$?
+          set -e
+          echo "$out" | tail -5
+          if [ "$code" -ne 1 ] || ! echo "$out" | grep -q 'nav(en) -> /guide/nav-fixture-page-that-does-not-exist'; then
+            echo "::error::the nav checker did not report the fixture entry (exit $code)"
+            exit 1
+          fi
+
       - name: Check sidebar and nav link targets resolve to real pages
         run: bash scripts/check-sidebar-links.sh
 
