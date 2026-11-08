@@ -23,10 +23,19 @@ on:
   # No `workflow_dispatch` either — there is no pre-release manual-run use case
   # for a doc-only build/parity gate.
 
-# All five jobs only read the repository, build the site, and run local scripts —
+# Every job only reads the repository, builds the site, and runs local scripts —
 # none needs write access, so the default token is narrowed to read-only.
 permissions:
   contents: read
+
+# A new push to a pull request supersedes the run on its previous head, so that
+# run is cancelled. Pushes to master and alpha each get a group of their own
+# (keyed by the run id) and are never cancelled: each one is the post-merge
+# backstop for a specific commit, and cancelling it would leave that commit
+# unchecked.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('docs-ci-pr-{0}', github.ref) || format('docs-ci-{0}-{1}', github.ref, github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -34,13 +43,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # 构建期会执行依赖里的任意 Node 代码，不持久化凭据可避免 token 落到 .git/config
           persist-credentials: false
 
       - name: Set up Node from .node-version
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: '.node-version'
           cache: npm
@@ -73,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # 构建期会执行依赖里的任意 Node 代码，不持久化凭据可避免 token 落到 .git/config
           persist-credentials: false
@@ -86,7 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # 只读本地脚本，不需要持久化凭据
           persist-credentials: false
@@ -130,6 +139,38 @@ jobs:
             fi
           done
 
+      # Fence and end-of-file rehearsal. Before this, a bare ::: line inside a
+      # fenced block closed the container early and a container left open at end
+      # of file was never reported; both exited 0. The fence-closer fixture must
+      # exit 1 with an OVER line (its four sentences sit after the fenced :::),
+      # the unclosed fixture must exit 1 with an UNCLOSED line, and the fenced
+      # example outside any container must exit 0 (its ::: tip is code).
+      - name: Rehearse the container fence and unclosed checks on fixtures
+        run: |
+          set +e
+          closer_out=$(bash scripts/check-container-length.sh scripts/fixtures/container-fence-closer.md 2>&1)
+          closer_exit=$?
+          unclosed_out=$(bash scripts/check-container-length.sh scripts/fixtures/container-unclosed.md 2>&1)
+          unclosed_exit=$?
+          example_out=$(bash scripts/check-container-length.sh scripts/fixtures/container-fenced-example.md 2>&1)
+          example_exit=$?
+          set -e
+          echo "$closer_out"
+          echo "$unclosed_out"
+          echo "$example_out"
+          if [ "$closer_exit" != "1" ] || ! printf '%s\n' "$closer_out" | grep -q "container-fence-closer.md:6 .*OVER"; then
+            echo "::error::fence-closer fixture exited $closer_exit without an OVER line at line 6: a ::: inside a fence still closes the container"
+            exit 1
+          fi
+          if [ "$unclosed_exit" != "1" ] || ! printf '%s\n' "$unclosed_out" | grep -q "container-unclosed.md:5 .*UNCLOSED"; then
+            echo "::error::unclosed fixture exited $unclosed_exit without an UNCLOSED line at line 5: an unclosed container is not reported"
+            exit 1
+          fi
+          if [ "$example_exit" != "0" ]; then
+            echo "::error::fenced-example fixture exited $example_exit, expected 0: a ::: tip inside a fence is treated as a container"
+            exit 1
+          fi
+
       # 这里的引号是必需的：YAML 的 plain scalar 不允许出现「冒号 + 空格」，
       # 而步骤名里那三个冒号后面正是空格。去掉引号 GitHub 会把整个文件判为
       # invalid workflow file，本文件三个 job 全部不运行，而 PR 上不会显示为红。
@@ -145,7 +186,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Only reads local scripts and files, no persisted credentials needed
           persist-credentials: false
@@ -245,7 +286,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # 只读本地脚本与本地常量文件，不需要持久化凭据
           persist-credentials: false
@@ -347,7 +388,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # 只读本地脚本与本地配置文件，不需要持久化凭据
           persist-credentials: false
@@ -413,13 +454,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # 构建期会执行依赖里的任意 Node 代码，不持久化凭据可避免 token 落到 .git/config
           persist-credentials: false
 
       - name: Set up Node from .node-version
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: '.node-version'
           cache: npm
@@ -463,7 +504,7 @@ jobs:
     # codeload 可达性、同样不设为 required check 是同一类判断。
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # 构建期会执行仓库外的代码，不持久化凭据可避免 token 落到 .git/config
           persist-credentials: false
@@ -491,7 +532,7 @@ jobs:
     # 一次未来的改名或删除会静默孤儿化 README 里那条指针。
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # 只读本地脚本与本地文档文件，不需要持久化凭据
           persist-credentials: false
@@ -511,13 +552,13 @@ jobs:
     # 本轮没有引入——已知缺口，不是遗漏。
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # 构建期会执行仓库外的代码，不持久化凭据可避免 token 落到 .git/config
           persist-credentials: false
 
       - name: Set up Node from .node-version
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: '.node-version'
           cache: 'npm'

@@ -1,0 +1,28 @@
+# Weekly update PRs for the Actions used in .github/workflows and for the npm
+# lockfile. Each ecosystem's updates arrive as one grouped PR, so a week costs
+# at most two grouped reviews (npm major bumps come one by one).
+#
+# Both target `alpha`, where ordinary changes land; `alpha` reaches `master` at
+# release time. Dependabot reads this file from the default branch, so it takes
+# effect once it is on `master`.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: alpha
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /
+    target-branch: alpha
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
