@@ -311,7 +311,7 @@ As of v6.3.0 a comparison other than `EQUAL` means the same in `getAll`, `exist`
 
 As of v6.4.0, `getAll`, `exist`, `page`, `del` and `updateIf` refuse a condition whose value is `null` (under any comparison) or an infinite or NaN `Double` or `Float` on SQLite, MySQL and JSON alike: they throw `DataAccessException` with `DATA_ENTITY_INVALID` before anything is read, deleted or written. The one exception is `updateIf` with a `null` value under `EQUAL`, which means `IS NULL`. `del(WhereCondition.empty())` is refused the same way on every backend ([#815](https://github.com/UltiKits/UltiTools-Reborn/issues/815), [#696](https://github.com/UltiKits/UltiTools-Reborn/issues/696)). Check a value with a null check or `Double.isFinite` before building the condition.
 
-Up to v6.3.2 the backends disagreed: SQLite and MySQL bound such a value (a null `EQUAL` matched no row, a null `INCLUDE` matched the text `null`, an infinity compared as bound, NaN matched no row and on SQLite made an `updateIf` never apply), while JSON threw `NullPointerException` or `IllegalArgumentException`.
+Up to v6.3.2 the backends disagreed: SQLite and MySQL bound such a value (a null `EQUAL` matched no row, a null `INCLUDE` matched the text `null`, an infinity compared as bound, NaN matched no row and on SQLite made an `updateIf` never apply), while JSON threw `NullPointerException` for a null `EQUAL` value and for an empty condition in `del`, `DataAccessException` for a null value under any other comparison, and `IllegalArgumentException` for an infinite or NaN value.
 
 ### Transactions <Badge type="tip" text="v6.2.0+" />
 

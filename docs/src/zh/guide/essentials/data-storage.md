@@ -309,7 +309,7 @@ WhereCondition.builder().column("somecol").value(someval).build();
 
 自 v6.4.0 起，`getAll`、`exist`、`page`、`del` 与 `updateIf` 在 SQLite、MySQL 和 JSON 上一致地拒绝值为 `null`（任何比较方式）或为无穷大、NaN 的 `Double`/`Float` 的条件：在读取、删除或写入之前抛出带 `DATA_ENTITY_INVALID` 的 `DataAccessException`。唯一例外是 `updateIf` 中 `EQUAL` 下的 `null` 值，它表示 `IS NULL`。`del(WhereCondition.empty())` 在所有后端同样被拒绝（[#815](https://github.com/UltiKits/UltiTools-Reborn/issues/815)、[#696](https://github.com/UltiKits/UltiTools-Reborn/issues/696)）。构造条件前请判空或用 `Double.isFinite` 检查。
 
-到 v6.3.2 为止各后端并不一致：SQLite 与 MySQL 直接绑定这类值（null 的 `EQUAL` 不匹配任何行，null 的 `INCLUDE` 匹配文本 `null`，无穷大按绑定值比较，NaN 不匹配任何行且在 SQLite 上使 `updateIf` 永不生效），JSON 则抛出 `NullPointerException` 或 `IllegalArgumentException`。
+到 v6.3.2 为止各后端并不一致：SQLite 与 MySQL 直接绑定这类值（null 的 `EQUAL` 不匹配任何行，null 的 `INCLUDE` 匹配文本 `null`，无穷大按绑定值比较，NaN 不匹配任何行且在 SQLite 上使 `updateIf` 永不生效），JSON 则对 `EQUAL` 的 null 值和 `del` 的空条件抛出 `NullPointerException`，对其他比较方式的 null 值抛出 `DataAccessException`，对无穷大或 NaN 值抛出 `IllegalArgumentException`。
 
 ### 事务 <Badge type="tip" text="v6.2.0+" />
 
