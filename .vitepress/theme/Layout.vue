@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import DefaultTheme from 'vitepress/theme'
-import { inBrowser, useData, useRoute } from 'vitepress'
-import { watchEffect, nextTick, watch, onMounted, onUnmounted } from 'vue'
+import DefaultTheme, { useSidebar } from 'vitepress/theme'
+import { inBrowser, useData, useRoute, useRouter } from 'vitepress'
+import { nextTick, watch, onMounted, onUnmounted } from 'vue'
 // @ts-ignore
 import VersionNoticeBar from './components/VersionNoticeBar.vue'
 // @ts-ignore
@@ -13,35 +13,60 @@ import VPNavBarAppearance from 'vitepress/dist/client/theme-default/components/V
 import { NolebaseEnhancedReadabilitiesMenu, NolebaseEnhancedReadabilitiesScreenMenu } from '@nolebase/vitepress-plugin-enhanced-readabilities/client'
 import { NolebaseHighlightTargetedHeading } from '@nolebase/vitepress-plugin-highlight-targeted-heading/client'
 import ReloadPrompt from './components/ReloadPrompt.vue'
-import giscusTalk from 'vitepress-plugin-comment-with-giscus'
 
 const { Layout } = DefaultTheme
-const { lang, frontmatter } = useData()
+const { lang } = useData()
 const route = useRoute()
+const router = useRouter()
+// Pages without a sidebar (the home layout) get the language switch and the
+// appearance toggle in the nav bar instead, see the template.
+const { hasSidebar } = useSidebar()
 
-// 修复锚点定位问题
-const scrollToHash = (hash: string) => {
+// At 960px and up the article scrolls inside .VPDoc .container, not the
+// window. VitePress's own hash scrolling and scroll restoration target the
+// window, so the code below repeats them for that container.
+const CONTAINER = '.VPDoc .container'
+// Same value VitePress uses in its own outline code (outline.js activateLink).
+const MARKER_OFFSET = 39
+const getContainer = () => document.querySelector(CONTAINER) as HTMLElement | null
+
+// Element for a location hash. getElementById rather than querySelector: ids
+// with CJK text, dots, colons or a leading digit are not valid CSS selectors.
+// A malformed percent sequence (#100%) is not a target, not an error.
+const hashTarget = (hash: string): HTMLElement | null => {
+    if (!hash || hash.length < 2) return null
+    let decoded = hash
+    try {
+        decoded = decodeURIComponent(hash)
+    } catch {
+        // keep the raw hash
+    }
+    return document.getElementById(decoded.slice(1)) ?? document.getElementById(hash.slice(1))
+}
+
+const sameHash = (a: string, b: string) => {
+    const decode = (h: string) => {
+        try {
+            return decodeURIComponent(h)
+        } catch {
+            return h
+        }
+    }
+    return decode(a) === decode(b)
+}
+
+const scrollToHash = (hash: string, behavior: ScrollBehavior = 'smooth') => {
     if (!inBrowser) return
     nextTick(() => {
-        // 解码 hash，例如 #%E4%B8%AD%E6%96%87 -> #中文
-        const selector = decodeURIComponent(hash)
-        let target: HTMLElement | null = null
-        try {
-            target = document.querySelector(selector) as HTMLElement
-        } catch (e) {
-            console.warn('Invalid hash selector:', selector)
-        }
-
-        const container = document.querySelector('.VPDoc .container') as HTMLElement
+        const target = hashTarget(hash)
+        const container = getContainer()
         if (target && container) {
             const targetRect = target.getBoundingClientRect()
             const containerRect = container.getBoundingClientRect()
-            const scrollTop = container.scrollTop
-
-            // 目标位置 = 当前滚动位置 + (目标视口坐标 - 容器视口坐标) - 顶部留白
+            // target position = current scroll + (target - container) - 20px gap
             container.scrollTo({
-                top: scrollTop + targetRect.top - containerRect.top - 20,
-                behavior: 'smooth'
+                top: container.scrollTop + targetRect.top - containerRect.top - 20,
+                behavior
             })
         }
     })
@@ -53,67 +78,66 @@ const handleHashChange = () => {
     }
 }
 
-// 手动处理 Outline 高亮
+// VitePress only fires hashchange when the clicked hash differs from the
+// current one. Because the outline below keeps the URL hash in step with the
+// highlighted heading, the highlighted outline entry and its heading's `#`
+// anchor were exactly the links that did nothing. Runs in the capture phase,
+// before VitePress's own (window, capture) click handler, and leaves that
+// handler's work untouched.
+const handleSameHashClick = (e: MouseEvent) => {
+    if (e.button !== 0 || e.ctrlKey || e.shiftKey || e.altKey || e.metaKey) return
+    const link = (e.target as Element | null)?.closest?.('a') as HTMLAnchorElement | null
+    if (!link || !link.closest('.VPDoc')) return
+    const href = link.getAttribute('href')
+    if (!href || !href.startsWith('#')) return
+    if (window.location.hash && sameHash(href, window.location.hash)) {
+        scrollToHash(href)
+    }
+}
+
+// Outline highlighting for the container scroll (VitePress's own listens to
+// window scroll).
 const updateActiveOutline = () => {
-    const container = document.querySelector('.VPDoc .container')
+    const container = getContainer()
     if (!container) return
 
-    // 获取所有 header 元素
+    const containerRect = container.getBoundingClientRect()
     const headers = Array.from(container.querySelectorAll('.vp-doc :where(h1,h2,h3,h4,h5,h6)'))
         .filter((el) => el.id && el.hasChildNodes())
-        .map((el) => {
-            // 计算 header 相对于 container 的位置
-            const rect = el.getBoundingClientRect()
-            const containerRect = container.getBoundingClientRect()
-            return {
-                link: '#' + el.id,
-                // 这里要用 scrollTop + 相对 top
-                // 或者直接用相对 container top 的偏移
-                top: rect.top - containerRect.top + container.scrollTop
-            }
-        })
+        .map((el) => ({
+            link: '#' + el.id,
+            top: el.getBoundingClientRect().top - containerRect.top + container.scrollTop
+        }))
 
     if (!headers.length) return
 
-    const scrollTop = container.scrollTop
-    // 偏移量，使得 header 滚动到顶部下方一点时激活
-    const offset = 100
-
-    let activeLink: string | null = null
-    for (const { link, top } of headers) {
-        if (top > scrollTop + offset) {
-            break
-        }
-        activeLink = link
-    }
-
     const outline = document.querySelector('.VPDocAsideOutline')
     if (!outline) return
-
-    const marker = outline.querySelector('.outline-marker') as HTMLElement
+    const marker = outline.querySelector('.outline-marker') as HTMLElement | null
     const links = Array.from(outline.querySelectorAll('.VPDocOutlineItem a')) as HTMLAnchorElement[]
 
-    let foundActive = false
-    links.forEach(link => {
-        const href = link.getAttribute('href')
-        // 解码 href 以匹配 id (中文 id)
-        const decodedHref = decodeURIComponent(href || '')
-        const decodedActive = decodeURIComponent(activeLink || '')
+    const scrollTop = container.scrollTop
+    // a heading counts as reached once it is within this distance of the top
+    const offset = 100
+    let active: string | null = null
+    for (const { link, top } of headers) {
+        if (top > scrollTop + offset) break
+        active = link
+    }
 
-        if (activeLink && decodedHref === decodedActive) {
+    let foundActive = false
+    links.forEach((link) => {
+        if (active && sameHash(link.getAttribute('href') || '', active)) {
             link.classList.add('active')
             if (marker) {
-                marker.style.top = link.offsetTop + 33 + 'px' // 33px 是大致偏移，源码是 39 或 33
+                marker.style.top = link.offsetTop + MARKER_OFFSET + 'px'
                 marker.style.opacity = '1'
             }
             foundActive = true
-
-            // 自动修改 hash，但不触发滚动（replaceState）
-            // 避免重复 replace
-            if (decodeURIComponent(window.location.hash) !== decodedActive) {
-                // 保留 history.state：VitePress 路由在 popstate 时遇到 state 为 null 会直接忽略，
-                // 传 null 会让后退/前进后 URL 与页面内容不一致
-                history.replaceState(history.state, '', activeLink)
+            // keep the URL hash in step without scrolling; history.state is kept
+            // because VitePress ignores popstate events whose state is null
+            if (!sameHash(window.location.hash, active)) {
+                history.replaceState(history.state, '', active)
             }
         } else {
             link.classList.remove('active')
@@ -121,119 +145,134 @@ const updateActiveOutline = () => {
     })
 
     if (!foundActive && marker) {
-        // 如果没有激活的，隐藏 marker
         marker.style.opacity = '0'
     }
 }
 
-// 简单的 throttle
-function throttle(func: Function, limit: number) {
-    let inThrottle: boolean
-    return function (this: any) {
-        const args = arguments
-        const context = this
-        if (!inThrottle) {
-            func.apply(context, args)
-            inThrottle = true
-            setTimeout(() => inThrottle = false, limit)
+function throttle(func: () => void, limit: number) {
+    let inThrottle = false
+    let pending = false
+    return function () {
+        if (inThrottle) {
+            pending = true
+            return
         }
+        func()
+        inThrottle = true
+        setTimeout(() => {
+            inThrottle = false
+            // run once more so the final scroll position is not missed
+            if (pending) {
+                pending = false
+                func()
+            }
+        }, limit)
     }
 }
 
 const throttledUpdateOutline = throttle(updateActiveOutline, 100)
 
+// Container scroll position per page path, so Back/Forward return to where the
+// reader was. VitePress saves only window.scrollY in history.state and its
+// go() overwrites that state, so the positions are kept here instead.
+const savedScroll = new Map<string, number>()
+let currentPath = ''
+let poppedPath: string | null = null
+
+const recordScroll = () => {
+    const container = getContainer()
+    if (container && currentPath) savedScroll.set(currentPath, container.scrollTop)
+}
+
+let boundContainer: HTMLElement | null = null
 const bindScrollListener = () => {
-    const container = document.querySelector('.VPDoc .container')
+    const container = getContainer()
+    if (container === boundContainer) return
+    boundContainer?.removeEventListener('scroll', throttledUpdateOutline)
+    boundContainer?.removeEventListener('scroll', recordScroll)
+    boundContainer = container
     if (container) {
-        container.removeEventListener('scroll', throttledUpdateOutline)
-        container.addEventListener('scroll', throttledUpdateOutline)
-        // 立即更新一次
-        updateActiveOutline()
+        container.addEventListener('scroll', throttledUpdateOutline, { passive: true })
+        container.addEventListener('scroll', recordScroll, { passive: true })
+    }
+}
+
+const onPopState = () => {
+    poppedPath = window.location.pathname
+}
+
+// Restores the container for the page that was just rendered: a hash target
+// on a link navigation, the saved position on Back/Forward, otherwise the top.
+const placeContainer = () => {
+    bindScrollListener()
+    const container = getContainer()
+    const restore = poppedPath === route.path ? savedScroll.get(route.path) : undefined
+    poppedPath = null
+    currentPath = route.path
+    if (container) {
+        if (restore !== undefined) {
+            container.scrollTop = restore
+        } else if (window.location.hash && hashTarget(window.location.hash)) {
+            scrollToHash(window.location.hash, 'auto')
+        } else {
+            container.scrollTop = 0
+        }
+    }
+    nextTick(updateActiveOutline)
+}
+
+if (inBrowser) {
+    // a link navigation (go()) is never a Back/Forward restore
+    const previousBefore = router.onBeforeRouteChange
+    router.onBeforeRouteChange = (to: string) => {
+        poppedPath = null
+        return previousBefore?.(to)
     }
 }
 
 onMounted(() => {
-    if (inBrowser) {
-        window.addEventListener('hashchange', handleHashChange)
-        // 初始加载
-        if (window.location.hash) {
-            setTimeout(() => scrollToHash(window.location.hash), 100)
-        }
-
-        // 初始绑定
-        setTimeout(bindScrollListener, 500)
-    }
+    window.addEventListener('hashchange', handleHashChange)
+    window.addEventListener('popstate', onPopState)
+    window.addEventListener('click', handleSameHashClick, { capture: true })
+    currentPath = route.path
+    bindScrollListener()
+    if (window.location.hash) scrollToHash(window.location.hash, 'auto')
+    nextTick(updateActiveOutline)
 })
 
 onUnmounted(() => {
-    if (inBrowser) {
-        window.removeEventListener('hashchange', handleHashChange)
-        const container = document.querySelector('.VPDoc .container')
-        if (container) {
-            container.removeEventListener('scroll', throttledUpdateOutline)
-        }
-    }
+    window.removeEventListener('hashchange', handleHashChange)
+    window.removeEventListener('popstate', onPopState)
+    window.removeEventListener('click', handleSameHashClick, { capture: true })
+    boundContainer?.removeEventListener('scroll', throttledUpdateOutline)
+    boundContainer?.removeEventListener('scroll', recordScroll)
+    boundContainer = null
 })
 
-// 监听路径变化（切换页面时）
-watch(
-    () => route.path,
-    () => {
-        // 页面切换，重置滚动位置并重新绑定
-        nextTick(() => {
-            // 延迟执行以等待 DOM 更新
-            setTimeout(() => {
-                bindScrollListener()
-
-                // 如果带 hash，滚动到 hash
-                if (window.location.hash) {
-                    scrollToHash(window.location.hash)
-                } else {
-                    // 否则滚动到顶部
-                    const container = document.querySelector('.VPDoc .container')
-                    if (container) container.scrollTop = 0
-                }
-            }, 200)
-        })
-    }
-)
+// Page change: runs after the new page is patched into the DOM ('post'), so the
+// reused container is placed before the next paint instead of 200ms later.
+watch(() => route.path, () => {
+    if (inBrowser) placeContainer()
+}, { flush: 'post' })
 
 if (inBrowser) {
-    // Auto-detect language on first visit to root path
-    if (window.location.pathname === '/') {
-        const hasPreference = localStorage.getItem('preferred_lang')
-        if (!hasPreference && /^zh\b/i.test(navigator.language)) {
-            localStorage.setItem('preferred_lang', 'zh')
-            window.location.pathname = '/zh/'
+    // Storage access throws when site data is blocked; the redirect and the
+    // remembered preference are conveniences and must not stop the page.
+    try {
+        // Auto-detect language on first visit to root path
+        if (window.location.pathname === '/') {
+            const hasPreference = localStorage.getItem('preferred_lang')
+            if (!hasPreference && /^zh\b/i.test(navigator.language)) {
+                localStorage.setItem('preferred_lang', 'zh')
+                window.location.pathname = '/zh/'
+            }
         }
+        // Remember language preference when user navigates
+        localStorage.setItem('preferred_lang', lang.value.startsWith('zh') ? 'zh' : 'en')
+    } catch {
+        // storage unavailable
     }
-    // Remember language preference when user navigates
-    localStorage.setItem('preferred_lang', lang.value.startsWith('zh') ? 'zh' : 'en')
 }
-
-watchEffect(() => {
-    let language = lang.value.split('-')[0];
-    if (language === 'zh') {
-        language = 'zh-CN'
-    }
-    // Obtain configuration from: https://giscus.app/
-    giscusTalk({
-        repo: 'UltiKits/UltiTools-Dev-Doc',
-        repoId: 'R_kgDOKHynCA',
-        category: 'General',
-        categoryId: 'DIC_kwDOKHynCM4Cb4Le',
-        mapping: 'pathname',
-        inputPosition: 'top',
-        lang: `${language}`,
-        lightTheme: 'light',
-        darkTheme: 'transparent_dark',
-        // ...
-    }, {
-        frontmatter, route
-    },
-        true
-    );
-})
 </script>
 
 <template>
@@ -243,6 +282,10 @@ watchEffect(() => {
                 {{ lang.startsWith('zh') ? '开发者平台' : 'Dev Portal' }}
             </a>
             <NolebaseEnhancedReadabilitiesMenu />
+            <div v-if="!hasSidebar" class="nav-bar-toolbar">
+                <SidebarTranslations placement="bottom" />
+                <VPNavBarAppearance />
+            </div>
         </template>
         <template #nav-screen-content-after>
             <NolebaseEnhancedReadabilitiesScreenMenu />
@@ -340,10 +383,24 @@ watchEffect(() => {
     }
 }
 
-/* 隐藏 Navbar 上的语言和外观切换 */
+/* 隐藏 Navbar 上的语言和外观切换。有侧边栏的页面由侧边栏底部的工具栏提供；
+   没有侧边栏的页面（首页布局）由 #nav-bar-content-after 里的 .nav-bar-toolbar
+   提供，它与 VitePress 自己的开关一样只在 1280px 起显示，更窄时由“…”菜单提供。 */
 .VPNavBar .content-body>.VPNavBarTranslations,
 .VPNavBar .content-body>.VPNavBarAppearance {
     display: none !important;
+}
+
+.nav-bar-toolbar {
+    display: none;
+}
+
+@media (min-width: 1280px) {
+    .nav-bar-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
 }
 
 /* 移动端处理 */
@@ -383,7 +440,7 @@ watchEffect(() => {
     border-radius: 16px;
     border: 1px solid var(--vp-c-divider);
     background-color: var(--vp-c-bg);
-    box-shadow: 0 4px 24px var(--vp-c-bg-alt);
+    box-shadow: var(--vp-shadow-2);
     padding: 32px;
     /* 隐藏默认滚动条但允许滚动 */
     scrollbar-width: thin;
@@ -413,7 +470,10 @@ watchEffect(() => {
 }
 
 .VPDocAsideOutline.has-outline .content .outline-marker {
-    margin-top: 38px !important;
+    /* 32px, not 38px: with this margin VitePress's own marker position
+       (link offsetTop + 39, outline.js) centres the marker on the link, and
+       Layout.vue uses the same 39 so the two writers agree. */
+    margin-top: 32px !important;
 }
 
 .VPDoc .aside {
@@ -459,9 +519,9 @@ watchEffect(() => {
     }
 }
 
-/* 强制显示 */
-.sidebar-bottom-toolbar :deep(.sidebar-translations),
-.sidebar-bottom-toolbar :deep(.VPNavBarAppearance) {
+/* 强制显示（本 <style> 不是 scoped，:deep() 在这里不会被转换，写了会让整条规则失效） */
+.sidebar-bottom-toolbar .sidebar-translations,
+.sidebar-bottom-toolbar .VPNavBarAppearance {
     display: flex !important;
 }
 
@@ -505,7 +565,7 @@ watchEffect(() => {
 }
 
 .VPSidebarItem.is-link>.item:hover {
-    background-color: var(--vp-c-bg-alt);
+    background-color: var(--vp-c-default-soft);
 }
 
 .VPSidebarItem.is-link.is-active>.item {
