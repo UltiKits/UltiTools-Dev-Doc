@@ -7,7 +7,7 @@ to use based on the server owner's configuration.
 All you need is an entity class. CRUD operations will be done automatically by UltiTools.
 
 ::: warning Try not to nest objects
-The storage API maps each `@Column` field to one column (one field in a JSON file). A field of a non-simple type is stored there as JSON text and cannot be queried by its inner fields, so try to use simple values.
+The storage API maps each `@Column` field to one column (one field in a JSON file). With SQLite and MySQL a field of a non-simple type is stored as JSON text and cannot be queried by its inner fields; only the JSON backend can, so try to use simple values.
 :::
 
 ::: warning SQLite with native spark profiling before v6.3.2
@@ -307,7 +307,7 @@ As of v6.3.0 a comparison other than `EQUAL` means the same in `getAll`, `exist`
 - `exist(...)` works on SQLite; in 6.2.x it threw `ClassCastException` there.
 - Known limitations: on SQLite a `double` in a default column is stored with 15 significant digits, so `1/3.0` reads back and compares as `0.333333333333333`; declare `type = "DOUBLE"` to keep every digit. Non-numeric text written by hand into a numeric field's column compares on SQLite as its leading number (`'abc'` as 0, `'12abc'` as 12), while JSON compares it as text. On SQLite a number that agrees with a stored `float` to 15 significant digits but differs after them (for example a whole number of 10^15 or more such as `(1L << 53) + 1`, or a decimal with 16 or more significant digits) compares as equal to it, in a default and in a `REAL` column; pass a `float` value for a `float` field. On SQLite a NaN comparison value is bound as NULL, so a condition holding it matches no row and an `updateIf` with it never applies; do not retry `updateIf` on a NaN threshold.
 
-#### Non-finite condition values <Badge type="tip" text="v6.3.2+" />
+#### Non-finite condition values <Badge type="tip" text="v6.3.0+" />
 
 Known limitation documented for v6.3.2, with behavior unchanged: do not pass Infinity or NaN as query-condition values. SQL and JSON do not share a result or exception contract for them: a SQL operation can complete with no matching rows, whereas a JSON condition throws `IllegalArgumentException` when evaluated, including for `EQUAL`. A JSON `updateIf` for a missing row can return `false` before evaluating the condition. The framework does not normalize these cases to one `DATA_ENTITY_INVALID` error. Validate values with `Float.isFinite` or `Double.isFinite` before constructing conditions, and do not retry a NaN threshold ([#696](https://github.com/UltiKits/UltiTools-Reborn/issues/696)).
 
@@ -340,7 +340,7 @@ As of v6.3.0 a transaction whose own failure path fails never ends in an implici
 
 The caller gets the original exception, or `UnexpectedRollbackException` for a rollback-only transaction. An `Error` thrown inside `transaction(...)` rolls the transaction back (the JSON engine discards the staged writes) and is rethrown as the same instance.
 
-## JSON Storage Trade-offs <Badge type="tip" text="v6.3.2+" />
+## JSON Storage Trade-offs <Badge type="tip" text="v6.3.0+" />
 
 The following are retained behavior, documented for v6.3.2 rather than runtime changes ([#694](https://github.com/UltiKits/UltiTools-Reborn/issues/694)):
 

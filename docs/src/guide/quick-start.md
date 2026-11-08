@@ -28,14 +28,14 @@ Whether you are creating an UltiTools module or using UltiTools-API, you need to
 <dependency>
   <groupId>com.ultikits</groupId>
   <artifactId>UltiTools-API</artifactId>
-  <version>6.3.0</version>
+  <version>6.3.2</version>
   <scope>provided</scope>
 </dependency>
 ```
 
 ```groovy [Gradle]
 dependencies {
-  compileOnly 'com.ultikits:UltiTools-API:6.3.0'
+  compileOnly 'com.ultikits:UltiTools-API:6.3.2'
 }
 ```
 
