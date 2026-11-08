@@ -2,6 +2,8 @@
 
 UltiTools-API 为你的开发提供了一个 Maven 插件，可以自动将你的插件打包并复制到服务器文件夹中，也可以自动将你的插件上传至 UltiCloud。
 
+本页对应 `ultitools-maven-plugin` 2.0.0。1.x 连接的是已下线的旧面板后端，已无法发布。
+
 ## 如何安装
 
 在你的 `pom.xml` 文件中的 `<build.plugins>` 标签下添加以下内容：
@@ -10,7 +12,7 @@ UltiTools-API 为你的开发提供了一个 Maven 插件，可以自动将你�
     <plugin>
         <groupId>com.ultikits</groupId>
         <artifactId>ultitools-maven-plugin</artifactId>
-        <version>1.0.0</version>
+        <version>2.0.0</version>
         <configuration>
             <name>plugin_name</name>
             <identifyString>id-string</identifyString>
@@ -23,15 +25,15 @@ UltiTools-API 为你的开发提供了一个 Maven 插件，可以自动将你�
 
 其中，
 
-`<name>` 标签用于指定插件名称，
+`<identifyString>` 标签必填，用于指定插件标识符，若无特殊需求，建议与插件名称相同，
 
-`<identifyString>` 标签用于指定插件标识符，若无特殊需求，建议与插件名称相同，
+`<name>` 标签可选，用于指定插件名称；模块不存在时用于创建模块，已存在时会同步到模块上，
 
-`<shortDescription>` 标签用于指定插件简介，将会在插件 `upm list` 中展示
+`<shortDescription>` 标签可选，用于指定插件简介，将会在插件 `upm list` 中展示；与 `<name>` 一样会被同步，
 
-`<accessKeyFile>` 标签用于指定 UltiCloud 访问密钥文件的路径，
+`<accessKeyFile>` 标签用于指定保存开发者密钥的文件路径（相对项目目录）；设置了环境变量 `ULTIKITS_TOKEN` 时可省略，
 
-`<pluginFolder>` 标签用于指定服务器插件文件夹的路径。
+`<pluginFolder>` 标签用于指定服务器插件文件夹的路径；只有 `ultitools:install` 使用它，未设置时该目标什么也不做。
 
 ## 如何使用
 
@@ -46,20 +48,18 @@ mvn clean package ultitools:install
 这条命令会将你的插件打包并复制到服务器文件夹中。
 
 ::: warning 复制前需要先关闭服务器
-
-如果你的服务器正在运行，请先关闭服务器，否则复制会失败！
-
+Windows 上服务器占用 JAR 时复制会失败。Linux 和 macOS 上复制会成功，但运行中的服务器仍使用旧类，在重启前可能出错。
 :::
 
 ### 上传插件至 UltiCloud
 
 如果你想你的插件被收录在upm list中，让用户可以使用 `upm install` 命令安装你的插件，你需要将你的插件上传至 UltiCloud。
 
-首先，你需要在 [UltiCloud](https://panel.ultikits.com/) 中创建一个账号，然后点击开发者中心，鼠标悬浮于访问密钥上获取访问密钥。
+首先，你需要在 [UltiCloud](https://panel.ultikits.com/) 中创建一个账号，然后在开发者中心创建开发者密钥（`ucd_…`）。
 
-![maven-plugin-1.png](/maven-plugin-1.png)
+插件先读环境变量 `ULTIKITS_TOKEN`，没有时读 `<accessKeyFile>` 所指文件的第一行。旧版访问令牌会被拒绝。不要提交密钥文件，请把它加入 `.gitignore`。
 
-将访问密钥保存至一个文件中，然后在 `pom.xml` 中的 `<accessKeyFile>` 标签中指定该文件的路径。
+上传密钥只能为已有模块发布版本；创建模块或修改名称、简介需要管理密钥。
 
 填写`pom.xml` 中的 `<identifyString>` 标签，这个标签用于标识你的插件。你需要确保你的 `<identifyString>` 标签是唯一的。
 
@@ -76,3 +76,17 @@ mvn clean package ultitools:deploy
 ```
 
 这条命令会将你的插件打包并上传至 UltiCloud。
+
+快照版本默认拒绝发布，需要时加 `-Dultitools.allowSnapshot=true`。用 `-Dultitools.changelog="…"` 传更新说明（最多 5000 字）。JAR 最大 50 MiB。已发布的版本不能删除，只能撤回。
+
+### 撤回版本与删除模块
+
+`ultitools:withdraw` 撤回已发布版本，`ultitools:delete-module` 删除模块。两者都不绑定构建阶段：只在命令行显式调用时执行，需要管理密钥，并且需要完全一致的确认字符串。
+
+```shell
+# 撤回一个已发布版本，不可恢复。
+mvn ultitools:withdraw -Dultitools.withdrawVersion=1.2.3 -Dultitools.confirm=id-string@1.2.3
+
+# 删除模块，30 天内可用 `ultikits modules restore id-string` 恢复。
+mvn ultitools:delete-module -Dultitools.confirm=id-string
+```

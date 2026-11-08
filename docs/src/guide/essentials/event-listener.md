@@ -2,7 +2,7 @@
 
 The event listener of UltiTools module is basically the same as Bukkit's event listener.
 
-Please refer to [Bukkit Event Listener](https://bukkit.gamepedia.com/Event_API_Reference).
+Please refer to [Paper's event listener guide](https://docs.papermc.io/paper/dev/event-listeners).
 
 ## Create a Listener
 
@@ -69,7 +69,7 @@ Before v6.3.0, `build()` called a three-argument constructor that had no filter 
 **Example: Wait for player to interact with a specific block type**
 
 ```java
-// Listen for left-clicks on wooden blocks only
+// Listen for interactions with blocks whose material name contains WOOD
 TempListener.common(PlayerInteractEvent.class)
     .priority(EventPriority.HIGH)
     .filter(event -> {
@@ -82,7 +82,7 @@ TempListener.common(PlayerInteractEvent.class)
     });
 ```
 
-**Example: Wait for chat response with timeout**
+**Example: Wait for a chat response**
 
 ```java
 // Listen for player chat
@@ -105,14 +105,14 @@ The `TempEventHandler<E>` is a functional interface that receives the event and 
 
 ### Legacy Temporary Listener (SimpleTempListener)
 
-::: warning Four constructors deprecated for removal in Phase 7 <Badge type="tip" text="v6.3.0+" />
-As of v6.3.0, `SimpleTempListener`'s no-argument constructor and its two- and three-argument overloads — including the no-filter `(Class, TempEventHandler)` shape used below — carry `@Deprecated(since = "6.3.0", forRemoval = true)` and are scheduled for removal in a future Phase 7 milestone. They confusably overlap: two three-argument overloads differ only in whether the last parameter is `EventPriority` or a filter `Function`, with no compile-time signal for picking the wrong one. Prefer the builder API above, or the four-argument all-args constructor `new SimpleTempListener<>(eventClass, priority, handler, filter)` directly, which is not deprecated.
+::: warning Four constructors deprecated for removal <Badge type="tip" text="v6.3.0+" />
+As of v6.3.0, `SimpleTempListener`'s no-argument constructor and its two- and three-argument overloads — including the no-filter `(Class, TempEventHandler)` shape used below — carry `@Deprecated(since = "6.3.0", forRemoval = true)` and will be removed in a future release. They confusably overlap: two three-argument overloads differ only in whether the last parameter is `EventPriority` or a filter `Function`, with no compile-time signal for picking the wrong one. Prefer the builder API above, or the four-argument all-args constructor `new SimpleTempListener<>(eventClass, priority, handler, filter)` directly, which is not deprecated.
 :::
 
 The legacy direct instantiation approach using `SimpleTempListener` still works for the example below, but the constructor it calls is now on a removal track; the builder API is the recommended approach for new code:
 
 ```java
-// Legacy approach - still works, but its constructor is deprecated for removal in Phase 7
+// Legacy approach - still works, but its constructor is deprecated for removal
 TempListener listener = new SimpleTempListener(PlayerInteractEvent.class, event -> {
     // do something...
     return true; // return true to unregister this listener
@@ -120,10 +120,10 @@ TempListener listener = new SimpleTempListener(PlayerInteractEvent.class, event 
 listener.register(); // start listening
 ```
 
-For player-specific events, the legacy `PlayerTempListener` is also deprecated. Use the builder with a filter instead:
+For player-specific events, `PlayerTempListener` (and `TempListener.player(...)`) were removed in v6.3.0. Use the builder with a filter instead:
 
 ```java
-// OLD (deprecated):
+// REMOVED in v6.3.0:
 // TempListener listener = new PlayerTempListener<>(
 //     PlayerInteractEvent.class,
 //     event -> { /* ... */ return true; },

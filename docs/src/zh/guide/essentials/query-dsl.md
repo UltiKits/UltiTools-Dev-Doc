@@ -19,6 +19,8 @@ List<HomeEntity> homes = dataOperator.query()
     .list();
 ```
 
+本页的代码片段只是片段。[完整示例](#完整示例)中的 `HomeEntity` 只映射了 `player_id` 和 `name`；查询 `world` 的片段假定它还映射了 `world` 列，`PlayerEntity` 则代表带有 `balance` 和 `level` 列的实体。你使用的每个列名都必须是该实体的 `@Column`：MySQL 与 SQLite 后端会以 `DataAccessException` 拒绝 `eq` 中的未知列，而 `in` 这类在内存中求值的运算符遇到未知列时不匹配任何行。
+
 ## 条件
 
 ### where / and
@@ -45,7 +47,7 @@ HomeEntity home = dataOperator.query()
 | `lt(value)` | 小于 | `.where("balance").lt(1000.0)` |
 | `gte(value)` | 大于等于 | `.where("level").gte(5)` |
 | `lte(value)` | 小于等于 | `.where("balance").lte(500.0)` |
-| `like(pattern)` | SQL LIKE 模式匹配 | `.where("name").like("%base%")` |
+| `like(pattern)` | `%` 匹配任意字符序列，`_` 匹配单个字符；不区分大小写（见下文） | `.where("name").like("%base%")` |
 | `in(collection)` | 值在集合中 | `.where("world").in(worldList)` |
 
 ```java
@@ -61,6 +63,8 @@ List<HomeEntity> homes = dataOperator.query()
     .where("world").in(worlds)
     .list();
 ```
+
+`like` 不会交给数据库执行。它在所有后端上都在内存中求值，不区分大小写：`%` 与 `_` 被转换为 Java 正则表达式，其余字符按正则解释，`.`、`(`、`[` 等需自行转义。
 
 ## 排序
 
@@ -91,6 +95,8 @@ List<PlayerEntity> pageResults = dataOperator.query()
     .offset((page - 1) * pageSize)
     .list();
 ```
+
+只有 `eq` 条件会交给存储后端。其他运算符、排序、`offset` 与 `limit` 都在内存中作用于所有满足 `eq` 条件的行，因此这种写法仍会加载全部匹配数据。数据量大的表请使用 `DataOperator.page(...)`。
 
 ## 终端操作
 

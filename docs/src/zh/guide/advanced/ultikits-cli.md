@@ -2,6 +2,8 @@
 
 `@ultikits/cli` 是官方命令行工具，用于将 UltiTools 插件模块发布到 [UltiCloud](https://panel.ultikits.com/) 市场。开发者可以使用它进行身份验证、初始化项目元数据、上传 JAR 文件，以及管理已发布的模块和版本。
 
+本页对应 `@ultikits/cli` 2.0.1。1.x 版本无法连接 UltiCloud，请用 `npm install -g @ultikits/cli@latest` 升级并重新运行 `ultikits login`。
+
 ::: tip 推荐：本地发布
 官方 UltiTools 模块由维护者在本地发布：把验收通过的 JAR 附加到 GitHub Release，再用 CLI 将同一个文件发布到 UltiCloud。第三方开发者也可以使用相同的路径。
 [GitHub Actions](#ci-cd-github-actions) 是可选的手动工作流，不是官方模块的发布路径。
@@ -21,7 +23,7 @@ ultikits --version
 
 ::: info 环境要求
 
-- Node.js 20+
+- Node.js 18 及以上
 - npm 或其他 Node 包管理器
 
 :::
@@ -30,32 +32,34 @@ ultikits --version
 
 在发布之前，需要先通过 UltiCloud 身份验证。CLI 支持两种方式。
 
-### 浏览器登录（Magic Link）
+### 浏览器登录（设备授权）
 
 ```bash
 ultikits login
 ```
 
-出现提示时选择 **Browser login (magic link)**。浏览器窗口将打开供你确认授权，CLI 会自动轮询等待完成。
+CLI 会显示用户码和确认链接并打开浏览器。在浏览器中确认用户码后，CLI 会自动轮询并完成登录。
 
-凭据保存在 `~/.ultikits/credentials.json`。
+CLI 凭据保存在 `~/.ultikits/credentials.json`。
 
-### Access Token
+### 开发者密钥
 
-如果你需要非交互式登录（例如在远程服务器上），可以使用 Access Token：
+如果你需要非交互式登录（例如在远程服务器上），可以使用开发者密钥：
 
 1. 访问 [panel.ultikits.com/developer](https://panel.ultikits.com/developer)
-2. 复制你的 Access Token
-3. 运行 `ultikits login`，选择 **Access token (from developer portal)**
-4. 粘贴 Token
+2. 复制你的开发者密钥（`ucd_…`）
+3. 运行 `ultikits login --token` 并在提示时粘贴密钥，或直接运行 `ultikits login --token ucd_…`
+4. CLI 会先向 UltiCloud 验证密钥，再保存
 
 ### 环境变量
 
 在 CI/CD 流水线中，设置 `ULTIKITS_TOKEN` 环境变量即可，无需运行 `ultikits login`：
 
 ```bash
-export ULTIKITS_TOKEN=your_access_token
+export ULTIKITS_TOKEN=ucd_...
 ```
+
+该值必须是开发者密钥（`ucd_…`）或 CLI 凭据（`ucc_…`），旧版 Access Token 会被拒绝。设置后它优先于已保存的凭据。`--api-url` 或 `ULTIKITS_API_URL` 可选择其他 UltiCloud API（仅限 https），默认是 `https://api.ultikits.com`。
 
 ### 其他验证命令
 
@@ -82,7 +86,7 @@ ultikits create
 | Author | `git config user.name` | 作者名 |
 | API version | `6.2.2` | UltiTools-API 版本。该默认值落后于当前正式版，建议手动改为最新版。 |
 
-CLI 1.2.0 生成以下项目结构：
+CLI 2.0.1 生成以下项目结构（模板自 1.2.0 起未变）：
 
 ```
 UltiHome/
@@ -98,7 +102,7 @@ UltiHome/
 └── src/test/java/.../               # 测试目录（空，等待编写测试）
 ```
 
-用 UltiTools-API 6.3.0 编译之前，需要迁移 CLI 1.2.0 模板：
+用 UltiTools-API 6.3.0 编译之前，需要迁移生成的模板：
 
 - 选择 API 版本 `6.3.0`，并把 `src/main/resources/plugin.yml` 的 `api-version` 设为 `630`；模板仍会写入 `620`。
 - 删除主类中空的 `unregisterSelf()` 和 `reloadSelf()` 覆写。这两个方法在 6.3.0 中为 final；如需清理或重载逻辑，分别放进 `protected void onUnregister()` 和 `protected void onReload()`。
@@ -176,7 +180,7 @@ ultikits publish target/MyPlugin-1.2.0.jar \
 1. 使用这个文件上传
 2. 从 JAR 中读取 `plugin.yml` 获取名称和版本
 3. 读取 `ultikits.json` 获取标识符、描述和分类
-4. 如果模块在 UltiCloud 上不存在则自动创建
+4. 如果模块在 UltiCloud 上不存在则自动创建，这需要 manage 凭据（`ultikits login`，或轮换为管理作用域的开发者密钥）
 5. 创建新版本并上传 JAR
 
 ### 带参数发布
@@ -194,10 +198,11 @@ ultikits publish target/MyPlugin-1.2.0.jar \
 | 参数 | 说明 |
 |------|------|
 | `--id <identifyString>` | 覆盖模块标识符 |
-| `--name <name>` | 覆盖显示名称 |
+| `--name <name>` | 显示名称，只在创建模块时使用 |
 | `--module-version <version>` | 覆盖版本号 |
 | `--changelog <text>` | 版本更新日志 |
-| `--short-description <text>` | 覆盖简短描述 |
+| `--short-description <text>` | 简短描述，只在创建模块时使用 |
+| `--api-url <url>` | UltiCloud API 地址（默认 `ULTIKITS_API_URL`、登录时保存的地址或 `https://api.ultikits.com`） |
 | `-y, --yes` | 跳过所有确认提示 |
 
 ### 非交互模式
@@ -205,7 +210,7 @@ ultikits publish target/MyPlugin-1.2.0.jar \
 在 CI/CD 中使用 `--yes` 跳过提示，配合 `ULTIKITS_TOKEN` 进行身份验证：
 
 ```bash
-ULTIKITS_TOKEN=your_token ultikits publish --yes \
+ULTIKITS_TOKEN=ucd_... ultikits publish --yes \
   --module-version "1.2.0" \
   --changelog "CHANGELOG.md 中 1.2.0 节的正文"
 ```
@@ -220,13 +225,13 @@ CLI 从多个来源解析元数据，优先级如下：
 
 ### 上传失败与重试
 
-文件上传从未完成的版本不算已发布，不会出现在公开列表中，也不会被选为最新版本。上传失败或中断后，可以立即使用同一版本再次执行相同的 `ultikits publish` 命令，不需要等待预留过期。新尝试会替换该版本的待上传预留，并使旧上传令牌失效。同一模块另一个版本的上传仍在进行时，仍会阻止新的预留。
+文件上传从未完成的版本不算已发布，不会出现在公开列表中，也不会被选为最新版本。上传失败或中断后，用**同一个 JAR** 再次执行相同的 `ultikits publish` 命令：CLI 会为待上传的版本重新申请上传票据，旧票据随之失效。待上传版本保留首次声明的大小与 SHA-256，要上传不同的文件，请在开发者中心删除该待上传版本，或发布更高的版本号。新版本号必须大于该模块已有的所有版本（包括仍在等待上传的版本）。
 
-已发布版本不可覆盖，CLI 上传和旧的 `POST /developer/plugin/update` Accesskey 接口都如此。修改文件后应发布新版本。如果网络故障导致结果不明，先检查[公开版本详情接口](#列出版本)：已经完成的发布不是待上传状态，不能通过重试替换。
+已发布版本不可覆盖。修改文件后应发布新版本。如果网络故障导致结果不明，先运行 [`ultikits versions list`](#列出版本)：列出的版本已发布，不能通过重试替换。
 
 ### 模块的 API 级别
 
-自 v6.3.0 起，UltiCloud 从你发布的 JAR 根目录的 `plugin.yml` 中读取 `api-version`，与该版本一起保存。没有任何命令行参数或 `ultikits.json` 字段可以设置它，随文件一起发送的值也会被忽略。请以整数形式声明：
+自 v6.3.0 起，UltiCloud 从你发布的 JAR 根目录的 `plugin.yml` 中读取 `api-version`，与该版本一起保存。没有任何命令行参数或 `ultikits.json` 字段可以设置它，UltiCloud 只从 JAR 中读取。请以整数形式声明：
 
 ```yaml
 api-version: 630
@@ -234,7 +239,7 @@ api-version: 630
 
 这个数字决定哪些服务器会被提供这个版本。运行 UltiTools-API 6.3.0 及以后的服务器只会被提供从 630 到其自身 API 级别的版本；运行更早框架的服务器只会被提供低于 630 的版本。见[模块版本规范](/zh/guide/advanced/module-versioning#按-api-级别选择版本)。
 
-根目录 `plugin.yml` 没有声明整数 `api-version` 的 JAR 会在保存任何东西之前被拒绝，该版本不会发布。见[因 API 级别被拒绝上传](#因-api-级别被拒绝上传)。
+根目录 `plugin.yml` 没有声明整数 `api-version` 的 JAR 会在上传时被拒绝：版本不会发布，仍以已声明的文件处于待上传状态。见[因 API 级别被拒绝上传](#因-api-级别被拒绝上传)。
 
 ## 模块管理
 
@@ -248,9 +253,8 @@ ultikits modules list
 
 ```
   myplugin — MyPlugin (1.0.0)
-  anotherplugin — AnotherPlugin (no versions)
-
-2 module(s)
+  anotherplugin — AnotherPlugin (无已发布版本 / no versions)
+共 2 个模块 / 2 module(s)
 ```
 
 ### 模块详情
@@ -262,11 +266,13 @@ ultikits modules info myplugin
 输出：
 
 ```
-  Name:        MyPlugin
-  ID:          myplugin
-  Description: 插件简介
-  Downloads:   42
-  Version:     1.0.0
+  名称 / Name:          MyPlugin
+  标识符 / Identifier:  myplugin
+  简介 / Summary:       插件简介
+  分类 / Category:      Utilities (#1)
+  最新版本 / Latest:    1.0.0
+  下载 / Downloads:     42
+  更新 / Updated:       2026-11-07T12:00:00.000Z
 ```
 
 ### 删除模块
@@ -275,11 +281,21 @@ ultikits modules info myplugin
 ultikits modules delete myplugin
 ```
 
-::: danger 删除模块无法撤销
-
-此操作会永久删除模块及其所有版本，无法撤销。
-
+::: danger 模块会立即消失
+模块会立即从目录和下载中消失。30 天内可用 `ultikits modules restore myplugin` 恢复（网页面板没有恢复功能），之后永久清除。
 :::
+
+CLI 会要求你再输入一次标识符。使用 `-y` 或没有终端时需加 `--confirm myplugin`。
+
+### 其他模块命令
+
+以下命令需要 manage 凭据（`ultikits login`，或轮换为管理作用域的开发者密钥）：
+
+```bash
+ultikits modules create --id myplugin --name MyPlugin   # 默认值取自 ultikits.json
+ultikits modules update myplugin --short-description "新的简介"
+ultikits modules restore myplugin
+```
 
 ## 版本管理
 
@@ -289,21 +305,21 @@ ultikits modules delete myplugin
 ultikits versions list myplugin
 ```
 
-在 CLI 1.2.0 中，该命令对使用 UltiTools-API 6.3.0 构建的模块不可靠。它没有传 API 级别查询参数，服务端因此会排除 `api-version: 630` 的版本；它还把返回的版本字符串当成对象读取，可能输出 `undefined`。不要用它的输出判断上传是否完成。
+该命令从公开目录列出所有已发布和已撤回的版本及其大小和发布时间；不含待上传版本，也不发送凭据。
 
-请改查公开版本详情接口。先按 `identifyString` 查模块，再使用响应中的数字 `data.id`：
+要核对上传的文件，读取该版本的元数据，将返回的 `sha256` 与 `sizeBytes` 与保留的 JAR 比对：
 
 ```bash
-curl --fail-with-body 'https://api.ultikits.com/plugin/get?identifyString=myplugin'
-# 把 123 替换为上一个响应中的 data.id。
-curl --fail-with-body 'https://api.ultikits.com/plugin/123/versions-detail'
+curl --fail-with-body 'https://api.ultikits.com/v1/catalogue/modules/myplugin/versions/1.2.0'
 ```
 
-第二个响应的 `data` 数组包含已完成发布的版本及其 `version`、`changelog`、`fileSize` 和 `downloadLink`，不使用 `/versions` 的兼容性过滤。检查目标版本和更新说明，再下载其 `downloadLink` 并与保留 JAR 的 SHA-256 比较，以验证上传字节。待上传记录不在其中。
+### 撤回版本
 
-### 删除版本
+```bash
+ultikits versions withdraw myplugin 1.2.0
+```
 
-CLI 1.2.0 暴露了 `ultikits versions delete`，但服务端没有实现它调用的 `DELETE /developer/modules/<id>/versions/<version>` 路由。该请求返回 404，不会删除版本。不要用它绕过已发布版本不可覆盖的规则；文件改变后应发布新版本。
+该命令撤回已发布版本，需要 manage 凭据，且不可恢复：该版本号及更低版本不能再发布；已下载的副本不受影响。使用 `-y` 或没有终端时需加 `--confirm myplugin@1.2.0`。`versions delete` 是同一命令的旧名称。
 
 ## CI/CD — GitHub Actions {#ci-cd-github-actions}
 
@@ -407,7 +423,7 @@ jobs:
           node-version: '20'
 
       - name: Install a pinned UltiKits CLI
-        run: npm install -g @ultikits/cli@1.2.0 --ignore-scripts
+        run: npm install -g @ultikits/cli@2.0.1 --ignore-scripts
 
       - name: Publish to UltiCloud
         env:
@@ -426,7 +442,7 @@ jobs:
 ### 配置步骤
 
 1. 添加工作流文件，把两处精确 JAR 路径中的 `MyPlugin` 改为自己构建产物的最终名称。不要用通配符，以免上传源码包或未打包依赖的 JAR。
-2. 把开发者门户的 Access Token 设置为仓库的 `ULTIKITS_TOKEN` Secret，不要写进工作流正文或手动输入参数。
+2. 把开发者密钥（`ucd_…`）设置为仓库的 `ULTIKITS_TOKEN` Secret，不要写进工作流正文或手动输入参数。上传作用域的密钥无法创建不存在的模块，请先创建模块。
 3. 保持 CLI 版本固定，检查版本变更后再更新这个固定值。
 
 ::: warning 推送即发布
@@ -445,10 +461,10 @@ jobs:
 ### "Not logged in" 错误
 
 ```
-Not logged in. Run `ultikits login` or set ULTIKITS_TOKEN.
+未登录：请运行 ultikits login，或设置环境变量 ULTIKITS_TOKEN。
 ```
 
-运行 `ultikits login` 进行交互式验证，或设置 `ULTIKITS_TOKEN` 环境变量。
+运行 `ultikits login` 进行交互式验证，或设置 `ULTIKITS_TOKEN` 环境变量。CLI 1.x 写入的凭据文件会得到 `凭据文件是旧版格式，对新接口无效，请重新 ultikits login。`，请重新运行 `ultikits login`。
 
 ### "No JAR file specified and none found in ./target/"
 
@@ -467,22 +483,23 @@ Missing required fields:
 
 使用 `ultikits init` 创建 `ultikits.json`，或通过 CLI 参数传入缺少的字段。
 
-### GitHub Actions 发布返回 403
+### 发布时凭据无效
 
-确认仓库上的 `ULTIKITS_TOKEN` Secret 设置正确：
+`[invalid_credential]` 表示凭据错误或已过期，`[role_required]` 表示该账号还不是开发者。确认仓库上的 `ULTIKITS_TOKEN` Secret 设置正确：
 
 ```bash
 gh secret list --repo YourOrg/YourPlugin
 ```
 
-确保 Token 与开发者门户中的 Access Token 一致。
+该 Secret 必须是开发者密钥（`ucd_…`）。`[key_scope_insufficient]` 表示模块不存在，而上传作用域的密钥无法创建它。
 
 ### 因 API 级别被拒绝上传
 
-自 v6.3.0 起，JAR 根目录的 `plugin.yml` 没有可用的 `api-version` 时，`ultikits publish` 会打印 UltiCloud 给出的原因，例如：
+`ultikits publish` 会报以下两种代码之一：
 
 ```
-Upload failed: Cannot read the module's UltiTools API level: plugin.yml has no top-level api-version. The root plugin.yml must declare the UltiTools API level the module is built for as an integer, for example "api-version: 630". Nothing was published, and the upload reservation for this version was released: correct the JAR, then publish the version again (run ultikits publish again, or create the version again in the panel).
+JAR 里的 plugin.yml 需要整数 api-version：补上后重新构建再发布。 [upload_api_level_missing]
+上传的文件不是有效的 ZIP/JAR：检查构建产物路径。 [upload_jar_invalid]
 ```
 
-其它原因包括：值是 `'1.19'` 这样的 Bukkit 风格、不是整数，值为空，声明了两次，JAR 根目录没有 `plugin.yml`，以及 UltiCloud 无法读取的归档（例如不完整的 JAR）；消息中总会写明原因。按[模块的 API 级别](#模块的-api-级别)声明级别，重新构建后再次发布。这次拒绝会释放该版本的上传预留，因此修正 `plugin.yml` 并重新构建后，可以立即再次执行 `ultikits publish`。
+`upload_api_level_missing` 涵盖：根目录没有 `plugin.yml` 或 `api-version`、值为空、声明了两次，以及 `'1.19'` 这样不是整数的 Bukkit 风格值；消息不会指出具体是哪一种。`upload_jar_invalid` 表示文件不是可读的 ZIP/JAR（例如不完整的 JAR）。按[模块的 API 级别](#模块的-api-级别)声明级别并重新构建。被拒绝的版本仍以旧文件的校验和处于待上传状态：请在开发者中心删除该待上传版本后重新发布，或改用更高的版本号。

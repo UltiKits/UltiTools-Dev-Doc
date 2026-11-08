@@ -59,6 +59,6 @@ if (EconomyUtils.isAvailable()) {
 
 ## 本页不涉及的变化
 
-Vault 仍然是 UltiTools 的可选软依赖：`plugin.yml` 依然声明 `softdepend: [Vault]`，对 Vault API
+Vault 仍然是 UltiTools 的可选软依赖：`plugin.yml` 的 `softdepend` 中依然列出 `Vault`，对 Vault API
 的 Maven 依赖依然是 `provided` 作用域。任何模块调用 `EconomyUtils` 的方式都不需要改变。一个公开
 的多币种经济接口正在为未来版本设计，不属于 v6.3.0 的一部分，这一版本中没有任何代码依赖它。

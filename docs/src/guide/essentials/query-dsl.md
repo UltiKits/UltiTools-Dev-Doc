@@ -19,6 +19,8 @@ List<HomeEntity> homes = dataOperator.query()
     .list();
 ```
 
+The snippets on this page are fragments. The `HomeEntity` of the [complete example](#complete-example) maps only `player_id` and `name`; the snippets that query `world` assume it also maps a `world` column, and `PlayerEntity` stands for an entity with `balance` and `level` columns. Every column you name must be an `@Column` of the entity: the MySQL and SQLite backends reject an unknown column in `eq` with `DataAccessException`, and an in-memory operator such as `in` matches no row on an unknown column.
+
 ## Conditions
 
 ### where / and
@@ -45,7 +47,7 @@ After calling `where()` or `and()`, chain one of these operators:
 | `lt(value)` | Less than | `.where("balance").lt(1000.0)` |
 | `gte(value)` | Greater than or equal | `.where("level").gte(5)` |
 | `lte(value)` | Less than or equal | `.where("balance").lte(500.0)` |
-| `like(pattern)` | SQL LIKE pattern | `.where("name").like("%base%")` |
+| `like(pattern)` | `%` matches any run of characters, `_` one character; case-insensitive (see below) | `.where("name").like("%base%")` |
 | `in(collection)` | Value in collection | `.where("world").in(worldList)` |
 
 ```java
@@ -61,6 +63,8 @@ List<HomeEntity> homes = dataOperator.query()
     .where("world").in(worlds)
     .list();
 ```
+
+`like` is not passed to the database. It is evaluated in memory, case-insensitively, on every backend: `%` and `_` are turned into a Java regular expression and every other character is interpreted as regex, so escape `.`, `(`, `[` and the like yourself.
 
 ## Ordering
 
@@ -91,6 +95,8 @@ List<PlayerEntity> pageResults = dataOperator.query()
     .offset((page - 1) * pageSize)
     .list();
 ```
+
+Only `eq` conditions reach the storage backend. The other operators, ordering, `offset` and `limit` are applied in memory to every row that matches the `eq` conditions, so this still loads the whole matching set. For large tables use `DataOperator.page(...)`.
 
 ## Terminal Operations
 

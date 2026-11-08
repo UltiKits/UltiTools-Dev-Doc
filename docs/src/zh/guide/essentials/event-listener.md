@@ -2,7 +2,7 @@
 
 UltiTools 模块的事件监听与 Bukkit 的事件监听基本相同。
 
-参见 [Bukkit 事件监听器](https://bukkit.gamepedia.com/Event_API_Reference)。
+参见 [Paper 事件监听器文档](https://docs.papermc.io/paper/dev/event-listeners)。
 
 ## 创建监听器
 
@@ -70,7 +70,7 @@ TempListener.common(PlayerInteractEvent.class)
 **示例：等待玩家与特定方块交互**
 
 ```java
-// 仅监听左键点击木头类方块
+// 监听与材质名包含 WOOD 的方块的交互
 TempListener.common(PlayerInteractEvent.class)
     .priority(EventPriority.HIGH)
     .filter(event -> {
@@ -83,7 +83,7 @@ TempListener.common(PlayerInteractEvent.class)
     });
 ```
 
-**示例：等待玩家聊天回复（带超时）**
+**示例：等待玩家聊天回复**
 
 ```java
 // 监听玩家聊天
@@ -106,14 +106,14 @@ TempListener.common(AsyncPlayerChatEvent.class)
 
 ### 传统临时监听器（SimpleTempListener）
 
-::: warning 四个构造器已标记为在 Phase 7 移除 <Badge type="tip" text="v6.3.0+" />
-自 v6.3.0 起，`SimpleTempListener` 的无参构造器以及两个、三个参数的重载——包括下面示例用到的无过滤器 `(Class, TempEventHandler)` 形态——都带上了 `@Deprecated(since = "6.3.0", forRemoval = true)`，计划在未来的 Phase 7 里程碑中移除。它们彼此容易混淆：两个三参数重载仅在最后一个参数是 `EventPriority` 还是过滤器 `Function` 上不同，编译期没有任何信号提醒选错了。推荐使用上方的构建器 API，或直接使用未被废弃的四参数全参构造器 `new SimpleTempListener<>(eventClass, priority, handler, filter)`。
+::: warning 四个构造器已标记为待移除 <Badge type="tip" text="v6.3.0+" />
+自 v6.3.0 起，`SimpleTempListener` 的无参构造器以及两个、三个参数的重载——包括下面示例用到的无过滤器 `(Class, TempEventHandler)` 形态——都带上了 `@Deprecated(since = "6.3.0", forRemoval = true)`，将在未来版本中移除。它们彼此容易混淆：两个三参数重载仅在最后一个参数是 `EventPriority` 还是过滤器 `Function` 上不同，编译期没有任何信号提醒选错了。推荐使用上方的构建器 API，或直接使用未被废弃的四参数全参构造器 `new SimpleTempListener<>(eventClass, priority, handler, filter)`。
 :::
 
 下面示例中传统的直接实例化写法仍然可用，但其构造器已进入移除计划；新代码请使用构建器：
 
 ```java
-// 传统方式 - 仍然可用，但其构造器已在 Phase 7 计划移除
+// 传统方式 - 仍然可用，但其构造器已标记为待移除
 TempListener listener = new SimpleTempListener(PlayerInteractEvent.class, event -> {
     // 做一些事...
     return true; // 返回 true 自动注销监听器
@@ -121,10 +121,10 @@ TempListener listener = new SimpleTempListener(PlayerInteractEvent.class, event 
 listener.register(); // 开始监听
 ```
 
-对于特定玩家的事件，传统的 `PlayerTempListener` 也已弃用。改为使用构建器配合过滤器：
+针对特定玩家的事件，`PlayerTempListener`（及 `TempListener.player(...)`）已在 v6.3.0 删除，改用构建器加过滤器：
 
 ```java
-// 旧方式（已弃用）：
+// 已在 v6.3.0 删除：
 // TempListener listener = new PlayerTempListener<>(
 //     PlayerInteractEvent.class,
 //     event -> { /* ... */ return true; },
