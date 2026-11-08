@@ -22,13 +22,22 @@ on:
   # For the manual run before cutting a release.
   workflow_dispatch:
 
-# A new push to a pull request supersedes the run on its previous head, so that
-# run is cancelled. Every other event gets a group keyed by its own run id and is
-# never cancelled: pushes to master and alpha are post-merge backstops, and the
-# schedule and manual runs feed the status lights. The status-lights job keeps
-# its own job-level group below for serializing issue writes.
+# Three kinds of run, three groups:
+#   - Status-updating runs (schedule, workflow_dispatch, push to master) share
+#     the one fixed group `release-sync-status-light`, never cancelled. The lock
+#     has to cover the whole run, from the version check in version-consistency
+#     to the issue writes in status-lights: if only status-lights were locked,
+#     run A could pass its check, run B could then see a newer Central release,
+#     fail and open `release-sync`, and A's status-lights would close it again
+#     from A's stale success. Whole-run serialization makes each run's check
+#     and writes adjacent. (Same three triggers and the same group name as the
+#     job-level lock this replaces; see the status-lights comment below.)
+#   - A pull request run is cancelled by a newer push to the same pull request.
+#   - Every other run (pushes to other branches, alpha included) gets a group
+#     keyed by its own run id, so it is never cancelled and never displaces a
+#     pending status-updating run.
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('examples-ci-pr-{0}', github.ref) || format('examples-ci-{0}-{1}', github.ref, github.run_id) }}
+  group: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/master')) && 'release-sync-status-light' || (github.event_name == 'pull_request' && format('examples-ci-pr-{0}', github.ref) || format('examples-ci-{0}-{1}', github.ref, github.run_id)) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -184,8 +193,10 @@ jobs:
        (github.event_name == 'push' && github.ref == 'refs/heads/master'))
     permissions:
       issues: write
-    # (This block moved here with the issue-writing steps; it serializes the
-    # job that writes issues. The reasoning below is unchanged.)
+    # The lock that used to sit on this job now sits at the top of the file as
+    # a workflow-level group, so it covers the version check as well as the
+    # issue writes. The history below explains the group's shape and still
+    # applies to it; read "this job" as "this workflow run".
     # WR-01 fix: without this, two runs of this job can execute in parallel —
     # e.g. a `push` to master landing at the same wall-clock moment as the
     # weekly `schedule` cron, or two pushes to master in quick succession.
@@ -246,9 +257,6 @@ jobs:
     #     run can leave an issue open/created/edited with no later step ever
     #     closing it) — switching it to `true` would make that failure mode
     #     the common case instead of a rare one.
-    concurrency:
-      group: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/master')) && 'release-sync-status-light' || format('release-sync-status-light-solo-{0}', github.run_id) }}
-      cancel-in-progress: false
     steps:
       # D-32/D-34: one status light, mutually exclusive causes, worded
       # differently so neither ever asserts something false — mirrors the
