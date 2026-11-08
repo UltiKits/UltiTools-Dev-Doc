@@ -172,16 +172,41 @@ function throttle(func: () => void, limit: number) {
 
 const throttledUpdateOutline = throttle(updateActiveOutline, 100)
 
-// Container scroll position per page path, so Back/Forward return to where the
-// reader was. VitePress saves only window.scrollY in history.state and its
-// go() overwrites that state, so the positions are kept here instead.
-const savedScroll = new Map<string, number>()
-let currentPath = ''
+// Article scroll position per history entry, so Back/Forward return to where
+// the reader was on that entry. It is stored in history.state under its own
+// key next to VitePress's keys (VitePress needs a non-null state for popstate).
+// Keyed per entry, not per path: two visits to the same page are two entries.
+const SCROLL_KEY = 'utArticleScroll'
 let poppedPath: string | null = null
+let poppedScroll: number | undefined
 
-const recordScroll = () => {
+const writeScroll = () => {
     const container = getContainer()
-    if (container && currentPath) savedScroll.set(currentPath, container.scrollTop)
+    if (!container) return
+    history.replaceState({ ...(history.state ?? {}), [SCROLL_KEY]: container.scrollTop }, '')
+}
+
+// Debounced: browsers rate-limit replaceState, and only the resting position
+// matters.
+let scrollTimer: ReturnType<typeof setTimeout> | undefined
+const recordScroll = () => {
+    clearTimeout(scrollTimer)
+    scrollTimer = setTimeout(writeScroll, 100)
+}
+
+if (inBrowser) {
+    // VitePress's go() replaces the leaving entry's state with
+    // { scrollPosition } just before pushing the new entry, which would drop the
+    // key above. Carry the key over when a replacement for the same entry
+    // (no URL argument) does not set it itself.
+    const replaceState = history.replaceState.bind(history)
+    history.replaceState = (data: any, unused: string, url?: string | URL | null) => {
+        const kept = history.state?.[SCROLL_KEY]
+        if (url == null && kept !== undefined && data && typeof data === 'object' && !(SCROLL_KEY in data)) {
+            data = { ...data, [SCROLL_KEY]: kept }
+        }
+        return replaceState(data, unused, url)
+    }
 }
 
 let boundContainer: HTMLElement | null = null
@@ -197,8 +222,12 @@ const bindScrollListener = () => {
     }
 }
 
-const onPopState = () => {
+const onPopState = (e: PopStateEvent) => {
+    // a pending write would land on the entry we just arrived at
+    clearTimeout(scrollTimer)
     poppedPath = window.location.pathname
+    const y = e.state?.[SCROLL_KEY]
+    poppedScroll = typeof y === 'number' ? y : undefined
 }
 
 // Restores the container for the page that was just rendered: a hash target
@@ -206,9 +235,9 @@ const onPopState = () => {
 const placeContainer = () => {
     bindScrollListener()
     const container = getContainer()
-    const restore = poppedPath === route.path ? savedScroll.get(route.path) : undefined
+    const restore = poppedPath === route.path ? poppedScroll : undefined
     poppedPath = null
-    currentPath = route.path
+    poppedScroll = undefined
     if (container) {
         if (restore !== undefined) {
             container.scrollTop = restore
@@ -226,6 +255,10 @@ if (inBrowser) {
     const previousBefore = router.onBeforeRouteChange
     router.onBeforeRouteChange = (to: string) => {
         poppedPath = null
+        poppedScroll = undefined
+        // save the leaving entry's position now; go() replaces its state next
+        clearTimeout(scrollTimer)
+        writeScroll()
         return previousBefore?.(to)
     }
 }
@@ -234,7 +267,6 @@ onMounted(() => {
     window.addEventListener('hashchange', handleHashChange)
     window.addEventListener('popstate', onPopState)
     window.addEventListener('click', handleSameHashClick, { capture: true })
-    currentPath = route.path
     bindScrollListener()
     if (window.location.hash) scrollToHash(window.location.hash, 'auto')
     nextTick(updateActiveOutline)
@@ -247,6 +279,7 @@ onUnmounted(() => {
     boundContainer?.removeEventListener('scroll', throttledUpdateOutline)
     boundContainer?.removeEventListener('scroll', recordScroll)
     boundContainer = null
+    clearTimeout(scrollTimer)
 })
 
 // Page change: runs after the new page is patched into the DOM ('post'), so the
