@@ -44,6 +44,10 @@ export default {
     ...DefaultTheme,
     Layout,
     enhanceApp: (ctx: EnhanceAppContext) => {
+        // This object replaces DefaultTheme.enhanceApp, which is where VitePress
+        // registers the global Badge component; run it first or every <Badge>
+        // renders as an empty comment node.
+        DefaultTheme.enhanceApp?.(ctx)
         vitepressNprogress(ctx)
         enhanceAppWithTabs(ctx.app)
         vitepressBackToTop()
