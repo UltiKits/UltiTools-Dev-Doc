@@ -12,7 +12,7 @@ UltiTools是一款发布于2020年6月的MC服务器基础插件，拥有诸多�
 
 ## 特点
 
-* 高兼容：自 v6.3.0 起，框架支持 Paper 1.19.2 build 163 及以上版本，Java 版本按所选 Paper 版本的要求配置（1.19.2 至 1.20.4 使用 Java 17，1.20.5 起使用 Java 21）。各模块可能要求更高版本；UltiKits、UltiLogin、UltiMail、UltiRemoteBag 和 UltiTrade 需要 Minecraft 1.21+。
+* 高兼容：自 v6.3.0 起，框架支持 Paper 1.19.2 build 163 及以上版本，Java 版本按所选 Paper 版本的要求配置（1.19.2 至 1.20.4 使用 Java 17，1.20.5 起使用 Java 21）。在 6.3.x 系列中，UltiKits、UltiLogin、UltiMail、UltiRemoteBag 和 UltiTrade 需要 Minecraft 1.21+。自 v6.4.0 起（草稿），这五个模块以框架支持的最低版本为目标，在 Minecraft 1.21 以下要求 UltiTools 6.4.0+；模块更新和能力限制见[支持 1.21 以下的服务端](/zh/guide/advanced/older-servers)。
 
 * 高度GUI：大部分功能都有图形化用户界面，便于玩家操作
 

@@ -89,6 +89,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
                 link: 'advanced/module-dependencies'
             },
             {
+                text: '支持 1.21 以下的服务端',
+                link: 'advanced/older-servers'
+            },
+            {
                 text: '外部插件 API',
                 link: 'advanced/external-plugin-api'
             },
@@ -220,6 +224,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
         base: '/guide/',
         text: '更新说明',
         items: [
+            {
+                text: '6.4.0（草稿）',
+                link: 'release-notes/6.4.0'
+            },
             {
                 text: '6.3.2',
                 link: 'release-notes/6.3.2'

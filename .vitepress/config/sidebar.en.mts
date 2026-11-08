@@ -91,6 +91,10 @@ const sidebarGuideEN: SidebarItemExt[] = [
                 link: 'advanced/module-dependencies'
             },
             {
+                text: 'Supporting servers below 1.21',
+                link: 'advanced/older-servers'
+            },
+            {
                 text: 'External Plugin API',
                 link: 'advanced/external-plugin-api'
             },
@@ -236,6 +240,10 @@ const sidebarGuideEN: SidebarItemExt[] = [
         base: '/guide/',
         text: 'Release Notes',
         items: [
+            {
+                text: '6.4.0 (Draft)',
+                link: 'release-notes/6.4.0'
+            },
             {
                 text: '6.3.2',
                 link: 'release-notes/6.3.2'
