@@ -60,8 +60,21 @@ for (const entry of readdirSync(path.join('docs', 'archive'), { withFileTypes: t
   if (entry.isDirectory() && m) released.add(m[1]);
 }
 
+// The snapshot tree this build actually rendered is never retired, whatever
+// the version sources say. generate-snapshot-sidebar.mjs already refuses a
+// label that is not newer than the current release; this is the second guard.
+const built = new Set();
+for (const dir of [path.join('.vitepress', 'dist'), path.join('.vitepress', 'dist', 'zh')]) {
+  if (!existsSync(dir)) continue;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const m = /^v(\d+\.\d+\.\d+)-SNAPSHOT$/.exec(entry.name);
+    if (entry.isDirectory() && m) built.add(m[1]);
+  }
+}
+
 const versions = [...released]
   .filter((v) => compareSemver(v, FIRST_SERVED_SNAPSHOT) >= 0)
+  .filter((v) => !built.has(v))
   .sort(compareSemver);
 if (versions.length === 0) {
   fail(`no released version at or after ${FIRST_SERVED_SNAPSHOT} found; the version sources are not what this script expects`);

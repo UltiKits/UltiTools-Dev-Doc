@@ -168,6 +168,22 @@ if (hasSnapshotSource) {
   if (typeof parsed?.version !== 'string' || !SNAPSHOT_LABEL_PATTERN.test(parsed.version)) {
     fail(`${SNAPSHOT_VERSION_SRC} 的 version 字段不是 vX.Y.Z-SNAPSHOT 形状：${JSON.stringify(parsed?.version)}`);
   }
+  // Same rule inject-alpha.mjs applies at injection time, enforced again at
+  // build time: a tree injected before a release can outlive it in a working
+  // copy. Once versionsConfig.current reaches the label, building it would
+  // publish a "snapshot" that is not newer than the release (and the retired
+  // label's redirect would send it away).
+  const config = readFileSync(path.join('.vitepress', 'config.mts'), 'utf-8');
+  const current = [...config.matchAll(/^\s*current:\s*['"]v(\d+\.\d+\.\d+)['"]/gm)];
+  if (current.length !== 1) {
+    fail(`.vitepress/config.mts 里应恰有一个 versionsConfig "current:"，实际 ${current.length} 个`);
+  }
+  const base = /^v(\d+\.\d+\.\d+)-SNAPSHOT$/.exec(parsed.version)[1].split('.').map(Number);
+  const cur = current[0][1].split('.').map(Number);
+  const diff = base[0] - cur[0] || base[1] - cur[1] || base[2] - cur[2];
+  if (diff <= 0) {
+    fail(`注入的快照标签 ${parsed.version} 不比当前发布版 v${current[0][1]} 新，是发版前注入留下的旧树。先跑 npm run clean:snapshot，需要 alpha 内容时再跑 npm run build:with-alpha。`);
+  }
   snapshotVersion = parsed.version;
   [sidebarGuideSnapshotEN, sidebarApiSnapshotEN] = transpileAndExtract(
     SNAPSHOT_SIDEBAR_SRC_EN,

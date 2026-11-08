@@ -664,6 +664,10 @@ const snapshotStatus = {
   commit: commitSha,
   ref: ALPHA_REF,
   version: SNAPSHOT_VERSION,
+  // The nightly workflow compares this with the framework main sha it
+  // resolves, so a framework version bump redeploys even when docs alpha
+  // has not moved.
+  frameworkCommit: framework.sha,
   injectedAt: INJECTED_AT,
   generator: 'scripts/inject-alpha.mjs',
 };
