@@ -90,7 +90,7 @@ public class UltiToolsConnector extends UltiToolsPlugin {
 
 本示例中的连接器构造器与 `@EnableAutoRegister` 一节所述是同一个七参数重载。
 
-在继承了 `UltiToolsPlugin` 的类的上方添加这一注解；它只在上方所述的 `register(UltiToolsPlugin)` 连接器与适配器路径下生效，标准模块以 JAR 方式被 UltiTools 加载时不会读取它。标准模块请改用 `@Service` 或 `@Bean` 注册 Bean。
+在继承了 `UltiToolsPlugin` 的类的上方添加这一注解。注解指定的类会用无参构造器创建，以类的简单名注册为单例，随后主类会再执行一次自动装配。自 v6.3.0 起，UltiTools 以标准 JAR 方式加载模块时与上方所述的 `register(UltiToolsPlugin)` 连接器路径下都会这样处理；到 v6.2.5 为止只有连接器路径读取它。标准模块仍建议使用 `@Service` 或 `@Bean` 注册 Bean。
 
 ```java
 @ContextEntry(MyBean.class)
