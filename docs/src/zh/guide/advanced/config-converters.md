@@ -44,12 +44,11 @@ fromPlain(toPlain(fromPlain(q))) equals fromPlain(q)
 
 查找顺序为：
 
-1. 显式非默认 `@ConfigEntry(parser = X.class)` 使用旧适配器。
-2. 模块注册表：精确类、非 exact 父类链、非 exact 接口。
-3. 框架注册表，同样顺序。
-4. 泛型集合、映射、数组、枚举、`Object` 转换。
-5. 有登记别名的 Bukkit `ConfigurationSerializable` 后备转换。
-6. 无转换器：选中配置类型检查拒绝模块加载。
+1. 模块注册表：精确类、非 exact 父类链、非 exact 接口。
+2. 框架注册表，同样顺序。
+3. 泛型集合、映射、数组、枚举、`Object` 转换。
+4. 有登记别名的 Bukkit `ConfigurationSerializable` 后备转换。
+5. 无转换器：选中配置类型检查拒绝模块加载。
 
 完整继承泛型在读取或创建任何选中配置文件前检查。配方值不支持时诊断结构如下（名称来自相关模块）：
 
@@ -121,24 +120,10 @@ public class TokenConverter implements ConfigConverter<Token> {
 
 ## 旧解析器迁移
 
-自 v6.3.0 起，六项公告首次带 `@Deprecated(since = "6.3.0", forRemoval = true)`：`ConfigEntry#parser()`、`interfaces.Parser`、`interfaces.ObjectConfigSerializer`、`interfaces.impl.pasers.ConfigParser`、`DefaultConfigParser`、`StringHashMapParser`。公告下个 MINOR 6.4.0 删除，已发布的包名拼写 `pasers` 不变。
+::: warning 已在 v6.4.0 移除
+旧解析器 API 已删除：`ConfigEntry#parser()`、`interfaces.Parser`、`interfaces.ObjectConfigSerializer`、`interfaces.impl.pasers.ConfigParser`、`DefaultConfigParser`、`StringHashMapParser`。它们在 v6.3.0 已弃用待删。请在扫描包内用 public 顶层 `ConfigConverter<T>` 并加 `@ConfigConverterFor(T.class)` 替换，写法见上面的转换器示例。
+:::
 
-`DefaultConfigParser` 子类曾使用继承的配置节读取器和反射写入器。上述 `Token` 的旧声明可以是：
-
-```java
-import java.util.Map;
-
-public static class TokenParser extends
-        com.ultikits.ultitools.interfaces.impl.pasers.DefaultConfigParser {
-    @Override public Object parse(Object raw) {
-        Map<?, ?> values = (Map<?, ?>) super.parse(raw);
-        return new Token((String) values.get("text"));
-    }
-}
-@ConfigEntry(path = "token", parser = TokenParser.class)
-private Token oldToken = new Token("hello");
-```
-
-用转换器示例的字段和类替换旧字段/解析器。显式旧覆盖仍收到隔离 Bukkit 配置节（保留点号拆分），序列化输出仍须通过普通数据边界。默认 `DefaultConfigParser.class` 注解值改表示注册表转换，不增加任意自定义类原始透传例外。
+删除字段上的 `parser = ...`。只声明了 `DefaultConfigParser` 或 `StringHashMapParser` 的字段无需替换，内置转换已覆盖这些类型。
 
 完整映射键、文件保护、整份输出、原子/备份保存、重载和实体 accessor 删除见[配置文件](/zh/guide/essentials/config-file)。仍适用的存储限制记录在 [#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578)（具体哪几项见配置文件一页）；[#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580) 是已记录的读取器限制。

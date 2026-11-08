@@ -73,7 +73,7 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 private int lockTimeout = 30;
 ```
 
-自 v6.3.0 起，`parser` 保持默认即使用声明类型转换器注册表。显式非默认旧解析器收到的恰好是 6.2 给它们的输入：通过全新的 Bukkit `YamlConfiguration#get` 得到的隔离输入，保留 6.2 配置节拆分点号键的行为，并在根值、列表和映射内部反序列化 `==` 别名；显式使用旧解析器的 `Object` 字段也一样。这条输入路径不使用注册表转换器，输出仍经过普通数据边界并保留包装数值拓宽。Bukkit 自身的别名限制不变：Vector 坐标为整数时反序列化为 null，带小数部分时正常反序列化。六项相关声明在 6.3.0 首次带 `forRemoval`，公告删除版本为 6.4.0。新代码使用[配置转换器](/zh/guide/advanced/config-converters)，不再继承 `DefaultConfigParser`。
+旧的 `parser` 属性及解析器类已在 v6.4.0 移除。字段使用声明类型转换器注册表；自定义类型请按[配置转换器](/zh/guide/advanced/config-converters)注册 `ConfigConverter`。
 
 #### 数值字段
 
@@ -85,7 +85,7 @@ private int lockTimeout = 30;
 
 自 v6.3.0 起，完整继承泛型参与列表、集合、队列、映射、数组和枚举转换。无效集合/映射元素跳过并警告，整个字段形状无效时使用最初声明默认值。警告定位文件、键、位置、类型，并隐藏密钥形状的值。自 v6.3.2 起，跳过值的警告把原始值和原因显示在同一条日志行中；密钥形状的值仍会隐藏，配置值和文件原文保持不变。未知声明类型在读写任何配置文件前拒绝模块加载；登记转换器，不把原始映射偷偷传入自定义类。
 
-整个 null 字段和映射中的 null 值仍可往返，基本类型 null 无效。类型化集合（包括 `List<Object>`）和引用数组（包括 `Object[]`）写入时省略 null 元素，每个字段记录一条定位警告。读取时，文件中类型化集合里的 null 元素同样被跳过并给出定位警告，与 6.2 一致；声明为 `Object` 的普通数据槽保持普通数据。UUID 和枚举使用普通文字，注册的 Bukkit `ConfigurationSerializable` 使用别名映射。未显式使用旧解析器时，读进 `Object` 槽的 Bukkit 对象仍是普通映射。未知运行时 Java 对象拒绝保存，不触碰文件。
+整个 null 字段和映射中的 null 值仍可往返，基本类型 null 无效。类型化集合（包括 `List<Object>`）和引用数组（包括 `Object[]`）写入时省略 null 元素，每个字段记录一条定位警告。读取时，文件中类型化集合里的 null 元素同样被跳过并给出定位警告，与 6.2 一致；声明为 `Object` 的普通数据槽保持普通数据。UUID 和枚举使用普通文字，注册的 Bukkit `ConfigurationSerializable` 使用别名映射。读进 `Object` 槽的 Bukkit 对象仍是普通映射。未知运行时 Java 对象拒绝保存，不触碰文件。
 
 #### @Getter 和 @Setter
 

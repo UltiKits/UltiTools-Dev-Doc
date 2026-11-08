@@ -82,7 +82,7 @@ When a module changes the catalogue wording of a token comment, servers that upg
 private int lockTimeout = 30;
 ```
 
-As of v6.3.0, leave `parser` at its default to use the declared-type converter registry. Explicit non-default legacy parsers receive exactly the input 6.2 gave them: detached input through a fresh Bukkit `YamlConfiguration#get`, preserving 6.2 section-based dotted-key splitting and `==` alias deserialization at the root and inside lists/maps, even for explicitly parsed `Object` fields. This input does not use registry converters; output still crosses the plain-data boundary and retains boxed widening. Bukkit's own alias restrictions remain: integral Vector coordinates deserialize to null, whereas fractional coordinates deserialize normally. Six parser-related declarations first carry `forRemoval` in 6.3.0, with removal announced for 6.4.0. New code uses [Config Converters](/guide/advanced/config-converters), not a `DefaultConfigParser` subclass.
+The legacy `parser` attribute and its parser classes were removed in v6.4.0. Fields use the declared-type converter registry; for a custom type, register a `ConfigConverter` as described in [Config Converters](/guide/advanced/config-converters).
 
 #### Numeric fields
 
@@ -94,7 +94,7 @@ An `int`, `long`, `Integer` or `Long` field can also drive a task interval or co
 
 As of v6.3.0, full inherited generic types drive lists, sets, queues, maps, arrays and enums. Invalid collection/map elements are skipped with a warning; a wrongly shaped whole field uses its initially declared default. Warnings identify the file, key, position and type and redact secret-shaped values. As of v6.3.2, skipped-value warnings render the raw value and reason on one log line; secret-shaped values remain redacted and configuration values and file content are unchanged. An unknown declared type refuses module load before any config file is read or created; register a converter rather than accepting raw maps into a custom class.
 
-Explicit null whole fields and null map values still round-trip; primitive null is invalid. Typed collections (including `List<Object>`) and reference arrays (including `Object[]`) omit null elements on write with one located warning per field. A null element of a typed collection read from the file is likewise skipped with a located warning, as in 6.2; plain data in a declared `Object` slot remains plain. UUIDs and enums use plain text, and registered Bukkit `ConfigurationSerializable` values use alias-tagged maps. A Bukkit value read into an `Object` slot without an explicit legacy parser stays a plain map. Unknown runtime Java objects refuse a save without touching the file.
+Explicit null whole fields and null map values still round-trip; primitive null is invalid. Typed collections (including `List<Object>`) and reference arrays (including `Object[]`) omit null elements on write with one located warning per field. A null element of a typed collection read from the file is likewise skipped with a located warning, as in 6.2; plain data in a declared `Object` slot remains plain. UUIDs and enums use plain text, and registered Bukkit `ConfigurationSerializable` values use alias-tagged maps. A Bukkit value read into an `Object` slot stays a plain map. Unknown runtime Java objects refuse a save without touching the file.
 
 #### @Getter and @Setter
 
