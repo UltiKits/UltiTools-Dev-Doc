@@ -23,8 +23,10 @@
 //      to that version's locale root.
 //
 // props.versioningPlugin.versions is typed Set<string> by the upstream
-// component, but the value populateNav actually injects at build time is a
-// plain array (measured) — treated as an array throughout this file.
+// component, but the value this site passes in — Layout.vue's import of the
+// build-time manifest version-pages.generated.mjs, the same file the notice
+// bar reads — is a plain array (measured) — treated as an array throughout
+// this file.
 //
 // Every value below derives from route data and build-time props. No
 // typeof window / window.location / localStorage / matchMedia branch exists
@@ -205,11 +207,11 @@ function toggle(): void {
 </style>
 
 <style scoped>
-/* Flex row, full height so this control aligns with the tab-row's link items
-   beside it. SecondNavBar.vue's active-indicator query targets the two
-   nav-item class names its sibling links carry; this component deliberately
-   carries neither, so the same layout effect is reproduced locally here
-   instead of inherited from that rule. */
+/* Flex row, full height. The desktop branch is mounted in the top nav bar as
+   the first item of .content-body (Layout.vue), so this fills that 64px row
+   and centres the trigger. It used to sit in SecondNavBar's tab row and align
+   with the link items beside it — that is where the local copy of this layout
+   came from, instead of inheriting SecondNavBar's own nav-item rules. */
 .UtVersionSwitcher {
   display: flex;
   align-items: center;
