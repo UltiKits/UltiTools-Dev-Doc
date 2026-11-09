@@ -440,19 +440,18 @@ assert_active_version() {
   fi
 
   # 上面那条经过 sort -u，看的是「取值」不是「出现次数」，N 份相同的副本会塌成
-  # 一个值照样通过。而切换器每页确实被服务端渲染两份：VitePress 自己的
-  # VPNavBarMenu.vue:21-25 与本仓库的 SecondNavBar.vue:82 都会遍历 theme.nav 并
-  # 渲染 component 分支，第二份只是被 Layout.vue 的
-  # `.VPNavBar .content-body > .VPNavBarMenu.menu { display: none !important }`
-  # 藏住了——一条先于本 Phase 存在、与切换器无关的规则。把出现次数一并断言，
-  # 第三个消费方出现、或那条隐藏规则被动过，才会有信号。
-  # 实测：393 个含标记的页面，每一页恰好 2 次。
+  # 一个值照样通过。切换器由 Layout.vue 直接渲染两份：导航栏标题右侧一份
+  # （nav-bar-content-before），手机屏幕菜单底部一份（:screen-menu）。后者在
+  # VPNavScreen 的 v-if="open" 里，菜单没展开时根本不进 DOM，所以静态产物里
+  # 每页只有导航栏那一份。期望值因此是 1：多渲染一份、或渲染点被整个挪走，
+  # 才会红。（2026-11-08 之前切换器是 theme.nav 的一项，由 VPNavBarMenu 与
+  # SecondNavBar 各渲染一份，那时这里断言的是 2。）
   local occurrences
   occurrences="$({ grep -oE "${ACTIVE_MARKER}=\"[^\"]*\"" "$file" || true; } | wc -l)"
-  if [ "$occurrences" -eq 2 ]; then
-    pass "  $label 出现次数 observed=$occurrences expected=2（导航栏一份 + tab 栏一份）"
+  if [ "$occurrences" -eq 1 ]; then
+    pass "  $label 出现次数 observed=$occurrences expected=1（导航栏一份；手机菜单那份不展开不进 DOM）"
   else
-    fail "  $label 出现次数 observed=$occurrences expected=2 —— 消费 theme.nav 的地方变了，或 Layout.vue 里那条隐藏规则被动过"
+    fail "  $label 出现次数 observed=$occurrences expected=1 —— 切换器的渲染点变了，或 theme.nav 里又出现了一个 component 项"
   fi
 }
 

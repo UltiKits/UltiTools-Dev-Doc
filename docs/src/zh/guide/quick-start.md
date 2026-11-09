@@ -27,14 +27,14 @@ footer: false
 <dependency>
   <groupId>com.ultikits</groupId>
   <artifactId>UltiTools-API</artifactId>
-  <version>6.3.2</version>
+  <version>6.4.0</version>
   <scope>provided</scope>
 </dependency>
 ```
 
 ```groovy [Gradle]
 dependencies {
-  compileOnly 'com.ultikits:UltiTools-API:6.3.2'
+  compileOnly 'com.ultikits:UltiTools-API:6.4.0'
 }
 ```
 

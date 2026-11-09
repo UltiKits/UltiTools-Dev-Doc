@@ -182,7 +182,7 @@ export default withPwa(
         },
 
         versionsConfig: {
-            current: 'v6.3.2',
+            current: 'v6.4.0',
             sources: 'src',
             archive: 'archive',
             // `false`, not an object and not omitted. @viteplus/versions'
@@ -192,8 +192,9 @@ export default withPwa(
             // VPFlyout with :button="item.text" — a build-time string with no
             // per-page value — so it is structurally incapable of satisfying
             // VER-04 (04-UI-SPEC.md § Version Switcher Contract, "Resolved
-            // Implementation Findings"). The wrapper registered as
-            // UtVersionSwitcher in nav.en.mts/nav.zh.mts replaces it instead.
+            // Implementation Findings"). UtVersionSwitcher.vue, rendered by
+            // Layout.vue in the nav bar (desktop) and the screen menu
+            // (mobile), replaces it instead.
             versionSwitcher: false
         }
     }), locales))
