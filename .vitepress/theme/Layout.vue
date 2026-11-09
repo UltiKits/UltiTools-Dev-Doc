@@ -10,7 +10,10 @@ import SecondNavBar from './components/SecondNavBar.vue'
 import SidebarTranslations from './components/SidebarTranslations.vue'
 // @ts-ignore
 import VPNavBarAppearance from 'vitepress/dist/client/theme-default/components/VPNavBarAppearance.vue'
-import { NolebaseEnhancedReadabilitiesMenu, NolebaseEnhancedReadabilitiesScreenMenu } from '@nolebase/vitepress-plugin-enhanced-readabilities/client'
+// @ts-ignore
+import UtVersionSwitcher from './components/UtVersionSwitcher.vue'
+// @ts-ignore — 构建期生成，与 VersionNoticeBar.vue 读的是同一份清单
+import { CURRENT_VERSION, KNOWN_VERSIONS } from '../config/version-pages.generated.mjs'
 import { NolebaseHighlightTargetedHeading } from '@nolebase/vitepress-plugin-highlight-targeted-heading/client'
 import ReloadPrompt from './components/ReloadPrompt.vue'
 
@@ -21,6 +24,14 @@ const router = useRouter()
 // Pages without a sidebar (the home layout) get the language switch and the
 // appearance toggle in the nav bar instead, see the template.
 const { hasSidebar } = useSidebar()
+
+// 版本切换器要的两个构建期值。它已不是 theme.nav 的一项，所以没有
+// @viteplus/versions 的 populateNav 自动合并可用；这里直接读生成清单
+// version-pages.generated.mjs，与通知条同源，避免两处版本数据互相漂移。
+const versioningPlugin = {
+    versions: KNOWN_VERSIONS,
+    currentVersion: CURRENT_VERSION,
+}
 
 // At 960px and up the article scrolls inside .VPDoc .container, not the
 // window. VitePress's own hash scrolling and scroll restoration target the
@@ -310,18 +321,21 @@ if (inBrowser) {
 
 <template>
     <Layout>
+        <template #nav-bar-content-before>
+            <UtVersionSwitcher class="nav-version-switcher" :versioning-plugin="versioningPlugin" />
+        </template>
         <template #nav-bar-content-after>
+            <span class="nav-action-divider" aria-hidden="true"></span>
             <a class="developer-btn" href="https://panel.ultikits.com/developer" target="_blank">
                 {{ lang.startsWith('zh') ? '开发者平台' : 'Dev Portal' }}
             </a>
-            <NolebaseEnhancedReadabilitiesMenu />
             <div v-if="!hasSidebar" class="nav-bar-toolbar">
                 <SidebarTranslations placement="bottom" />
                 <VPNavBarAppearance />
             </div>
         </template>
         <template #nav-screen-content-after>
-            <NolebaseEnhancedReadabilitiesScreenMenu />
+            <UtVersionSwitcher :versioning-plugin="versioningPlugin" screen-menu />
         </template>
         <template #sidebar-nav-after>
             <div class="sidebar-bottom-toolbar">
@@ -352,9 +366,10 @@ if (inBrowser) {
    上面那条规则无条件藏掉默认菜单，而 SecondNavBar 要到 960px 才显示
    （SecondNavBar.vue 的 @media (min-width: 960px)）。三者叠加使深度指南、
    API 接口、用户文档、版本切换器、语言切换与深色模式在该带全部够不着。
-   不改用默认菜单，是因为本站往导航栏里多放了开发者平台按钮与阅读增强
-   菜单：实测放出默认菜单后 .content 的 min-content 宽度达 974px（英文），
-   撑破 .container 造成页面横向滚动。手机菜单是覆盖层，不参与该行的排布。
+   不改用默认菜单，是因为导航入口已由 tab 行承载：≥960px 时放出默认菜单
+   会在导航栏里重复同一批入口，768–959px 这一带则由手机菜单兜住。宽度
+   不是这里的理由，实测放出默认菜单后，959px（英文）与 950px（中文）都
+   不横向溢出。手机菜单是覆盖层，不参与该行的排布。
    上游两条规则都带 scoped 属性选择器（0,2,0），故用 !important 覆盖，
    与本文件既有的两处覆盖写法一致。 */
 @media (min-width: 768px) {
@@ -613,4 +628,102 @@ if (inBrowser) {
 .VPSidebarItem.is-active>.item>.indicator {
     display: none !important;
 }
+
+/* 版本切换器：桌面端在导航栏标题右侧，手机端在屏幕菜单底部。
+   nav-bar-content-before 是 .content-body 的第一个节点，落点取决于内容区从
+   哪里开始——见下面「有侧栏时把标题放回文档流」那条规则。
+   <960px 时这一行要留给搜索、汉堡与开发者平台按钮，切换器只保留手机屏幕
+   菜单里的那份。
+
+   选择器写到 .VPNavBar .content-body> 这一层，是因为组件自身的 scoped
+   `.UtVersionSwitcher[data-v-…] { display: flex }`（tab 行时代的高度对齐）会盖住
+   裸类名 .nav-version-switcher，隐藏不掉。 */
+.VPNavBar .content-body>.nav-version-switcher {
+    display: none;
+}
+
+@media (min-width: 960px) {
+    .VPNavBar .content-body>.nav-version-switcher {
+        display: flex;
+        margin-left: 16px;
+    }
+
+    .VPNavBar.has-sidebar .content-body>.nav-version-switcher {
+        margin-left: 0;
+    }
+}
+
+/* 有侧栏时把标题放回文档流，宽度收成内容宽度。
+   VitePress 默认把标题做成 272px 宽的绝对定位块，正好盖住侧栏那一列，内容区
+   也预留同样的 padding-left；于是放在 nav-bar-content-before 的版本切换器会
+   被推到标题框右缘，与标题文字之间空出约 116px（1440px 视口实测：文字止于
+   155.5px，切换器起于 272px），看上去像被标题挤出去了。收窄之后标题只占自己
+   的宽度，切换器紧接其后，搜索框等也从标题右缘排起。
+   侧栏与正文卡片由 .VPSidebar / .VPDoc 各自定位，不读标题的这一列，不受影响；
+   导航栏底部那条 1px 分隔线收窄后仍是整条连续，实测 y=64 一整行都是
+   #2e2e32，标题右缘之外没有断口。
+   上游这三条规则都带 scoped 属性选择器（≥1440px 那条还改写宽度），故用
+   !important 覆盖，与本文件既有的覆盖写法一致。 */
+@media (min-width: 960px) {
+    .VPNavBar.has-sidebar .container>.title {
+        position: static !important;
+        width: max-content !important;
+        max-width: none !important;
+        padding-right: 16px !important;
+    }
+
+    .VPNavBar.has-sidebar .content {
+        padding-left: 0 !important;
+    }
+}
+
+/* 搜索按钮的底色。
+   上游 VPNavBarSearchButton.vue 在 >=768px 给 .DocSearch-Button 铺
+   var(--vp-c-bg-alt)；本站主题把 --vp-c-bg-alt 设成与 --vp-c-bg 相同的
+   #000000 / #ffffff，这层底色于是与导航栏同色，按钮只剩图标、文字与 ⌘K 的
+   描边。改用主题的 default-soft：深色是 rgba(101,117,133,0.16)，叠在黑色
+   导航栏上约 #101315；浅色是 rgba(142,150,170,0.14)，叠在白色上约 #eff0f3。
+   搜索按钮因此成为一块与导航栏分开的输入框。
+   hover 时上游把 background 重置回 --vp-c-bg-alt，这里一并按住，只保留它
+   那条品牌蓝描边。<768px 不动：那一档按钮是 48×55 的纯图标，本来就不铺底。 */
+@media (min-width: 768px) {
+    .VPNavBar .VPNavBarSearch .DocSearch-Button {
+        background-color: var(--vp-c-default-soft);
+    }
+
+    .VPNavBar .VPNavBarSearch .DocSearch-Button:hover {
+        background-color: var(--vp-c-default-soft);
+    }
+}
+
+/* 社交链接与开发者平台按钮之间的分割线。
+   上游 VPNavBar 自带的那条画在社交链接左侧（VPNavBar.vue 里
+   `.appearance + .social-links::before` 一类的相邻兄弟规则，本站藏掉菜单、
+   语言、外观三个节点后它仍然生效），本条把那条收起，并在按钮一侧补一条
+   同规格的竖线：1px × 24px、--vp-c-divider，与上游一致。
+   显示宽度跟随社交链接：上游 VPNavBarSocialLinks 只在 >=1280px 时进这一行，
+   更窄时社交链接收进 VPNavBarExtra 的 flyout，本线随之不显示，与改动前
+   该宽度的形态一致。 */
+.VPNavBar .content-body>.VPNavBarSocialLinks.social-links::before {
+    display: none !important;
+}
+
+.nav-action-divider {
+    display: none;
+}
+
+@media (min-width: 1280px) {
+    .nav-action-divider {
+        display: block;
+        flex: 0 0 auto;
+        width: 1px;
+        height: 24px;
+        /* 左 8 是因为社交链接的 <a> 自带 8px 内缩（36px 命中区套 20px 图标），
+           与右侧 16 合起来，两侧的光学间距都是 16px。 */
+        margin-left: 8px;
+        margin-right: 16px;
+        background-color: var(--vp-c-divider);
+    }
+}
+
 </style>
