@@ -1,7 +1,7 @@
 import type { LocaleConfig } from 'vitepress'
 import type { DefaultTheme } from 'vitepress/theme'
 import {navZH} from "./nav.zh.mjs";
-import {sidebarApiZH, sidebarGuideZH, sidebarGuideZH_v631, sidebarGuideZH_v630, sidebarGuideZH_v625, sidebarGuideZH_v624, sidebarGuideZH_v620, sidebarGuideZH_v610} from "./sidebar.zh.mjs";
+import {sidebarApiZH, sidebarGuideZH, sidebarGuideZH_v632, sidebarGuideZH_v631, sidebarGuideZH_v630, sidebarGuideZH_v625, sidebarGuideZH_v624, sidebarGuideZH_v620, sidebarGuideZH_v610} from "./sidebar.zh.mjs";
 import {sidebarGuideSnapshotZH, sidebarApiSnapshotZH, snapshotVersion} from "./sidebar-snapshot.generated.mjs";
 import {archiveSidebarEntries} from "./archive-sidebars.mjs";
 import {textCN} from "./text.zh.mjs";
@@ -32,6 +32,7 @@ const localeZH: LocaleConfig<DefaultTheme.Config> = {
                 // It throws when a docs/archive/v* directory has no row.
                 ...archiveSidebarEntries({
                     guideConstants: {
+                        v632: sidebarGuideZH_v632,
                         v631: sidebarGuideZH_v631,
                         v630: sidebarGuideZH_v630,
                         v625: sidebarGuideZH_v625,
