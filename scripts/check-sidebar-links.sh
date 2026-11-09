@@ -45,11 +45,11 @@
 # ── Exemption: exact link value, never a path prefix ─────────────────────────
 # RUNTIME_ROUTE_EXEMPT below lists exact link values that are Cloudflare
 # Pages Function routes, not files under docs/src/ or docs/archive/. The
-# reviewed exact values are /api/, /api/6.3.1/index.html,
-# /api/6.3.0/index.html and /api/6.2.5/index.html; the versioned ones are
-# handled by functions/api/[[path]].js, which proxies /api/{version}/… to
-# javadoc.io. The list is intentionally an exact-match set, never a wildcard
-# or path-prefix pattern.
+# reviewed exact values are /api/, /api/6.3.2/index.html,
+# /api/6.3.1/index.html, /api/6.3.0/index.html and /api/6.2.5/index.html;
+# the versioned ones are handled by functions/api/[[path]].js, which
+# proxies /api/{version}/… to javadoc.io. The list is intentionally an
+# exact-match set, never a wildcard or path-prefix pattern.
 # scripts/check-container-length.sh's header carries the full argument for
 # why: a path-prefix exemption (e.g. "/api/*") would silently exempt every
 # current AND FUTURE link under that prefix, whereas an exact-value exemption
@@ -73,6 +73,7 @@ NAV_ZH="${NAV_ZH:-$ROOT/.vitepress/config/nav.zh.mts}"
 # See the header comment above for why this must stay an exact-match list.
 RUNTIME_ROUTE_EXEMPT=(
   '/api/'
+  '/api/6.3.2/index.html'
   '/api/6.3.1/index.html'
   '/api/6.3.0/index.html'
   '/api/6.2.5/index.html'
