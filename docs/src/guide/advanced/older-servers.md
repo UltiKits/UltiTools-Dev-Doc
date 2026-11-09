@@ -2,7 +2,7 @@
 
 ::: info As of v6.4.0 (draft)
 This page describes the 6.4.0 compatibility target, not a released compatibility guarantee.
-Use the matching framework and module builds; see the [6.4.0 draft release notes](/guide/release-notes/6.4.0).
+Use the matching framework and module builds; see the [6.4.0 release notes](/guide/release-notes/6.4.0).
 :::
 
 ## Server and framework requirements
