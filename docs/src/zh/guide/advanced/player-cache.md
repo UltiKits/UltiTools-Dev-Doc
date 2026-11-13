@@ -86,7 +86,7 @@ public boolean addCoins(UUID playerId, int amount) {
 
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `saveBeforeRemove` | `boolean` | `false` | 如果为 `true`，在移除条目前调用 Bean 的 `savePlayerData(UUID)` 方法。Bean 必须实现 `PlayerCacheSaver` 接口；未实现时框架直接移除条目，不保存，也不记录日志。 |
+| `saveBeforeRemove` | `boolean` | `false` | 如果为 `true`，在移除条目前调用 Bean 的 `savePlayerData(UUID)` 方法。Bean 必须实现 `PlayerCacheSaver` 接口；自 v6.5.0 起，注册未实现该接口的 Bean 会被拒绝并抛出 `PluginModuleException`。v6.5.0 之前框架会直接移除条目，不保存，也不记录日志。 |
 
 ## PlayerCacheSaver 接口
 
@@ -96,7 +96,11 @@ public interface PlayerCacheSaver {
 }
 ```
 
-该接口是可选的，仅在使用 `saveBeforeRemove = true` 时才需要实现。
+该接口是可选的，仅在使用 `saveBeforeRemove = true` 时才需要实现；使用该设置时则必须实现。
+
+::: warning 自 v6.5.0 起
+带有 `saveBeforeRemove = true` 字段、却没有实现 `PlayerCacheSaver` 的 Bean 会在注册时被拒绝。`PluginModuleException` 会写明 Bean 类、声明该字段的类和字段名，模块无法加载。请实现 `savePlayerData(UUID)`，或保持 `saveBeforeRemove` 为 `false`。
+:::
 
 ## 多个 Map
 
@@ -112,7 +116,7 @@ v6.3.2 文档记录的已知限制（保持 v6.3.0 行为）：`savePlayerData(U
 - `Map<UUID, UUID>` 按键处理：只移除退出玩家自己的键，不移除值为该玩家的条目
 - 自 v6.3.0 起，其他形状的 `@PlayerCache` 字段会在注册 Bean 时被拒绝（`PluginModuleException`），不再被忽略
 - 字段必须在模块容器中的单例 Bean 里（例如 `@Service`、`@CmdExecutor`、`@EventListener`，或通过 `registerSingleton(...)` 添加的对象），且在 `registerSelf()` 返回 `true` 时已存在；通过 `registerType(...)` 添加的对象不会被扫描
-- 使用 `saveBeforeRemove = true` 时，Bean 必须实现 `PlayerCacheSaver`，否则条目会被直接移除而不保存
+- 自 v6.5.0 起，使用 `saveBeforeRemove = true` 时，Bean 必须实现 `PlayerCacheSaver`，否则注册会被拒绝并抛出 `PluginModuleException`（v6.5.0 之前条目会被直接移除而不保存）。从父类继承的字段按具体的 Bean 检查，因此实现了该接口的子类可以通过
 - 如果 Map 会被异步线程访问，请使用 `ConcurrentHashMap`
 
 ## 完整示例
