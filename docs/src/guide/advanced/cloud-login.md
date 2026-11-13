@@ -117,6 +117,8 @@ Error reports keep their own key, `ultipanel.logging.error-reporting.enabled`. A
 switch takes effect at once, and the server reconnects when the set of declared capabilities changed. See
 [Panel Integration](/guide/advanced/panel-integration) for what each feature sends and accepts.
 
+As of v6.5.0 a capability change made by `/ul reload` always triggers a new handshake, so UltiCloud sees the new set, module capabilities included. Remote commands now also refuse a built-in alias of a blocklisted command, for example `rl` for `reload`; see [Aliases and failures as of v6.5.0](/guide/advanced/panel-integration#aliases-and-failures-as-of-v6-5-0).
+
 ## Upgrading from 6.3.0
 
 The 6.3.0 login used the owner's account token. It no longer works, and nothing migrates automatically:

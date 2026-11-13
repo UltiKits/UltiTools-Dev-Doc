@@ -32,6 +32,8 @@ API 被限定在一组显式的可编辑根目录内，并附带一层不可配�
 | `server-properties` | `properties.get` 与 `properties.update` |
 | `power-actions` | `server.power`：停止或重启（v6.3.1 新增，默认关闭） |
 
+自 v6.5.0 起，`player.action` 的传送会在 25 秒内得到一次回复。到时传送仍未完成，回复为 `internal_error`，消息为 `teleport did not complete in time`。这个期限只停止等待，不会取消传送，传送之后仍可能生效：重试前请先确认玩家的位置。
+
 `files.read` 返回 `version`，即文件原始字节的 SHA-256。`files.write` 与 `config.update` 必须把读到的 `version` 作为 `baseVersion` 发回；其间文件已改动时以 `file_changed` 拒绝，什么也不写。`files.write` 覆盖一个已存在的文件，`files.delete` 删除文件、从不删除目录，超过 2000 项的列表会被截断并标注。`config.update` 只写它指定的键，并经过配置写入闸门。`properties.get` 读取 14 个常用键，`properties.update` 可以写其中 12 个；`online-mode` 与 `white-list` 对面板保持只读。
 
 通过 `server.power` 重启需要 `spigot.yml` 中 `restart-script` 指向的文件存在，否则以 `power_unsupported` 拒绝，服务器继续运行。电源请求在服务器停止之前得到回复，并且不经过命令黑名单。`power-actions` 关闭时面板会把电源按钮置灰；执行 `/ul reload` 后，改动的值会立即报告给面板。
@@ -117,6 +119,12 @@ plugins/UltiTools/config.yml to change this.
 
 命令命名空间归一化不受本次变化影响：`bukkit:op` 与 `op` 在检查前会解析为同一个黑名单条
 目，检查点仍是原来唯一执行该归一化的位置。
+
+### v6.5.0 的别名与失败处理
+
+自 v6.5.0 起，面板命令进入 `BaseCommandExecutor` 时会再次按黑名单检查，使用真实名称和输入的别名。分派前，框架还会通过服务器的命令表解析命令标签，因此被禁止命令的内置别名会以 `command_blocked` 被拒绝：在随框架发布的黑名单下，`rl confirm` 和 `bukkit:rl confirm` 因 `reload` 在名单中而被拒绝。服务器不认识的标签保持准入时的判定。
+
+黑名单不是沙箱。`execute run` 这类包装命令，或指向其他命令的 `commands.yml` 别名，不会被继续追踪：目标必须对面板不可用时，请把包装命令名或该别名本身加入黑名单。命令在确认之后抛出 `Error`（例如 `NoClassDefFoundError`）时，对直接注册的 `Command`，现在会回复 `command_failed`。
 
 ### 远程命令的结果
 
@@ -241,7 +249,7 @@ ultipanel:
 
 ## 实时日志流
 
-`logs` 能力开启时，框架会在每次面板连接建立时挂上自己的日志处理器，并在连接保持期间持续把控制台日志记录发送给面板。自 v6.3.0 起，日志流完整镜像服务器控制台，见[日志流镜像服务器控制台](#日志流镜像服务器控制台)。自 v6.3.0 起，框架自己在这里写出或推送的行（玩家加入、退出与聊天，插件操作，在线玩家数，服务器状态与文件操作消息）遵循主插件配置中的 `language` 键，见 [I18n 多语言](/zh/guide/essentials/i18n)；v6.3.0 之前它们始终是中文。
+`logs` 能力开启时，框架会在每次面板连接建立时挂上自己的日志处理器，并在连接保持期间持续把控制台日志记录发送给面板。自 v6.3.0 起，日志流完整镜像服务器控制台，见[日志流镜像服务器控制台](#日志流镜像服务器控制台)。自 v6.3.0 起，框架自己在这里写出或推送的行（玩家加入与退出，插件操作，在线玩家数，服务器状态与文件操作消息）遵循主插件配置中的 `language` 键，见 [I18n 多语言](/zh/guide/essentials/i18n)；v6.3.0 之前它们始终是中文。
 
 自 v6.3.0 起，动作为 `start`、`stop`、`pause` 或 `resume` 的 `log_stream` 或 `log_stream_control` 请求会收到一条说明该动作不受支持的错误响应，日志发送照常进行。v6.3.0 之前框架接受这四个动作，但在任何已发布版本上，它们都没有改变面板实际收到的内容。框架与面板中继之间只有一条连接，也无法识别连接背后的各个查看者，因此无法针对单个查看者暂停或停止日志流。暂停或隐藏实时日志视图由面板视图自己完成，例如不再渲染新的日志行。
 
@@ -304,7 +312,7 @@ ultipanel:
 | `levels` | `info`、`warning`、`error` | 发送给面板的日志级别。能匹配到日志记录的名称是 `error`（`SEVERE`）、`warning`（`WARNING`）、`info`（`INFO`）与 `debug`（`CONFIG`、`FINE`、`FINER`、`FINEST`）。其他名称会被接受，不产生警告，也不匹配任何记录 |
 | `excluded-loggers` | 空（自 v6.3.0 起） | 记录器名称前缀，来自这些记录器的日志记录会被丢弃。上面的示例会丢弃通过 `Bukkit.getLogger()` 输出的一切 |
 
-与批量发送的键一样，框架在每次面板连接建立时读取这两个键，因此修改后的值同样需要重启服务器来应用。自 v6.3.0 起，`levels` 也作用于框架直接发送给面板的条目：玩家进入、离开服务器和聊天的日志行，插件操作日志行，以及日志流启动时发送的几行。`excluded-loggers` 仍然对它们不起作用，因为这些条目不来自任何记录器。聊天日志行在 `player-events` 能力开启时发送，属于 `debug` 级别的条目，只有 `levels` 中包含 `debug` 时才会进入日志流。
+与批量发送的键一样，框架在每次面板连接建立时读取这两个键，因此修改后的值同样需要重启服务器来应用。自 v6.3.0 起，`levels` 也作用于框架直接发送给面板的条目：玩家进入、离开服务器的日志行，插件操作日志行，以及日志流启动时发送的几行。`excluded-loggers` 仍然对它们不起作用，因为这些条目不来自任何记录器。`player-events` 能力不包含聊天：协议 2.1.0 没有聊天事件，框架自己也不发送聊天条目。
 
 每个 `excluded-loggers` 条目都会与发出该记录的 `java.util.logging` 记录器名称的开头比较，区分大小写，因此 `org.apache` 这样的条目也会排除 `org.apache.http` 以及其他所有以它开头的名称。发送给面板的条目中不包含这个名称。条目的 `logger` 字段是框架根据自己对记录的分类得出的标签：`com.ultikits.ultitools` 下的记录器为 `UltiTools`，名称中含有 `plugin` 的其他记录器为从记录器名称中取出的一个名称，服务器记录器为 `MinecraftServer`，其余为 `database`、`network` 或 `system`。把这个标签抄进 `excluded-loggers`，只会匹配到名称恰好以它开头的记录器。例如，`MinecraftServer` 这个条目不会匹配任何标签为 `MinecraftServer` 的记录，因为框架把这个标签给了 `Minecraft`、`net.minecraft.*` 这类服务器记录器，而不是名为 `MinecraftServer` 的记录器。
 
@@ -423,7 +431,7 @@ public class MailResponders {
 }
 ```
 
-responder 收到请求 `params` 的一份拷贝，其中多了一个成员 `actor`：`{ "userId": <面板用户 ID>, "minecraftUuid": <UUID 或 null> }`。它由 UltiCloud 按发出请求的面板用户填写，框架原样传递；`params` 里自带的 `actor` 会被替换。可以据此决定该用户能看到什么。拥有至少一个 responder 的模块会在握手中声明为 `modules:<标识>@<X.Y.Z>`，版本取它 `plugin.yml` 版本的前三个数字；UltiCloud 只为已声明的模块发送请求。这个列表在连接建立时生成，列表变化时 `/ul reload` 会重新连接。标识不是合法的 UltiCloud 标识、或会使能力名超过 96 个字符的模块，会被跳过，并记录一条警告。
+responder 收到请求 `params` 的一份拷贝，其中多了一个成员 `actor`：`{ "userId": <面板用户 ID>, "minecraftUuid": <UUID 或 null> }`。它由 UltiCloud 按发出请求的面板用户填写，框架原样传递；`params` 里自带的 `actor` 会被替换。可以据此决定该用户能看到什么。拥有至少一个 responder 的模块会在握手中声明为 `modules:<标识>@<X.Y.Z>`，版本取它 `plugin.yml` 版本的前三个数字（自 v6.5.0 起，`-rc1`、`+build.9` 这类后缀不再贡献数字：`2.0-rc1` 声明为 `2.0.0`）；UltiCloud 只为已声明的模块发送请求。这个列表在连接建立时生成，列表变化时 `/ul reload` 会重新连接。标识不是合法的 UltiCloud 标识、或会使能力名超过 96 个字符的模块，会被跳过，并记录一条警告。
 
 面板收到的回复：成功时为 `ok`，`data` 是 responder 的结果；没有 responder 服务该请求时为 `module_not_found`；超过下文所述的期限时为 `deadline_exceeded`；responder 失败或结果不是合法 JSON（`NaN` 或无穷大）时为 `module_error`。
 
