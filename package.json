@@ -24,7 +24,7 @@
     "workbox-window": "^7.0.0"
   },
   "dependencies": {
-    "typewriter-effect": "^2.21.0",
+    "typewriter-effect": "^3.3.0",
     "viewerjs": "^1.11.6",
     "vitepress-plugin-back-to-top": "^1.0.1",
     "vitepress-plugin-codeblocks-fold": "^1.2.28",
