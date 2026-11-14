@@ -144,6 +144,8 @@ public class PanelLinkHandler implements CloudPlayerLinks.LinkEventHandler {
 
 服务器关闭期间，框架不回复完成事件，网关会在下次启动后再次投递，账号届时再建立。
 
+自 v6.5.0 起，连接断开期间被框架暂存的完成或过期事件，会在重连后投递一次，并且在 `create(...)` 返回的 future 的回调运行完之后。处理器注册之前收到的过期事件仍然不会投递。
+
 ## 已知限制
 
 ::: warning 崩溃可能让处理器被问两次
