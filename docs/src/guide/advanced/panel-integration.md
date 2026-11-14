@@ -451,6 +451,8 @@ Exclusion comes before both steps: a record from an excluded logger is neither s
 reported as an error. Error reports raised elsewhere, such as an exception thrown by a command, do
 not pass through the handler, and neither key applies to them.
 
+As of v6.5.0, an error report raised by a command or an `@ExceptionCatch` method names the module whose JAR the failing class was loaded from, using that module's identify-string (or its normalized `plugin.yml` name when the identify-string is missing or invalid). The framework never guesses ownership from a package, a command description or a bean name, so a report whose class cannot be matched to exactly one loaded module is sent without a module. Message and stack-trace text are cut to the gateway's limits (500 and 2048 UTF-16 characters) without splitting a surrogate pair. De-duplication, sampling and merging work per module: the same exception shape from two modules is two groups, and an attributed report carries a fingerprint scoped to its module. The fingerprint of an unattributed report is unchanged.
+
 ### The stream mirrors the server console
 
 As of v6.3.0, with the `logs` capability on, the log stream shows what the server console shows. Paper

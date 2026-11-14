@@ -28,9 +28,7 @@ import com.ultikits.ultitools.annotations.Autowired;
         // 是否扫描并注册配置文件
         config = true,
         // 扫描包名
-        scanBasePackages = {"com.test.plugin"},
-        // 多语言支持
-        i18n = {"zh", "en"}
+        scanBasePackages = {"com.test.plugin"}
 )
 public class PluginMain extends UltiToolsPlugin {
     
@@ -50,6 +48,10 @@ public class PluginMain extends UltiToolsPlugin {
     ...
 }
 ```
+
+::: warning i18n 属性已弃用（v6.5.0 起）
+`@UltiToolsModule(i18n = ...)` 与 `@I18n` 已弃用并计划移除；签名不变，仍可使用。请不要再声明语言：把 `lang/<语言码>.json` 文件打包进模块 JAR，并删除该属性。详见[多语言](/zh/guide/essentials/i18n#声明语言已弃用)。
+:::
 
 ## @EnableAutoRegister 注解
 
