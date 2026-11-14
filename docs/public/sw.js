@@ -6,15 +6,26 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
-    const cacheNames = await self.caches.keys();
-    await Promise.all(cacheNames.map((cacheName) => self.caches.delete(cacheName)));
-    await self.registration.unregister();
+    let cacheNames;
+    try {
+      cacheNames = await self.caches.keys();
+      await Promise.allSettled(cacheNames.map((cacheName) => self.caches.delete(cacheName)));
+    } catch {
+      // 枚举失败时无法排除旧缓存，仍继续注销与页面重载。
+    } finally {
+      await self.registration.unregister();
+    }
 
-    // 新访客没有旧缓存，不重载；否则每次注册、自毁都会再次重载。
-    if (cacheNames.length === 0) return;
+    // 只有确认没有旧缓存才跳过重载，避免新访客反复重载。
+    if (cacheNames?.length === 0) return;
 
     // 旧页面可能仍由被替换的 worker 控制，不能只查新 worker 的受控窗口。
     const pages = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    await Promise.all(pages.map((page) => page.navigate(page.url).catch(() => undefined)));
+    await Promise.allSettled(pages.map(async (page) => {
+      const target = new URL(page.url);
+      // 带片段的原 URL 可能只滚动；移除片段以强制加载文档，保留路径与查询。
+      target.hash = '';
+      await page.navigate(target.href);
+    }));
   })());
 });

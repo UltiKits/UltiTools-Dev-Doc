@@ -13,15 +13,25 @@ const worker = process.env.RESCUE_WORKER_PATH
   : new URL('../docs/public/sw.js', import.meta.url)
 const source = await readFile(worker, 'utf8')
 
-function harness(cacheNames = [], { deleteGate, rejectedNavigation = false } = {}) {
+function harness(cacheNames = [], {
+  deleteGate, rejectedNavigation = false, rejectedKeys = false, rejectedDelete,
+  pageUrls = ['https://example.test/zh/guide/introduction?lang=zh#example'],
+} = {}) {
   const handlers = new Map()
   const calls = []
   let matchOptions
   class WindowClient {
-    url = 'https://example.test/zh/guide/introduction#example'
+    constructor(url) { this.url = url }
     async navigate(url) {
       calls.push(['navigate', url])
       if (rejectedNavigation) throw new Error('window closed')
+      const current = new URL(this.url)
+      const target = new URL(url)
+      // 目标仍带片段且文档 URL 相同时，只滚动，不重新加载文档。
+      const sameDocument = target.href.includes('#')
+        && target.href.split('#')[0] === current.href.split('#')[0]
+      calls.push([sameDocument ? 'fragment' : 'reload', target.href])
+      this.url = target.href
     }
   }
   const self = {
@@ -29,17 +39,21 @@ function harness(cacheNames = [], { deleteGate, rejectedNavigation = false } = {
     skipWaiting: async () => { calls.push(['skipWaiting']) },
     registration: { unregister: async () => { calls.push(['unregister']); return true } },
     caches: {
-      keys: async () => [...cacheNames],
+      keys: async () => {
+        if (rejectedKeys) throw new Error('cache enumeration failed')
+        return [...cacheNames]
+      },
       delete: async (name) => {
         if (deleteGate) await deleteGate.promise
+        if (name === rejectedDelete) throw new Error('cache deletion failed')
         cacheNames.splice(cacheNames.indexOf(name), 1)
         calls.push(['delete', name])
         return true
       },
     },
-    clients: { matchAll: async (options) => { matchOptions = options; return [new WindowClient()] } },
+    clients: { matchAll: async (options) => { matchOptions = options; return pageUrls.map((url) => new WindowClient(url)) } },
   }
-  runInNewContext(source, { self, WindowClient, Promise })
+  runInNewContext(source, { self, WindowClient, Promise, URL })
   return {
     calls, handlers,
     get matchOptions() { return matchOptions },
@@ -73,9 +87,40 @@ test('old caches are deleted completely before unregistering and reloading old p
   assert.equal(sw.calls.length, 0, 'cleanup must not unregister or reload while deletion is pending')
   gate.resolve()
   await activation
-  assert.deepEqual(sw.calls.map(([type]) => type), ['delete', 'delete', 'unregister', 'navigate'])
+  assert.deepEqual(sw.calls.map(([type]) => type), ['delete', 'delete', 'unregister', 'navigate', 'reload'])
   assert.equal(sw.matchOptions.type, 'window')
   assert.equal(sw.matchOptions.includeUncontrolled, true, 'also find pages still controlled by the old worker')
+})
+
+test('stale pages with fragments, empty fragments or no fragment reload while retaining path and query', async () => {
+  const pageUrls = [
+    'https://example.test/zh/guide/introduction?lang=zh#example',
+    'https://example.test/guide/introduction?search=%23example#',
+    'https://example.test/guide/introduction?lang=en',
+  ]
+  const sw = harness(['workbox-old'], { pageUrls })
+  await sw.dispatch('activate')
+  assert.equal(sw.calls.filter(([type]) => type === 'fragment').length, 0)
+  assert.deepEqual(sw.calls.filter(([type]) => type === 'reload').map(([, url]) => url),
+    pageUrls.map((url) => url.split('#')[0]))
+})
+
+test('a cache enumeration failure still unregisters and reloads potentially stale pages', async () => {
+  const sw = harness(['workbox-old'], { rejectedKeys: true })
+  await sw.dispatch('activate')
+  assert.deepEqual(sw.calls.map(([type]) => type), ['unregister', 'navigate', 'reload'])
+})
+
+test('a failed cache deletion does not skip other deletions, unregistering or reloading', async () => {
+  const gate = Promise.withResolvers()
+  const sw = harness(['workbox-broken', 'workbox-other'], { rejectedDelete: 'workbox-broken', deleteGate: gate })
+  const activation = sw.dispatch('activate')
+  await setImmediate()
+  assert.equal(sw.calls.length, 0)
+  gate.resolve()
+  await activation
+  assert.deepEqual(sw.calls.map(([type]) => type), ['delete', 'unregister', 'navigate', 'reload'])
+  assert.equal(sw.calls[0][1], 'workbox-other')
 })
 
 test('a subsequent cache-free visit cannot enter a reload loop', async () => {
