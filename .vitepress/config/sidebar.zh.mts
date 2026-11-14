@@ -225,6 +225,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
         text: '更新说明',
         items: [
             {
+                text: '6.5.0',
+                link: 'release-notes/6.5.0'
+            },
+            {
                 text: '6.4.0',
                 link: 'release-notes/6.4.0'
             },

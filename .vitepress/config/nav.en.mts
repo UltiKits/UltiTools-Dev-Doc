@@ -34,7 +34,7 @@ const navEN = [
     {
         text: 'Release Notes',
         activeMatch: `/guide/release-notes/`,
-        link: '/guide/release-notes/6.4.0',
+        link: '/guide/release-notes/6.5.0',
         skipVersioning: true
     }
     // The version switcher is not a nav item. Layout.vue renders it directly:
