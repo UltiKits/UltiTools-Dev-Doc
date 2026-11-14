@@ -117,14 +117,21 @@ Blocked by the blocklist — edit ultipanel.commands.blocklist in
 plugins/UltiTools/config.yml to change this.
 ```
 
-命令命名空间归一化不受本次变化影响：`bukkit:op` 与 `op` 在检查前会解析为同一个黑名单条
-目，检查点仍是原来唯一执行该归一化的位置。
+准入时，框架将输入的第一个词去掉命名空间后，与黑名单作不区分大小写的比较：`bukkit:op` 与 `op` 都匹配条目 `op`。
 
 ### v6.5.0 的别名与失败处理
 
-自 v6.5.0 起，面板命令进入 `BaseCommandExecutor` 时会再次按黑名单检查，使用真实名称和输入的别名。分派前，框架还会通过服务器的命令表解析命令标签，因此被禁止命令的内置别名会以 `command_blocked` 被拒绝：在随框架发布的黑名单下，`rl confirm` 和 `bukkit:rl confirm` 因 `reload` 在名单中而被拒绝。服务器不认识的标签保持准入时的判定。
+自 v6.5.0 起，框架在主线程上、分派前通过服务器命令表解析输入的标签。匹配对称地使用 Bukkit 元数据：条目匹配已解析命令的名称、注册标签或别名，或者输入的标签匹配由该条目解析出的命令的名称、标签或别名。两侧均去掉命名空间，并作不区分大小写的比较。例如，列出 `plugins` 会拦截 `pl` 与 `bukkit:pl`，列出 `pl` 也会拦截 `plugins`。列出 `version` 会拦截 `ver` 与 `about`，但列出 `ver` 不会传递地拦截 `about`。未知标签保持准入时的判定。
 
-黑名单不是沙箱。`execute run` 这类包装命令，或指向其他命令的 `commands.yml` 别名，不会被继续追踪：目标必须对面板不可用时，请把包装命令名或该别名本身加入黑名单。命令在确认之后抛出 `Error`（例如 `NoClassDefFoundError`）时，对直接注册的 `Command`，现在会回复 `command_failed`。
+同步嵌套调用进入 `BaseCommandExecutor` 的框架命令，会在帮助、校验器或执行体之前再次检查。列出 `ultitools` 会拦截 `ul help`、`ulti help` 以及 `execute run ul help` 中的框架目标。直接拒绝返回 `command_blocked`；嵌套拒绝只有在嵌套调用保留面板发送者时，才作为普通命令输出返回。包装命令若把发送者改为控制台或玩家，拒绝信息发给该发送者，面板可能收到不含拒绝行的 `ok`。
+
+在 Paper 1.21.11 上，随框架发布的名单会因列有 `reload` 而拦截 `bukkit:rl confirm`。裸标签 `rl` 没有注册：`rl confirm` 返回 `command_failed`，消息为 `The server console did not accept the command.`，不是 `command_blocked`。
+
+黑名单在服务器启动时读取。请先停服，编辑 `plugins/UltiTools/config.yml` 中的 `ultipanel.commands.blocklist`，再启动服务器；`/ul reload` 不会应用黑名单修改。分派前的检查使用当前内存策略，不会重新读取文件。
+
+黑名单不是沙箱。它不覆盖 `tp` / `teleport` 这类原版 Brigadier 重定向、经 `execute ... run` / `return run` 到达的原版或 Bukkit 目标、`commands.yml` 别名（包括 Bukkit 随附的 `icanhasbukkit`）、数据包函数、第三方重新分派器，以及命令方块、计划命令这类后续 tick 路径。需要时请逐个列出重定向的每种写法。拦截包装命令名可以减少直接入口，但不能关闭所有路径。需要禁止这些路径的运营者应设置 `ultipanel.capabilities.commands: false` 并重启服务器；不要向不受信任的运营者授予面板命令访问权。
+
+直接注册的 Bukkit `Command` 在确认后分派抛出 `Error` 时，会得到 `command_failed`；在 Paper 1.21.11 上，错误被包装为 `CommandException`，回复使用包装异常的消息。经 `BaseCommandExecutor` 到达的模块命令执行体内的 `Error` 则作为普通命令输出报告，例如 `Command execution failed: <message>`。
 
 ### 远程命令的结果
 

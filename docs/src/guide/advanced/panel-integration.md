@@ -151,15 +151,22 @@ Blocked by the blocklist — edit ultipanel.commands.blocklist in
 plugins/UltiTools/config.yml to change this.
 ```
 
-Command-namespace normalization is unaffected by this change: `bukkit:op` and `op` both resolve to
-the same blocklist entry before the check runs, at the single site that has always performed this
-normalization.
+At admission, the first word typed is compared with the blocklist, case-insensitively and with its
+namespace removed: `bukkit:op` and `op` both match the entry `op`.
 
 ### Aliases and failures as of v6.5.0
 
-As of v6.5.0 a panel command is checked against the blocklist again when it enters `BaseCommandExecutor`, under its real name and the alias that was typed. Just before dispatch, the label is also resolved through the server's command map, so a built-in alias of a blocked command is refused with `command_blocked`: with the shipped blocklist, `rl confirm` and `bukkit:rl confirm` are refused because `reload` is listed. A label the server does not know keeps the decision made at admission.
+As of v6.5.0, immediately before dispatch on the main thread, the framework resolves the typed label through the server's command map. Matching is symmetric over Bukkit metadata: an entry matches the resolved command's name, registered label or aliases, or the typed label matches the name, label or aliases of the command resolved from that entry. Both sides are compared case-insensitively with namespaces removed. For example, listing `plugins` blocks `pl` and `bukkit:pl`, and listing `pl` blocks `plugins`. Listing `version` blocks `ver` and `about`, but listing `ver` does not transitively block `about`. An unknown label keeps its admission decision.
 
-The blocklist is not a sandbox. A wrapper such as `execute run`, or a `commands.yml` alias that leads to another command, is not followed: block the wrapper's name or the alias itself when its target must stay unavailable to the panel. A command that throws an `Error` (for example `NoClassDefFoundError`) after its acknowledgement is now answered with `command_failed` for a raw `Command` registration.
+Synchronous nested framework commands entering `BaseCommandExecutor` are checked again before help, validators or the body. Listing `ultitools` blocks `ul help`, `ulti help` and the framework target of `execute run ul help`. A direct refusal returns `command_blocked`; a nested refusal appears as ordinary command output only if the nested call keeps the panel's sender. If a wrapper changes the sender to the console or a player, the refusal goes to that sender instead, and the panel can receive `ok` without a refusal line.
+
+On Paper 1.21.11, the shipped list blocks `bukkit:rl confirm` because `reload` is listed. Bare `rl` is not registered: `rl confirm` returns `command_failed` with `The server console did not accept the command.`, not `command_blocked`.
+
+The blocklist is read at server start. Stop the server, edit `ultipanel.commands.blocklist` in `plugins/UltiTools/config.yml`, then start it again; `/ul reload` does not apply a blocklist edit. The pre-dispatch check uses the current in-memory policy, not a fresh read of the file.
+
+The blocklist is not a sandbox. It does not cover vanilla Brigadier redirects such as `tp` / `teleport`, vanilla or Bukkit targets reached through `execute ... run` / `return run`, `commands.yml` aliases (including Bukkit's shipped `icanhasbukkit`), datapack functions, third-party re-dispatchers, or later-tick paths such as command blocks and scheduled commands. List each redirect spelling explicitly when needed. Blocking wrapper names can narrow direct entry points but does not close every path. Operators who need those paths unavailable should set `ultipanel.capabilities.commands: false` and restart the server; do not grant panel command access to untrusted operators.
+
+A raw Bukkit `Command` whose dispatch throws an `Error` after the acknowledgement gets `command_failed`; on Paper 1.21.11 the error is wrapped in `CommandException`, and the result uses that wrapper's message. An `Error` in a module command body reached through `BaseCommandExecutor` is instead reported as ordinary command output, such as `Command execution failed: <message>`.
 
 ### Remote command results
 
