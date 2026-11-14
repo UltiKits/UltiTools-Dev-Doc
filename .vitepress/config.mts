@@ -42,6 +42,8 @@ export default withPwa(
     // @ts-expect-error 上游 DeepPartialType 的两条错误（TS2589、rewrites 的 TS2345）
     dropVersionRoutes(labelArchiveLocales(defineVersionedConfig({
         srcDir: 'docs',
+        // PWA 2 从站点配置读取 outDir；绝对路径避免相对 srcDir 再解析一层 docs/。
+        outDir: fileURLToPath(new URL('./dist', import.meta.url)),
         lastUpdated: true,
         // /api/ is proxied at request time by the Cloudflare Pages Function
         // (functions/api/[[path]].js) and is never a VitePress-rendered page —

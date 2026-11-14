@@ -57,8 +57,14 @@ jobs:
       - name: Install dependencies with npm ci
         run: npm ci
 
+      - name: Test rescue worker cleanup and native registration
+        run: node --test scripts/test-rescue-worker.mjs
+
       - name: Build site with dead-link checking
         run: npm run build
+
+      - name: Test the built rescue worker lifecycle
+        run: RESCUE_WORKER_PATH=.vitepress/dist/sw.js node --test scripts/test-rescue-worker.mjs
 
       # 折进这个既有 job 而不是新开一个（04-RESEARCH.md § Gate 影响与 D-65）：
       # 独立 job 要重新 npm ci + 完整 build 才能加一把 grep，这个 job 在这一步
@@ -76,6 +82,9 @@ jobs:
       # 发现（05-RESEARCH.md § Pitfall 3）。
       - name: Assert sw.js is the self-destroying rescue worker (CACHE-02)
         run: bash scripts/verify-sw.sh
+
+      - name: Assert native registration and manifest artifacts
+        run: node scripts/check-pwa-artifacts.mjs
 
   bilingual-parity:
     name: Bilingual page tree and sidebar coverage
@@ -495,6 +504,12 @@ jobs:
 
       - name: Assert rendered version-state notice bar, switcher links, unreleased badge and injection boundary (injected side)
         run: bash scripts/check-rendered-links.sh --with-alpha
+
+      - name: Assert injected build retains the rescue worker and manifest
+        run: |
+          RESCUE_WORKER_PATH=.vitepress/dist/sw.js node --test scripts/test-rescue-worker.mjs
+          bash scripts/verify-sw.sh
+          node scripts/check-pwa-artifacts.mjs
 
   pages-build-command:
     name: Pages build command exists on both branches

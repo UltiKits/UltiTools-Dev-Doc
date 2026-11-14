@@ -2,11 +2,9 @@
 # Build-artifact assertion gate for the self-destroying rescue worker
 # (CACHE-02). Runs AFTER a build, against .vitepress/dist.
 #
-# This script is the verification carrier this phase uses in place of a test
-# runner. This repository has no test runner and no test files, and
-# REQUIREMENTS.md FUT-04 defers introducing one past v1.0, so the three
-# carriers available are: the existing repo gates, assertions over the build
-# artifact (this script), and enumerated manual observation.
+# 保留五项构建产物断言及其正负样例；生命周期和原生注册行为由
+# scripts/test-rescue-worker.mjs 补充，manifest 集成由
+# scripts/check-pwa-artifacts.mjs 补充。自动化检查不代替浏览器更新验收。
 #
 # Two modes:
 #   (no argument)   the CI gate. Zero-argument mode is what docs-ci.yml's
@@ -45,17 +43,10 @@ record() { # record <label> <observed> <0|1>  (verbatim from verify-api-proxy.sh
   fi
 }
 
-# is_self_destroying_worker <file> — the content classifier. Returns 0 when
-# <file> is the vite-plugin-pwa `selfDestroying` rescue template, 1
-# otherwise (including when the file is missing or unreadable, so a missing
-# artifact is a failure and never a silent pass).
-#
-# Positive half: all three substrings the rescue template's install/activate
-# handlers carry (05-RESEARCH.md § Code Examples, confirmed against the
-# installed vite-plugin-pwa@0.21.2 package and a real local build).
-# Negative half: absence of the AMD module-wrapper prefix that opens the
-# workbox precache worker's first line — production's sw.js today begins
-# with that wrapper followed by a hashed workbox chunk name.
+# is_self_destroying_worker <file>：读取自毁 worker 的三个必要操作，缺失文件失败。
+# PWA 2 使用自有脚本，仍须具有旧模板的 skipWaiting、unregister 和缓存删除。
+# 保留 AMD define([ 的负向检测，防止把旧 Workbox 预缓存脚本误判为救援脚本。
+# 这个结构分类器不证明异步顺序；顺序由源码与构建产物的生命周期测试验证。
 #
 # Every check below greps a file already on disk — never a captured shell
 # variable piped through printf into grep -q. grep -q exits on first match
@@ -191,12 +182,12 @@ fi
 if [ -f "$DIST/sw.js" ]; then
   sw_size=$(wc -c < "$DIST/sw.js" | tr -d ' ')
   if [ "$sw_size" -lt 4096 ]; then
-    record "3 sw.js 小于 4096 字节（自毁模板约 608B，生产 workbox worker 131,881B）" "${sw_size} bytes" 0
+    record "3 sw.js 小于 4096 字节（不包含离线预缓存）" "${sw_size} bytes" 0
   else
-    record "3 sw.js 小于 4096 字节（自毁模板约 608B，生产 workbox worker 131,881B）" "${sw_size} bytes" 1
+    record "3 sw.js 小于 4096 字节（不包含离线预缓存）" "${sw_size} bytes" 1
   fi
 else
-  record "3 sw.js 小于 4096 字节（自毁模板约 608B，生产 workbox worker 131,881B）" "<无文件>" 1
+  record "3 sw.js 小于 4096 字节（不包含离线预缓存）" "<无文件>" 1
 fi
 
 # 4 — the compiled registration chunk is present and still constructs its
@@ -204,7 +195,7 @@ fi
 # assertion that catches the failure this phase exists to avoid: if the
 # registration code is dropped, a reader who has not yet run an update check
 # never fetches the rescue bytes at all, and nothing local would reveal it.
-chunk=$(find "$DIST/assets/chunks" -maxdepth 1 -iname 'virtual_pwa-register.*.js' 2>/dev/null | head -1)
+chunk=$(find "$DIST/assets/chunks" -maxdepth 1 -iname 'register-rescue-worker.*.js' 2>/dev/null | head -1)
 chunk_result=1
 # Vite 8 的 Rolldown 会把无插值字符串打印为反引号；路径和 scope 仍须精确相等。
 if [ -n "$chunk" ] && grep -qE '"/sw\.js"|`/sw\.js`' "$chunk" && grep -qE 'scope:("/"|`/`)' "$chunk"; then

@@ -1,27 +1,19 @@
 <script setup lang="ts">
-// Registers /sw.js and renders nothing.
-//
-// The registration must stay: .vitepress/config/pwa.mts builds the
-// self-destroying service worker (selfDestroying: true), and a reader whose
-// browser still runs an older caching worker only picks up that rescue worker
-// through this registerSW() call (scripts/verify-sw.sh assertion 4 checks the
-// compiled registration chunk). The update / offline-ready prompt that used to
-// live here was removed: in selfDestroying mode vite-plugin-pwa never fires
-// onOfflineReady or onNeedRefresh, so that prompt could not appear.
+// 只注册同名救援 worker，不显示离线或手动更新提示。保持在浏览器生命周期内，
+// SSR 不访问 navigator；布局在站内跳转时不重建，无须重复注册或订阅事件。
 import { onBeforeMount } from 'vue'
 
 onBeforeMount(async () => {
-  // @ts-ignore virtual module provided by vite-plugin-pwa
-  const { registerSW } = await import('virtual:pwa-register')
-  registerSW({
-    immediate: true,
-    onRegisterError(e: unknown) {
-      console.error('Service Worker registration error!', e)
-    },
-  })
+  if (!('serviceWorker' in navigator)) return
+  try {
+    const { registerRescueWorker } = await import('../register-rescue-worker.mjs')
+    await registerRescueWorker(navigator.serviceWorker)
+  } catch (error) {
+    console.error('Service Worker registration error!', error)
+  }
 })
 </script>
 
 <template>
-  <!-- registration only, no UI -->
+  <!-- 只有注册逻辑，没有 UI -->
 </template>
