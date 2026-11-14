@@ -20,7 +20,7 @@
 // switcher and the notice bar use. A missing counterpart falls back to the same
 // version's homepage in the other language. Every value derives from route data
 // and site data, so server render and hydration agree.
-import { useData } from 'vitepress'
+import { useData, useRoute } from 'vitepress'
 import { computed } from 'vue'
 // @ts-ignore generated at build time by scripts/generate-version-pages.mjs
 import { CURRENT_VERSION, KNOWN_VERSIONS, VERSION_PAGES } from '../../config/version-pages.generated.mjs'
@@ -33,8 +33,9 @@ export interface SiteLanguage {
   prefix: string
 }
 
-export function useLangs({ correspondingLink = false } = {}) {
-  const { site, localeIndex, page, theme, hash } = useData()
+export function useLangs({ linkToCorrespondingPage = false } = {}) {
+  const { site, localeIndex, page, theme } = useData()
+  const route = useRoute()
 
   const languages = computed<SiteLanguage[]>(() =>
     Object.entries(site.value.locales)
@@ -70,14 +71,14 @@ export function useLangs({ correspondingLink = false } = {}) {
     const relativePath = page.value.relativePath
     const version = activeVersion(relativePath, KNOWN_VERSIONS, CURRENT_VERSION)
     const rest = relativePath.slice(current.prefix.length)
-    const samePage = correspondingLink && theme.value.i18nRouting !== false
+    const samePage = linkToCorrespondingPage && theme.value.i18nRouting !== false
     return languages.value
       .filter((l) => l.key !== current.key)
       .map((l) => {
         const target = l.prefix + rest
         const link =
           samePage && pageExists(version, target, KNOWN_VERSIONS, VERSION_PAGES)
-            ? buildPath(version, target, KNOWN_VERSIONS, CURRENT_VERSION) + hash.value
+            ? buildPath(version, target, KNOWN_VERSIONS, CURRENT_VERSION) + route.query + route.hash
             : buildPath(version, `${l.prefix}index.md`, KNOWN_VERSIONS, CURRENT_VERSION)
         return { text: l.label, link }
       })

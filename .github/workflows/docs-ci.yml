@@ -598,5 +598,8 @@ jobs:
       # 文件是构建期生成、不进 git 的，干净检出里并不存在。第一版忘了这一步，
       # 本地全绿而 CI 报两条 TS2307——本地带着历史构建留下的那份生成物。
       # 生成器本身是 fail-open 的：没有注入源时写四个空数组并退 0，正是 CI 这一侧。
+      - name: Test versioned language links against VitePress 2 route data
+        run: node --experimental-vm-modules --test scripts/test-versioned-langs.mjs
+
       - name: Typecheck .vitepress/config
         run: npm run typecheck

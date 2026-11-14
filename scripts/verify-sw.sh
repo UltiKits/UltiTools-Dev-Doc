@@ -206,7 +206,8 @@ fi
 # never fetches the rescue bytes at all, and nothing local would reveal it.
 chunk=$(find "$DIST/assets/chunks" -maxdepth 1 -iname 'virtual_pwa-register.*.js' 2>/dev/null | head -1)
 chunk_result=1
-if [ -n "$chunk" ] && grep -q '"/sw.js"' "$chunk" && grep -q 'scope:"/"' "$chunk"; then
+# Vite 8 的 Rolldown 会把无插值字符串打印为反引号；路径和 scope 仍须精确相等。
+if [ -n "$chunk" ] && grep -qE '"/sw\.js"|`/sw\.js`' "$chunk" && grep -qE 'scope:("/"|`/`)' "$chunk"; then
   chunk_result=0
 fi
 record "4 注册代码仍在 bundle 内，/sw.js 与根 scope 字面量未变" "chunk=${chunk:-<未找到>}" "$chunk_result"

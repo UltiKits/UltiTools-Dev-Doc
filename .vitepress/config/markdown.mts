@@ -5,7 +5,7 @@ import {groupIconMdPlugin} from "vitepress-plugin-group-icons";
 
 const markdownConfig: MarkdownOptions = {
     image: {
-        lazyLoading: true
+        lazyLoad: true
     },
     config(md) {
         md.use(tabsMarkdownPlugin)

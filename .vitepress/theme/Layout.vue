@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import DefaultTheme, { useSidebar } from 'vitepress/theme'
+import DefaultTheme, { useLayout } from 'vitepress/theme'
 import { inBrowser, useData, useRoute, useRouter } from 'vitepress'
 import { nextTick, watch, onMounted, onUnmounted } from 'vue'
 // @ts-ignore
@@ -9,7 +9,7 @@ import SecondNavBar from './components/SecondNavBar.vue'
 // @ts-ignore
 import SidebarTranslations from './components/SidebarTranslations.vue'
 // @ts-ignore
-import VPNavBarAppearance from 'vitepress/dist/client/theme-default/components/VPNavBarAppearance.vue'
+import VPNavBarAppearance from 'vitepress/dist/client/theme-default/components/VPNavAppearance.vue'
 // @ts-ignore
 import UtVersionSwitcher from './components/UtVersionSwitcher.vue'
 // @ts-ignore — 构建期生成，与 VersionNoticeBar.vue 读的是同一份清单
@@ -23,7 +23,7 @@ const route = useRoute()
 const router = useRouter()
 // Pages without a sidebar (the home layout) get the language switch and the
 // appearance toggle in the nav bar instead, see the template.
-const { hasSidebar } = useSidebar()
+const { hasSidebar } = useLayout()
 
 // 版本切换器要的两个构建期值。它已不是 theme.nav 的一项，所以没有
 // @viteplus/versions 的 populateNav 自动合并可用；这里直接读生成清单
