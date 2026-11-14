@@ -89,9 +89,9 @@ DISMISS_LABEL_ZH='关闭此提示'
 # switcher. The class cannot collide with prose, and it is what the component
 # renders unconditionally rather than what it happened to be configured with.
 OLD_SWITCHER_CLASS='VP(Screen)?VersionSwitcher'
-# Present in every built page, whatever this phase does — the control for the
-# zero-hit assertions below.
-CONTROL_MARKER='__VP_SITE_DATA__'
+# VitePress 2 把 __VP_SITE_DATA__ 移到 metadata chunk；HTML 中的 SSR 挂载点
+# 仍存在于每页。用同一文件集的挂载点计数作正对照，不改提示条零命中断言。
+CONTROL_MARKER='<div id="app"'
 # The snapshot label is derived (scripts/inject-alpha.mjs reads it from the
 # framework's main-branch pom.xml) and resolved after the mode is known: only
 # --with-alpha has one. --clean asserts that no v*-SNAPSHOT tree exists at all.
@@ -250,10 +250,10 @@ else
     fail "  latest 页面上的提示条数 observed=$observed expected=0"
   fi
 
-  if [ "$control" -gt 0 ]; then
-    pass "  对照组：同一文件集里 $CONTROL_MARKER observed=$control expected>0"
+  if [ "$control" -eq "$latest_total" ]; then
+    pass "  对照组：同一文件集里 $CONTROL_MARKER observed=$control expected=$latest_total"
   else
-    fail "  对照组：同一文件集里 $CONTROL_MARKER observed=$control expected>0 —— 上面那个零是假的，搜索根本没读到文件"
+    fail "  对照组：同一文件集里 $CONTROL_MARKER observed=$control expected=$latest_total —— 没有读到每一页的 SSR 挂载点"
   fi
 fi
 

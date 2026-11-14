@@ -2,9 +2,9 @@
 import { useData, useRoute } from 'vitepress'
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 // @ts-ignore
-import VPNavBarMenuLink from 'vitepress/dist/client/theme-default/components/VPNavBarMenuLink.vue'
+import VPNavBarMenuLink from 'vitepress/dist/client/theme-default/components/VPNavMenuLink.vue'
 // @ts-ignore
-import VPNavBarMenuGroup from 'vitepress/dist/client/theme-default/components/VPNavBarMenuGroup.vue'
+import VPNavBarMenuGroup from 'vitepress/dist/client/theme-default/components/VPNavMenuGroup.vue'
 // @ts-ignore — 构建期生成，与 Layout.vue 的版本切换器读的是同一份清单
 import { CURRENT_VERSION } from '../../config/version-pages.generated.mjs'
 

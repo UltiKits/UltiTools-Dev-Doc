@@ -12,7 +12,7 @@ import { useLangs } from '../composables/versioned-langs'
 const props = withDefaults(defineProps<{ placement?: 'top' | 'bottom' }>(), { placement: 'top' })
 
 const { page, theme } = useData()
-const { currentLang, localeLinks } = useLangs({ correspondingLink: true })
+const { currentLang, localeLinks } = useLangs({ linkToCorrespondingPage: true })
 
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
