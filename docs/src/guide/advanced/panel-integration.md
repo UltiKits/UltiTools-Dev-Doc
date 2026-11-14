@@ -127,7 +127,17 @@ ultipanel:
       - "whitelist"
       - "save-off"
       - "save-all"
+      - "execute"   # as of v6.5.0
+      - "return"    # as of v6.5.0
+      - "function"  # as of v6.5.0
 ```
+
+As of v6.5.0 the shipped list also holds `execute`, `return` and `function`, so a panel command such as
+`execute run stop`, `minecraft:execute …` or `function <pack>:x` is refused before it runs. Only new installs and
+configurations without the key get the new entries: an existing list is never extended, so an upgraded server adds
+them itself if it wants them. To allow those commands, stop the server, delete the three lines and start it again
+(`/ul reload` does not re-read the list). `schedule function <pack>:x …` is not covered — add `schedule` yourself if
+you need to refuse it.
 
 Before v6.3.0 this list was a hardcoded, unconfigurable set of the same ten entries. As of v6.3.0 it
 moves to `ultipanel.commands.blocklist` and is fully editable in both directions — an operator may

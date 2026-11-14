@@ -96,7 +96,15 @@ ultipanel:
       - "whitelist"
       - "save-off"
       - "save-all"
+      - "execute"   # as of v6.5.0
+      - "return"    # as of v6.5.0
+      - "function"  # as of v6.5.0
 ```
+
+自 v6.5.0 起，默认名单还包含 `execute`、`return` 和 `function`，因此 `execute run stop`、`minecraft:execute …`、
+`function <pack>:x` 这类面板命令会在执行前被拒绝。只有新安装或缺少此键的配置才会得到这三项：已有名单绝不会被追加，
+升级后的服务器如需拦截须自行添加。要允许这些命令，停服后删除这三行再启动（`/ul reload` 不会重读名单）。
+`schedule function <pack>:x …` 不在拦截范围内，如需拒绝请自行加入 `schedule`。
 
 v6.3.0 之前，这份名单是一份硬编码、不可配置的十条条目集合。自 v6.3.0 起，它迁移到
 `ultipanel.commands.blocklist`，并且可以双向自由编辑——运营者可以新增条目，也可以移除任意
