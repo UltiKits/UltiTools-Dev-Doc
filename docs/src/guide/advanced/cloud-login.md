@@ -131,8 +131,8 @@ The 6.3.0 login used the owner's account token. It no longer works, and nothing 
 ## Module API compatibility
 
 `CloudAuthManager` remains internal (`@ApiStatus.Internal`). `UltiCloudRequests`, the 6.3.0 helper that sent
-UltiLogin's magic-link requests, is deprecated for removal in 6.4.0. As of v6.3.1 every call answers
-`PATH_NOT_ALLOWED` and sends nothing, so UltiLogin 2.0.0's `/panel` stops working; UltiLogin 2.1.0 uses the
+UltiLogin's magic-link requests, was removed in 6.4.0. In 6.3.1–6.3.2 every call returned
+`PATH_NOT_ALLOWED` and sent nothing, so UltiLogin 2.0.0's `/panel` already stopped working before the removal; UltiLogin 2.1.0 uses the
 [player-link API](/guide/advanced/player-link) instead. A module that wants a player to reach the panel uses
 that API; one with secret-carrying commands registers them as sensitive (see
 [Panel Integration](/guide/advanced/panel-integration#sensitive-commands)).

@@ -1,0 +1,134 @@
+# Exception Handling
+
+::: info Since v6.2.0
+Automatic exception catching and handling for service methods.
+:::
+
+UltiTools provides declarative exception handling through the `@ExceptionCatch` annotation. Instead of wrapping service method calls in try-catch blocks, you simply annotate a method and the framework handles exceptions automatically based on your configuration.
+
+::: info As of v6.3.0
+The framework creates proxies for eligible managed beans and registers `ExceptionInterceptor` for `@ExceptionCatch` methods. This integration is available in v6.3.0; v6.2.5 did not activate the annotation.
+:::
+
+## Basic Usage
+
+Add `@ExceptionCatch` to any method inside a managed bean (such as a `@Service`):
+
+<<< @/../examples-archive/v6.4.0/src/main/java/com/ultikits/docs/exception/FileService.java
+
+By default:
+- All `Exception` types are caught
+- Exceptions are logged as warnings (unless `silent = true`)
+- A default value (null for objects, 0 for primitives) is returned
+
+## Annotation Attributes
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `value` | `Class<? extends Throwable>[]` | `{Exception.class}` | Exception types to catch. Subclasses are automatically included. |
+| `silent` | `boolean` | `false` | If true, exceptions are caught without logging. If false, caught exceptions are logged as warnings. Either way, the exception is also reported to the framework's ErrorReportCollector. |
+| `handler` | `String` | `""` | Name of a custom exception handler bean. The bean must implement `ExceptionHandler`. |
+| `defaultValue` | `String` | `""` | Expression specifying the return value when an exception is caught. |
+
+## Catching Specific Exceptions
+
+Specify which exception types should be caught:
+
+<<< @/../examples-archive/v6.4.0/src/main/java/com/ultikits/docs/exception/DataService.java
+
+::: tip Exception Hierarchy
+When you specify an exception type, the framework also catches its subclasses. For example, `@ExceptionCatch(IOException.class)` will catch `FileNotFoundException`, `EOFException`, and other subclasses of `IOException`.
+:::
+
+## Silent Mode
+
+Suppress logging for expected or non-critical exceptions:
+
+<<< @/../examples-archive/v6.4.0/src/main/java/com/ultikits/docs/exception/ConfigService.java
+
+Use `silent = true` for:
+- Non-critical operations (e.g., optional backups)
+- Fallback logic (e.g., use default if file not found)
+- Operations where exceptions are expected
+
+## Default Return Values
+
+Control what value is returned when an exception is caught:
+
+<<< @/../examples-archive/v6.4.0/src/main/java/com/ultikits/docs/exception/MoneyService.java
+
+Supported default value expressions:
+- `"null"` — returns null (default for objects)
+- `"true"` / `"false"` — returns boolean
+- Numeric literals such as `"0"`, `"100"`, `"-5"`, `"3.14"` are parsed for `int`, `long`, `float` and `double` return types (and their wrappers); a literal that does not parse for the return type, or any other numeric type, falls back to the type default
+- `"empty"` — returns empty collection/array/string based on return type
+
+If `defaultValue` is not specified, a type-appropriate default is used:
+- Objects: `null`
+- boolean: `false`
+- int, long, etc.: `0`
+- String: `null`
+- Collections: `null`
+
+::: warning defaultValue Type Matching
+The `defaultValue` expression is parsed according to the method's return type. If you specify `defaultValue = "0"` on a `String`-returning method, it returns the string `"0"`, not the number zero.
+:::
+
+## Custom Exception Handlers
+
+Implement custom logic for exception handling by creating an `ExceptionHandler` bean:
+
+<<< @/../examples-archive/v6.4.0/src/main/java/com/ultikits/docs/exception/LoggingExceptionHandler.java
+
+Register the handler and reference it by name:
+
+<<< @/../examples-archive/v6.4.0/src/main/java/com/ultikits/docs/exception/MyService.java
+
+::: tip Handler Interface
+Custom handlers implement the `ExceptionHandler` interface, whose `handleException(Throwable, Object, Method, Object[])` method holds the main logic and can return a replacement value or re-throw.
+`supports(Class)` and `getOrder()` have default implementations but are not consulted for a handler named in `@ExceptionCatch(handler = …)`: that handler is called for every exception the annotation's `value` catches.
+:::
+
+## Method Requirements
+
+`@ExceptionCatch` works only on methods in beans managed by the IoC container:
+
+```java
+@Service
+public class MyService {
+
+    @ExceptionCatch  // CORRECT - method in a managed @Service bean
+    public void safeOperation() {
+        // ...
+    }
+}
+
+public class NonManagedClass {
+
+    @ExceptionCatch  // WRONG - this class is not a bean
+    public void unsafeOperation() {
+        // The annotation has no effect
+    }
+}
+```
+
+Supported bean types:
+- `@Service` — services
+- `@Component` — general-purpose beans
+- A class registered as a definition with `registerBean(Class, …)`. An instance you construct yourself is not proxied: `registerSingleton` refuses it and `registerType` registers it without interception.
+
+## Complete Example
+
+<<< @/../examples-archive/v6.4.0/src/main/java/com/ultikits/docs/exception/UserDatabaseService.java
+
+::: tip Best Practices
+Custom handlers work best for fault tolerance, catching exceptions in methods where failures are expected or non-critical.
+Specify exception types such as `@ExceptionCatch(IOException.class)` instead of catching everything, and keep `silent = false` unless you have a specific reason to suppress the log.
+Provide meaningful defaults, for example `defaultValue = "empty"` for collections and `"0"` for counts, and combine `@ExceptionCatch` with `@Service` beans designed for fault tolerance.
+:::
+
+## See Also
+
+- [IoC Container](/guide/advanced/ioc-container) — How beans are managed and proxied
+- [Transactions](/guide/advanced/transactions) — Declarative transaction management with `@Transactional`
+- [Scheduled Tasks](/guide/advanced/scheduled-tasks) — Automatic task scheduling with lifecycle management

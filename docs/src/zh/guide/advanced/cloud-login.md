@@ -97,6 +97,6 @@ UltiCloud 账号超出套餐时（例如 Pro 套餐到期、服务器数量超�
 
 ## 模块 API 兼容性
 
-`CloudAuthManager` 仍是内部类（`@ApiStatus.Internal`）。6.3.0 中替 UltiLogin 发送魔法链接请求的 `UltiCloudRequests` 已弃用，将在 6.4.0 删除。自 v6.3.1 起它的每次调用都返回 `PATH_NOT_ALLOWED`，什么也不发送，因此 UltiLogin 2.0.0 的 `/panel` 无法再使用；UltiLogin 2.1.0 改用[玩家链接 API](/zh/guide/advanced/player-link)。需要让玩家进入面板的模块使用这个 API；带有密码类参数的命令应登记为敏感命令（见[面板集成](/zh/guide/advanced/panel-integration#敏感命令)）。
+`CloudAuthManager` 仍是内部类（`@ApiStatus.Internal`）。6.3.0 中替 UltiLogin 发送魔法链接请求的 `UltiCloudRequests` 已在 6.4.0 删除。在 6.3.1–6.3.2 中，它的每次调用都返回 `PATH_NOT_ALLOWED`，什么也不发送，因此 UltiLogin 2.0.0 的 `/panel` 在删除之前就已无法使用；UltiLogin 2.1.0 改用[玩家链接 API](/zh/guide/advanced/player-link)。需要让玩家进入面板的模块使用这个 API；带有密码类参数的命令应登记为敏感命令（见[面板集成](/zh/guide/advanced/panel-integration#敏感命令)）。
 
 6.3.1 的完整变更、弃用与已知限制，见 [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md) 的「UltiCloud protocol 2.1.0」一节。

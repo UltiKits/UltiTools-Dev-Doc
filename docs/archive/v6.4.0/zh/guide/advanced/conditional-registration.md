@@ -1,0 +1,131 @@
+# 条件注册
+
+::: info 自 v6.2.0 起
+`@ConditionalOnConfig` 注解自 UltiTools-API v6.2.0 起可用。
+:::
+
+UltiTools 允许你根据 YAML 配置值来条件性地注册组件。这让服主无需修改代码即可启用或禁用功能。
+
+## 基本用法
+
+在任意组件类（`@Service`、`@CmdExecutor`、`@EventListener`）上添加 `@ConditionalOnConfig`：
+
+<<< @/../examples-archive/v6.4.0/src/main/java/com/ultikits/docs/conditional/WarpCommands.java
+
+对应的 YAML 配置：
+
+```yaml
+# config/config.yml
+enableWarp: true
+```
+
+如果 `enableWarp` 为 `false` 或缺失，`WarpCommands` 类将**完全不被注册**——没有命令注册、没有内存占用、没有副作用。
+
+::: tip 自 v6.3.0 起所有入口都检查该条件
+自 v6.3.0 起，所有入口（标准模块、监听器包扫描以及连接器 `PluginManager.register(UltiToolsPlugin)`）都会在组件扫描时检查该条件。
+到 v6.2.5 为止，连接器入口不做组件扫描，那里没有任何地方检查这个条件（[issue #334](https://github.com/UltiKits/UltiTools-Reborn/issues/334)）。
+:::
+
+## 重载漂移报告 <Badge type="tip" text="v6.3.0+" />
+
+`@ConditionalOnConfig` 只在组件扫描时（插件启动）求值一次。`ul reload` 会重新读取配置文件，但它本身不会注册或注销任何组件——它只报告发生了什么变化。
+
+v6.3.0 起，漂移消息会说明容器里实际持有什么，而不只是条件现在给出的答案：
+
+```
+[UltiTools-API] @ConditionalOnConfig drift after reload: com.example.MyService (config/config.yml -> myFeature.enabled) now evaluates to disabled, but the component is already registered. @ConditionalOnConfig is evaluated once at component scan; a restart is required to remove the component.
+```
+
+::: tip v6.3.0 之前，建议是一句固定文案
+消息过去无条件建议"需要重启"，哪怕从未构造过任何实例。v6.3.0 起，建议会跟随容器实际持有的状态：已存在且现在禁用会建议重启移除，不存在且现在禁用则无需重启（改看启动日志），不存在且现在启用会建议重启创建，已存在且现在启用同样无需重启。
+:::
+
+## 注解属性
+
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `value` | `String` | （必填） | 相对于插件数据目录的配置文件路径 |
+| `path` | `String` | （必填） | 点分隔的 YAML 键路径；自 v6.3.0 起按模块配置实体的同一规则读取，`features.chat: false` 这类扁平点键也能匹配，同一路径写了两种形式时拒绝加载模块 |
+| `negate` | `boolean` | `false` | 如果为 `true`，在配置值为 `false` 时注册（反转逻辑） |
+
+## 示例
+
+### 条件服务
+
+<<< @/../examples-archive/v6.4.0/src/main/java/com/ultikits/docs/conditional/EconomyService.java
+
+### 条件事件监听器
+
+<<< @/../examples-archive/v6.4.0/src/main/java/com/ultikits/docs/conditional/WelcomeListener.java
+
+### 嵌套配置键
+
+使用点号访问嵌套键：
+
+```yaml
+# config/config.yml
+features:
+  teleport:
+    enabled: true
+  pvp:
+    enabled: false
+```
+
+<<< @/../examples-archive/v6.4.0/src/main/java/com/ultikits/docs/conditional/TeleportCommands.java
+
+### 反转逻辑（negate）
+
+使用 `negate = true` 在配置值为 `false` 时注册组件：
+
+<<< @/../examples-archive/v6.4.0/src/main/java/com/ultikits/docs/conditional/NormalModeService.java
+
+## 完整示例
+
+通过配置控制可选功能的插件：
+
+```yaml
+# config/config.yml
+features:
+  home: true
+  warp: true
+  economy: false
+  welcome: true
+```
+
+<<< @/../examples-archive/v6.4.0/src/main/java/com/ultikits/docs/conditional/MyPlugin.java
+
+```java
+@CmdExecutor(alias = {"home"}, permission = "myplugin.home")
+@ConditionalOnConfig(value = "config/config.yml", path = "features.home")
+public class HomeCommands extends BaseCommandExecutor {
+    // 已注册（features.home = true）
+
+    @Override
+    protected void handleHelp(CommandSender sender) { }
+}
+
+@CmdExecutor(alias = {"warp"}, permission = "myplugin.warp")
+@ConditionalOnConfig(value = "config/config.yml", path = "features.warp")
+public class WarpCommands extends BaseCommandExecutor {
+    // 已注册（features.warp = true）
+
+    @Override
+    protected void handleHelp(CommandSender sender) { }
+}
+
+@Service
+@ConditionalOnConfig(value = "config/config.yml", path = "features.economy")
+public class EconomyService {
+    // 未注册（features.economy = false）
+}
+
+@EventListener
+@ConditionalOnConfig(value = "config/config.yml", path = "features.welcome")
+public class WelcomeListener implements Listener {
+    // 已注册（features.welcome = true）
+}
+```
+
+::: tip v6.2.0 之前
+没有 `@ConditionalOnConfig` 时，开发者需要在 `registerSelf()` 中手动检查配置值，并使用 `if` 语句条件性地注册组件。注解方式更简洁，消除了样板代码。
+:::

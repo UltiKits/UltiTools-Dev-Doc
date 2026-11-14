@@ -311,14 +311,12 @@ above, and — like `data.json` before it — is additionally covered by the unc
 credential exclusion regardless of what roots an operator configures, refused from the remote file API
 at both the new location and, for the duration of an upgrade's restart window, the old one.
 
-**Three internal credential-coordination statics on `CloudAuthManager` are announced for removal in
-v6.4.0.** `currentCredentialGeneration()`, `invalidateCredentialOperations()`, and
-`commitTokenIfCurrent(TokenEntity, long)` were never a supported external API — they coordinate the
-framework's own asynchronous credential producers with its teardown path, and carry
-`@Deprecated(since = "6.3.0", forRemoval = true)` with a `{@removeIn 6.4.0}` javadoc tag. Their
-signatures and behaviour are unchanged in v6.3.0; the credential file I/O they used to imply now goes
-through the internal store described above. If your module calls any of the three, stop before
-v6.4.0 — nothing in the public panel-integration or external-plugin API surface depends on them.
+**Three former internal credential-coordination statics on `CloudAuthManager` are absent in v6.4.0.**
+`currentCredentialGeneration()`, `invalidateCredentialOperations()`, and
+`commitTokenIfCurrent(TokenEntity, long)` were removed during the 6.3.0 development cycle and never
+appeared in a released JAR, as recorded in the [removal ledger](https://github.com/UltiKits/UltiTools-Reborn/blob/v6.4.0/compatibility/DEPRECATIONS.md).
+They were never a supported external API. Credential file I/O uses the internal store described above;
+nothing in the public panel-integration or external-plugin API surface depends on these methods.
 
 ## Remote action log
 

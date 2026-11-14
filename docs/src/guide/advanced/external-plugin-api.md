@@ -15,7 +15,7 @@ The External Plugin API allows **any regular Bukkit plugin running on a Paper se
 <dependency>
     <groupId>com.ultikits</groupId>
     <artifactId>UltiTools-API</artifactId>
-    <version>6.4.0</version>
+    <version>6.5.0</version>
     <scope>provided</scope>
 </dependency>
 ```
