@@ -260,6 +260,210 @@ const sidebarGuideEN: SidebarItemExt[] = [
     },
 ]
 
+// Frozen from released master 625a31aae6d80d1960ef7bab5d331f107fb9d13a (v6.4.0).
+const sidebarGuideEN_v640: SidebarItemExt[] = [
+    {
+        base: '/guide/',
+        text: 'Get Started',
+        items: [
+            {
+                text: 'Introduction',
+                link: 'introduction'
+            },
+            {
+                text: 'Quick Start',
+                link: 'quick-start'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'Core Capabilities',
+        items: [
+            {
+                text: 'Command Executor',
+                link: 'essentials/cmd-executor'
+            },
+            {
+                text: 'Event Listener',
+                link: 'essentials/event-listener'
+            },
+            {
+                text: 'Config File',
+                link: 'essentials/config-file'
+            },
+            {
+                text: 'Data Storage',
+                link: 'essentials/data-storage'
+            },
+            {
+                text: 'Query DSL',
+                link: 'essentials/query-dsl'
+            },
+            {
+                text: 'Internationalization',
+                link: 'essentials/i18n'
+            },
+            {
+                text: 'Exception Handling',
+                link: 'advanced/exception-handling'
+            },
+            {
+                text: 'Transactions',
+                link: 'advanced/transactions'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'Framework Mechanisms',
+        items: [
+            {
+                text: 'Auto Register',
+                link: 'advanced/auto-register'
+            },
+            {
+                text: 'IOC Container',
+                link: 'advanced/ioc-container'
+            },
+            {
+                text: 'Conditional Registration',
+                link: 'advanced/conditional-registration'
+            },
+            {
+                text: 'Config Validation',
+                link: 'advanced/config-validation'
+            },
+            {
+                text: 'Config Converters',
+                link: 'advanced/config-converters'
+            },
+            {
+                text: 'Module Load Ordering',
+                link: 'advanced/module-dependencies'
+            },
+            {
+                text: 'Supporting servers below 1.21',
+                link: 'advanced/older-servers'
+            },
+            {
+                text: 'External Plugin API',
+                link: 'advanced/external-plugin-api'
+            },
+            {
+                text: 'UltiToolsPlugin Base Class',
+                link: 'advanced/ulti-tools-plugin'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'Runtime',
+        items: [
+            {
+                text: 'Scheduled Tasks',
+                link: 'advanced/scheduled-tasks'
+            },
+            {
+                text: 'Player Cache',
+                link: 'advanced/player-cache'
+            },
+            {
+                text: 'Module EventBus',
+                link: 'advanced/module-eventbus'
+            },
+            {
+                text: 'Panel Integration',
+                link: 'advanced/panel-integration'
+            },
+            {
+                text: 'Economy',
+                link: 'advanced/economy'
+            },
+            {
+                text: 'Cloud Login',
+                link: 'advanced/cloud-login'
+            },
+            {
+                text: 'Player Link',
+                link: 'advanced/player-link'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'UI System',
+        items: [
+            {
+                text: 'GUI Interface',
+                link: 'advanced/gui'
+            },
+            {
+                text: 'Declarative GUI',
+                link: 'advanced/declarative-gui'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'Toolchain',
+        items: [
+            {
+                text: 'UltiTools Maven Plugin',
+                link: 'advanced/maven-plugin'
+            },
+            {
+                text: 'UltiKits CLI',
+                link: 'advanced/ultikits-cli'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'Releasing',
+        items: [
+            {
+                text: 'Module Versioning',
+                link: 'advanced/module-versioning'
+            }
+        ]
+    },
+    // Archived API navigation pins Javadoc to the frozen release.
+    {
+        text: 'API Reference',
+        skipVersioning: true,
+        items: [
+            {
+                text: 'API Reference',
+                link: '/api/6.4.0/index.html',
+                target: '_self'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: 'Release Notes',
+        items: [
+            {
+                text: '6.4.0',
+                link: 'release-notes/6.4.0'
+            },
+            {
+                text: '6.3.2',
+                link: 'release-notes/6.3.2'
+            },
+            {
+                text: '6.3.1',
+                link: 'release-notes/6.3.1'
+            },
+            {
+                text: '6.3.0',
+                link: 'release-notes/6.3.0'
+            }
+        ]
+    },
+]
+
 // Frozen with the pages and examples from published commit 29f29800757b362fb5e815ca7e7b4e8b288489bd.
 const sidebarGuideEN_v632: SidebarItemExt[] = [
     {
@@ -1339,4 +1543,4 @@ const sidebarApiEN: DefaultTheme.SidebarItem[] = [
     },
 ]
 
-export { sidebarGuideEN, sidebarGuideEN_v632, sidebarGuideEN_v631, sidebarGuideEN_v630, sidebarGuideEN_v625, sidebarGuideEN_v624, sidebarGuideEN_v620, sidebarGuideEN_v610, sidebarApiEN }
+export { sidebarGuideEN, sidebarGuideEN_v640, sidebarGuideEN_v632, sidebarGuideEN_v631, sidebarGuideEN_v630, sidebarGuideEN_v625, sidebarGuideEN_v624, sidebarGuideEN_v620, sidebarGuideEN_v610, sidebarApiEN }
