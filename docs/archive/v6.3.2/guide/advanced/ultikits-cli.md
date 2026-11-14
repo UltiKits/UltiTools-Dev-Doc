@@ -1,0 +1,505 @@
+# UltiKits CLI
+
+`@ultikits/cli` is the official command-line tool for publishing UltiTools plugin modules to the [UltiCloud](https://panel.ultikits.com/) marketplace. Developers can use it to authenticate, initialize project metadata, upload JAR files, and manage published modules and versions.
+
+This page describes `@ultikits/cli` 2.0.1. Versions 1.x do not work with UltiCloud; upgrade with `npm install -g @ultikits/cli@latest` and run `ultikits login` again.
+
+::: tip Recommended: local publishing
+Official UltiTools modules are published locally by their maintainers: the accepted JAR is attached to a GitHub release and that same file is published to UltiCloud with the CLI. Third-party developers can use the same path.
+[GitHub Actions](#ci-cd-with-github-actions) is an optional manual workflow, not the official modules' release path.
+:::
+
+## Installation
+
+```bash
+npm install -g @ultikits/cli
+```
+
+Verify the installation:
+
+```bash
+ultikits --version
+```
+
+::: info Requirements
+
+- Node.js 18 or later
+- npm or any Node package manager
+
+:::
+
+## Authentication
+
+Before publishing, you need to authenticate with UltiCloud. The CLI supports two methods.
+
+### Browser Login (Device Authorization)
+
+```bash
+ultikits login
+```
+
+The CLI prints a user code and a confirmation link and opens your browser. Confirm the code there; the CLI polls and finishes on its own.
+
+The CLI credential is saved to `~/.ultikits/credentials.json`.
+
+### Developer Key
+
+If you prefer non-interactive login (e.g., on a remote server), use a developer key:
+
+1. Go to [panel.ultikits.com/developer](https://panel.ultikits.com/developer)
+2. Copy your developer key (`ucd_…`)
+3. Run `ultikits login --token` and paste the key when prompted, or run `ultikits login --token ucd_…`
+4. The CLI checks the key with UltiCloud before saving it
+
+### Environment Variable
+
+For CI/CD pipelines, set the `ULTIKITS_TOKEN` environment variable instead of running `ultikits login`:
+
+```bash
+export ULTIKITS_TOKEN=ucd_...
+```
+
+The value must be a developer key (`ucd_…`) or a CLI credential (`ucc_…`); an old access token is refused. When it is set, it is used instead of the saved credential. `--api-url` or `ULTIKITS_API_URL` selects another UltiCloud API (https only); the default is `https://api.ultikits.com`.
+
+### Other Auth Commands
+
+```bash
+ultikits whoami     # Check current authentication status
+ultikits logout     # Remove stored credentials
+```
+
+## Scaffolding a New Module
+
+The fastest way to start a new UltiTools module is with `ultikits create`:
+
+```bash
+ultikits create
+```
+
+The command prompts you for:
+
+| Prompt | Default | Description |
+|--------|---------|-------------|
+| Module name | — | PascalCase name (e.g., `UltiHome`, `MyPlugin`) |
+| Package name | Derived from name | Java package (e.g., `com.ultikits.plugins.home`) |
+| Description | — | Short description of the module |
+| Author | `git config user.name` | Your name |
+| API version | `6.2.2` | UltiTools-API version. This default lags the current release; use the latest version instead. |
+
+CLI 2.0.1 generates this project structure (the template is unchanged since 1.2.0):
+
+```
+UltiHome/
+├── pom.xml                          # Maven build with UltiTools-API, test deps, JaCoCo
+├── README.md                        # Bilingual readme template
+├── .gitignore
+├── src/main/java/.../UltiHome.java  # Main class with @UltiToolsModule
+├── src/main/resources/
+│   ├── plugin.yml                   # Plugin descriptor
+│   └── lang/
+│       ├── en.yml                   # English language file
+│       └── zh.yml                   # Chinese language file
+└── src/test/java/.../               # Test directory (empty, ready for tests)
+```
+
+Before compiling against UltiTools-API 6.3.0, migrate the generated template:
+
+- Select API version `6.3.0` and set `api-version: 630` in `src/main/resources/plugin.yml`; the template still writes `620`.
+- Remove the empty `unregisterSelf()` and `reloadSelf()` overrides from the main class. These methods are final in 6.3.0; put cleanup in `protected void onUnregister()` and reload logic in `protected void onReload()` if needed.
+
+Then compile the migrated project:
+
+```bash
+cd UltiHome
+mvn compile
+```
+
+You can also specify a target directory:
+
+```bash
+ultikits create my-plugin-dir
+```
+
+::: tip Annotated classes are discovered through scanBasePackages
+After scaffolding, add commands in a `commands/` package, services in a `service/` package, and configs in a `config/` package. The framework auto-discovers annotated classes via `@UltiToolsModule(scanBasePackages)`.
+:::
+
+## Project Setup
+
+### Initialize Project Config
+
+Run the following command in your module's root directory:
+
+```bash
+ultikits init
+```
+
+This creates an `ultikits.json` file with interactive prompts:
+
+```json
+{
+  "identifyString": "myplugin",
+  "name": "MyPlugin",
+  "shortDescription": "A brief description of your plugin.",
+  "categoryId": 1
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `identifyString` | Unique module identifier. 3-64 characters, lowercase letters, digits, `.` and `_`. Must start with a letter. |
+| `name` | Display name shown on the marketplace. |
+| `shortDescription` | Brief description, max 200 characters. |
+| `categoryId` | Module category (see table below). |
+
+### Categories
+
+| ID | Category |
+|----|----------|
+| 1 | Utilities |
+| 2 | Economy |
+| 3 | World Management |
+| 4 | Social & Chat |
+| 5 | Permissions & Security |
+| 6 | Gameplay |
+
+## Publishing
+
+### Basic Usage
+
+Build and test the module, then keep the JAR you intend to release. Attach that file to your GitHub release and publish the same bytes with the CLI, without rebuilding between the two uploads:
+
+```bash
+mvn clean verify
+ultikits publish target/MyPlugin-1.2.0.jar \
+  --module-version 1.2.0 \
+  --changelog "The body of the 1.2.0 section in CHANGELOG.md"
+```
+
+If no JAR path is supplied, the CLI searches `./target/` (skipping `-sources.jar` and `-javadoc.jar`). With a selected JAR, it automatically:
+1. Uses that file for the upload
+2. Reads `plugin.yml` from the JAR for name and version
+3. Reads `ultikits.json` for identifyString, description, and category
+4. Creates the module on UltiCloud if it doesn't exist, which needs a manage credential (`ultikits login`, or a developer key rotated to the manage scope)
+5. Creates a new version and uploads the JAR
+
+### Publish with Options
+
+Specify the JAR path explicitly and override metadata with flags. Pass the body of the released version’s `CHANGELOG.md` section as one `--changelog` argument, rather than the whole file or a generic placeholder. Replace the sample text below with that section:
+
+```bash
+ultikits publish target/MyPlugin-1.2.0.jar \
+  --module-version 1.2.0 \
+  --changelog "The body of the 1.2.0 section in CHANGELOG.md"
+```
+
+Available flags:
+
+| Flag | Description |
+|------|-------------|
+| `--id <identifyString>` | Override module identifier |
+| `--name <name>` | Display name, used only when the module has to be created |
+| `--module-version <version>` | Override version string |
+| `--changelog <text>` | Version changelog |
+| `--short-description <text>` | Short description, used only when the module has to be created |
+| `--api-url <url>` | UltiCloud API URL (default `ULTIKITS_API_URL`, the stored login, or `https://api.ultikits.com`) |
+| `-y, --yes` | Skip all confirmation prompts |
+
+### Non-Interactive Mode
+
+For CI/CD, use `--yes` to skip prompts and `ULTIKITS_TOKEN` for auth:
+
+```bash
+ULTIKITS_TOKEN=ucd_... ultikits publish --yes \
+  --module-version "1.2.0" \
+  --changelog "The body of the 1.2.0 section in CHANGELOG.md"
+```
+
+### Metadata Resolution
+
+The CLI resolves metadata from multiple sources in this priority order:
+
+**CLI flags** > **ultikits.json** > **plugin.yml from JAR**
+
+For example, if you pass `--module-version 1.2.0`, it overrides the version in `plugin.yml`.
+
+### Failed uploads and retries
+
+A version whose artifact upload never completed is not published: it is not listed publicly or selected as the latest version. After a failed or interrupted upload, run the same `ultikits publish` command again with the **same JAR**: the CLI requests a new upload ticket for the pending version and the old ticket stops working. The pending version keeps the size and SHA-256 declared first, so to upload different bytes, delete the pending version in the developer centre or publish a higher version. A new version must be greater than every version of the module, including one still waiting for its upload.
+
+A published version cannot be overwritten. Use a new version for changed bytes. If a network failure leaves the outcome unknown, run [`ultikits versions list`](#list-versions) first: a version listed there is published and cannot be replaced by retrying.
+
+### The module's API level
+
+As of v6.3.0, UltiCloud reads `api-version` from the root `plugin.yml` of the JAR you publish and stores it with the version. No flag and no `ultikits.json` field sets it; UltiCloud reads it only from the JAR. Declare it as an integer:
+
+```yaml
+api-version: 630
+```
+
+The number decides which servers are offered the version. A server on UltiTools-API 6.3.0 or later is offered versions from 630 up to its own API level; a server on an older framework is offered only versions below 630. See [Module Versioning](/guide/advanced/module-versioning#version-selection-by-api-level).
+
+A JAR whose root `plugin.yml` does not declare an integer `api-version` is refused when it is uploaded: the version is not published and stays pending with the declared file. See [Upload refused for the API level](#upload-refused-for-the-api-level).
+
+## Managing Modules
+
+### List Your Modules
+
+```bash
+ultikits modules list
+```
+
+Output:
+
+```
+  myplugin — MyPlugin (1.0.0)
+  anotherplugin — AnotherPlugin (无已发布版本 / no versions)
+共 2 个模块 / 2 module(s)
+```
+
+### Module Details
+
+```bash
+ultikits modules info myplugin
+```
+
+Output:
+
+```
+  名称 / Name:          MyPlugin
+  标识符 / Identifier:  myplugin
+  简介 / Summary:       A brief description
+  分类 / Category:      Utilities (#1)
+  最新版本 / Latest:    1.0.0
+  下载 / Downloads:     42
+  更新 / Updated:       2026-11-07T12:00:00.000Z
+```
+
+### Delete a Module
+
+```bash
+ultikits modules delete myplugin
+```
+
+::: danger The module disappears at once
+It is removed from the catalogue and downloads immediately. Within 30 days `ultikits modules restore myplugin` restores it (the web panel has no restore); after that it is purged.
+:::
+
+The CLI asks you to type the identifier again. With `-y`, or without a terminal, pass `--confirm myplugin`.
+
+### Other Module Commands
+
+These commands need a manage credential (`ultikits login`, or a developer key rotated to the manage scope):
+
+```bash
+ultikits modules create --id myplugin --name MyPlugin   # defaults come from ultikits.json
+ultikits modules update myplugin --short-description "New text"
+ultikits modules restore myplugin
+```
+
+## Managing Versions
+
+### List Versions
+
+```bash
+ultikits versions list myplugin
+```
+
+This lists every published and withdrawn version from the public catalogue, with its size and publish time; pending uploads are not shown and no credential is sent.
+
+To verify the uploaded bytes, read the version's metadata and compare its `sha256` and `sizeBytes` with your retained JAR:
+
+```bash
+curl --fail-with-body 'https://api.ultikits.com/v1/catalogue/modules/myplugin/versions/1.2.0'
+```
+
+### Withdraw a Version
+
+```bash
+ultikits versions withdraw myplugin 1.2.0
+```
+
+This withdraws a published version and needs a manage credential. It cannot be undone: the version and lower ones can never be published again; copies already downloaded are unaffected. With `-y`, or without a terminal, pass `--confirm myplugin@1.2.0`. `versions delete` is an old name for the same command.
+
+## CI/CD with GitHub Actions {#ci-cd-with-github-actions}
+
+Local publishing is recommended. If your project needs CI publishing, this optional recipe runs only when a maintainer starts it manually. It does not publish on a push, merge or GitHub release event. Create `.github/workflows/publish.yml`:
+
+```yaml
+name: Publish to UltiCloud
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Module version, for example 1.2.0
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Extract release notes
+        env:
+          MODULE_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["MODULE_VERSION"]
+          if not re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", version):
+              raise SystemExit("Expected a release version such as 1.2.0")
+          lines = Path("CHANGELOG.md").read_text(encoding="utf-8").splitlines()
+          heading = re.compile(r"^##[ \t]+(?:\[v?([^\]]+)\]|v?([0-9]+\.[0-9]+\.[0-9]+))(?=[ \t]|$)")
+          sections = []
+          start = None
+          fence = None
+          for index, line in enumerate(lines):
+              marker = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
+              if fence:
+                  if re.fullmatch(r" {0,3}" + re.escape(fence[0]) + "{" + str(len(fence)) + r",}[ \t]*", line):
+                      fence = None
+                  continue
+              if marker:
+                  fence = marker.group(1)
+                  continue
+              if re.match(r"^##(?:[ \t]|$)", line):
+                  if start is not None:
+                      sections.append(lines[start:index])
+                      start = None
+                  match = heading.match(line)
+                  if match and (match.group(1) or match.group(2)) == version:
+                      start = index + 1
+          if start is not None:
+              sections.append(lines[start:])
+          if len(sections) != 1:
+              raise SystemExit("Expected exactly one CHANGELOG section for " + version)
+          body = "\n".join(sections[0]).strip()
+          if not body:
+              raise SystemExit("The CHANGELOG section is empty")
+          Path("release-notes.md").write_text(body + "\n", encoding="utf-8")
+          PY
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Set project version and verify
+        env:
+          MODULE_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$MODULE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          mvn -B versions:set "-DnewVersion=$MODULE_VERSION" -DgenerateBackupPoms=false
+          mvn -B clean verify
+
+      - name: Retain the built JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: module-${{ inputs.version }}
+          path: target/MyPlugin-${{ inputs.version }}.jar
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install a pinned UltiKits CLI
+        run: npm install -g @ultikits/cli@2.0.1 --ignore-scripts
+
+      - name: Publish to UltiCloud
+        env:
+          ULTIKITS_TOKEN: ${{ secrets.ULTIKITS_TOKEN }}
+          MODULE_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ultikits publish "target/MyPlugin-${MODULE_VERSION}.jar" --yes \
+            --module-version "$MODULE_VERSION" \
+            --changelog "$(cat release-notes.md)"
+```
+
+The extractor accepts a single `## [1.2.0]`, `## [v1.2.0]` or `## 1.2.0` heading, optionally followed by a date. It keeps subheadings and fenced code through the next level-two heading or end of file, and refuses an invalid version, missing or duplicate section, or empty body before building or publishing. Review the selected ref: its changelog must describe the bytes you intend to build.
+
+### Setup Steps
+
+1. Add the workflow file and change `MyPlugin` in both exact JAR paths to your build's final artifact name. Do not use a wildcard that could upload a sources or unshaded JAR.
+2. Set the repository's `ULTIKITS_TOKEN` secret with a developer key (`ucd_…`); never put it in the workflow text or a dispatch input. An upload-scoped key cannot create a missing module, so create the module first.
+3. Keep the CLI version pinned. Review a version change before updating the pin.
+
+::: warning Publishing on push
+Do not add a `push` or merge trigger: merging a version bump would then release it automatically. Interpolating workflow inputs directly into `run:` can also create shell injection; pass them through environment variables and quote their expansions as above.
+:::
+
+### Publishing a New Version
+
+1. Review the source and the version's `CHANGELOG.md` section.
+2. Open **Actions > Publish to UltiCloud > Run workflow** and select the intended branch or tag.
+3. Enter only the module version. The workflow reads its complete section body from the checked-out `CHANGELOG.md`; no multiline form input is used.
+4. Start the workflow deliberately, then check the uploaded version and file. This optional recipe builds once and publishes to UltiCloud; it does not create a GitHub release. Download the `module-<version>` artifact from the workflow run, extract its JAR, and attach that file to GitHub if needed, without rebuilding.
+
+## Troubleshooting
+
+### "Not logged in" Error
+
+```
+未登录：请运行 ultikits login，或设置环境变量 ULTIKITS_TOKEN。
+```
+
+Either run `ultikits login` to authenticate interactively, or set the `ULTIKITS_TOKEN` environment variable. A credential file written by CLI 1.x gives `凭据文件是旧版格式，对新接口无效，请重新 ultikits login。`; run `ultikits login` again.
+
+### "No JAR file specified and none found in ./target/"
+
+The CLI looks for a `.jar` file in `./target/` by default. Make sure you've built the project first:
+
+```bash
+mvn clean package -DskipTests
+```
+
+### Missing Required Fields
+
+```
+Missing required fields:
+  - identifyString (use --id or ultikits.json)
+```
+
+Create an `ultikits.json` with `ultikits init`, or pass the missing fields as CLI flags.
+
+### Invalid Credential on Publish
+
+`[invalid_credential]` means the credential is wrong or expired, and `[role_required]` means the account is not a developer yet. Verify that the `ULTIKITS_TOKEN` secret is set correctly on your repository:
+
+```bash
+gh secret list --repo YourOrg/YourPlugin
+```
+
+The secret must be a developer key (`ucd_…`). `[key_scope_insufficient]` means the module does not exist and the key's upload scope cannot create it.
+
+### Upload refused for the API level
+
+`ultikits publish` reports one of two codes:
+
+```
+JAR 里的 plugin.yml 需要整数 api-version：补上后重新构建再发布。 [upload_api_level_missing]
+上传的文件不是有效的 ZIP/JAR：检查构建产物路径。 [upload_jar_invalid]
+```
+
+`upload_api_level_missing` covers a missing root `plugin.yml` or `api-version`, an empty value, a value declared twice, and a Bukkit-style value such as `'1.19'` that is not an integer; the message does not say which. `upload_jar_invalid` means the file is not a readable ZIP/JAR, such as a truncated JAR. Declare the level as shown in [The module's API level](#the-module-s-api-level) and rebuild. The refused version stays pending with the old file's checksum, so delete that pending version in the developer centre and publish again, or publish a higher version number.

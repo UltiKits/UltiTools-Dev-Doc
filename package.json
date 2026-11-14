@@ -11,11 +11,10 @@
     "check:version-signal": "bash scripts/test-version-signal.sh"
   },
   "devDependencies": {
-    "@nolebase/vitepress-plugin-enhanced-readabilities": "^2.18.2",
     "@nolebase/vitepress-plugin-git-changelog": "^2.18.2",
     "@nolebase/vitepress-plugin-highlight-targeted-heading": "^2.18.2",
     "@nolebase/vitepress-plugin-inline-link-preview": "^2.18.2",
-    "@types/node": "20.19.9",
+    "@types/node": "26.6.6",
     "@vite-pwa/vitepress": "^0.3.1",
     "@viteplus/versions": "^2.3.0",
     "sass": "^1.83.4",
@@ -25,7 +24,7 @@
     "workbox-window": "^7.0.0"
   },
   "dependencies": {
-    "typewriter-effect": "^2.21.0",
+    "typewriter-effect": "^3.3.0",
     "viewerjs": "^1.11.6",
     "vitepress-plugin-back-to-top": "^1.0.1",
     "vitepress-plugin-codeblocks-fold": "^1.2.28",

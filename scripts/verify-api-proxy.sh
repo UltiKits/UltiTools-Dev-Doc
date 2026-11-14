@@ -223,6 +223,54 @@ else
   record "5a-follow version-wrapper 301 目标本身 200" "上一步未取得 Location，跳过" 1
 fi
 
+# 5c/5d/5e — 中文 locale 的两条镜像。它们由 docs/public/_redirects 处理，不是
+# Function：Function 只声明 /api/*，/zh/api/* 因此落回 _redirects。这几项存在
+# 是因为那两条规则看起来像死代码，而删掉它们不会被任何其它检查拦住。
+#
+# 这些响应**不进 API_HEADERS**。那个数组喂给第 6 与第 15 项，它们断言「所有
+# /api/ 响应都带 noindex 且 CSP 逐字相等」——那是 Function 加的头，而
+# _redirects 提供的响应两样都没有。把它们混进去会让那两项转红，红的原因还
+# 是错的。
+#
+# 5c 走完整两跳，不止断言第一跳是 301：只断言状态码的话，规则被删后若有别的
+# 东西碰巧也返回 301，这一项会假绿。第一跳的 Location 是**相对路径**（不像
+# Function 返回绝对 URL），所以第二跳要自己补上 BASE_URL。
+fetch "$BASE_URL/zh/api/version-wrapper"
+loc_zh_vw=$(header_value "$HEADERS_FILE" "location")
+r=0
+[ "$HTTP_STATUS" = "301" ] || r=1
+printf '%s' "$loc_zh_vw" | grep -q "/api/version-wrapper" || r=1
+record "5c zh version-wrapper 301 链经英文退役路径" "status=$HTTP_STATUS location=${loc_zh_vw:-<无>}" "$r"
+
+if [ -n "$loc_zh_vw" ]; then
+  case "$loc_zh_vw" in
+    http://*|https://*) hop2="$loc_zh_vw" ;;
+    *)                  hop2="$BASE_URL$loc_zh_vw" ;;
+  esac
+  fetch "$hop2"
+  loc_zh_vw2=$(header_value "$HEADERS_FILE" "location")
+  r=0
+  [ "$HTTP_STATUS" = "301" ] || r=1
+  printf '%s' "$loc_zh_vw2" | grep -q "com/ultikits/ultitools/interfaces/VersionWrapper.html" || r=1
+  record "5c-follow zh 第二跳 301 到 javadoc 目标" "status=$HTTP_STATUS location=${loc_zh_vw2:-<无>}" "$r"
+else
+  record "5c-follow zh 第二跳 301 到 javadoc 目标" "上一步未取得 Location，跳过" 1
+fi
+
+fetch "$BASE_URL/zh/api/ulti-tools-plugin"
+loc_zh_utp=$(header_value "$HEADERS_FILE" "location")
+r=0
+[ "$HTTP_STATUS" = "301" ] || r=1
+printf '%s' "$loc_zh_utp" | grep -q "/zh/guide/advanced/ulti-tools-plugin" || r=1
+record "5d zh ulti-tools-plugin 301 停在中文讲解页" "status=$HTTP_STATUS location=${loc_zh_utp:-<无>}" "$r"
+
+# 对照组：一个确实不存在的 /zh/api/ 路径必须 404。没有它，上面三项全绿也可能
+# 只是说明这一段路径对什么都返回 3xx。
+fetch "$BASE_URL/zh/api/definitely-not-a-page"
+r=0
+[ "$HTTP_STATUS" = "404" ] || r=1
+record "5e 对照组：不存在的 /zh/api/ 路径 404" "status=$HTTP_STATUS" "$r"
+
 fetch "$BASE_URL/api/ulti-tools-plugin"
 API_HEADERS+=("$HEADERS_FILE")
 loc_utp=$(header_value "$HEADERS_FILE" "location")

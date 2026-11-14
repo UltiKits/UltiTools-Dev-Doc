@@ -73,7 +73,7 @@ TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", Tes
 private int lockTimeout = 30;
 ```
 
-自 v6.3.0 起，`parser` 保持默认即使用声明类型转换器注册表。显式非默认旧解析器收到的恰好是 6.2 给它们的输入：通过全新的 Bukkit `YamlConfiguration#get` 得到的隔离输入，保留 6.2 配置节拆分点号键的行为，并在根值、列表和映射内部反序列化 `==` 别名；显式使用旧解析器的 `Object` 字段也一样。这条输入路径不使用注册表转换器，输出仍经过普通数据边界并保留包装数值拓宽。Bukkit 自身的别名限制不变：Vector 坐标为整数时反序列化为 null，带小数部分时正常反序列化。六项相关声明在 6.3.0 首次带 `forRemoval`，公告删除版本为 6.4.0。新代码使用[配置转换器](/zh/guide/advanced/config-converters)，不再继承 `DefaultConfigParser`。
+旧的 `parser` 属性及解析器类已在 v6.4.0 移除。字段使用声明类型转换器注册表；自定义类型请按[配置转换器](/zh/guide/advanced/config-converters)注册 `ConfigConverter`。
 
 #### 数值字段
 
@@ -85,7 +85,7 @@ private int lockTimeout = 30;
 
 自 v6.3.0 起，完整继承泛型参与列表、集合、队列、映射、数组和枚举转换。无效集合/映射元素跳过并警告，整个字段形状无效时使用最初声明默认值。警告定位文件、键、位置、类型，并隐藏密钥形状的值。自 v6.3.2 起，跳过值的警告把原始值和原因显示在同一条日志行中；密钥形状的值仍会隐藏，配置值和文件原文保持不变。未知声明类型在读写任何配置文件前拒绝模块加载；登记转换器，不把原始映射偷偷传入自定义类。
 
-整个 null 字段和映射中的 null 值仍可往返，基本类型 null 无效。类型化集合（包括 `List<Object>`）和引用数组（包括 `Object[]`）写入时省略 null 元素，每个字段记录一条定位警告。读取时，文件中类型化集合里的 null 元素同样被跳过并给出定位警告，与 6.2 一致；声明为 `Object` 的普通数据槽保持普通数据。UUID 和枚举使用普通文字，注册的 Bukkit `ConfigurationSerializable` 使用别名映射。未显式使用旧解析器时，读进 `Object` 槽的 Bukkit 对象仍是普通映射。未知运行时 Java 对象拒绝保存，不触碰文件。
+整个 null 字段和映射中的 null 值仍可往返，基本类型 null 无效。类型化集合（包括 `List<Object>`）和引用数组（包括 `Object[]`）写入时省略 null 元素，每个字段记录一条定位警告。读取时，文件中类型化集合里的 null 元素同样被跳过并给出定位警告，与 6.2 一致；声明为 `Object` 的普通数据槽保持普通数据。UUID 和枚举使用普通文字，注册的 Bukkit `ConfigurationSerializable` 使用别名映射。读进 `Object` 槽的 Bukkit 对象仍是普通映射。未知运行时 Java 对象拒绝保存，不触碰文件。
 
 #### @Getter 和 @Setter
 
@@ -263,7 +263,50 @@ OperatorFiles.WriteResult result = OperatorFiles.write(snapshot, edit);
 
 结果为 `WRITTEN`、`UNCHANGED`、`FILE_CHANGED`（`read` 之后文件被改动）或 `REFUSED`（排版或锚点问题，闸门会记一条 WARNING）。列表中的每一项是一个完整的键，名字里含 `.` 也仍是一个键。`OperatorFiles` 从不创建、删除或重命名文件，也不用于 `@ConfigEntity` 文件。
 
+### 选择性启用的崩溃安全 YAML 写入
+
+自 v6.4.0 起，`com.ultikits.ultitools.config.CrashSafeYamlFiles` 为模块在服主明确创建或编辑文件时提供严格的单文件发布。模块必须主动采用它：现有模块、`OperatorFiles.write`、`@ConfigEntity` 保存和面板写入不会自动切换。它不用于自动保存、凭据、框架状态、任意字节、文件修复、删除或改名，也不是多文件事务。
+
+| 方法 | 用途与结果 |
+|---|---|
+| `write(OperatorFiles.Snapshot, Map<List<String>, Object>)` | 只编辑指定的完整键路径，返回 `WRITTEN`、`UNCHANGED`、`FILE_CHANGED` 或 `REFUSED`。目标缺失时返回 `FILE_CHANGED`，不会重新创建。 |
+| `create(File, Map<String, Object>)` | 仅在没有任何已有目录项时发布完整的普通数据根映射，返回 `WRITTEN`、`FILE_CHANGED` 或 `REFUSED`，从不返回 `UNCHANGED`。已有文件、目录或悬空符号链接均为 `FILE_CHANGED`，即使内容相同。父目录必须已存在。 |
+
+两个方法都声明 `throws IOException`，在 I/O 前复制并校验参数。参数或键为 null、写入路径无效、值不是普通数据时抛 `IllegalArgumentException`，Bukkit 对象应先序列化。含点的键完整保留，允许 null 值，创建时允许空根映射。两个方法都不修改模块的运行对象。
+
+```java
+OperatorFiles.Snapshot snapshot = OperatorFiles.read(kitFile);
+OperatorFiles.WriteResult edited = CrashSafeYamlFiles.write(snapshot,
+        Collections.singletonMap(Arrays.asList(kitName, "items"), serializedItems));
+OperatorFiles.WriteResult created = CrashSafeYamlFiles.create(newKitFile,
+        Collections.singletonMap("items", serializedItems));
+```
+
+仅在 `WRITTEN` 后更新运行状态，编辑时 `UNCHANGED` 也可以。`FILE_CHANGED` 表示快照已不再允许该编辑，或创建目标已存在；`REFUSED` 表示闸门无法安全执行操作。编辑复用普通数据、指纹以及解析、渲染、重新解析检查，未拥有的每个字节（包括注释、未知键、BOM、行尾）必须保持相同。无法解析、使用锚点或无法保留排版的 YAML 会被拒绝，不会被修复。空编辑和语义无变化的编辑返回 `UNCHANGED`，不暂存、不改变元数据。
+
+#### 文件系统与元数据要求
+
+`File` 和快照入口使用 JVM 默认文件系统。实际发布要求本地默认 POSIX 文件系统上的普通文件，具备原生原子 rename/link 语义和可用的 POSIX 属性。普通 Windows 文件系统不受支持。已有的末级符号链接或非普通编辑目标会被拒绝，不会被跟随；先解析真实父目录，再接上末级文件名。请传入可信的模块路径，该 API 不提供路径沙箱。
+
+已有文件保留九位 POSIX 权限、所有者和组，在提交前应用到暂存 inode 并校验，失败则中止发布。目标没有写权限位或进程不可写时拒绝。暂存文件在写入内容前以 `0600` 排他创建，需要改变所有者或组时先收紧为 `0000`，之后设置并校验最终权限。新文件保留进程创建的所有者和组，权限为 `0600`，旧写入入口的默认值不变。非 POSIX 文件系统，或父目录、目标、暂存文件暴露 Java ACL view 时，会被拒绝。
+
+该入口不复制 ACL。没有 Java ACL view 不证明不存在 Linux ACL、默认 ACL、安全标签或 xattr。需要保留这些属性、特殊权限位、备用数据流、inode 身份、硬链接关系、创建时间或任意标记的文件，不应采用它。替换会创建新的 inode，已有硬链接别名仍保留旧内容；并非每种不兼容元数据布局都能被检测。
+
+#### 发布与中断
+
+同目录的 `<文件名>.ultitools-stage-<32 位小写十六进制>.tmp` 在发布前接收完整 UTF-8 内容和承诺的元数据，执行 `FileChannel.force(true)` 并成功关闭。已有文件编辑通过 `ATOMIC_MOVE` 提交；创建则以原生 POSIX 硬链接排他发布完整暂存文件，不把原子移动当作“仅在不存在时创建”。不支持原子替换或硬链接发布时抛 `IOException`，不退回复制、普通移动、原地截断或日志方案。
+
+操作系统和文件系统正常工作时，进程崩溃会留下旧内容、原本不存在的目标，或完整新内容。发布后的目录同步尽力执行，失败会警告；`WRITTEN` 表示完整发布，不表示普遍的断电持久性。操作系统崩溃、突然断电、远程存储、设备或控制器故障及文件系统恢复不在保证内。同一 JVM 的闸门写入串行执行，提交前重新检查字节、类型和承诺的元数据，但没有跨进程锁；外部编辑、改名或 chmod 仍可能发生在最后检查之后。不要让不协调的写入方共用这些文件。
+
+#### 遗留临时文件
+
+没有启动扫描、日志、重放、自动提升或回滚。清理只删除本次调用创建的那个普通临时文件，并且必须由非 null 文件键继续证明身份。清理失败或身份不确定时，警告会给出临时文件名；后续调用不复用或删除它。提交前的清理失败不掩盖原始错误，提交后的清理失败仍返回 `WRITTEN`；创建可能留下指向完整新内容的第二个硬链接。严格读取不运行旧的临时文件或备份维护逻辑。
+
+中断后，先停止服务器和其他写入方，再检查目标及指明的遗留文件。不要假定临时文件更新或更权威，也不要自动将它变为正式文件。只删除已确认不再需要的临时文件；无法确认时保留它，使用独立可信的备份或模块明确的重新创建操作。遗留文件可能按最终 POSIX 权限保存新数据，请像保护 YAML 文件本身一样保护它。
+
 ### 原子替换
+
+下述现有配置和 `OperatorFiles.write` 路径仍保留备份后原地写入；上文 v6.4.0 的选择性入口从不使用这条退路。
 
 单个列表项的注释仅在列表长度不变时保留；Bukkit 则完全不保留列表项注释。
 
@@ -297,4 +340,4 @@ v6.3.2 的重载说明不承诺模块全部配置文件的事务性。首个失�
 
 ## 已知限制
 
-自 v6.3.0 起，[#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578) 记录了威胁模型之外的存储问题，其中仍适用的是符号链接后跟 `..` 的临时文件路径，以及 Unicode 文件的样式检测耗时。锚点容器与别名注释两项不会发生，因为任何写入路径都不写入使用锚点、别名或合并键的文件。[#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580) 与 [#617](https://github.com/UltiKits/UltiTools-Reborn/issues/617) 是读取器无法读取的两种排版（见[读取器无法读取的排版](#读取器无法读取的排版)）；保护保留文件字节，不表示其中的值可以读取。[#545](https://github.com/UltiKits/UltiTools-Reborn/issues/545) 仍是多文件崩溃持久化限制。
+自 v6.3.0 起，[#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578) 记录了威胁模型之外的存储问题，其中仍适用的是符号链接后跟 `..` 的临时文件路径，以及 Unicode 文件的样式检测耗时。锚点容器与别名注释两项不会发生，因为任何写入路径都不写入使用锚点、别名或合并键的文件。[#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580) 与 [#617](https://github.com/UltiKits/UltiTools-Reborn/issues/617) 是读取器无法读取的两种排版（见[读取器无法读取的排版](#读取器无法读取的排版)）；保护保留文件字节，不表示其中的值可以读取。多文件崩溃持久化仍不受支持；[#545](https://github.com/UltiKits/UltiTools-Reborn/issues/545) 的 v6.4.0 [选择性单文件入口](#选择性启用的崩溃安全-yaml-写入)不改变该限制。

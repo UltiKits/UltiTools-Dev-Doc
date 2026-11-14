@@ -1,7 +1,7 @@
 import type { LocaleConfig } from 'vitepress'
 import type { DefaultTheme } from 'vitepress/theme'
 import {navEN} from "./nav.en.mjs";
-import {sidebarApiEN, sidebarGuideEN, sidebarGuideEN_v631, sidebarGuideEN_v630, sidebarGuideEN_v625, sidebarGuideEN_v624, sidebarGuideEN_v620, sidebarGuideEN_v610} from "./sidebar.en.mjs";
+import {sidebarApiEN, sidebarGuideEN, sidebarGuideEN_v632, sidebarGuideEN_v631, sidebarGuideEN_v630, sidebarGuideEN_v625, sidebarGuideEN_v624, sidebarGuideEN_v620, sidebarGuideEN_v610} from "./sidebar.en.mjs";
 import {sidebarGuideSnapshotEN, sidebarApiSnapshotEN, snapshotVersion} from "./sidebar-snapshot.generated.mjs";
 import {archiveSidebarEntries} from "./archive-sidebars.mjs";
 import {textEN} from "./text.en.mjs";
@@ -32,6 +32,7 @@ const localeEN: LocaleConfig<DefaultTheme.Config> = {
                 // It throws when a docs/archive/v* directory has no row.
                 ...archiveSidebarEntries({
                     guideConstants: {
+                        v632: sidebarGuideEN_v632,
                         v631: sidebarGuideEN_v631,
                         v630: sidebarGuideEN_v630,
                         v625: sidebarGuideEN_v625,

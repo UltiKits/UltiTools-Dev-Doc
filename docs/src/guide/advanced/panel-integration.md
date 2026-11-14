@@ -542,7 +542,7 @@ public class SensitiveCommands {
   to error reports (message, trigger and stack trace) and to chat.
 - `player.command` events carry only the command name, lower-cased and without namespace, for every command,
   registered or not.
-- The server's own console, its log files and the log records other handlers see are not changed.
+- The server's own console, its log files and the log records other handlers see are not changed, with one exception as of v6.4.0: when the panel's remote console (`command.execute`) runs a registered command, the framework's own records of it (the `[Remote command] > ...` echo, the blocked and failure lines, and the `target` of its `action.log` line) show the command followed by `***`, for example `[Remote command] > logadmin ***`. The command still runs with its arguments. Up to v6.3.2 these local records carried the whole command line, and so did the panel log stream's copy of the echo.
 - Registration works from any thread, whether or not the server is linked, and repeating it is harmless.
   There is no way to unregister: a name stays redacted until the server restarts.
 

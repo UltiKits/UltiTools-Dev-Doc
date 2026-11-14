@@ -30,28 +30,13 @@ const navZH = [
     {
         text: '更新说明',
         activeMatch: `/guide/release-notes/`,
-        link: '/zh/guide/release-notes/6.3.2',
+        link: '/zh/guide/release-notes/6.4.0',
         skipVersioning: true
-    },
-    // 不传 link、不传 activeMatch、也不手传 versioningPlugin：
-    // @viteplus/versions 的 populateNav 步骤会自动把
-    // props.versioningPlugin = { versions, currentVersion } 合并进任何带
-    // component 键的 nav 项（见 04-UI-SPEC.md § Version Switcher Contract）。
-    // 手动传这个 prop 会造出第二份构建期数据，与自动合并的那份互相漂移。
-    // 桌面端由 SecondNavBar.vue、移动端由 VitePress 自带的 VPNavScreenMenu
-    // 消费同一条 nav 项——注册名为什么是 'VersionSwitcher' 而不是
-    // 'UtVersionSwitcher'，见 theme/index.mts。
-    //
-    // 每页服务端渲染的是两份，不是一份：VitePress 自己的 VPNavBarMenu.vue:21-25
-    // 与 SecondNavBar.vue:82 都会遍历 theme.nav 并渲染 component 分支。第二份
-    // 看不见，只是因为 Layout.vue 把
-    // `.VPNavBar .content-body > .VPNavBarMenu.menu` 整个隐藏了——那是一条先于
-    // 切换器存在、与它无关的规则，去掉它导航栏上就会多出一个下拉。
-    // scripts/check-rendered-links.sh 已把出现次数断言成恰好 2，第三个消费方
-    // 出现、或那条隐藏规则被动过，才不会是静默的。
-    {
-        component: 'VersionSwitcher'
     }
+    // 版本切换器不是 nav 项。它由 Layout.vue 直接渲染：桌面端在导航栏标题
+    // 右侧，手机端在屏幕菜单底部，版本数据取自构建期清单
+    // version-pages.generated.mjs。留在这里会被 SecondNavBar 与
+    // VPNavScreenMenu 各渲染一份，且位置只能落在 tab 行或菜单列表里。
 ]
 
 export { navZH }

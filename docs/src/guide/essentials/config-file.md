@@ -82,7 +82,7 @@ When a module changes the catalogue wording of a token comment, servers that upg
 private int lockTimeout = 30;
 ```
 
-As of v6.3.0, leave `parser` at its default to use the declared-type converter registry. Explicit non-default legacy parsers receive exactly the input 6.2 gave them: detached input through a fresh Bukkit `YamlConfiguration#get`, preserving 6.2 section-based dotted-key splitting and `==` alias deserialization at the root and inside lists/maps, even for explicitly parsed `Object` fields. This input does not use registry converters; output still crosses the plain-data boundary and retains boxed widening. Bukkit's own alias restrictions remain: integral Vector coordinates deserialize to null, whereas fractional coordinates deserialize normally. Six parser-related declarations first carry `forRemoval` in 6.3.0, with removal announced for 6.4.0. New code uses [Config Converters](/guide/advanced/config-converters), not a `DefaultConfigParser` subclass.
+The legacy `parser` attribute and its parser classes were removed in v6.4.0. Fields use the declared-type converter registry; for a custom type, register a `ConfigConverter` as described in [Config Converters](/guide/advanced/config-converters).
 
 #### Numeric fields
 
@@ -94,7 +94,7 @@ An `int`, `long`, `Integer` or `Long` field can also drive a task interval or co
 
 As of v6.3.0, full inherited generic types drive lists, sets, queues, maps, arrays and enums. Invalid collection/map elements are skipped with a warning; a wrongly shaped whole field uses its initially declared default. Warnings identify the file, key, position and type and redact secret-shaped values. As of v6.3.2, skipped-value warnings render the raw value and reason on one log line; secret-shaped values remain redacted and configuration values and file content are unchanged. An unknown declared type refuses module load before any config file is read or created; register a converter rather than accepting raw maps into a custom class.
 
-Explicit null whole fields and null map values still round-trip; primitive null is invalid. Typed collections (including `List<Object>`) and reference arrays (including `Object[]`) omit null elements on write with one located warning per field. A null element of a typed collection read from the file is likewise skipped with a located warning, as in 6.2; plain data in a declared `Object` slot remains plain. UUIDs and enums use plain text, and registered Bukkit `ConfigurationSerializable` values use alias-tagged maps. A Bukkit value read into an `Object` slot without an explicit legacy parser stays a plain map. Unknown runtime Java objects refuse a save without touching the file.
+Explicit null whole fields and null map values still round-trip; primitive null is invalid. Typed collections (including `List<Object>`) and reference arrays (including `Object[]`) omit null elements on write with one located warning per field. A null element of a typed collection read from the file is likewise skipped with a located warning, as in 6.2; plain data in a declared `Object` slot remains plain. UUIDs and enums use plain text, and registered Bukkit `ConfigurationSerializable` values use alias-tagged maps. A Bukkit value read into an `Object` slot stays a plain map. Unknown runtime Java objects refuse a save without touching the file.
 
 #### @Getter and @Setter
 
@@ -273,7 +273,50 @@ OperatorFiles.WriteResult result = OperatorFiles.write(snapshot, edit);
 
 The result is `WRITTEN`, `UNCHANGED`, `FILE_CHANGED` (the file changed since `read`) or `REFUSED` (a layout or anchors, with the gate's WARNING). Each key in the list is one whole key, so a name containing `.` stays one key. `OperatorFiles` never creates, deletes or renames a file and is not for `@ConfigEntity` files.
 
+### Opt-in crash-safe YAML writes
+
+As of v6.4.0, `com.ultikits.ultitools.config.CrashSafeYamlFiles` provides strict single-file publication for a module's explicit operator create or edit action. It is opt-in: existing modules, `OperatorFiles.write`, `@ConfigEntity` saves and panel writes do not switch to it. It is not for automatic saves, credentials, framework state, arbitrary bytes, file repair, deletion or renaming, and it is not a multi-file transaction.
+
+| Method | Use and result |
+|---|---|
+| `write(OperatorFiles.Snapshot, Map<List<String>, Object>)` | Edit only the named complete key paths; returns `WRITTEN`, `UNCHANGED`, `FILE_CHANGED` or `REFUSED`. A missing target is `FILE_CHANGED`, not recreated. |
+| `create(File, Map<String, Object>)` | Publish a complete plain-data root map only when no entry exists; returns `WRITTEN`, `FILE_CHANGED` or `REFUSED`, never `UNCHANGED`. An existing file, directory or dangling symlink is `FILE_CHANGED`, even with identical content. The parent directory must already exist. |
+
+Both methods declare `throws IOException` and copy and validate their arguments before I/O. Null arguments or keys, invalid write paths and non-plain values throw `IllegalArgumentException`; serialize Bukkit objects first. Keys containing dots are whole keys, null values are allowed, and an empty root map is valid for creation. Neither method changes your live objects.
+
+```java
+OperatorFiles.Snapshot snapshot = OperatorFiles.read(kitFile);
+OperatorFiles.WriteResult edited = CrashSafeYamlFiles.write(snapshot,
+        Collections.singletonMap(Arrays.asList(kitName, "items"), serializedItems));
+OperatorFiles.WriteResult created = CrashSafeYamlFiles.create(newKitFile,
+        Collections.singletonMap("items", serializedItems));
+```
+
+Update live state only after `WRITTEN` (or `UNCHANGED` for an edit). `FILE_CHANGED` means the snapshot no longer authorizes the edit, or a creation target exists; `REFUSED` means the gate cannot safely perform the operation. An edit reuses the plain-data, fingerprint and parse/render/reparse checks: every unowned byte, including comments, unknown keys, BOM and line endings, must remain identical. Malformed, anchored or unpreservable YAML is refused, never repaired. Empty edits and semantic no-ops return `UNCHANGED` without staging or metadata changes.
+
+#### Filesystem and metadata requirements
+
+The `File` and snapshot entry points use the JVM's default filesystem. Actual publication requires ordinary files on a local default POSIX filesystem with native atomic rename/link semantics and working POSIX attributes. Normal Windows filesystems are unsupported. An existing final symlink or nonregular edit target is refused, not followed; the real parent is resolved before appending the final basename. Supply trusted module paths: this API is not a path sandbox.
+
+Existing files retain the nine POSIX permission bits, owner and group, applied and verified on the staged inode before commit; failure aborts publication. A target without a write bit, or not writable by the process, is refused. Staging is created exclusively at mode `0600` before content is written, narrowed to `0000` before a required owner/group transition, then given its verified final mode. New files keep the process-created owner/group and mode `0600`; old writers' defaults are unchanged. Non-POSIX filesystems or a Java-exposed ACL view on the parent, target or stage are refused.
+
+The helper does not copy ACLs. Absence of a Java ACL view does not prove the absence of Linux ACLs, default ACLs, security labels or xattrs. Do not adopt it where those, special mode bits, alternate streams, inode identity, hard-link relationships, creation times or arbitrary flags must be preserved. Replacement creates a new inode, so existing hard-link aliases keep the old content; not every incompatible metadata layout can be detected.
+
+#### Publication and interruption
+
+A same-directory `<name>.ultitools-stage-<32 lower-case hex>.tmp` receives the complete UTF-8 content and promised metadata, then `FileChannel.force(true)` and a successful close, before publication. Existing-file edits commit with `ATOMIC_MOVE`; creation uses exclusive native POSIX hard-link publication of the completed stage, not an atomic move treated as create-if-absent. Unsupported atomic replacement or link publication throws `IOException` without copy, ordinary-move, in-place truncation or journal fallback.
+
+With a functioning OS and filesystem, a process crash leaves old/absent or complete-new final content. Directory forcing after publication is best effort and warns on failure; `WRITTEN` means complete publication, not universal power-loss durability. OS crashes, sudden power loss, remote storage, device/controller failure and filesystem recovery are outside this guarantee. Same-JVM gate writes serialize and recheck bytes, kind and promised metadata before commit, but there is no cross-process lock: an external edit, rename or chmod can race the final check. Do not share these files with uncoordinated writers.
+
+#### Retained temporary files
+
+There is no startup scan, journal, replay, automatic promotion or rollback. Cleanup removes only this invocation's exact regular-file temp while its non-null file key still proves its identity. Failed or uncertain cleanup leaves a warning naming the temp; later calls do not reuse or delete it. A pre-commit cleanup failure does not hide the original error, and a post-commit one still returns `WRITTEN`; creation can leave a second hard link to the complete new content. Strict reads do not run the legacy temp/backup maintenance.
+
+After interruption, stop the server and competing writers, then inspect the target and named leftovers. Never assume a temp is newer or authoritative, or promote it automatically. Remove only a temp recognized as no longer needed; otherwise keep it and use an independently trusted backup or the module's explicit recreate action. Retained temps may contain new data under the final POSIX mode: protect them like the YAML file itself.
+
 ### Atomic replacement
+
+The existing configuration and `OperatorFiles.write` paths below retain their backed in-place fallback; the opt-in v6.4.0 helper above never uses it.
 
 Comments on individual list items are kept only while the list keeps its length — the same as Bukkit, which keeps none.
 
@@ -307,4 +350,4 @@ As of v6.3.0 no configuration of an older module copy is saved when a newer copy
 
 ## Known limits
 
-As of v6.3.0, [#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578) records out-of-threat-model storage findings, and two still apply: temporary-file identity through a symlink followed by `..`, and quadratic style detection in Unicode-heavy files. Its anchored-container and alias-comment items cannot occur, because no write path writes a file that uses anchors, aliases or merge keys. [#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580) and [#617](https://github.com/UltiKits/UltiTools-Reborn/issues/617) are the two layouts the reader cannot read (see [Layouts the reader cannot read](#layouts-the-reader-cannot-read)). Protection preserves those file bytes; it does not make their values readable. [#545](https://github.com/UltiKits/UltiTools-Reborn/issues/545) remains the crash-safe multi-file persistence limit.
+As of v6.3.0, [#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578) records out-of-threat-model storage findings, and two still apply: temporary-file identity through a symlink followed by `..`, and quadratic style detection in Unicode-heavy files. Its anchored-container and alias-comment items cannot occur, because no write path writes a file that uses anchors, aliases or merge keys. [#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580) and [#617](https://github.com/UltiKits/UltiTools-Reborn/issues/617) are the two layouts the reader cannot read (see [Layouts the reader cannot read](#layouts-the-reader-cannot-read)). Protection preserves those file bytes; it does not make their values readable. Crash-safe multi-file persistence remains unsupported; the v6.4.0 opt-in [single-file helper](#opt-in-crash-safe-yaml-writes) for [#545](https://github.com/UltiKits/UltiTools-Reborn/issues/545) does not change that limit.
