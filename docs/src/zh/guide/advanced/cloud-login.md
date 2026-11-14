@@ -86,6 +86,8 @@ UltiCloud 账号超出套餐时（例如 Pro 套餐到期、服务器数量超�
 
 电源动作与玩家动作默认关闭。6.3.0 的 `config.yml` 会在启动时一次性加入这两个新键，值为 `false`；只补充缺失的键，服主写下的每个值和注释逐字节保持不变；框架无法以这种方式扩展的文件排版会得到一条警告，两个开关保持关闭。错误上报仍使用自己的键 `ultipanel.logging.error-reporting.enabled`。执行 `/ul reload` 后，改动的开关立即生效；声明的能力集合发生变化时，服务器会重新连接。每项功能发送和接受什么，见[面板集成](/zh/guide/advanced/panel-integration)。
 
+自 v6.5.0 起，`/ul reload` 造成的能力变化一定会触发新的握手，UltiCloud 因此看到新的能力集合，模块能力也包括在内。远程命令现在还会拒绝被禁止命令的内置别名，例如用 `rl` 代替 `reload`，见[v6.5.0 的别名与失败处理](/zh/guide/advanced/panel-integration#v6-5-0-的别名与失败处理)。
+
 ## 从 6.3.0 升级
 
 6.3.0 的登录使用服主的账号令牌，它已不再可用，也不会自动迁移：
@@ -95,6 +97,6 @@ UltiCloud 账号超出套餐时（例如 Pro 套餐到期、服务器数量超�
 
 ## 模块 API 兼容性
 
-`CloudAuthManager` 仍是内部类（`@ApiStatus.Internal`）。6.3.0 中替 UltiLogin 发送魔法链接请求的 `UltiCloudRequests` 已弃用，将在 6.4.0 删除。自 v6.3.1 起它的每次调用都返回 `PATH_NOT_ALLOWED`，什么也不发送，因此 UltiLogin 2.0.0 的 `/panel` 无法再使用；UltiLogin 2.1.0 改用[玩家链接 API](/zh/guide/advanced/player-link)。需要让玩家进入面板的模块使用这个 API；带有密码类参数的命令应登记为敏感命令（见[面板集成](/zh/guide/advanced/panel-integration#敏感命令)）。
+`CloudAuthManager` 仍是内部类（`@ApiStatus.Internal`）。6.3.0 中替 UltiLogin 发送魔法链接请求的 `UltiCloudRequests` 已在 6.4.0 删除。在 6.3.1–6.3.2 中，它的每次调用都返回 `PATH_NOT_ALLOWED`，什么也不发送，因此 UltiLogin 2.0.0 的 `/panel` 在删除之前就已无法使用；UltiLogin 2.1.0 改用[玩家链接 API](/zh/guide/advanced/player-link)。需要让玩家进入面板的模块使用这个 API；带有密码类参数的命令应登记为敏感命令（见[面板集成](/zh/guide/advanced/panel-integration#敏感命令)）。
 
 6.3.1 的完整变更、弃用与已知限制，见 [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md) 的「UltiCloud protocol 2.1.0」一节。

@@ -86,7 +86,7 @@ The examples on this page insert a player's row the first time the player change
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `saveBeforeRemove` | `boolean` | `false` | If `true`, calls `savePlayerData(UUID)` on the bean before removing the entry. The bean must implement `PlayerCacheSaver`; if it does not, the framework removes the entry without saving and logs nothing. |
+| `saveBeforeRemove` | `boolean` | `false` | If `true`, calls `savePlayerData(UUID)` on the bean before removing the entry. The bean must implement `PlayerCacheSaver`; as of v6.5.0, registering a bean that does not is refused with a `PluginModuleException`. Before v6.5.0 the framework removed the entry without saving and logged nothing. |
 
 ## PlayerCacheSaver Interface
 
@@ -96,7 +96,11 @@ public interface PlayerCacheSaver {
 }
 ```
 
-This interface is optional. Only implement it when you use `saveBeforeRemove = true`.
+This interface is optional. Only implement it when you use `saveBeforeRemove = true`; with that setting it is required.
+
+::: warning As of v6.5.0
+A bean with a `saveBeforeRemove = true` field that does not implement `PlayerCacheSaver` is refused at registration. The `PluginModuleException` names the bean class, the declaring class and the field, and the module fails to load. Implement `savePlayerData(UUID)`, or leave `saveBeforeRemove` at `false`.
+:::
 
 ## Multiple Maps
 
@@ -112,7 +116,7 @@ A single bean can have multiple `@PlayerCache` fields. Each is cleaned up indepe
 - A `Map<UUID, UUID>` is treated as UUID-keyed: only the quitting player's key is removed, not entries whose value is that player
 - As of v6.3.0, a `@PlayerCache` field of any other shape is refused when the bean is registered (`PluginModuleException`) instead of being ignored
 - The field must be in a singleton bean in the module's container (for example `@Service`, `@CmdExecutor`, `@EventListener`, or an object added with `registerSingleton(...)`) when `registerSelf()` returns `true`; an object added with `registerType(...)` is not scanned
-- For `saveBeforeRemove = true`, the bean must implement `PlayerCacheSaver`; otherwise the entry is removed without saving
+- As of v6.5.0, for `saveBeforeRemove = true` the bean must implement `PlayerCacheSaver`; otherwise registration is refused with a `PluginModuleException` (before v6.5.0 the entry was removed without saving). A field inherited from a superclass is checked against the concrete bean, so a subclass that implements the interface is accepted
 - Use `ConcurrentHashMap` if the map is accessed from async threads
 
 ## Complete Example

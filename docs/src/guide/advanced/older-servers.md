@@ -1,7 +1,6 @@
 # Supporting servers below 1.21
 
-::: info As of v6.4.0 (draft)
-This page describes the 6.4.0 compatibility target, not a released compatibility guarantee.
+::: info As of v6.4.0
 Use the matching framework and module builds; see the [6.4.0 release notes](/guide/release-notes/6.4.0).
 :::
 
@@ -9,7 +8,7 @@ Use the matching framework and module builds; see the [6.4.0 release notes](/gui
 
 As of v6.4.0, the five affected modules (UltiKits, UltiLogin, UltiMail, UltiRemoteBag and UltiTrade) target the framework's supported floor, Paper 1.19.2 build 163 or later. On Minecraft below 1.21 they require UltiTools 6.4.0 or later. With an older framework on those servers, the target behavior is to refuse startup with an upgrade message, rather than fail when a player opens a screen. On Minecraft 1.21 or later, this compatibility requirement does not raise their framework minimum from the 6.3.x line.
 
-These requirements do not mean every server provides the same capabilities. Module-specific degradation is listed in the draft release notes. Plain Spigot is not a supported server target.
+These requirements do not mean every server provides the same capabilities. Module-specific degradation is listed in the [6.4.0 release notes](/guide/release-notes/6.4.0). Plain Spigot is not a supported server target.
 
 ## Load-time binary adaptation
 
@@ -48,4 +47,4 @@ Only after this probe succeeds should the module load, construct and manually re
 
 ## Verification scope
 
-As of v6.4.0, binary adaptation and startup warnings are not a substitute for testing the module's actions on the server versions it supports. Verify normal screens, event-driven protections and fallback item returns independently. The linked implementation PRs and their tests describe the current work; this draft does not claim that the final cross-version real-server acceptance matrix has passed.
+As of v6.4.0, binary adaptation and startup warnings are not a substitute for testing the module's actions on the server versions it supports. Verify normal screens, event-driven protections and fallback item returns independently. The linked implementation PRs and their tests describe the implementation; they do not replace verification of your module on its supported server versions.

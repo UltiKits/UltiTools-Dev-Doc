@@ -28,9 +28,7 @@ import com.ultikits.ultitools.annotations.Autowired;
         // enable auto register config
         config = true,
         // scan package
-        scanBasePackages = {"com.test.plugin"},
-        // i18n support
-        i18n = {"zh", "en"}
+        scanBasePackages = {"com.test.plugin"}
 )
 public class PluginMain extends UltiToolsPlugin {
     
@@ -50,6 +48,10 @@ public class PluginMain extends UltiToolsPlugin {
     ...
 }
 ```
+
+::: warning The i18n attribute is deprecated (as of v6.5.0)
+`@UltiToolsModule(i18n = ...)` and `@I18n` are deprecated for removal; their signatures are unchanged and still accepted. Do not declare languages: ship `lang/<code>.json` files in your module JAR and remove the attribute. See [Internationalization](/guide/essentials/i18n#declaring-languages-is-deprecated).
+:::
 
 ## @EnableAutoRegister
 

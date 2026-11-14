@@ -25,8 +25,8 @@
 #
 # All body assertions below grep the saved response FILE directly, never a
 # `printf '%s' "$body" | grep -q ...` pipe: a real full VitePress SNAPSHOT
-# page is ~150KB (every page embeds __VP_SITE_DATA__ for every locale/
-# version, 03-01-SUMMARY's own finding) — well over a pipe's default 64KB
+# page can exceed 150KB (the VitePress 1 build embedded site data for every
+# locale/version; VitePress 2 loads it from a metadata chunk) — over 64KB
 # capacity. `grep -q` exits the instant it finds a match, closing its stdin;
 # if `printf` is still mid-write on the far side of that pipe when grep
 # exits, it is killed by SIGPIPE, and under `pipefail` that non-zero exit
@@ -103,43 +103,41 @@ fetch() {
   HTTP_STATUS=$(curl -sS -o "$BODY_FILE" -w '%{http_code}' --max-time 30 --connect-timeout 10 "$url")
 }
 
-# snapshot_guide_sidebar_links <html-file> — prints the SNAPSHOT-scoped
-# guide sidebar's `link` values, one per line.
-#
-# 03-01-SUMMARY.md's own Deviations section already proved that grepping a
-# whole VitePress page for a sidebar link substring is unsound on this
-# multi-version site: every page embeds __VP_SITE_DATA__ containing EVERY
-# locale's and EVERY version's sidebar tree (needed for the SPA's
-# client-side router), so master's own legitimate
-# guide/advanced/ulti-tools-plugin sidebar entry is present as a literal
-# substring on every single page, SNAPSHOT included, regardless of whether
-# the SNAPSHOT sidebar itself is correct. A naive `grep` for that string
-# against the raw HTML is confirmed (empirically, while writing this
-# script) to always match and can never fail — it has no discriminating
-# power. This extracts only the v6.3.0-SNAPSHOT locale's own guide sidebar
-# out of that JSON payload, the same JSON-scoped technique 03-01 used to
-# verify the real claim.
+# snapshot_guide_sidebar_links <html-file> — 只提取 SNAPSHOT 英文 guide 的链接。
+# VitePress 2 把全站数据移到 HTML 引用的 metadata chunk。不能全局 grep：
+# 同一份数据包含所有版本，latest 的合法链接不能作为 SNAPSHOT fallback 的证据。
+# 这里只解析 JSON 字符串，不执行部署站点下载的 JavaScript 或其中的函数。
 snapshot_guide_sidebar_links() {
   node -e '
     const fs = require("fs");
-    const html = fs.readFileSync(process.argv[1], "utf8");
-    const m = html.match(/__VP_SITE_DATA__=JSON\.parse\((".*?")\);<\/script>/s);
-    if (!m) { process.exit(1); }
-    let data;
+    const { execFileSync } = require("child_process");
     try {
-      data = JSON.parse(JSON.parse(m[1]));
-    } catch (e) { process.exit(1); }
-    const snap = process.argv[2];
-    const locale = data.locales && data.locales[snap];
-    const sidebar = locale && locale.themeConfig && locale.themeConfig.sidebar;
-    if (!sidebar) { process.exit(1); }
-    const guide = sidebar[snap + "/guide"] || [];
-    for (const group of guide) {
-      for (const item of (group.items || [])) {
-        console.log(item.link);
+      const html = fs.readFileSync(process.argv[1], "utf8");
+      const chunks = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]*\/metadata\.[^"/]+\.js)"/g)];
+      if (chunks.length !== 1) throw new Error("metadata chunk reference missing or ambiguous");
+      const url = new URL(chunks[0][1], process.argv[3]);
+      const metadata = execFileSync("curl", ["-sS", "--fail", "--max-time", "30", "--connect-timeout", "10", url.href], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+      const m = metadata.match(/__VP_SITE_DATA__\s*=\s*(?:deserializeFunctions\(\s*)?JSON\.parse\(("(?:\\.|[^"\\])*")\)/s);
+      if (!m) throw new Error("site data JSON missing from metadata chunk");
+      const data = JSON.parse(JSON.parse(m[1]));
+      const snap = process.argv[2];
+      const guide = data.locales?.[snap]?.themeConfig?.sidebar?.[snap + "/guide"];
+      if (!Array.isArray(guide) || guide.length === 0) throw new Error("SNAPSHOT guide sidebar missing or empty");
+      const links = [];
+      function collect(items) {
+        for (const item of items) {
+          if (typeof item.link === "string") links.push(item.link);
+          if (Array.isArray(item.items)) collect(item.items);
+        }
       }
+      collect(guide);
+      if (links.length === 0) throw new Error("SNAPSHOT guide links missing");
+      console.log(links.join("\n"));
+    } catch (error) {
+      console.error("verify-snapshot: " + error.message);
+      process.exit(1);
     }
-  ' "$1" "$SNAP"
+  ' "$1" "$SNAP" "$BASE_URL/"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -177,9 +175,12 @@ record "3 SNAPSHOT api/version-wrapper 可读" "status=$HTTP_STATUS" "$r"
 #    advanced/module-dependencies（Pitfall 1 的正面证据：sidebar 确实来自
 #    alpha 自己的配置，不是空白）
 # ─────────────────────────────────────────────────────────────────────────────
+SIDEBAR_LINKS_FILE="$TMPDIR/sidebar-links-en.txt"
+sidebar_extracted=0
+snapshot_guide_sidebar_links "$INTRO_EN_FILE" > "$SIDEBAR_LINKS_FILE" || sidebar_extracted=1
 r=0
-snapshot_guide_sidebar_links "$INTRO_EN_FILE" | grep -q 'advanced/module-dependencies' || r=1
-record "4 sidebar 含 alpha-only 页面 module-dependencies" "$([ "$r" -eq 0 ] && echo '命中' || echo '未命中')" "$r"
+[ "$sidebar_extracted" -eq 0 ] && grep -q 'advanced/module-dependencies' "$SIDEBAR_LINKS_FILE" || r=1
+record "4 sidebar 含 alpha-only 页面 module-dependencies" "$([ "$r" -eq 0 ] && echo '命中' || echo '未命中或提取失败')" "$r"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. 第 1 条 HTML 的 SNAPSHOT-scoped sidebar 不含 master-only 的
@@ -200,12 +201,10 @@ record "4 sidebar 含 alpha-only 页面 module-dependencies" "$([ "$r" -eq 0 ] &
 # 提取步骤失败却报绿，就是在用同一种"没检查等于没问题"掩盖它本该发现的
 # 问题。提取结果先落到文件、判非空作为前置条件，前置条件不成立本身就是
 # FAIL，不能落到"未命中（正确）"这个分支。
-SIDEBAR_LINKS_FILE="$TMPDIR/sidebar-links-en.txt"
-snapshot_guide_sidebar_links "$INTRO_EN_FILE" > "$SIDEBAR_LINKS_FILE" 2>/dev/null
 sidebar_link_count=$(grep -c . "$SIDEBAR_LINKS_FILE" 2>/dev/null || true)
 sidebar_link_count="${sidebar_link_count:-0}"
 r=0
-if [ "$sidebar_link_count" -eq 0 ]; then
+if [ "$sidebar_extracted" -ne 0 ] || [ "$sidebar_link_count" -eq 0 ]; then
   r=1
   observed="提取失败或为空（无法判定——见断言 5 头注释；不视为通过）"
 elif grep -q 'advanced/ulti-tools-plugin' "$SIDEBAR_LINKS_FILE"; then
@@ -318,14 +317,14 @@ record "11 对照组：已发布归档版本不含 noindex" "status=$HTTP_STATUS
 #     ——第 7a/7b/8a/8b 条已在同一次运行里、同一个已部署站点上，四次证明
 #     data-ut-version-state 这个 marker 在这个观测通道里是抓得到的。
 #
-#     __VP_SITE_DATA__ 是本条自己的正向对照——每个构建产物页面都会内嵌它，
-#     缺失说明抓取失败或响应被截断，否则下面两条零命中的断言会在这种情况
-#     下同样报 PASS，而不是因为页面真的干净。
+#     SSR 挂载点 <div id="app" 是本条自己的正向对照，与
+#     check-rendered-links.sh 相同；VitePress 2 不再把站点数据内嵌进 HTML。
+#     挂载点缺失时，下面的零命中不能作为页面干净的证据。
 # ─────────────────────────────────────────────────────────────────────────────
 fetch "$BASE_URL/guide/introduction"
 r=0
 [ "$HTTP_STATUS" = "200" ] || r=1
-grep -q '__VP_SITE_DATA__' "$BODY_FILE" || r=1
+grep -q '<div id="app"' "$BODY_FILE" || r=1
 grep -qi 'name="robots"[[:space:]]*content="noindex"' "$BODY_FILE" && r=1
 grep -q 'data-ut-version-state=' "$BODY_FILE" && r=1
 grep -q 'This page describes the alpha branch and may change at any time' "$BODY_FILE" && r=1

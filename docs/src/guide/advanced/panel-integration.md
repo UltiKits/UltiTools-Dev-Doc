@@ -45,6 +45,8 @@ the configuration key.
 | `server-properties` | `properties.get` and `properties.update` |
 | `power-actions` | `server.power`: stop or restart (new in v6.3.1, off by default) |
 
+As of v6.5.0 a `player.action` teleport gets exactly one reply within 25 seconds. When the teleport has not finished by then, the reply is `internal_error` with `teleport did not complete in time`. The deadline stops the waiting, not the teleport, which may still take effect: check the player's position before retrying.
+
 `files.read` returns a `version`, the SHA-256 of the file's raw bytes. `files.write` and `config.update` must
 send the `version` they read as `baseVersion` and are refused with `file_changed`, writing nothing, when the
 file changed in between. `files.write` overwrites an existing file, `files.delete` removes a file and never a
@@ -125,7 +127,17 @@ ultipanel:
       - "whitelist"
       - "save-off"
       - "save-all"
+      - "execute"   # as of v6.5.0
+      - "return"    # as of v6.5.0
+      - "function"  # as of v6.5.0
 ```
+
+As of v6.5.0 the shipped list also holds `execute`, `return` and `function`, so a panel command such as
+`execute run stop`, `minecraft:execute …` or `function <pack>:x` is refused before it runs. Only new installs and
+configurations without the key get the new entries: an existing list is never extended, so an upgraded server adds
+them itself if it wants them. To allow those commands, stop the server, delete the three lines and start it again
+(`/ul reload` does not re-read the list). `schedule function <pack>:x …` is not covered — add `schedule` yourself if
+you need to refuse it.
 
 Before v6.3.0 this list was a hardcoded, unconfigurable set of the same ten entries. As of v6.3.0 it
 moves to `ultipanel.commands.blocklist` and is fully editable in both directions — an operator may
@@ -149,9 +161,22 @@ Blocked by the blocklist — edit ultipanel.commands.blocklist in
 plugins/UltiTools/config.yml to change this.
 ```
 
-Command-namespace normalization is unaffected by this change: `bukkit:op` and `op` both resolve to
-the same blocklist entry before the check runs, at the single site that has always performed this
-normalization.
+At admission, the first word typed is compared with the blocklist, case-insensitively and with its
+namespace removed: `bukkit:op` and `op` both match the entry `op`.
+
+### Aliases and failures as of v6.5.0
+
+As of v6.5.0, immediately before dispatch on the main thread, the framework resolves the typed label through the server's command map. Matching is symmetric over Bukkit metadata: an entry matches the resolved command's name, registered label or aliases, or the typed label matches the name, label or aliases of the command resolved from that entry. Both sides are compared case-insensitively with namespaces removed. For example, listing `plugins` blocks `pl` and `bukkit:pl`, and listing `pl` blocks `plugins`. Listing `version` blocks `ver` and `about`, but listing `ver` does not transitively block `about`. An unknown label keeps its admission decision.
+
+Synchronous nested framework commands entering `BaseCommandExecutor` are checked again before help, validators or the body. Listing `ultitools` blocks `ul help`, `ulti help` and the framework target of `execute run ul help`. A direct refusal returns `command_blocked`; a nested refusal appears as ordinary command output only if the nested call keeps the panel's sender. If a wrapper changes the sender to the console or a player, the refusal goes to that sender instead, and the panel can receive `ok` without a refusal line.
+
+On Paper 1.21.11, the shipped list blocks `bukkit:rl confirm` because `reload` is listed. Bare `rl` is not registered: `rl confirm` returns `command_failed` with `The server console did not accept the command.`, not `command_blocked`.
+
+The blocklist is read at server start. Stop the server, edit `ultipanel.commands.blocklist` in `plugins/UltiTools/config.yml`, then start it again; `/ul reload` does not apply a blocklist edit. The pre-dispatch check uses the current in-memory policy, not a fresh read of the file.
+
+The blocklist is not a sandbox. It does not cover vanilla Brigadier redirects such as `tp` / `teleport`, vanilla or Bukkit targets reached through `execute ... run` / `return run`, `commands.yml` aliases (including Bukkit's shipped `icanhasbukkit`), datapack functions, third-party re-dispatchers, or later-tick paths such as command blocks and scheduled commands. List each redirect spelling explicitly when needed. Blocking wrapper names can narrow direct entry points but does not close every path. Operators who need those paths unavailable should set `ultipanel.capabilities.commands: false` and restart the server; do not grant panel command access to untrusted operators.
+
+A raw Bukkit `Command` whose dispatch throws an `Error` after the acknowledgement gets `command_failed`; on Paper 1.21.11 the error is wrapped in `CommandException`, and the result uses that wrapper's message. An `Error` in a module command body reached through `BaseCommandExecutor` is instead reported as ordinary command output, such as `Command execution failed: <message>`.
 
 ### Remote command results
 
@@ -286,14 +311,12 @@ above, and — like `data.json` before it — is additionally covered by the unc
 credential exclusion regardless of what roots an operator configures, refused from the remote file API
 at both the new location and, for the duration of an upgrade's restart window, the old one.
 
-**Three internal credential-coordination statics on `CloudAuthManager` are announced for removal in
-v6.4.0.** `currentCredentialGeneration()`, `invalidateCredentialOperations()`, and
-`commitTokenIfCurrent(TokenEntity, long)` were never a supported external API — they coordinate the
-framework's own asynchronous credential producers with its teardown path, and carry
-`@Deprecated(since = "6.3.0", forRemoval = true)` with a `{@removeIn 6.4.0}` javadoc tag. Their
-signatures and behaviour are unchanged in v6.3.0; the credential file I/O they used to imply now goes
-through the internal store described above. If your module calls any of the three, stop before
-v6.4.0 — nothing in the public panel-integration or external-plugin API surface depends on them.
+**Three former internal credential-coordination statics on `CloudAuthManager` are absent in v6.4.0.**
+`currentCredentialGeneration()`, `invalidateCredentialOperations()`, and
+`commitTokenIfCurrent(TokenEntity, long)` were removed during the 6.3.0 development cycle and never
+appeared in a released JAR, as recorded in the [removal ledger](https://github.com/UltiKits/UltiTools-Reborn/blob/v6.4.0/compatibility/DEPRECATIONS.md).
+They were never a supported external API. Credential file I/O uses the internal store described above;
+nothing in the public panel-integration or external-plugin API surface depends on these methods.
 
 ## Remote action log
 
@@ -320,7 +343,7 @@ As of v6.3.0 the verdict records the policy decision, not the outcome of the ope
 When the `logs` capability is on, the framework attaches its log handler each time the panel
 connection opens, and sends console log records to the panel for as long as the connection stays up.
 As of v6.3.0 the stream is a full mirror of the server console; see [The stream mirrors the server console](#the-stream-mirrors-the-server-console).
-As of v6.3.0, the lines the framework itself writes or streams here (player join, quit and chat, plugin
+As of v6.3.0, the lines the framework itself writes or streams here (player join and quit, plugin
 actions, the online-player count, server status and file operation messages) follow the `language` key
 of the main plugin config; see [Internationalization](/guide/essentials/i18n). Before v6.3.0 they were always Chinese.
 
@@ -409,10 +432,9 @@ ultipanel:
 
 The framework reads both keys at the same point as the batch keys, each time the panel connection
 opens, so restart the server to apply a changed value here too. As of v6.3.0 `levels` also applies to
-the entries the framework sends to the panel directly: player join, quit and chat lines, plugin
+the entries the framework sends to the panel directly: player join and quit lines, plugin
 action lines, and the lines sent when the stream starts. `excluded-loggers` still does not apply to
-them, because these entries come from no logger. Chat entries, sent while the `player-events`
-capability is on, are `debug` entries and reach the stream only when `debug` is in `levels`.
+them, because these entries come from no logger.  The `player-events` capability does not cover chat: protocol 2.1.0 has no chat event, and the framework sends no chat entries of its own.
 
 Each `excluded-loggers` entry is compared, case-sensitively, with the start of the name of the
 `java.util.logging` logger that emitted the record, so an entry of `org.apache` also excludes
@@ -450,6 +472,8 @@ attached while the `logs` capability is off, so these reports also depend on tha
 Exclusion comes before both steps: a record from an excluded logger is neither sent to the panel nor
 reported as an error. Error reports raised elsewhere, such as an exception thrown by a command, do
 not pass through the handler, and neither key applies to them.
+
+As of v6.5.0, an error report raised by a command or an `@ExceptionCatch` method names the module whose JAR the failing class was loaded from, using that module's identify-string (or its normalized `plugin.yml` name when the identify-string is missing or invalid). The framework never guesses ownership from a package, a command description or a bean name, so a report whose class cannot be matched to exactly one loaded module is sent without a module. Message and stack-trace text are cut to the gateway's limits (500 and 2048 UTF-16 characters) without splitting a surrogate pair. De-duplication, sampling and merging work per module: the same exception shape from two modules is two groups, and an attributed report carries a fingerprint scoped to its module. The fingerprint of an unattributed report is unchanged.
 
 ### The stream mirrors the server console
 
@@ -634,7 +658,7 @@ The responder receives a copy of the request's `params` with one more member, `a
 `{ "userId": <panel user id>, "minecraftUuid": <UUID or null> }`. UltiCloud fills it in for the panel user who
 sent the request, and the framework passes it on as received; an `actor` inside `params` is replaced. Use it to
 decide what that user may see. A module with at least one responder is declared in the handshake as
-`modules:<identifier>@<X.Y.Z>`, the version being the first three numbers of its `plugin.yml` version, and
+`modules:<identifier>@<X.Y.Z>`, the version being the first three numbers of its `plugin.yml` version (as of v6.5.0 a suffix such as `-rc1` or `+build.9` adds no digits: `2.0-rc1` is declared as `2.0.0`), and
 UltiCloud sends requests only for declared modules. The list is built when the connection opens; `/ul reload`
 reconnects when it changed. A module whose identifier is not a valid UltiCloud identifier, or would make the
 capability name longer than 96 characters, is skipped with one warning.

@@ -32,6 +32,8 @@ API 被限定在一组显式的可编辑根目录内，并附带一层不可配�
 | `server-properties` | `properties.get` 与 `properties.update` |
 | `power-actions` | `server.power`：停止或重启（v6.3.1 新增，默认关闭） |
 
+自 v6.5.0 起，`player.action` 的传送会在 25 秒内得到一次回复。到时传送仍未完成，回复为 `internal_error`，消息为 `teleport did not complete in time`。这个期限只停止等待，不会取消传送，传送之后仍可能生效：重试前请先确认玩家的位置。
+
 `files.read` 返回 `version`，即文件原始字节的 SHA-256。`files.write` 与 `config.update` 必须把读到的 `version` 作为 `baseVersion` 发回；其间文件已改动时以 `file_changed` 拒绝，什么也不写。`files.write` 覆盖一个已存在的文件，`files.delete` 删除文件、从不删除目录，超过 2000 项的列表会被截断并标注。`config.update` 只写它指定的键，并经过配置写入闸门。`properties.get` 读取 14 个常用键，`properties.update` 可以写其中 12 个；`online-mode` 与 `white-list` 对面板保持只读。
 
 通过 `server.power` 重启需要 `spigot.yml` 中 `restart-script` 指向的文件存在，否则以 `power_unsupported` 拒绝，服务器继续运行。电源请求在服务器停止之前得到回复，并且不经过命令黑名单。`power-actions` 关闭时面板会把电源按钮置灰；执行 `/ul reload` 后，改动的值会立即报告给面板。
@@ -94,7 +96,15 @@ ultipanel:
       - "whitelist"
       - "save-off"
       - "save-all"
+      - "execute"   # as of v6.5.0
+      - "return"    # as of v6.5.0
+      - "function"  # as of v6.5.0
 ```
+
+自 v6.5.0 起，默认名单还包含 `execute`、`return` 和 `function`，因此 `execute run stop`、`minecraft:execute …`、
+`function <pack>:x` 这类面板命令会在执行前被拒绝。只有新安装或缺少此键的配置才会得到这三项：已有名单绝不会被追加，
+升级后的服务器如需拦截须自行添加。要允许这些命令，停服后删除这三行再启动（`/ul reload` 不会重读名单）。
+`schedule function <pack>:x …` 不在拦截范围内，如需拒绝请自行加入 `schedule`。
 
 v6.3.0 之前，这份名单是一份硬编码、不可配置的十条条目集合。自 v6.3.0 起，它迁移到
 `ultipanel.commands.blocklist`，并且可以双向自由编辑——运营者可以新增条目，也可以移除任意
@@ -115,8 +125,21 @@ Blocked by the blocklist — edit ultipanel.commands.blocklist in
 plugins/UltiTools/config.yml to change this.
 ```
 
-命令命名空间归一化不受本次变化影响：`bukkit:op` 与 `op` 在检查前会解析为同一个黑名单条
-目，检查点仍是原来唯一执行该归一化的位置。
+准入时，框架将输入的第一个词去掉命名空间后，与黑名单作不区分大小写的比较：`bukkit:op` 与 `op` 都匹配条目 `op`。
+
+### v6.5.0 的别名与失败处理
+
+自 v6.5.0 起，框架在主线程上、分派前通过服务器命令表解析输入的标签。匹配对称地使用 Bukkit 元数据：条目匹配已解析命令的名称、注册标签或别名，或者输入的标签匹配由该条目解析出的命令的名称、标签或别名。两侧均去掉命名空间，并作不区分大小写的比较。例如，列出 `plugins` 会拦截 `pl` 与 `bukkit:pl`，列出 `pl` 也会拦截 `plugins`。列出 `version` 会拦截 `ver` 与 `about`，但列出 `ver` 不会传递地拦截 `about`。未知标签保持准入时的判定。
+
+同步嵌套调用进入 `BaseCommandExecutor` 的框架命令，会在帮助、校验器或执行体之前再次检查。列出 `ultitools` 会拦截 `ul help`、`ulti help` 以及 `execute run ul help` 中的框架目标。直接拒绝返回 `command_blocked`；嵌套拒绝只有在嵌套调用保留面板发送者时，才作为普通命令输出返回。包装命令若把发送者改为控制台或玩家，拒绝信息发给该发送者，面板可能收到不含拒绝行的 `ok`。
+
+在 Paper 1.21.11 上，随框架发布的名单会因列有 `reload` 而拦截 `bukkit:rl confirm`。裸标签 `rl` 没有注册：`rl confirm` 返回 `command_failed`，消息为 `The server console did not accept the command.`，不是 `command_blocked`。
+
+黑名单在服务器启动时读取。请先停服，编辑 `plugins/UltiTools/config.yml` 中的 `ultipanel.commands.blocklist`，再启动服务器；`/ul reload` 不会应用黑名单修改。分派前的检查使用当前内存策略，不会重新读取文件。
+
+黑名单不是沙箱。它不覆盖 `tp` / `teleport` 这类原版 Brigadier 重定向、经 `execute ... run` / `return run` 到达的原版或 Bukkit 目标、`commands.yml` 别名（包括 Bukkit 随附的 `icanhasbukkit`）、数据包函数、第三方重新分派器，以及命令方块、计划命令这类后续 tick 路径。需要时请逐个列出重定向的每种写法。拦截包装命令名可以减少直接入口，但不能关闭所有路径。需要禁止这些路径的运营者应设置 `ultipanel.capabilities.commands: false` 并重启服务器；不要向不受信任的运营者授予面板命令访问权。
+
+直接注册的 Bukkit `Command` 在确认后分派抛出 `Error` 时，会得到 `command_failed`；在 Paper 1.21.11 上，错误被包装为 `CommandException`，回复使用包装异常的消息。经 `BaseCommandExecutor` 到达的模块命令执行体内的 `Error` 则作为普通命令输出报告，例如 `Command execution failed: <message>`。
 
 ### 远程命令的结果
 
@@ -212,13 +235,11 @@ ultipanel:
 件的、基于文件名的凭据排除保护，无论运营者配置了哪些根目录。远程文件 API 会同时拒绝访问新
 位置，以及升级重启窗口期间的旧位置。
 
-**`CloudAuthManager` 上三个内部凭据协调静态方法已宣布将在 v6.4.0 移除。**
+**v6.4.0 中已不存在 `CloudAuthManager` 上原有的三个内部凭据协调静态方法。**
 `currentCredentialGeneration()`、`invalidateCredentialOperations()` 与
-`commitTokenIfCurrent(TokenEntity, long)` 从来都不是受支持的外部 API——它们协调的是框架自身
-的异步凭据生产者与其拆除路径，标注了 `@Deprecated(since = "6.3.0", forRemoval = true)` 与
-`{@removeIn 6.4.0}` javadoc 标签。三者的签名与行为在 v6.3.0 中保持不变；它们原本隐含的凭据
-文件 I/O 现在都经由上文所述的内部存储完成。如果你的模块调用了其中任何一个，请在 v6.4.0 之前
-停止使用——公开的面板集成或外部插件 API 表面都不依赖它们。
+`commitTokenIfCurrent(TokenEntity, long)` 已在 6.3.0 开发周期内删除，从未出现在正式发布的 JAR 中，
+详见[删除登记表](https://github.com/UltiKits/UltiTools-Reborn/blob/v6.4.0/compatibility/DEPRECATIONS.md)。
+它们从来都不是受支持的外部 API。凭据文件 I/O 使用上文所述的内部存储；公开的面板集成或外部插件 API 都不依赖这些方法。
 
 ## 远程操作日志
 
@@ -241,7 +262,7 @@ ultipanel:
 
 ## 实时日志流
 
-`logs` 能力开启时，框架会在每次面板连接建立时挂上自己的日志处理器，并在连接保持期间持续把控制台日志记录发送给面板。自 v6.3.0 起，日志流完整镜像服务器控制台，见[日志流镜像服务器控制台](#日志流镜像服务器控制台)。自 v6.3.0 起，框架自己在这里写出或推送的行（玩家加入、退出与聊天，插件操作，在线玩家数，服务器状态与文件操作消息）遵循主插件配置中的 `language` 键，见 [I18n 多语言](/zh/guide/essentials/i18n)；v6.3.0 之前它们始终是中文。
+`logs` 能力开启时，框架会在每次面板连接建立时挂上自己的日志处理器，并在连接保持期间持续把控制台日志记录发送给面板。自 v6.3.0 起，日志流完整镜像服务器控制台，见[日志流镜像服务器控制台](#日志流镜像服务器控制台)。自 v6.3.0 起，框架自己在这里写出或推送的行（玩家加入与退出，插件操作，在线玩家数，服务器状态与文件操作消息）遵循主插件配置中的 `language` 键，见 [I18n 多语言](/zh/guide/essentials/i18n)；v6.3.0 之前它们始终是中文。
 
 自 v6.3.0 起，动作为 `start`、`stop`、`pause` 或 `resume` 的 `log_stream` 或 `log_stream_control` 请求会收到一条说明该动作不受支持的错误响应，日志发送照常进行。v6.3.0 之前框架接受这四个动作，但在任何已发布版本上，它们都没有改变面板实际收到的内容。框架与面板中继之间只有一条连接，也无法识别连接背后的各个查看者，因此无法针对单个查看者暂停或停止日志流。暂停或隐藏实时日志视图由面板视图自己完成，例如不再渲染新的日志行。
 
@@ -304,7 +325,7 @@ ultipanel:
 | `levels` | `info`、`warning`、`error` | 发送给面板的日志级别。能匹配到日志记录的名称是 `error`（`SEVERE`）、`warning`（`WARNING`）、`info`（`INFO`）与 `debug`（`CONFIG`、`FINE`、`FINER`、`FINEST`）。其他名称会被接受，不产生警告，也不匹配任何记录 |
 | `excluded-loggers` | 空（自 v6.3.0 起） | 记录器名称前缀，来自这些记录器的日志记录会被丢弃。上面的示例会丢弃通过 `Bukkit.getLogger()` 输出的一切 |
 
-与批量发送的键一样，框架在每次面板连接建立时读取这两个键，因此修改后的值同样需要重启服务器来应用。自 v6.3.0 起，`levels` 也作用于框架直接发送给面板的条目：玩家进入、离开服务器和聊天的日志行，插件操作日志行，以及日志流启动时发送的几行。`excluded-loggers` 仍然对它们不起作用，因为这些条目不来自任何记录器。聊天日志行在 `player-events` 能力开启时发送，属于 `debug` 级别的条目，只有 `levels` 中包含 `debug` 时才会进入日志流。
+与批量发送的键一样，框架在每次面板连接建立时读取这两个键，因此修改后的值同样需要重启服务器来应用。自 v6.3.0 起，`levels` 也作用于框架直接发送给面板的条目：玩家进入、离开服务器的日志行，插件操作日志行，以及日志流启动时发送的几行。`excluded-loggers` 仍然对它们不起作用，因为这些条目不来自任何记录器。`player-events` 能力不包含聊天：协议 2.1.0 没有聊天事件，框架自己也不发送聊天条目。
 
 每个 `excluded-loggers` 条目都会与发出该记录的 `java.util.logging` 记录器名称的开头比较，区分大小写，因此 `org.apache` 这样的条目也会排除 `org.apache.http` 以及其他所有以它开头的名称。发送给面板的条目中不包含这个名称。条目的 `logger` 字段是框架根据自己对记录的分类得出的标签：`com.ultikits.ultitools` 下的记录器为 `UltiTools`，名称中含有 `plugin` 的其他记录器为从记录器名称中取出的一个名称，服务器记录器为 `MinecraftServer`，其余为 `database`、`network` 或 `system`。把这个标签抄进 `excluded-loggers`，只会匹配到名称恰好以它开头的记录器。例如，`MinecraftServer` 这个条目不会匹配任何标签为 `MinecraftServer` 的记录，因为框架把这个标签给了 `Minecraft`、`net.minecraft.*` 这类服务器记录器，而不是名为 `MinecraftServer` 的记录器。
 
@@ -313,6 +334,8 @@ ultipanel:
 自 v6.3.0 起，在 `levels` 中加入 `debug` 会把调试记录发送给面板。v6.3.0 之前，日志处理器自身的级别阈值固定为 `INFO`，`CONFIG`、`FINE`、`FINER` 与 `FINEST` 记录在检查 `levels` 之前就被丢弃，`debug` 因此不起作用。现在只要 `debug` 在列表中，框架就会降低这个阈值。框架不会修改任何记录器的级别，所以只有当发出调试记录的记录器本身的级别允许该记录通过时，它才会到达面板。
 
 自 v6.3.0 起，`levels` 不再影响错误自动上报。日志处理器会把每一条携带异常的 `SEVERE` 记录交给错误上报（`ultipanel.logging.error-reporting`），无论 `error` 是否在 `levels` 中。v6.3.0 之前，级别不在 `levels` 中的记录会在这一步之前被丢弃，因此从 `levels` 中移除 `error` 也会停止这部分上报。`logs` 能力关闭时日志处理器不会挂上，因此这部分上报也依赖该能力。排除在这两步之前进行：来自被排除记录器的记录既不会发送给面板，也不会作为错误上报。在其他位置产生的错误上报，例如命令执行时抛出的异常，不经过日志处理器，这两个键对它们不起作用。
+
+自 v6.5.0 起，由命令或 `@ExceptionCatch` 方法产生的错误上报会标明失败类所在 JAR 对应的模块，使用该模块的 identify-string（identify-string 缺失或无效时，使用规范化后的 `plugin.yml` 名称）。框架不会根据包名、命令描述或 Bean 名称猜测归属，因此无法对应到唯一已加载模块的上报不带模块信息。消息与堆栈文本会按网关的限制截断（分别为 500 和 2048 个 UTF-16 字符），且不会拆开代理对。去重、采样与合并按模块进行：两个模块出现形状相同的异常算作两组，带归属的上报使用限定在该模块内的指纹；无归属上报的指纹不变。
 
 ### 日志流镜像服务器控制台
 
@@ -423,7 +446,7 @@ public class MailResponders {
 }
 ```
 
-responder 收到请求 `params` 的一份拷贝，其中多了一个成员 `actor`：`{ "userId": <面板用户 ID>, "minecraftUuid": <UUID 或 null> }`。它由 UltiCloud 按发出请求的面板用户填写，框架原样传递；`params` 里自带的 `actor` 会被替换。可以据此决定该用户能看到什么。拥有至少一个 responder 的模块会在握手中声明为 `modules:<标识>@<X.Y.Z>`，版本取它 `plugin.yml` 版本的前三个数字；UltiCloud 只为已声明的模块发送请求。这个列表在连接建立时生成，列表变化时 `/ul reload` 会重新连接。标识不是合法的 UltiCloud 标识、或会使能力名超过 96 个字符的模块，会被跳过，并记录一条警告。
+responder 收到请求 `params` 的一份拷贝，其中多了一个成员 `actor`：`{ "userId": <面板用户 ID>, "minecraftUuid": <UUID 或 null> }`。它由 UltiCloud 按发出请求的面板用户填写，框架原样传递；`params` 里自带的 `actor` 会被替换。可以据此决定该用户能看到什么。拥有至少一个 responder 的模块会在握手中声明为 `modules:<标识>@<X.Y.Z>`，版本取它 `plugin.yml` 版本的前三个数字（自 v6.5.0 起，`-rc1`、`+build.9` 这类后缀不再贡献数字：`2.0-rc1` 声明为 `2.0.0`）；UltiCloud 只为已声明的模块发送请求。这个列表在连接建立时生成，列表变化时 `/ul reload` 会重新连接。标识不是合法的 UltiCloud 标识、或会使能力名超过 96 个字符的模块，会被跳过，并记录一条警告。
 
 面板收到的回复：成功时为 `ok`，`data` 是 responder 的结果；没有 responder 服务该请求时为 `module_not_found`；超过下文所述的期限时为 `deadline_exceeded`；responder 失败或结果不是合法 JSON（`NaN` 或无穷大）时为 `module_error`。
 

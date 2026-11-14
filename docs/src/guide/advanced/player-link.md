@@ -174,6 +174,8 @@ needs no persistence of its own for link results.
 While the server shuts down, the framework leaves a completion unanswered, so the gateway delivers it again
 after the next start and the account is created then.
 
+As of v6.5.0 a completion or expiry that the framework holds while the connection drops is delivered once after the reconnect, after the future returned by `create(...)` has run its callbacks. An expiry received before your handler was registered is still not delivered.
+
 ## Known limitations
 
 ::: warning A crash can ask the handler twice

@@ -30,7 +30,7 @@ const navZH = [
     {
         text: '更新说明',
         activeMatch: `/guide/release-notes/`,
-        link: '/zh/guide/release-notes/6.4.0',
+        link: '/zh/guide/release-notes/6.5.0',
         skipVersioning: true
     }
     // 版本切换器不是 nav 项。它由 Layout.vue 直接渲染：桌面端在导航栏标题

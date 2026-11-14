@@ -30,6 +30,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ARCHIVE_SIDEBARS = Object.freeze({
+    'v6.4.0': Object.freeze({ guide: 'v640', api: null }),
     'v6.3.2': Object.freeze({ guide: 'v632', api: null }),
     'v6.3.1': Object.freeze({ guide: 'v631', api: null }),
     'v6.3.0': Object.freeze({ guide: 'v630', api: null }),

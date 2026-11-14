@@ -51,6 +51,12 @@ Use `silent = true` for:
 - Fallback logic (e.g., use default if file not found)
 - Operations where exceptions are expected
 
+## Error Reports
+
+::: info As of v6.5.0
+A caught exception is reported under the module whose JAR holds the bean class (proxied and inherited beans included); an unmatched or ambiguous JAR leaves the report unattributed. Reports are de-duplicated and sampled per module, and their text is cut to the gateway's limits. See [Panel Integration](/guide/advanced/panel-integration).
+:::
+
 ## Default Return Values
 
 Control what value is returned when an exception is caught:
