@@ -235,13 +235,11 @@ ultipanel:
 件的、基于文件名的凭据排除保护，无论运营者配置了哪些根目录。远程文件 API 会同时拒绝访问新
 位置，以及升级重启窗口期间的旧位置。
 
-**`CloudAuthManager` 上三个内部凭据协调静态方法已宣布将在 v6.4.0 移除。**
+**v6.4.0 中已不存在 `CloudAuthManager` 上原有的三个内部凭据协调静态方法。**
 `currentCredentialGeneration()`、`invalidateCredentialOperations()` 与
-`commitTokenIfCurrent(TokenEntity, long)` 从来都不是受支持的外部 API——它们协调的是框架自身
-的异步凭据生产者与其拆除路径，标注了 `@Deprecated(since = "6.3.0", forRemoval = true)` 与
-`{@removeIn 6.4.0}` javadoc 标签。三者的签名与行为在 v6.3.0 中保持不变；它们原本隐含的凭据
-文件 I/O 现在都经由上文所述的内部存储完成。如果你的模块调用了其中任何一个，请在 v6.4.0 之前
-停止使用——公开的面板集成或外部插件 API 表面都不依赖它们。
+`commitTokenIfCurrent(TokenEntity, long)` 已在 6.3.0 开发周期内删除，从未出现在正式发布的 JAR 中，
+详见[删除登记表](https://github.com/UltiKits/UltiTools-Reborn/blob/v6.4.0/compatibility/DEPRECATIONS.md)。
+它们从来都不是受支持的外部 API。凭据文件 I/O 使用上文所述的内部存储；公开的面板集成或外部插件 API 都不依赖这些方法。
 
 ## 远程操作日志
 
