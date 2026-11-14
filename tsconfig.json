@@ -46,7 +46,6 @@
     // 依赖树里只有一份 vitepress（1.6.4），不需要同样的映射。.vitepress/config.mts
     // 里仍有一处 @ts-expect-error，标的是 @viteplus/versions 自己类型声明里的
     // 两条错误（TS2589 与 rewrites 的 TS2345），见那里的注释。
-    "baseUrl": ".",
     "paths": {
       "vite": ["./node_modules/vite"],
       "vite/*": ["./node_modules/vite/*"]
