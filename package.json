@@ -15,7 +15,7 @@
     "@nolebase/vitepress-plugin-highlight-targeted-heading": "^2.21.1",
     "@nolebase/vitepress-plugin-inline-link-preview": "^2.21.1",
     "@types/node": "26.6.6",
-    "@vite-pwa/vitepress": "^2.0.3",
+    "@vite-pwa/vitepress": "^2.0.4",
     "@viteplus/versions": "^2.3.0",
     "sass": "^1.108.2",
     "typescript": "7.0.2",
