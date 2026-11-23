@@ -132,6 +132,38 @@ pin 不是模块的运行时下限。这是两个互相独立的数字，其中�
 完整列表见框架仓库的 [`compatibility/DEPRECATIONS.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/compatibility/DEPRECATIONS.md)，一次性查看所有 `ANNOUNCED` 状态的移除项及其期限。
 :::
 
+### 7.0 原生物品与音效 API
+
+::: warning 未发布的 v7.0.0 迁移说明
+自 v7.0.0 起，框架不再提供 XSeries，也不再提供跨版本材质和音效兼容层。
+站内其他位置的 6.x 用法仅适用于对应的框架版本。
+:::
+
+替换下列已移除的公开符号后，针对 7.0 重新编译模块：
+
+| v7.0.0 移除的符号 | 替代方式 |
+| --- | --- |
+| `com.ultikits.ultitools.utils.XVersionUtils` | Paper 的 `Material`、`Sound`、`Enchantment` 和 Adventure API |
+| `com.ultikits.ultitools.entities.Sounds`（含 `getKey()`） | Paper 的 `org.bukkit.Sound` |
+| `com.ultikits.ultitools.entities.Colors#getCode()` | 用 `Colors#getGlassPaneMaterial()` 获取原生玻璃板材质 |
+
+`Colors` 枚举本身仍保留。`ItemStackBuilder.of(Material)`、`of(ItemStack)` 和 `enchant(Enchantment, int)` 仍可用；接受 `XMaterial` 或 `XEnchantment` 的重载已移除。
+
+自 v7.0.0 起，`ItemStackBuilder.of(String)` 使用 `Material.matchMaterial`，只接受当前材质名（如 `STONE`）或带命名空间的 key（如 `minecraft:stone`），并且材质必须是物品。未知名称、纯方块材质、历史别名、数字 ID 和 1.20 之后改过名的旧名（如 `GRASS`、`CHAIN`、`SCUTE`）返回 `null`。链式调用前先检查返回值；框架不查询旧名称，也不回退为其他物品。
+
+以下原生写法自 v7.0.0 起适用，使用 `org.bukkit.Material`、`org.bukkit.Sound`、`org.bukkit.enchantments.Enchantment`、`org.bukkit.inventory.ItemFlag` 和 Adventure 的 `net.kyori.adventure.text.Component`：
+
+| 6.x 写法 | 7.0 原生替代 |
+| --- | --- |
+| XSeries 材质或 `XVersionUtils` 物品工厂 | `ItemStackBuilder.of(Material.STONE).build()` |
+| 将 `XVersionUtils.getSound(Sounds.ENTITY_ENDERMAN_TELEPORT)` 传给 `playSound` | `player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1, 0)` |
+| 用 XSeries 附魔产生隐藏附魔的发光效果 | `ItemStackBuilder.of(Material.FISHING_ROD).enchant(Enchantment.LUCK_OF_THE_SEA, 1).flags(ItemFlag.HIDE_ENCHANTS).build()` |
+| `XVersionUtils.sendActionBar(player, "Ready")` | `player.sendActionBar(Component.text("Ready"))` |
+
+音效和附魔 API 在游戏逻辑执行时调用，不要放在静态初始化或枚举构造器中。自 v7.0.0 起，`ItemStackBuilder.glow()` 使用原生 `Enchantment.LUCK_OF_THE_SEA` 和 `ItemFlag.HIDE_ENCHANTS`。彩色玻璃使用 `new ItemStack(Colors.CYAN.getGlassPaneMaterial())`；现有 GUI 的玻璃颜色和按钮材质不变。
+
+模块若继续使用 XSeries，必须用 Maven Shade 或 Gradle Shadow 自行打包依赖并重定位包名（shade + relocate）。不能依赖框架提供，也不能只声明为 `provided`/`compileOnly`：由框架加载的 UltiTools 模块不能使用 Paper 的 `plugin.yml` `libraries:` 机制。前述 6.x 的运行库说明不是 7.0 的依赖供应承诺。
+
 ### 描述符变更
 
 这种情形更难发现，因为没有任何内容被移除，也没有可以标记为废弃的对象。方法的描述符同时包含参数类型和返回类型，其中任何一项发生变化，都会在相同的名字下产生一个不同的符号。

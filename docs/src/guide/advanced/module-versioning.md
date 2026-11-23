@@ -132,6 +132,38 @@ A build-time check fails the framework's own CI if the member is still declared 
 See [`compatibility/DEPRECATIONS.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/compatibility/DEPRECATIONS.md) for every currently `ANNOUNCED` removal and its deadline in one place.
 :::
 
+### Native item and sound APIs in 7.0
+
+::: warning Unreleased v7.0.0 migration
+As of v7.0.0, the framework no longer supplies XSeries or a cross-version material and sound compatibility layer.
+The 6.x instructions elsewhere on this site remain applicable only to those framework versions.
+:::
+
+Rebuild modules against 7.0 after replacing these removed public symbols:
+
+| Removed in v7.0.0 | Replacement |
+| --- | --- |
+| `com.ultikits.ultitools.utils.XVersionUtils` | Paper `Material`, `Sound`, `Enchantment` and Adventure APIs |
+| `com.ultikits.ultitools.entities.Sounds` (including `getKey()`) | Paper `org.bukkit.Sound` |
+| `com.ultikits.ultitools.entities.Colors#getCode()` | `Colors#getGlassPaneMaterial()` for the native glass-pane material |
+
+`Colors` itself remains available. `ItemStackBuilder.of(Material)`, `of(ItemStack)` and `enchant(Enchantment, int)` remain available; the overloads accepting `XMaterial` or `XEnchantment` are removed.
+
+As of v7.0.0, `ItemStackBuilder.of(String)` uses `Material.matchMaterial` and accepts only current material names such as `STONE` or namespaced keys such as `minecraft:stone`, provided they identify an item. Unknown names, block-only materials, historical aliases, numeric IDs and old names renamed after 1.20 (such as `GRASS`, `CHAIN` and `SCUTE`) return `null`. Check the result before chaining; there is no legacy-name lookup or fallback item.
+
+The following native replacements apply as of v7.0.0. Use `org.bukkit.Material`, `org.bukkit.Sound`, `org.bukkit.enchantments.Enchantment`, `org.bukkit.inventory.ItemFlag` and Adventure's `net.kyori.adventure.text.Component`:
+
+| 6.x approach | Native replacement for 7.0 |
+| --- | --- |
+| XSeries material / `XVersionUtils` item factory | `ItemStackBuilder.of(Material.STONE).build()` |
+| `XVersionUtils.getSound(Sounds.ENTITY_ENDERMAN_TELEPORT)` passed to `playSound` | `player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1, 0)` |
+| XSeries enchantment used for a hidden glow | `ItemStackBuilder.of(Material.FISHING_ROD).enchant(Enchantment.LUCK_OF_THE_SEA, 1).flags(ItemFlag.HIDE_ENCHANTS).build()` |
+| `XVersionUtils.sendActionBar(player, "Ready")` | `player.sendActionBar(Component.text("Ready"))` |
+
+Call sound and enchantment APIs during gameplay, not in static initializers or enum constructors. `ItemStackBuilder.glow()` uses the native `Enchantment.LUCK_OF_THE_SEA` and `ItemFlag.HIDE_ENCHANTS` as of v7.0.0. For colored glass, use `new ItemStack(Colors.CYAN.getGlassPaneMaterial())`; existing GUI glass colors and button materials remain unchanged.
+
+A module retaining XSeries must bundle its own dependency and relocate its packages with Maven Shade or Gradle Shadow (shade + relocate). Do not rely on the framework to supply it or declare it only as `provided`/`compileOnly`: Paper's `plugin.yml` `libraries:` mechanism is not available to UltiTools modules loaded by the framework. The earlier 6.x runtime-library instructions are not a supply guarantee for 7.0.
+
 ### Changed descriptors
 
 This situation is harder to notice, because nothing is removed and there is nothing to mark as deprecated. A method's descriptor covers both its parameter types and its return type, so a change to either produces a different symbol under the same name.

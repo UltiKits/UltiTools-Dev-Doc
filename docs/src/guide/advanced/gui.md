@@ -60,6 +60,8 @@ When a player opens a GUI, the following sequence occurs:
 
 ### Bottom Toolbar
 
+The following `XVersionUtils` example is for 6.x only. As of v7.0.0, replace `XVersionUtils.getColoredPlaneGlass(Colors.BLUE)` with `new ItemStack(Material.BLUE_STAINED_GLASS_PANE)` or `new ItemStack(Colors.BLUE.getGlassPaneMaterial())`.
+
 By default, the last row is reserved for a toolbar with a gray glass background:
 
 ```java
@@ -253,6 +255,13 @@ public enum Colors {
     LIGHT_GRAY, CYAN, PURPLE, BLUE, BROWN, GREEN, RED, BLACK
 }
 ```
+
+::: warning Unreleased v7.0.0 color API change
+As of v7.0.0, `Colors` and `getGlassPaneMaterial()` remain, but `getCode()` and `XVersionUtils` are removed.
+The `XVersionUtils` call below is for 6.x only; use `new ItemStack(Colors.CYAN.getGlassPaneMaterial())` in 7.0.
+:::
+
+GUI glass colors and button materials remain unchanged. See [Native item and sound APIs in 7.0](/guide/advanced/module-versioning#native-item-and-sound-apis-in-7-0) for the full migration.
 
 Usage:
 

@@ -215,4 +215,6 @@ page.
 - Single-select: `selectedSlot` highlights selection
 - Interaction: buy button shows/hides based on selection
 
+The following compiled example targets the released 6.x API; its `XVersionUtils.getColoredPlaneGlass(Colors.GRAY)` call is for 6.x only. As of v7.0.0, use `new ItemStack(Material.GRAY_STAINED_GLASS_PANE)` instead; `Colors` itself remains available. See [Native item and sound APIs in 7.0](/guide/advanced/module-versioning#native-item-and-sound-apis-in-7-0).
+
 <<< @/../examples/src/main/java/com/ultikits/docs/declarative/ExampleShopPage.java
