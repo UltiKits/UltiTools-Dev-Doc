@@ -60,7 +60,7 @@ When a player opens a GUI, the following sequence occurs:
 
 ### Bottom Toolbar
 
-The following `XVersionUtils` example is for 6.x only. As of v7.0.0, replace `XVersionUtils.getColoredPlaneGlass(Colors.BLUE)` with `new ItemStack(Material.BLUE_STAINED_GLASS_PANE)` or `new ItemStack(Colors.BLUE.getGlassPaneMaterial())`.
+The following `XVersionUtils` example is for 6.x only. Replace `XVersionUtils.getColoredPlaneGlass(Colors.BLUE)` with `new ItemStack(Material.BLUE_STAINED_GLASS_PANE)`, which works on both 6.x and 7.0. As of v7.0.0, the newly added getter also allows `new ItemStack(Colors.BLUE.getGlassPaneMaterial())`.
 
 By default, the last row is reserved for a toolbar with a gray glass background:
 
@@ -257,11 +257,11 @@ public enum Colors {
 ```
 
 ::: warning Unreleased v7.0.0 color API change
-As of v7.0.0, `Colors` and `getGlassPaneMaterial()` remain, but `getCode()` and `XVersionUtils` are removed.
-The `XVersionUtils` call below is for 6.x only; use `new ItemStack(Colors.CYAN.getGlassPaneMaterial())` in 7.0.
+As of v7.0.0, `getCode()` and `XVersionUtils` are removed; `Colors` remains and gains `getGlassPaneMaterial()` (new in 7.0).
+The `XVersionUtils` call below is for 6.x only; `new ItemStack(Material.CYAN_STAINED_GLASS_PANE)` works on both 6.x and 7.0, while `new ItemStack(Colors.CYAN.getGlassPaneMaterial())` requires 7.0.
 :::
 
-GUI glass colors and button materials remain unchanged. See [Native item and sound APIs in 7.0](/guide/advanced/module-versioning#native-item-and-sound-apis-in-7-0) for the full migration.
+As of v7.0.0, the framework's built-in GUI glass colors and button materials are unchanged. See [Native item and sound APIs in 7.0](/guide/advanced/module-versioning#native-item-and-sound-apis-in-7-0) for the full migration.
 
 Usage:
 
