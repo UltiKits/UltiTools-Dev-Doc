@@ -12,7 +12,7 @@ It is committed to making more server owners build servers easily, reducing the 
 
 ## Features
 
-* High Compatibility: As of v6.3.0, the framework supports Paper 1.19.2 build 163 or later, using the Java version required by the chosen Paper line (Java 17 for 1.19.2 to 1.20.4, Java 21 from 1.20.5). In the 6.3.x line, UltiKits, UltiLogin, UltiMail, UltiRemoteBag and UltiTrade require Minecraft 1.21+. As of v6.4.0, these five modules target the framework's supported floor and require UltiTools 6.4.0+ on Minecraft below 1.21; see [Supporting servers below 1.21](/guide/advanced/older-servers) for module updates and capability limits.
+* Compatibility in 6.x: As of v6.3.0, the framework supports Paper 1.19.2 build 163 or later, using the Java version required by the chosen Paper line (Java 17 for 1.19.2 to 1.20.4, Java 21 from 1.20.5). In the 6.3.x line, UltiKits, UltiLogin, UltiMail, UltiRemoteBag and UltiTrade require Minecraft 1.21+. As of v6.4.0, these five modules target the framework's supported floor and require UltiTools 6.4.0+ on Minecraft below 1.21; see [Supporting servers below 1.21](/guide/advanced/older-servers) for module updates and capability limits.
 
 * Advanced GUI: Most features have a graphical user interface, making it easy for players to operate.
 
@@ -25,6 +25,8 @@ It is committed to making more server owners build servers easily, reducing the 
 * Feature-Rich: UltiTools covers almost all the basic features needed for a server, including special features like GUI login and a mail system.
 
 * Performance Optimization: Every aspect of the plugin has been optimized to ensure a smooth experience while offering a range of features.
+
+As of v7.0.0, rebuild modules against the target Paper and UltiTools-API 7.0 and declare an integer `api-version: 700` (or higher) in the JAR's root `plugin.yml`. The framework loads modules unchanged, without bytecode rewriting, server-API probing, or startup or offline linkage audits. It does not automatically adapt 6.x modules to 7.0; see [Modules from 6.x to 7.0](/guide/advanced/module-versioning#modules-6x-to-7).
 
 ## Why Choose UltiTools API for Plugin Development?
 

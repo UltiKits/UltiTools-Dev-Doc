@@ -131,7 +131,7 @@ public void onCustomEvent(MyCustomEvent event) {
 | 绑定到配置项的 `@Scheduled` / `@CmdCD`（v6.3.0+） | 支持，见[绑定到配置项的时间](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间) | 会被拒绝，请使用字面量 `period` / `delay` / `value` |
 | 数据存储 | `plugin.getDataOperator(Class)` | `UltiToolsAPI.getDataOperator(plugin, Class)` |
 | 重载 | `/ul reload` 重新加载模块配置与语言；JAR 变化仍需重启服务器 | 不可用；请自行实现重载命令，JAR 变化需重启 |
-| plugin.yml | 为 6.3.0 构建的模块写 `api-version: 630`（使用绑定到配置项的 `@Scheduled` / `@CmdCD` 时必须为 `630`） | `depend: [UltiTools]` |
+| plugin.yml | 在 6.x 中，6.3.0 构建示例为 `api-version: 630`（绑定到配置项的 `@Scheduled` / `@CmdCD` 要求至少 `630`）；自 v7.0.0 起，重新构建并声明至少 `api-version: 700` | `depend: [UltiTools]` |
 
 ## 完整示例项目
 

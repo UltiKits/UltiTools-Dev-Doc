@@ -62,6 +62,8 @@ UltiTools 在加载该模块之前会先读取该文件，以便确认该模块�
 当 `main:` 指向一个不存在的类时，拒载的那一行后面会跟着 `ClassNotFoundException` 的堆栈。这是预期行为：
 堆栈是有意打印的，便于看清是哪一次类查找失败。完全没有 `main:` 声明的 jar 被拒载时不打印堆栈。
 
+下面的描述文件示例用于 6.x（其中 `630` 对应 6.3.0）：
+
 ```yaml
 # 模块名称
 name: TestPlugin
@@ -78,6 +80,17 @@ identify-string: test-plugin
 ```
 
 自 v6.3.0 起，为 UltiTools-API 6.3.0 构建的模块应声明 `api-version: 630`；6.3.0 上的 `/upm` 只安装声明 `630`（框架自身 API 级别）的模块（见[模块版本规范](/zh/guide/advanced/module-versioning)）。
+
+自 v7.0.0 起，针对 7.0 重新构建的模块必须在 JAR 根目录的 `plugin.yml` 中声明至少为 `700` 的整数；缺失、空值、非整数或低于 `700` 都会被拒载。最小描述文件如下，`api-version` 是 UltiTools 模块级别，不是 Paper 的版本字符串：
+
+```yaml
+name: TestPlugin
+version: 1.0.0
+main: com.test.plugin.MyPlugin
+api-version: 700
+```
+
+上面的构建依赖和 `630` 示例仅用于 6.x，不能直接用于 7.0。面向 7.0 时，应同时更换构建依赖并重新构建，不能只修改声明。加载器仍会拒绝要求比当前框架更新的 API 级别；拒载消息与安装步骤见[6.x 模块升到 7.0](/zh/guide/advanced/module-versioning#modules-6x-to-7)。
 
 ### 编写模块主类
 

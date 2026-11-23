@@ -1,5 +1,9 @@
 # 支持 1.21 以下的服务端
 
+本页的旧服务端支持、加载期适配与链接审计仅适用于 6.x。
+
+自 v7.0.0 起，模块必须针对目标 Paper 和 UltiTools-API 7.0 重新构建，并在 JAR 根目录的 `plugin.yml` 中声明整数 `api-version: 700`（或更高）。框架按原样加载模块，不再改写字节码或探测服务端 API，也不再执行启动或离线链接审计。6.x 模块不会自动适配到 7.0，详见[6.x 模块升到 7.0](/zh/guide/advanced/module-versioning#modules-6x-to-7)。
+
 ::: info 自 v6.4.0 起
 请使用配套的框架和模块构建，详见 [6.4.0 更新说明](/zh/guide/release-notes/6.4.0)。
 :::

@@ -1,5 +1,9 @@
 # Supporting servers below 1.21
 
+The older-server support, load-time adaptation and linkage audits on this page apply only to 6.x.
+
+As of v7.0.0, rebuild modules against the target Paper and UltiTools-API 7.0 and declare an integer `api-version: 700` (or higher) in the JAR's root `plugin.yml`. The framework loads modules unchanged, without bytecode rewriting, server-API probing, or startup or offline linkage audits. It does not automatically adapt 6.x modules to 7.0; see [Modules from 6.x to 7.0](/guide/advanced/module-versioning#modules-6x-to-7).
+
 ::: info As of v6.4.0
 Use the matching framework and module builds; see the [6.4.0 release notes](/guide/release-notes/6.4.0).
 :::

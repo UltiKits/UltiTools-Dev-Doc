@@ -401,7 +401,9 @@ icon.onClick(event -> {
 
 被绑定的字段不要加模块自己的 `@Range`，绑定范围就是该字段的范围。如果同一字段上有 `@Range`，重载时超出范围的值会让配置重载本身失败，停止该模块其余的重载步骤并报告为失败（[#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509) 已在 6.3.0 修复：完整的 `/ul reload` 仍会继续重载下一个模块），而不是保留当前正在使用的值。
 
-[外部插件 API](/zh/guide/advanced/external-plugin-api) 执行器中的绑定会被拒绝。使用绑定的模块必须在 `plugin.yml` 中声明 `api-version: 630`：6.2.x 框架会静默忽略这些新属性，完全不会执行冷却；6.3.0 则会拒绝使用了绑定、却声明了更低 `api-version` 的模块。`@Scheduled` 也支持同样的绑定方式，见[绑定到配置项的时间](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间)。
+[外部插件 API](/zh/guide/advanced/external-plugin-api) 执行器中的绑定会被拒绝。在 6.x 中，使用绑定的模块须在 `plugin.yml` 中声明至少 `630`（面向 6.3.0 时为 `api-version: 630`）：6.2.x 框架会静默忽略这些新属性，完全不会执行冷却；6.3.0 则会拒绝使用了绑定、却声明了更低 `api-version` 的模块。`@Scheduled` 也支持同样的绑定方式，见[绑定到配置项的时间](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间)。
+
+自 v7.0.0 起，所有模块都须针对 7.0 重新构建并声明至少 `api-version: 700`；配置绑定的 `630` 下限不能替代 7.0 的模块准入要求，见[6.x 模块升到 7.0](/zh/guide/advanced/module-versioning#modules-6x-to-7)。
 
 ### 执行锁
 

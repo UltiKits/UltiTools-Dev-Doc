@@ -66,6 +66,8 @@ When `main:` names a class that does not exist, the refusal line is followed by 
 `ClassNotFoundException` stack trace. That trace is expected: it is printed on purpose, so you can
 see which class lookup failed. A jar with no `main:` entry at all is refused without a trace.
 
+The following descriptor example is for 6.x (`630` corresponds to 6.3.0):
+
 ```yaml
 # Module name
 name: TestPlugin
@@ -83,6 +85,17 @@ identify-string: test-plugin
 ```
 
 As of v6.3.0, a module built for UltiTools-API 6.3.0 declares `api-version: 630`; `/upm` on 6.3.0 installs only modules that declare `630`, the framework's own API level (see [Module versioning](/guide/advanced/module-versioning)).
+
+As of v7.0.0, a module rebuilt against 7.0 must declare an integer of at least `700` in its root `plugin.yml`; missing, empty, non-integer or below-`700` declarations are refused. This minimal descriptor uses an UltiTools module level, not a Paper version string:
+
+```yaml
+name: TestPlugin
+version: 1.0.0
+main: com.test.plugin.MyPlugin
+api-version: 700
+```
+
+The dependency and `630` example above are for 6.x, not 7.0. For 7.0, change the build dependency and rebuild as well; editing the declaration alone is insufficient. The loader still refuses an API level above the installed framework's level; see [Modules from 6.x to 7.0](/guide/advanced/module-versioning#modules-6x-to-7) for refusal messages and installation steps.
 
 ### Create the main class of the module
 

@@ -107,6 +107,8 @@ Before compiling against UltiTools-API 6.3.0, migrate the generated template:
 - Select API version `6.3.0` and set `api-version: 630` in `src/main/resources/plugin.yml`; the template still writes `620`.
 - Remove the empty `unregisterSelf()` and `reloadSelf()` overrides from the main class. These methods are final in 6.3.0; put cleanup in `protected void onUnregister()` and reload logic in `protected void onReload()` if needed.
 
+For a 7.0 target, rebuild against UltiTools-API 7.0 and declare at least `api-version: 700` as of v7.0.0; the `630` instruction above is for 6.x. See [Modules from 6.x to 7.0](/guide/advanced/module-versioning#modules-6x-to-7).
+
 Then compile the migrated project:
 
 ```bash
@@ -237,7 +239,7 @@ As of v6.3.0, UltiCloud reads `api-version` from the root `plugin.yml` of the JA
 api-version: 630
 ```
 
-The number decides which servers are offered the version. A server on UltiTools-API 6.3.0 or later is offered versions from 630 up to its own API level; a server on an older framework is offered only versions below 630. See [Module Versioning](/guide/advanced/module-versioning#version-selection-by-api-level).
+The `630` example above is for a 6.3.0 build. Servers on 6.3.0 through 6.x request levels from 630 up to their own API level; older frameworks request only levels below 630. As of v7.0.0, server requests use `minApiLevel=700`, and `/upm install` and `/upm update` accept only integer declarations from 700 up to the framework's level. A JAR rebuilt for 7.0 should declare `api-version: 700`; changing only the `api-version` number does not make a 6.x module run on 7.0; rebuild it against UltiTools-API 7.0. See [Module Versioning](/guide/advanced/module-versioning#version-selection-by-api-level).
 
 A JAR whose root `plugin.yml` does not declare an integer `api-version` is refused when it is uploaded: the version is not published and stays pending with the declared file. See [Upload refused for the API level](#upload-refused-for-the-api-level).
 

@@ -114,7 +114,9 @@ Bukkit.getScheduler().runTask(UltiTools.getInstance(), () -> {
 
 ### 必需的 `api-version`
 
-使用绑定的模块必须在 `plugin.yml` 中声明 `api-version: 630`。6.2.x 框架不认识这些属性，会静默忽略它们，被绑定的任务于是只会在加载时执行一次，而不是按间隔重复执行。声明这个下限后，旧框架会直接拒绝加载该模块。6.3.0 自身也会拒绝使用了绑定、却声明了更低 `api-version` 的模块。为什么只提高 `pom.xml` 中的 pin 不够，见[模块版本规范](/zh/guide/advanced/module-versioning#新增的注解属性)。
+在 6.x 中，使用绑定的模块须在 `plugin.yml` 中声明不低于 `630` 的 API 级别（面向 6.3.0 时为 `api-version: 630`）。6.2.x 框架不认识这些属性，会静默忽略它们，被绑定的任务于是只会在加载时执行一次，而不是按间隔重复执行。声明这个下限后，旧框架会直接拒绝加载该模块。6.3.0 自身也会拒绝使用了绑定、却声明了更低 `api-version` 的模块。为什么只提高 `pom.xml` 中的 pin 不够，见[模块版本规范](/zh/guide/advanced/module-versioning#新增的注解属性)。
+
+自 v7.0.0 起，所有模块（无论是否使用绑定）都必须针对 7.0 重新构建并声明至少 `api-version: 700`，见[6.x 模块升到 7.0](/zh/guide/advanced/module-versioning#modules-6x-to-7)。
 
 ::: tip 绑定命令冷却
 `@CmdCD` 也支持同样的绑定方式，见[命令冷却](/zh/guide/essentials/cmd-executor#配置项绑定的冷却时间)。
