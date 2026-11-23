@@ -12,7 +12,7 @@ UltiTools是一款发布于2020年6月的MC服务器基础插件，拥有诸多�
 
 ## 特点
 
-* 高兼容：自 v6.3.0 起，框架支持 Paper 1.19.2 build 163 及以上版本，Java 版本按所选 Paper 版本的要求配置（1.19.2 至 1.20.4 使用 Java 17，1.20.5 起使用 Java 21）。在 6.3.x 系列中，UltiKits、UltiLogin、UltiMail、UltiRemoteBag 和 UltiTrade 需要 Minecraft 1.21+。自 v6.4.0 起，这五个模块以框架支持的最低版本为目标，在 Minecraft 1.21 以下要求 UltiTools 6.4.0+；模块更新和能力限制见[支持 1.21 以下的服务端](/zh/guide/advanced/older-servers)。
+* 6.x 的兼容范围：自 v6.3.0 起，框架支持 Paper 1.19.2 build 163 及以上版本，Java 版本按所选 Paper 版本的要求配置（1.19.2 至 1.20.4 使用 Java 17，1.20.5 起使用 Java 21）。在 6.3.x 系列中，UltiKits、UltiLogin、UltiMail、UltiRemoteBag 和 UltiTrade 需要 Minecraft 1.21+。自 v6.4.0 起，这五个模块以框架支持的最低版本为目标，在 Minecraft 1.21 以下要求 UltiTools 6.4.0+；模块更新和能力限制见[支持 1.21 以下的服务端](/zh/guide/advanced/older-servers)。
 
 * 高度GUI：大部分功能都有图形化用户界面，便于玩家操作
 
@@ -25,6 +25,8 @@ UltiTools是一款发布于2020年6月的MC服务器基础插件，拥有诸多�
 * 功能丰富：UltiTools几乎涵盖了服务器所需的所有基础功能，同时包含了GUI登录，邮件系统等特色功能
 
 * 性能优化：插件的各方面都进行了优化，在实现丰富功能的同时保障了流畅的体验
+
+自 v7.0.0 起，模块必须针对目标 Paper 和 UltiTools-API 7.0 重新构建，并在 JAR 根目录的 `plugin.yml` 中声明整数 `api-version: 700`（或更高）。框架按原样加载模块，不再改写字节码或探测服务端 API，也不再执行启动或离线链接审计。6.x 模块不会自动适配到 7.0，详见[6.x 模块升到 7.0](/zh/guide/advanced/module-versioning#modules-6x-to-7)。
 
 ## 为什么选择使用UltiTools API进行插件开发?
 

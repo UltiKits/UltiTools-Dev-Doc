@@ -434,7 +434,9 @@ A changed value takes effect at `/ul reload`. The resolved seconds are cached pe
 
 Do not put a module `@Range` on a bound field; the binding's range is the field's range. With a `@Range` on the same field, an out-of-range reload makes the configuration reload itself fail, which stops the rest of that module's reload and reports it as failed (since [#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509), fixed in 6.3.0, a full `/ul reload` still continues with the next module), instead of keeping the running value.
 
-A binding in an [External Plugin API](/guide/advanced/external-plugin-api) executor is refused. A module that uses a binding must declare `api-version: 630` in its `plugin.yml`: a 6.2.x framework silently ignores the new attributes and would enforce no cooldown at all, and 6.3.0 refuses a module that uses a binding while declaring a lower `api-version`. `@Scheduled` accepts the same kind of binding, see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing).
+A binding in an [External Plugin API](/guide/advanced/external-plugin-api) executor is refused. In 6.x, a module using a binding must declare at least `630` in its `plugin.yml` (`api-version: 630` for 6.3.0): a 6.2.x framework silently ignores the new attributes and would enforce no cooldown at all, and 6.3.0 refuses a module that uses a binding while declaring a lower `api-version`. `@Scheduled` accepts the same kind of binding, see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing).
+
+As of v7.0.0, every module must be rebuilt against 7.0 and declare at least `api-version: 700`; the binding floor of `630` does not replace the 7.0 admission requirement. See [Modules from 6.x to 7.0](/guide/advanced/module-versioning#modules-6x-to-7).
 
 ### Execution lock
 

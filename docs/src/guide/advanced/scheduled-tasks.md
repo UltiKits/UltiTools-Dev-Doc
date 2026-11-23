@@ -114,7 +114,9 @@ Reload preserves the trigger cycle: last observed fire plus the new period, or t
 
 ### Required `api-version`
 
-A module that uses a binding must declare `api-version: 630` in its `plugin.yml`. A 6.2.x framework does not know these attributes and silently ignores them, so a bound task would run once at load instead of on its interval. The declared floor makes the older framework refuse the module instead. 6.3.0 itself refuses a module that uses a binding while declaring a lower `api-version`. See [Module Versioning](/guide/advanced/module-versioning#new-annotation-attributes) for why the `pom.xml` pin alone does not protect you.
+In 6.x, a module using a binding must declare an API level of at least `630` in its `plugin.yml` (`api-version: 630` when targeting 6.3.0). A 6.2.x framework does not know these attributes and silently ignores them, so a bound task would run once at load instead of on its interval. The declared floor makes the older framework refuse the module instead. 6.3.0 itself refuses a module that uses a binding while declaring a lower `api-version`. See [Module Versioning](/guide/advanced/module-versioning#new-annotation-attributes) for why the `pom.xml` pin alone does not protect you.
+
+As of v7.0.0, all modules, whether or not they use bindings, must be rebuilt against 7.0 and declare at least `api-version: 700`; see [Modules from 6.x to 7.0](/guide/advanced/module-versioning#modules-6x-to-7).
 
 ::: tip Binding a cooldown
 `@CmdCD` accepts the same kind of binding for command cooldowns, see [Command cooldown](/guide/essentials/cmd-executor#binding-the-cooldown-to-a-config-key).

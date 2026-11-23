@@ -49,7 +49,7 @@ A module's version is also read by machines, but only to order two versions, nev
 
 All three go through `VersionComparatorUtil.compare` and ask whether A is greater than B. None of them looks at whether the difference is MAJOR, MINOR or PATCH.
 
-Two JARs of one module in the modules folder do not reach the first two. All module JARs share one class loader, so both copies resolve to the same class and are never loaded side by side. Which copy supplies the classes is decided by file name, not by version, as described in [Two copies of one module](#two-copies-of-one-module).
+Two JARs of one module in the modules folder do not reach the first two. All module JARs share one class loader, so both copies resolve to the same class and are never loaded side by side. Among API-admitted copies, which copy supplies the classes is decided by file name, not by version, as described in [Two copies of one module](#two-copies-of-one-module).
 
 Nor does anything resolve one module from Maven for another module to use. None of the official modules declares a dependency on a sibling module in its pom. A module built as a multi-module project, such as the discontinued `UltiBot`, depends on its own submodules, which is internal to that build rather than one module depending on another. The linkage argument that constrains the framework's version number therefore does not apply to a module's. If you publish your own module for others to compile and link against, that argument starts applying to yours: your version number now has to answer a compatibility question, so what you need is a stricter contract that preserves compatibility, not the framework's looser one.
 
@@ -81,7 +81,7 @@ A module declares the framework as `provided`:
 
 The scope of the first point matters. It describes statically linked references in one direction and is not a general guarantee: a later framework release can still remove or reshape something the module uses, and anything reached by reflection was never covered, because the compiler did not record it.
 
-A pin that lags the latest release is therefore the normal state rather than drift to be corrected. Raise it only when the module actually starts using a newer API.
+A pin that lags the latest release is therefore the normal state rather than drift to be corrected. Raise it only when the module actually starts using a newer API; moving to v7.0.0 is a new API baseline and requires rebuilding 6.x modules, as described in [Modules from 6.x to 7.0](#modules-6x-to-7).
 
 ### The pin and `api-version`
 
@@ -90,11 +90,11 @@ The pin is not the module's runtime floor. These are two independent numbers, an
 | Number | Decides | Checked by |
 |---|---|---|
 | The `UltiTools-API` version in `pom.xml` | Which version's descriptors your bytecode records | Nothing. It is `provided`, does not enter the JAR, and the framework cannot read it at runtime |
-| `api-version` in `plugin.yml` | The declared runtime floor | `PluginManager.isUltiToolsVersionCompatible` when the module loads. This is the only framework version consulted before a module is admitted. As of v6.3.0 it is also consulted when `/upm` installs or updates the module, see [Version selection by API level](#version-selection-by-api-level) |
+| `api-version` in `plugin.yml` | The declared runtime floor | As of v7.0.0, `ModuleJarAdmission` checks the integer declaration and floor of `700` before main-class resolution; `PluginManager.isUltiToolsVersionCompatible` still checks whether a newer framework is needed. `/upm` checks the accepted range too; see [Version selection by API level](#version-selection-by-api-level) |
 
 Raising the pin does not raise the floor. A gap between the two numbers is not itself a fault: bytecode built against a newer pin still runs on the declared floor as long as every member it references already exists there. What breaks is a JAR whose bytecode references a symbol the framework version named in `api-version` does not declare, because that server admits it and then fails when the call site is reached.
 
-More than this one number is checked before a module is admitted: the JAR is structurally validated first, and a module is also refused when a newer instance of it is already loaded, which happens only when code registers the same main class a second time through `PluginManager#register`. The full test is `passesCompatibilityGates`, which is `!hasNewerVersionLoaded && isUltiToolsVersionCompatible`. Only `api-version` has anything to do with which framework versions the module can run on, which is why this page discusses only that one.
+More than this one number is checked before a module is admitted: the JAR is structurally validated first and, as of v7.0.0, `ModuleJarAdmission` checks the declaration before main-class resolution. Later, `passesCompatibilityGates` checks `!hasNewerVersionLoaded && isUltiToolsVersionCompatible`; the newer-instance check matters when code registers the same main class a second time through `PluginManager#register`. Of these checks, `api-version` declares the framework level, rather than proving that every referenced API exists.
 
 ## Compatibility breaks caused by the framework
 
@@ -131,6 +131,40 @@ As of v6.3.0, every `@Deprecated(forRemoval = true)` member carries a machine-ch
 A build-time check fails the framework's own CI if the member is still declared once the project version reaches that target, so the tag is an enforced promise, not just documentation.
 See [`compatibility/DEPRECATIONS.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/compatibility/DEPRECATIONS.md) for every currently `ANNOUNCED` removal and its deadline in one place.
 :::
+
+### Modules from 6.x to 7.0 {#modules-6x-to-7}
+
+As of v7.0.0, 6.x modules cannot load directly on 7.0. Update the build dependency to UltiTools-API 7.0, migrate removed APIs, rebuild against the target Paper, and declare an integer `api-version: 700` (or higher) in the JAR's root `plugin.yml`. Editing an old JAR's declaration alone does not repair references to removed APIs. A declaration above the installed framework's API level is still refused.
+
+7.0 loads modules unchanged and retains a shared parent-first `URLClassLoader`, but removes load-time bytecode adaptation, server-API probing, and startup and offline linkage audits. Retained container-skip diagnostics describe observed missing classes and handlers; they do not mean the framework restores missing capabilities.
+
+With a readable `plugin.yml` and a `main:` entry, these checks run before main-class resolution. An unreadable file or absent `main:` still receives the existing metadata refusal.
+
+| Refused declaration | Meaning |
+| --- | --- |
+| Integer below `700`, such as `630` | Below the running framework's minimum; install a rebuilt module |
+| Missing `api-version` | No valid declaration; the read value is `<missing>` in English or `<缺失>` in Chinese |
+| Empty or non-integer, such as `'26.3'`, `1.21` or `abc` | No valid declaration; the same template shows the actual read value, rather than reporting a low level |
+
+Missing and non-integer declarations share one message template; below-minimum integers use another. Quoted integers such as `'700'` are accepted too. These are the exact language-file templates, without the log prefix; `%s`, `%d` and the Chinese positional parameters are replaced at runtime with the JAR name, declaration, minimum and actual framework version:
+
+`language: en`
+
+```text
+Module '%s' declares api-version %d, below the minimum %d required by UltiTools-API %s; refusing to load. Install a module rebuilt for the current UltiTools-API; changing api-version alone does not make an old module compatible.
+Module '%s' has no valid api-version (read: %s); UltiTools-API %s requires an integer api-version of %d or higher -- refusing to load. Install a module rebuilt for the current UltiTools-API.
+```
+
+`language: zh`
+
+```text
+模块 '%s' 声明的 api-version 为 %d，低于 UltiTools-API %4$s 要求的最低级别 %3$d；拒绝加载。请安装针对当前 UltiTools-API 重新构建的模块；仅修改 api-version 无法使旧模块兼容。
+模块 '%s' 未声明有效的 api-version（读到的值：%s）；UltiTools-API %s 要求模块声明 %d 或更高的整数；拒绝加载。请安装针对当前 UltiTools-API 重新构建的模块。
+```
+
+A JAR refused by the integer/minimum-level check (missing, non-integer or below `700`) is excluded from the shared class path and supplies neither main nor helper classes to other modules. Each refusal counts once in `Failed`; unrelated modules continue loading. If `m-6.3.0.jar` (630) and `m-7.0.0.jar` (700) declare the same main class, the old copy is refused and the new one supplies the classes even though its file name sorts later. The framework does not delete the old file automatically. Among admitted copies, file-name ordering still applies; the module version does not select the newest copy.
+
+Before upgrading the framework, let each pending `/upm update` complete one confirming startup on the old framework. Cancel unwanted updates first as described under [Updating and uninstalling](#updating-and-uninstalling-on-a-server): `/upm uninstall` also unloads the module and deletes its JARs, so back up files you need first. Do not carry an unconfirmed 6.x update into 7.0: API refusal can trigger the existing transaction rollback, and the restored old JAR is below 700 too. After completing or cancelling pending updates, stop the server, replace modules with their rebuilt 7.0 versions, keep only the intended JAR for each module, then upgrade the framework and start.
 
 ### Native item and sound APIs in 7.0
 
@@ -232,6 +266,8 @@ An exit code of 0 means no symbols are missing. A non-zero exit code lists what 
 
 Compare against the version you declare in `api-version`, not the one you pinned. These are different questions, and the first is the one your users will encounter.
 
+This `scripts/symcheck.py` is a manual symbol-comparison tool in the docs repository, not the removed framework startup or offline server-linkage audit. Passing it does not replace the v7.0.0 integer floor of 700 or the rebuild requirement.
+
 #### Reading the output
 
 First distinguish two situations, because they need different work:
@@ -283,7 +319,7 @@ As of v6.3.0, a framework API linkage error naming a type under `com.ultikits.ul
 [UltiTools-API] Module 'UltiLogin-1.0.0.jar' (version 1.0.0, api-version 620) declares main: 'com.ultikits.plugins.login.UltiLogin', but it was built against an older UltiTools-API version and is not compatible with this one -- refusing to load. Upgrade it to a release of the module built for the current UltiTools-API version -- see https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md for the list of APIs removed or changed in this release. Cause: java.lang.IncompatibleClassChangeError: class com.ultikits.plugins.login.UltiLogin overrides final method com.ultikits.ultitools.abstracts.UltiToolsPlugin.unregisterSelf()V
 ```
 
-As of v6.3.0, a module refused this way is counted in the `Failed` number of the start-up summary `[UltiTools-API] Succeeded loaded <s>, Failed <f>.`, as is every other module JAR of that start that did not load: one refused while its main class is read, one excluded for a missing required plugin or a dependency cycle, and one whose registration failed. A second copy of a module that did load is not counted. When every JAR in the modules folder is refused, the summary reads `Succeeded loaded 0, Failed <n>.`; `No UltiTools plugin found.` appears only when the folder holds no module JAR. Before v6.3.0 the summary counted only modules that reached registration, so a start that refused a module could still print `Failed 0`.
+As of v6.3.0, a module refused this way is counted in the `Failed` number of the start-up summary `[UltiTools-API] Succeeded loaded <s>, Failed <f>.`, as is every other module JAR of that start that did not load: one refused while its main class is read, one excluded for a missing required plugin or a dependency cycle, and one whose registration failed. A second API-admitted copy of a module that did load is not counted; as of v7.0.0, an API-refused copy still counts once in `Failed`. When every JAR in the modules folder is refused, the summary reads `Succeeded loaded 0, Failed <n>.`; `No UltiTools plugin found.` appears only when the folder holds no module JAR. Before v6.3.0 the summary counted only modules that reached registration, so a start that refused a module could still print `Failed 0`.
 
 As of v6.3.0, a module whose main class still overrides `unregisterSelf()` or `reloadSelf()`, both `final` since 6.3.0, is refused whole at load with the `built against an older UltiTools-API version` line above, and a module that names it in `@PluginDependency(depends = ...)` is refused too, as for any missing hard dependency. A module that lists it only under `softDepends`, `loadBefore` or `loadAfter` still loads, and so does every unrelated module. The fix is a release of the module built for the current UltiTools-API version; module authors move the override's work to `onUnregister()` or `onReload()`.
 
@@ -293,13 +329,15 @@ As of v6.3.0, a module whose main class still overrides `unregisterSelf()` or `r
 
 A missing method or field fails loudly with a linkage error. A missing annotation attribute does not: the JVM drops any attribute the running annotation type does not declare, and nothing is logged. As of v6.3.0, `@Scheduled(config = ..., periodKey = ..., delayKey = ...)` and `@CmdCD(config = ..., key = ...)` read an interval or cooldown from a config key. A module that uses them still loads on a 6.2.x framework, where a bound `@Scheduled` runs once at load instead of on its interval and a bound `@CmdCD` enforces no cooldown.
 
-Raising the pin does not prevent this, for the reason given in [The pin and `api-version`](#the-pin-and-api-version). A module that uses either binding must declare `api-version: 630`, so that an older framework refuses it at load. To surface the mistake on the version you develop against, 6.3.0 itself refuses a module that uses a binding while declaring a lower `api-version`, naming the module, the binding and the required floor. Existing literal usages such as `@Scheduled(period = 6000)` and `@CmdCD(60)` are unaffected and need no change.
+Raising the pin does not prevent this, for the reason given in [The pin and `api-version`](#the-pin-and-api-version). In 6.x, a module using either binding must declare at least `630` (`api-version: 630` for 6.3.0), so that an older framework refuses it at load. As of v7.0.0, every module must instead be rebuilt against 7.0 and declare at least `700`, whether or not it uses bindings. To surface the mistake on the version you develop against, 6.3.0 itself refuses a module that uses a binding while declaring a lower `api-version`, naming the module, the binding and the required floor. Existing literal usages such as `@Scheduled(period = 6000)` and `@CmdCD(60)` are unaffected and need no change.
 
 ## Two copies of one module
 
+As of v7.0.0, API-refused JARs do not participate in the class-loading order below and each counts once in `Failed`; an old refused copy cannot shadow an admitted new copy. The framework does not clean up old copies automatically; keep only one.
+
 As of v6.3.0, UltiTools reads the JARs in `plugins/UltiTools/plugins/` in file-name order, compared as plain strings, and builds the module class loader in the same order. Before v6.3.0 the order was whatever the file system listed, which Java does not define, so the same folder could load a different copy on another machine.
 
-A module JAR is identified by the `main:` entry of its `plugin.yml`. When two or more JARs declare the same `main:` class, the class comes from the first of them in that order that carries it, and the other copies are refused. One warning at start-up names every copy and the JAR the classes load from:
+A module JAR is identified by the `main:` entry of its `plugin.yml`. When two or more admitted JARs declare the same `main:` class, the class comes from the first of them in that order that carries it, and the other copies are refused. One warning at start-up names every copy and the JAR the classes load from:
 
 ```text
 [UltiTools-API] These JAR files all declare the same module main class com.example.MyModule: MyModule-1.0.0.jar, MyModule-1.1.0.jar. The module's classes load only from MyModule-1.0.0.jar; the other copies are not loaded. Keep only one of them.
@@ -309,7 +347,7 @@ The version numbers play no part here. In the example the older `1.0.0` keeps ru
 
 `/upm uninstall` removes every copy. As of v6.3.0 it deletes each JAR whose `plugin.yml` `main:` names the module's main class, whatever `name:` that JAR declares, and names each deleted file in its reply.
 
-`/upm update` refuses to update a module while such a copy would win. As of v6.3.0, before it downloads anything, it looks in the modules folder for another JAR that declares the module's `main:` and whose file name sorts before the new JAR's name. If it finds one, the new version could never load there: the copy would keep supplying the classes and the update would be rolled back at every start. So the command stages nothing, and its reply names the new JAR and every such copy. Remove them and run `/upm update` again; no restart is needed in between. A copy that sorts after the new JAR does not stop the update, and the start-up warning above still names it.
+`/upm update` refuses to update a module while such a copy would win. As of v6.3.0, before it downloads anything, it looks in the modules folder for another JAR that declares the module's `main:` and whose file name sorts before the new JAR's name. As of v7.0.0, an API-refused copy is not a class-path blocker for this check. If it finds one, the new version could never load there: the copy would keep supplying the classes and the update would be rolled back at every start. So the command stages nothing, and its reply names the new JAR and every such copy. Remove them and run `/upm update` again; no restart is needed in between. A copy that sorts after the new JAR does not stop the update, and the start-up warning above still names it.
 
 ## Version selection by API level
 
@@ -321,12 +359,15 @@ Which versions a server is offered and installs depends on the framework it runs
 
 | Server runs | Versions offered and installed |
 |---|---|
-| UltiTools-API 6.3.0 or later | `api-version` from 630 up to the framework's own API level (630 for 6.3.0) |
+| UltiTools-API 7.0 onward | Integer `api-version` from 700 up to the framework's own API level (700 for 7.0.0) |
+| UltiTools-API 6.3.0 through 6.x | `api-version` from 630 up to the framework's own API level (630 for 6.3.0) |
 | UltiTools-API before 6.3.0 | `api-version` below 630 only |
 
-A server on 6.3.0 or later sends its level (`apiLevel`, and `minApiLevel=630`) when it looks up a module's versions: in 6.3.0 with every catalogue request, as of v6.3.1 only on the module versions route. A framework before 6.3.0 sends none, and UltiCloud treats such a request as coming from a framework before 6.3.0, so released 6.2.x servers are not offered a 6.3.0 build. This applies to `/upm install`, `/upm install <module> <version>`, `/upm versions`, `/upm update` and the update check at start-up. The update check reports only a version this server can install and never mentions one that needs a newer UltiTools-API. `/upm list` still lists every module in the catalogue; Install on a module with no compatible version replies with the reason.
+A server on 6.3.0 through 6.x sends its level (`apiLevel`, and `minApiLevel=630`) when it looks up a module's versions: in 6.3.0 with every catalogue request, as of v6.3.1 only on the module versions route. A framework before 6.3.0 sends none, and UltiCloud treats such a request as coming from a framework before 6.3.0, so released 6.2.x servers are not offered a 6.3.0 build. This applies to `/upm install`, `/upm install <module> <version>`, `/upm versions`, `/upm update` and the update check at start-up. The update check reports only a version this server can install and never mentions one that needs a newer UltiTools-API. `/upm list` still lists every module in the catalogue; Install on a module with no compatible version replies with the reason.
 
 As of v6.3.2, `/upm check`, `/upm update <module>` and `/upm update all` reply `Update check still running; try again in a few seconds.` until the startup check completes, including before its manager exists. They do not consume partial results; update commands download and stage nothing during this time. These commands read the completed startup result, not a new check: wait for completion and retry. A completed check with failed lookups instead reports `Update check incomplete: could not confirm the latest version of <names>.`.
+
+As of v7.0.0, module version requests carry `apiLevel` and `minApiLevel=700`. `/upm install` and `/upm update` use the same integer parser and floor of 700 after downloading; downloads above the framework's own level are still refused. The 630 range and reply examples below describe 6.x, not 7.0.
 
 `/upm` also checks what it downloads. `/upm install` writes the JAR into the modules folder as `<id>-<version>.jar.part`, a name the module loader never reads, and reads its `plugin.yml` again; `/upm update` makes the same check on the copy it downloads into `.ultikits/upm-transactions/`. A module whose `api-version` is absent, not an integer, below 630 or above the framework's level is refused: the download is deleted and nothing is written to the modules folder. For `/upm update` the staged download is discarded and no update is recorded. The reply names the declared level, the framework's level and the accepted range. With `language: en`:
 
