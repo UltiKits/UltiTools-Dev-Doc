@@ -104,7 +104,7 @@ An older pin provides only the guarantee described in the previous section. A mo
 A successful build only shows that the source still compiles. What breaks an already published JAR is the descriptor recorded in its bytecode, and compilation does not show it to you.
 :::
 
-[The JLS chapter on binary compatibility][jls13] lists every change that can cause this, and there are more than the two below. These two are the ones this project has actually shipped; they are examples rather than a complete list.
+[The JLS chapter on binary compatibility][jls13] lists every change that can cause this. The examples below cover removed APIs (including the 7.0 native API migration) and changed descriptors that this project has shipped or announced; they are not a complete list.
 
 ### Removed API
 
@@ -124,13 +124,67 @@ A successful build is not hard to get, because this check only covers what the s
 
 The cost only arrives if you publish the raised pin: building against a newer framework may record newer descriptors, which means raising `api-version` as well, which leaves behind every server still on the older framework. Raising the pin is therefore useful as a check and poor as a fix. Raise it in a throwaway build, see what fails to compile, migrate away from those APIs, then decide separately whether the released pin should move.
 
-The way to handle this situation is to follow deprecation notices and migrate before the removal is released.
+For APIs that carry deprecation notices, follow those notices and migrate before the removal is released. The 7.0 removals described below had no prior 6.x deprecation markers; v7.0.0 starts a new API baseline.
 
 ::: tip Reading a deprecation notice for its deadline
 As of v6.3.0, every `@Deprecated(forRemoval = true)` member carries a machine-checked `{@removeIn X.Y.Z}` javadoc tag naming the concrete removal version.
 A build-time check fails the framework's own CI if the member is still declared once the project version reaches that target, so the tag is an enforced promise, not just documentation.
 See [`compatibility/DEPRECATIONS.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/compatibility/DEPRECATIONS.md) for every currently `ANNOUNCED` removal and its deadline in one place.
 :::
+
+### Native item and sound APIs in 7.0
+
+::: warning Unreleased v7.0.0 migration
+As of v7.0.0, the framework no longer supplies XSeries or a cross-version material and sound compatibility layer.
+The 6.x instructions elsewhere on this site remain applicable only to those framework versions.
+:::
+
+Rebuild modules against 7.0 after replacing these removed public symbols:
+
+| Removed in v7.0.0 | Replacement |
+| --- | --- |
+| `com.ultikits.ultitools.utils.XVersionUtils` | Direct Paper and Adventure calls; see the complete method table below |
+| `com.ultikits.ultitools.entities.Sounds` | Paper `org.bukkit.Sound` |
+| `com.ultikits.ultitools.entities.Colors#getCode()` | Native `Material.<COLOR>_STAINED_GLASS_PANE`, or the new 7.0 `Colors#getGlassPaneMaterial()` |
+
+`Colors` itself remains available and gains `getGlassPaneMaterial()` as of v7.0.0; that getter does not exist in 6.x. `new ItemStack(Material.CYAN_STAINED_GLASS_PANE)` works on both 6.x and 7.0. `ItemStackBuilder.of(Material)`, `of(ItemStack)` and `enchant(Enchantment, int)` remain available. As of v7.0.0, all three public entries with XSeries parameter types are removed: `new ItemStackBuilder(XMaterial)`, `ItemStackBuilder.of(XMaterial)` and `ItemStackBuilder.enchant(XEnchantment, int)`. Use the corresponding `Material` or `Enchantment` entries instead.
+
+As of v7.0.0, `ItemStackBuilder.of(String)` uses `Material.matchMaterial` and accepts only current material names such as `STONE` or namespaced keys such as `minecraft:stone`, provided they identify an item. Unknown names, block-only materials, historical aliases, numeric IDs and old names renamed after 1.20 (such as `GRASS`, `CHAIN` and `SCUTE`) return `null`. A `null` string argument (`ItemStackBuilder.of((String) null)`) throws `IllegalArgumentException`, rather than returning `null`. Check the result before chaining; there is no legacy-name lookup or fallback item.
+
+The following native replacements apply as of v7.0.0. Use `org.bukkit.Material`, `org.bukkit.Sound`, `org.bukkit.enchantments.Enchantment`, `org.bukkit.inventory.ItemFlag` and Adventure's `net.kyori.adventure.text.Component`:
+
+| 6.x approach | Native replacement for 7.0 |
+| --- | --- |
+| XSeries material / `XVersionUtils` item factory | `ItemStackBuilder.of(Material.STONE).build()` |
+| `XVersionUtils.getSound(Sounds.ENTITY_ENDERMAN_TELEPORT)` passed to `playSound` | `player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, volume, pitch)` (keep the caller's existing volume and pitch) |
+| XSeries enchantment used for a hidden glow | `ItemStackBuilder.of(Material.PAPER).meta(m -> m.setEnchantmentGlintOverride(true)).build()` (visual glint without adding an enchantment) |
+| `XVersionUtils.sendActionBar(player, "Ready")` | `player.sendActionBar(Component.text("Ready"))` |
+
+Call sound and enchantment APIs during gameplay, not in static initializers or enum constructors. `ItemStackBuilder.glow()` uses the native `Enchantment.LUCK_OF_THE_SEA` and `ItemFlag.HIDE_ENCHANTS` as of v7.0.0. `ItemStackBuilder.of(Material.PAPER).glow().build()` is also available, but it adds a real enchantment; use `ItemMeta#setEnchantmentGlintOverride(Boolean)` for a purely visual effect. For colored glass, use `new ItemStack(Colors.CYAN.getGlassPaneMaterial())`; existing GUI glass colors and button materials remain unchanged.
+
+#### Replacing every XVersionUtils method
+
+As of v7.0.0, replace all 15 public methods from the released 6.5.0 class as follows on Paper 26.3. Here `color` is a retained `Colors` value, and item constructors are `org.bukkit.inventory.ItemStack`. “No direct equivalent” means no single Paper call preserves the whole helper's behaviour; keep the stated checks in your own code.
+
+| Removed 6.x method | Paper 26.3 replacement and behaviour to retain |
+| --- | --- |
+| `getColoredPlaneGlass(Colors color)` | `new ItemStack(Material.valueOf(color.name() + "_STAINED_GLASS_PANE"))`; for a fixed color use e.g. `Material.CYAN_STAINED_GLASS_PANE` |
+| `getColoredWool(Colors color)` | `new ItemStack(Material.valueOf(color.name() + "_WOOL"))` |
+| `getSign()` | `new ItemStack(Material.OAK_SIGN)` |
+| `getEndEye()` | `new ItemStack(Material.ENDER_EYE)` |
+| `getEmailMaterial(boolean isRead)` | `new ItemStack(isRead ? Material.FILLED_MAP : Material.PAPER)` |
+| `getHead(OfflinePlayer player)` | `new ItemStack(player.isOp() ? Material.DRAGON_HEAD : Material.PLAYER_HEAD)`; the old helper only chose the head type and did not set a player's skin |
+| `getGrassBlock()` | `new ItemStack(Material.GRASS_BLOCK)` |
+| `registerNewObjective(Scoreboard scoreboard, String name, String criteria, String displayName)` | No direct equivalent: first call `scoreboard.getObjective(name)` and return it if present; otherwise call `scoreboard.registerNewObjective(name, Criteria.DUMMY, displayName)`. The old helper ignored `criteria` and always created a dummy objective |
+| `getSound(Sounds sound)` | Use `Sound.ENTITY_ENDERMAN_TELEPORT` or another matching native constant; replace the deleted `Sounds` type in callers too |
+| `getBed(Colors bedColor)` | `new ItemStack(Material.valueOf(bedColor.name() + "_BED"))` |
+| `getItemDurability(ItemStack itemStack)` | No direct equivalent: if `itemStack.getItemMeta()` is `org.bukkit.inventory.meta.Damageable`, return `itemStack.getType().getMaxDurability() - damageable.getDamage()`; otherwise return `0`. `getDamage()` alone is damage taken, not remaining durability |
+| `getItemInHand(Player player, boolean isMainHand)` | `isMainHand ? player.getInventory().getItemInMainHand() : player.getInventory().getItemInOffHand()` |
+| `sendActionBar(Player player, String message)` | `player.sendActionBar(Component.text(message))` for literal text |
+| `sendPlayerList(Player player, String header, String footer)` | `player.setPlayerListHeaderFooter(header, footer)` preserves the string call; for literal Adventure text use `player.sendPlayerListHeaderAndFooter(Component.text(header), Component.text(footer))` |
+| `getBlockFace(Block placedBlock)` | No direct equivalent: read `placedBlock.getBlockData()`; if it is `org.bukkit.block.data.Directional`, return `directional.getFacing()`, otherwise return `org.bukkit.block.BlockFace.NORTH` |
+
+A module retaining XSeries must bundle its own dependency and relocate its packages with Maven Shade or Gradle Shadow (shade + relocate). Do not rely on the framework to supply it or declare it only as `provided`/`compileOnly`: Paper's `plugin.yml` `libraries:` mechanism is not available to UltiTools modules loaded by the framework. The [6.x runtime-library instructions](/guide/introduction) are not a supply guarantee for 7.0.
 
 ### Changed descriptors
 

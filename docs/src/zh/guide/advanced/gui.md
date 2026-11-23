@@ -60,6 +60,8 @@ public abstract class BaseInventoryPage extends Gui {
 
 ### 底部工具栏
 
+下列 `XVersionUtils` 示例仅适用于 6.x。将 `XVersionUtils.getColoredPlaneGlass(Colors.BLUE)` 替换为 `new ItemStack(Material.BLUE_STAINED_GLASS_PANE)`，在 6.x 和 7.0 上都能使用。自 v7.0.0 起，也可用新增的 getter 写成 `new ItemStack(Colors.BLUE.getGlassPaneMaterial())`。
+
 默认情况下，最后一行保留给灰色玻璃背景的工具栏：
 
 ```java
@@ -253,6 +255,13 @@ public enum Colors {
     LIGHT_GRAY, CYAN, PURPLE, BLUE, BROWN, GREEN, RED, BLACK
 }
 ```
+
+::: warning 未发布的 v7.0.0 颜色 API 变更
+自 v7.0.0 起，`getCode()` 和 `XVersionUtils` 已移除；`Colors` 仍保留，并新增 `getGlassPaneMaterial()`（7.0 新增）。
+下面的 `XVersionUtils` 调用仅适用于 6.x；`new ItemStack(Material.CYAN_STAINED_GLASS_PANE)` 在 6.x 和 7.0 上都能使用，而 `new ItemStack(Colors.CYAN.getGlassPaneMaterial())` 需要 7.0。
+:::
+
+自 v7.0.0 起，框架内置 GUI 的玻璃颜色和按钮材质保持不变。完整迁移说明见 [7.0 原生物品与音效 API](/zh/guide/advanced/module-versioning#_7-0-原生物品与音效-api)。
 
 用法：
 

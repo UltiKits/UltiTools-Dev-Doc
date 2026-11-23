@@ -30,7 +30,14 @@ UltiTools是一款发布于2020年6月的MC服务器基础插件，拥有诸多�
 
 UltiTools API是UltiTools的核心，UltiTools API提供了一套完整的API，可以让您轻松开发出功能丰富的插件。
 
-自 v6.3.0 起，UltiTools API 将 obliviate-invs 和 UniversalScheduler 打包到自己的 JAR 中。Paper 根据 `plugin.yml` 的 `libraries:` 声明下载 ByteBuddy、HikariCP、XSeries、Java-WebSocket、commons-dbutils 和 JavaMail。Gson、MySQL Connector/J、protobuf、slf4j 和原生 Adventure 由 Paper 服务端自身提供。模块可以对这些库声明 `provided` 作用域，不必自行打包。直接使用 XSeries 的模块应针对框架声明的同一版本 13.7.1 编译。
+在 6.x 系列中，自 v6.3.0 起，UltiTools API 将 obliviate-invs 和 UniversalScheduler 打包到自己的 JAR 中。Paper 根据框架 `plugin.yml` 的 `libraries:` 声明下载 ByteBuddy、HikariCP、XSeries、Java-WebSocket、commons-dbutils 和 JavaMail。Gson、MySQL Connector/J、protobuf、slf4j 和原生 Adventure 由 Paper 服务端自身提供。模块可以对这些库声明 `provided` 作用域，不必自行打包。在 6.x 中直接使用 XSeries 的模块应针对框架声明的同一版本编译：6.3.0 使用 13.7.1，自 6.3.1 起使用 14.0.0。
+
+::: warning 未发布的 v7.0.0 依赖变更
+自 v7.0.0 起，框架不再提供 XSeries 或 `XVersionUtils`，请改用 Paper 原生的 `Material`、`Sound`、`Enchantment` 和 Adventure API。
+模块若保留 XSeries，须自行 shade 并 relocate；UltiTools 模块不能使用 Paper 的 `libraries:` 机制。
+:::
+
+移除的符号、字符串材质校验和迁移示例见 [7.0 原生物品与音效 API](/zh/guide/advanced/module-versioning#_7-0-原生物品与音效-api)。
 
 自 v6.3.0 起，`adventure-platform-bukkit` 库以及 `DependenceManagers#getAdventure()`、`#initAdventure(UltiTools)` 和 `#closeAdventure()` 方法已移除。发送 Adventure 组件请改用 Paper 的 `Player#sendMessage(Component)`。
 

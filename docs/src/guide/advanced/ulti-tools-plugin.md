@@ -9,7 +9,12 @@ See the [Javadoc](/api/) for the current API surface.
 ::: danger Removed in v6.3.0
 `getVersionWrapper()` and `VersionWrapper` were deleted outright in v6.3.0, along with `DefaultVersionWrapper`.
 Neither exists in the jar; the method rows below have been removed to match.
-Use `XVersionUtils`'s static methods instead; the retired [`VersionWrapper` API](/api/version-wrapper) remains available in the 6.2.5 Javadoc.
+In 6.x, use `XVersionUtils`'s static methods instead; the retired [`VersionWrapper` API](/api/version-wrapper) remains available in the 6.2.5 Javadoc.
+:::
+
+::: warning Unreleased v7.0.0 migration
+As of v7.0.0, `XVersionUtils` is also removed; use Paper's native item, sound, enchantment and Adventure APIs.
+See [Native item and sound APIs in 7.0](/guide/advanced/module-versioning#native-item-and-sound-apis-in-7-0) for replacements.
 :::
 
 # 类 `UltiToolsPlugin`

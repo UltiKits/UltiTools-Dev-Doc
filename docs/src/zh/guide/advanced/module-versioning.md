@@ -104,7 +104,7 @@ pin 不是模块的运行时下限。这是两个互相独立的数字，其中�
 一次成功的构建只能说明源码仍然可以编译。导致已发布 JAR 出错的是字节码中记录的描述符，而编译过程不会显示它。
 :::
 
-[JLS 的二进制兼容性一章][jls13]列出了可能造成这类问题的全部变更，比下面两种更多。下面两种是本项目实际发生过的，属于举例，不是穷举。
+[JLS 的二进制兼容性一章][jls13]列出了可能造成这类问题的全部变更。下面举例说明本项目已发布或已公告的 API 移除（包括 7.0 原生 API 迁移）与描述符变更，不是完整清单。
 
 ### API 被移除
 
@@ -124,13 +124,67 @@ pin 不是模块的运行时下限。这是两个互相独立的数字，其中�
 
 只有在发布提高后的 pin 时才会产生代价：针对更新的框架构建可能记录更新的描述符，这意味着需要同时提高 `api-version`，而那会让仍在使用旧版框架的服务器无法升级。因此提高 pin 适合用来做检查，不适合用来做修复：在一次临时构建中提高 pin，观察哪些地方编译不通过，从这些 API 迁移出去，然后单独决定正式发布使用的 pin 是否需要变动。
 
-这种情形的应对方式是关注废弃通告，在移除正式发布之前完成迁移。
+对于带有废弃通告的 API，应关注通告，在移除正式发布之前完成迁移。下文的 7.0 移除项在 6.x 中没有预先标记为废弃；v7.0.0 是新的 API 基线。
 
 ::: tip 从废弃通告里读出移除期限
 自 v6.3.0 起，框架里每一个 `@Deprecated(forRemoval = true)` 成员都携带一个 `{@removeIn X.Y.Z}` javadoc 标签，指明移除会落在哪个具体版本。
 一旦项目版本到达该目标而成员仍在源码中声明，框架自己的 CI 就会在构建期失败，这个标签是被强制执行的承诺。
 完整列表见框架仓库的 [`compatibility/DEPRECATIONS.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/compatibility/DEPRECATIONS.md)，一次性查看所有 `ANNOUNCED` 状态的移除项及其期限。
 :::
+
+### 7.0 原生物品与音效 API
+
+::: warning 未发布的 v7.0.0 迁移说明
+自 v7.0.0 起，框架不再提供 XSeries，也不再提供跨版本材质和音效兼容层。
+站内其他位置的 6.x 用法仅适用于对应的框架版本。
+:::
+
+替换下列已移除的公开符号后，针对 7.0 重新编译模块：
+
+| v7.0.0 移除的符号 | 替代方式 |
+| --- | --- |
+| `com.ultikits.ultitools.utils.XVersionUtils` | 直接调用 Paper 和 Adventure API，完整方法对照见下表 |
+| `com.ultikits.ultitools.entities.Sounds` | Paper 的 `org.bukkit.Sound` |
+| `com.ultikits.ultitools.entities.Colors#getCode()` | 原生 `Material.<COLOR>_STAINED_GLASS_PANE`，或 7.0 新增的 `Colors#getGlassPaneMaterial()` |
+
+`Colors` 枚举本身仍保留，自 v7.0.0 起新增 `getGlassPaneMaterial()`；6.x 没有这个 getter。`new ItemStack(Material.CYAN_STAINED_GLASS_PANE)` 在 6.x 和 7.0 上都能使用。`ItemStackBuilder.of(Material)`、`of(ItemStack)` 和 `enchant(Enchantment, int)` 仍可用。自 v7.0.0 起，全部三个带 XSeries 参数类型的公开入口已移除：`new ItemStackBuilder(XMaterial)`、`ItemStackBuilder.of(XMaterial)` 和 `ItemStackBuilder.enchant(XEnchantment, int)`。分别改用对应的 `Material` 或 `Enchantment` 入口。
+
+自 v7.0.0 起，`ItemStackBuilder.of(String)` 使用 `Material.matchMaterial`，只接受当前材质名（如 `STONE`）或带命名空间的 key（如 `minecraft:stone`），并且材质必须是物品。未知名称、纯方块材质、历史别名、数字 ID 和 1.20 之后改过名的旧名（如 `GRASS`、`CHAIN`、`SCUTE`）返回 `null`。传入 `null` 字符串（`ItemStackBuilder.of((String) null)`）会抛出 `IllegalArgumentException`，而不是返回 `null`。链式调用前先检查返回值；框架不查询旧名称，也不回退为其他物品。
+
+以下原生写法自 v7.0.0 起适用，使用 `org.bukkit.Material`、`org.bukkit.Sound`、`org.bukkit.enchantments.Enchantment`、`org.bukkit.inventory.ItemFlag` 和 Adventure 的 `net.kyori.adventure.text.Component`：
+
+| 6.x 写法 | 7.0 原生替代 |
+| --- | --- |
+| XSeries 材质或 `XVersionUtils` 物品工厂 | `ItemStackBuilder.of(Material.STONE).build()` |
+| 将 `XVersionUtils.getSound(Sounds.ENTITY_ENDERMAN_TELEPORT)` 传给 `playSound` | `player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, volume, pitch)`（音量和音调沿用原调用） |
+| 用 XSeries 附魔产生隐藏附魔的发光效果 | `ItemStackBuilder.of(Material.PAPER).meta(m -> m.setEnchantmentGlintOverride(true)).build()`（只显示光泽，不添加附魔） |
+| `XVersionUtils.sendActionBar(player, "Ready")` | `player.sendActionBar(Component.text("Ready"))` |
+
+音效和附魔 API 在游戏逻辑执行时调用，不要放在静态初始化或枚举构造器中。自 v7.0.0 起，`ItemStackBuilder.glow()` 使用原生 `Enchantment.LUCK_OF_THE_SEA` 和 `ItemFlag.HIDE_ENCHANTS`。也可以使用 `ItemStackBuilder.of(Material.PAPER).glow().build()`，但它会添加真实附魔；纯视觉效果请用 `ItemMeta#setEnchantmentGlintOverride(Boolean)`。彩色玻璃使用 `new ItemStack(Colors.CYAN.getGlassPaneMaterial())`；现有 GUI 的玻璃颜色和按钮材质不变。
+
+#### XVersionUtils 全部方法的替代方式
+
+自 v7.0.0 起，已发布 6.5.0 类中的全部 15 个公开方法在 Paper 26.3 上按下表替换。其中 `color` 是保留的 `Colors` 枚举值，物品构造器是 `org.bukkit.inventory.ItemStack`。「没有直接等价物」指单个 Paper 调用无法保留整个辅助方法的行为，需要在自己的代码中保留表内说明的检查。
+
+| 已移除的 6.x 方法 | Paper 26.3 替代与需要保留的行为 |
+| --- | --- |
+| `getColoredPlaneGlass(Colors color)` | `new ItemStack(Material.valueOf(color.name() + "_STAINED_GLASS_PANE"))`；固定颜色可直接使用如 `Material.CYAN_STAINED_GLASS_PANE` |
+| `getColoredWool(Colors color)` | `new ItemStack(Material.valueOf(color.name() + "_WOOL"))` |
+| `getSign()` | `new ItemStack(Material.OAK_SIGN)` |
+| `getEndEye()` | `new ItemStack(Material.ENDER_EYE)` |
+| `getEmailMaterial(boolean isRead)` | `new ItemStack(isRead ? Material.FILLED_MAP : Material.PAPER)` |
+| `getHead(OfflinePlayer player)` | `new ItemStack(player.isOp() ? Material.DRAGON_HEAD : Material.PLAYER_HEAD)`；旧辅助方法仅选择头颅类型，不设置玩家皮肤 |
+| `getGrassBlock()` | `new ItemStack(Material.GRASS_BLOCK)` |
+| `registerNewObjective(Scoreboard scoreboard, String name, String criteria, String displayName)` | 没有直接等价物：先调用 `scoreboard.getObjective(name)`，存在就返回；不存在时调用 `scoreboard.registerNewObjective(name, Criteria.DUMMY, displayName)`。旧辅助方法忽略 `criteria`，始终创建 dummy 类型的计分项 |
+| `getSound(Sounds sound)` | 使用 `Sound.ENTITY_ENDERMAN_TELEPORT` 或其他同名原生常量；调用方也要替换已删除的 `Sounds` 类型 |
+| `getBed(Colors bedColor)` | `new ItemStack(Material.valueOf(bedColor.name() + "_BED"))` |
+| `getItemDurability(ItemStack itemStack)` | 没有直接等价物：若 `itemStack.getItemMeta()` 是 `org.bukkit.inventory.meta.Damageable`，返回 `itemStack.getType().getMaxDurability() - damageable.getDamage()`，否则返回 `0`。单独的 `getDamage()` 是已损耗值，不是剩余耐久 |
+| `getItemInHand(Player player, boolean isMainHand)` | `isMainHand ? player.getInventory().getItemInMainHand() : player.getInventory().getItemInOffHand()` |
+| `sendActionBar(Player player, String message)` | 纯文本使用 `player.sendActionBar(Component.text(message))` |
+| `sendPlayerList(Player player, String header, String footer)` | `player.setPlayerListHeaderFooter(header, footer)` 保留字符串调用；Adventure 纯文本可用 `player.sendPlayerListHeaderAndFooter(Component.text(header), Component.text(footer))` |
+| `getBlockFace(Block placedBlock)` | 没有直接等价物：读取 `placedBlock.getBlockData()`；若它是 `org.bukkit.block.data.Directional`，返回 `directional.getFacing()`，否则返回 `org.bukkit.block.BlockFace.NORTH` |
+
+模块若继续使用 XSeries，必须用 Maven Shade 或 Gradle Shadow 自行打包依赖并重定位包名（shade + relocate）。不能依赖框架提供，也不能只声明为 `provided`/`compileOnly`：由框架加载的 UltiTools 模块不能使用 Paper 的 `plugin.yml` `libraries:` 机制。[6.x 的运行库说明](/zh/guide/introduction)不是 7.0 的依赖供应承诺。
 
 ### 描述符变更
 

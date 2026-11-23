@@ -194,4 +194,6 @@ Navigator.of(context).push("settings");
 3.  **单选**: 使用 `selectedSlot` 状态控制高亮显示。
 4.  **交互**: 购买按钮根据选中状态动态显示/隐藏。
 
+下列可编译示例面向已发布的 6.x API，其中的 `XVersionUtils.getColoredPlaneGlass(Colors.GRAY)` 调用仅适用于 6.x。自 v7.0.0 起，请改为 `new ItemStack(Material.GRAY_STAINED_GLASS_PANE)`；`Colors` 本身仍保留。详见 [7.0 原生物品与音效 API](/zh/guide/advanced/module-versioning#_7-0-原生物品与音效-api)。
+
 <<< @/../examples/src/main/java/com/ultikits/docs/declarative/ExampleShopPage.java
