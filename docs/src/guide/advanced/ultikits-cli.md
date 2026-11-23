@@ -239,7 +239,7 @@ As of v6.3.0, UltiCloud reads `api-version` from the root `plugin.yml` of the JA
 api-version: 630
 ```
 
-The `630` example above is for a 6.3.0 build. Servers on 6.3.0 through 6.x request levels from 630 up to their own API level; older frameworks request only levels below 630. As of v7.0.0, server requests use `minApiLevel=700`, and `/upm install` and `/upm update` accept only integer declarations from 700 up to the framework's level. A JAR rebuilt for 7.0 should declare `api-version: 700`; changing CLI metadata alone is insufficient. See [Module Versioning](/guide/advanced/module-versioning#version-selection-by-api-level).
+The `630` example above is for a 6.3.0 build. Servers on 6.3.0 through 6.x request levels from 630 up to their own API level; older frameworks request only levels below 630. As of v7.0.0, server requests use `minApiLevel=700`, and `/upm install` and `/upm update` accept only integer declarations from 700 up to the framework's level. A JAR rebuilt for 7.0 should declare `api-version: 700`; changing only the `api-version` number does not make a 6.x module run on 7.0; rebuild it against UltiTools-API 7.0. See [Module Versioning](/guide/advanced/module-versioning#version-selection-by-api-level).
 
 A JAR whose root `plugin.yml` does not declare an integer `api-version` is refused when it is uploaded: the version is not published and stays pending with the declared file. See [Upload refused for the API level](#upload-refused-for-the-api-level).
 

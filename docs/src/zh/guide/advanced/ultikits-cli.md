@@ -239,7 +239,7 @@ CLI 从多个来源解析元数据，优先级如下：
 api-version: 630
 ```
 
-上面的 `630` 是 6.3.0 构建的例子。6.3.0 至 6.x 的服务器查询范围为 630 到其自身 API 级别；更早的框架只查询低于 630 的版本。自 v7.0.0 起，服务器请求使用 `minApiLevel=700`，`/upm install` 和 `/upm update` 也只接受从 700 到框架自身级别的整数声明。为 7.0 重新构建的 JAR 应写 `api-version: 700`，不能仅改 CLI 元数据。见[模块版本规范](/zh/guide/advanced/module-versioning#version-selection-by-api-level)。
+上面的 `630` 是 6.3.0 构建的例子。6.3.0 至 6.x 的服务器查询范围为 630 到其自身 API 级别；更早的框架只查询低于 630 的版本。自 v7.0.0 起，服务器请求使用 `minApiLevel=700`，`/upm install` 和 `/upm update` 也只接受从 700 到框架自身级别的整数声明。为 7.0 重新构建的 JAR 应写 `api-version: 700`，只改 `api-version` 数字不能让 6.x 模块在 7.0 上运行，必须针对 UltiTools-API 7.0 重新构建。见[模块版本规范](/zh/guide/advanced/module-versioning#按-api-级别选择版本)。
 
 根目录 `plugin.yml` 没有声明整数 `api-version` 的 JAR 会在上传时被拒绝：版本不会发布，仍以已声明的文件处于待上传状态。见[因 API 级别被拒绝上传](#因-api-级别被拒绝上传)。
 

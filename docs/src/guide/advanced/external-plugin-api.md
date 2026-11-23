@@ -131,7 +131,7 @@ As of v6.3.2, a failure during subsequent scheduled-task, player-cache, EventBus
 | Config-bound `@Scheduled` / `@CmdCD` (v6.3.0+) | Supported, see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing) | Refused, use literal `period` / `delay` / `value` |
 | Data storage | `plugin.getDataOperator(Class)` | `UltiToolsAPI.getDataOperator(plugin, Class)` |
 | Reload | `/ul reload` reloads module configs and language; a changed JAR still needs a server restart | Not available; implement your own reload command, and restart for a changed JAR |
-| plugin.yml | `api-version: 630` for a 6.3.0 build; as of v7.0.0, rebuild and declare at least `api-version: 700` | `depend: [UltiTools]` |
+| plugin.yml | In 6.x, `api-version: 630` for a 6.3.0 build (a config-bound `@Scheduled` / `@CmdCD` requires at least `630`); as of v7.0.0, rebuild and declare at least `api-version: 700` | `depend: [UltiTools]` |
 
 ## Complete Working Example
 

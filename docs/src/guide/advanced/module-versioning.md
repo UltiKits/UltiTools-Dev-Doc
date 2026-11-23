@@ -90,11 +90,11 @@ The pin is not the module's runtime floor. These are two independent numbers, an
 | Number | Decides | Checked by |
 |---|---|---|
 | The `UltiTools-API` version in `pom.xml` | Which version's descriptors your bytecode records | Nothing. It is `provided`, does not enter the JAR, and the framework cannot read it at runtime |
-| `api-version` in `plugin.yml` | The declared runtime floor | As of v7.0.0, `ModuleJarAdmission` checks the integer declaration and floor of `700` before main-class resolution; `PluginManager.isUltiToolsVersionCompatible` still checks whether a newer framework is needed. `/upm` checks the accepted range too; see [Version selection by API level](#version-selection-by-api-level) |
+| `api-version` in `plugin.yml` | The declared runtime floor | In 6.x, `PluginManager.isUltiToolsVersionCompatible` checks it when the module loads; this is the only framework version consulted before admission. As of v6.3.0, `/upm` also checks it when installing or updating a module. As of v7.0.0, `ModuleJarAdmission` checks the integer declaration and floor of `700` before main-class resolution; `PluginManager.isUltiToolsVersionCompatible` still checks whether a newer framework is needed. `/upm` checks the accepted range too; see [Version selection by API level](#version-selection-by-api-level) |
 
 Raising the pin does not raise the floor. A gap between the two numbers is not itself a fault: bytecode built against a newer pin still runs on the declared floor as long as every member it references already exists there. What breaks is a JAR whose bytecode references a symbol the framework version named in `api-version` does not declare, because that server admits it and then fails when the call site is reached.
 
-More than this one number is checked before a module is admitted: the JAR is structurally validated first and, as of v7.0.0, `ModuleJarAdmission` checks the declaration before main-class resolution. Later, `passesCompatibilityGates` checks `!hasNewerVersionLoaded && isUltiToolsVersionCompatible`; the newer-instance check matters when code registers the same main class a second time through `PluginManager#register`. Of these checks, `api-version` declares the framework level, rather than proving that every referenced API exists.
+In 6.x, only `api-version` has anything to do with which framework versions the module can run on. More than this one number is checked before a module is admitted: the JAR is structurally validated first and, as of v7.0.0, `ModuleJarAdmission` checks the declaration before main-class resolution. Later, `passesCompatibilityGates` checks `!hasNewerVersionLoaded && isUltiToolsVersionCompatible`; the newer-instance check matters when code registers the same main class a second time through `PluginManager#register`. Of these checks, `api-version` declares the framework level, rather than proving that every referenced API exists.
 
 ## Compatibility breaks caused by the framework
 
@@ -144,9 +144,9 @@ With a readable `plugin.yml` and a `main:` entry, these checks run before main-c
 | --- | --- |
 | Integer below `700`, such as `630` | Below the running framework's minimum; install a rebuilt module |
 | Missing `api-version` | No valid declaration; the read value is `<missing>` in English or `<缺失>` in Chinese |
-| Empty or non-integer, such as `'26.3'`, `1.21` or `abc` | No valid declaration; the same template shows the actual read value, rather than reporting a low level |
+| Empty or non-integer, such as `'26.3'`, `1.21` or `abc` | No valid declaration; a bare `api-version:` shows `<missing>` in English or `<缺失>` in Chinese. An empty string (`api-version: ''`) and other values are shown in single quotes, such as `''` or `'1.21'`, rather than reporting a low level |
 
-Missing and non-integer declarations share one message template; below-minimum integers use another. Quoted integers such as `'700'` are accepted too. These are the exact language-file templates, without the log prefix; `%s`, `%d` and the Chinese positional parameters are replaced at runtime with the JAR name, declaration, minimum and actual framework version:
+Missing and non-integer declarations share one message template; below-minimum integers use another. Quoted integers such as `'700'` are accepted too. These are the exact language-file templates, without the log prefix; `%s`, `%d` and the Chinese positional parameters are replaced at runtime with the JAR name, the declared or read value, the minimum and the running framework version (the order differs between the two templates):
 
 `language: en`
 
@@ -162,7 +162,7 @@ Module '%s' has no valid api-version (read: %s); UltiTools-API %s requires an in
 模块 '%s' 未声明有效的 api-version（读到的值：%s）；UltiTools-API %s 要求模块声明 %d 或更高的整数；拒绝加载。请安装针对当前 UltiTools-API 重新构建的模块。
 ```
 
-A JAR refused by the integer/minimum-level check (missing, non-integer or below `700`) is excluded from the shared class path and supplies neither main nor helper classes to other modules. Each refusal counts once in `Failed`; unrelated modules continue loading. If `m-6.3.0.jar` (630) and `m-7.0.0.jar` (700) declare the same main class, the old copy is refused and the new one supplies the classes even though its file name sorts later. The framework does not delete the old file automatically. Among admitted copies, file-name ordering still applies; the module version does not select the newest copy.
+A JAR refused by the integer/minimum-level check (missing, non-integer or below `700`) is excluded from the shared class path and supplies neither main nor helper classes to other modules. Each refusal counts once in `Failed`; unrelated modules continue loading. If `m-6.3.0.jar` (630) and `m-7.0.0.jar` (700) declare the same main class, the old copy is refused and the new one supplies the classes even though its file name sorts later. The start-up duplicate warning still names both files and identifies `m-7.0.0.jar` as the JAR the classes load from. The framework does not delete the old file automatically. Among admitted copies, file-name ordering still applies; the module version does not select the newest copy.
 
 Before upgrading the framework, let each pending `/upm update` complete one confirming startup on the old framework. Cancel unwanted updates first as described under [Updating and uninstalling](#updating-and-uninstalling-on-a-server): `/upm uninstall` also unloads the module and deletes its JARs, so back up files you need first. Do not carry an unconfirmed 6.x update into 7.0: API refusal can trigger the existing transaction rollback, and the restored old JAR is below 700 too. After completing or cancelling pending updates, stop the server, replace modules with their rebuilt 7.0 versions, keep only the intended JAR for each module, then upgrade the framework and start.
 
@@ -337,7 +337,7 @@ As of v7.0.0, API-refused JARs do not participate in the class-loading order bel
 
 As of v6.3.0, UltiTools reads the JARs in `plugins/UltiTools/plugins/` in file-name order, compared as plain strings, and builds the module class loader in the same order. Before v6.3.0 the order was whatever the file system listed, which Java does not define, so the same folder could load a different copy on another machine.
 
-A module JAR is identified by the `main:` entry of its `plugin.yml`. When two or more admitted JARs declare the same `main:` class, the class comes from the first of them in that order that carries it, and the other copies are refused. One warning at start-up names every copy and the JAR the classes load from:
+A module JAR is identified by the `main:` entry of its `plugin.yml`. When two or more admitted JARs declare the same `main:` class, the class comes from the first of them in that order that carries it, and the other copies are refused. When at least one JAR supplies the classes, one warning at start-up names every copy declaring that main class, including API-refused copies as of v7.0.0, and the JAR the classes load from:
 
 ```text
 [UltiTools-API] These JAR files all declare the same module main class com.example.MyModule: MyModule-1.0.0.jar, MyModule-1.1.0.jar. The module's classes load only from MyModule-1.0.0.jar; the other copies are not loaded. Keep only one of them.
