@@ -10,7 +10,7 @@ such code is very redundant.
 
 In addition, we may also need to handle command errors, output help information, etc.
 
-UltiTools-API offers a more concise way to handle commands by encapsulating the native `CommandExecutor` interface.
+UltiTools-API offers a more concise way to handle commands: you declare commands with annotations and the framework does the matching, checking and replying. As of v7.0.0 the framework compiles those annotations into a Brigadier command tree and registers it through Paper; it no longer wraps Bukkit's `CommandExecutor` interface. See [Command engine](#command-engine) below.
 
 ## Create a command executor
 
@@ -48,6 +48,68 @@ the automatic registration provided by UltiTools, for details, please refer
 to [this article](/guide/advanced/auto-register).
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/UltiToolsConnector.java
+
+As of v7.0.0, `register(UltiToolsPlugin, Class<? extends BaseCommandExecutor>)` takes the executor from the module's container, and the class must carry `@CmdExecutor`; an executor class without it is refused, with no fallback registration.
+
+## Command engine <Badge type="tip" text="v7.0.0+" />
+
+::: info As of v7.0.0
+Annotated command classes are compiled into Brigadier command trees and handed to Paper. This is unreleased 7.0 behaviour; every module must be rebuilt against 7.0.
+:::
+
+### How a command is registered
+
+When a module registers a `BaseCommandExecutor`, the framework reads `@CmdExecutor`, every `@CmdMapping` format and the `@CmdParam` parameters, and builds one Brigadier node tree per command: each literal of a format becomes a literal node, each `<name>` an argument node with a native argument type (see [Argument types](#argument-types)), and the mapped method becomes the node's execute callback. The tree is handed to Paper only during Paper's `LifecycleEvents.COMMANDS` event. The framework no longer builds `PluginCommand` objects reflectively or edits Bukkit's private command map.
+
+Parsing and Tab completion therefore come from Brigadier: the client receives the command tree, checks the input against it and completes from it. The framework still runs its validator chain (sender type, permission, execution lock, cooldown, custom validators) before the mapped method, and still sends its own replies to input that matches no mapping (see [Framework replies](#framework-replies)).
+
+What a module author writes stays the same: a class that extends `BaseCommandExecutor`, carries `@CmdExecutor`, and maps methods with `@CmdMapping`, `@CmdParam`, `@CmdSender`, `@CmdTarget`, `@CmdSuggest`, `@CmdCD`, `@UsageLimit`, `@RunAsync` and `@AsyncCommand`. A module that needs a tree the annotations cannot express can register a container bean (for example with `@Service`) that implements `com.ultikits.ultitools.command.BrigadierCommand`: `node()` returns the root `LiteralCommandNode<CommandSourceStack>`, and `aliases()` and `description()` are optional. Such a hand-written tree gets no annotation validators, cooldowns or `@CmdParam` completion.
+
+### Migrating from 6.x
+
+Code written against 6.x has to be recompiled; it does not run on 7.0 unchanged. The changes that affect command code:
+
+| Removed or changed in 7.0 | Use instead |
+|---|---|
+| `BaseCommandExecutor` implementing Bukkit's `TabExecutor`, with `onCommand` and `onTabComplete` | Keep extending `BaseCommandExecutor`; the framework invokes the mapped methods through Brigadier |
+| `matchMethod`, `parseParameters`, `validateParameterCount`, `parseParameterValue` | No replacement; the compiled tree and its argument types do the matching and parsing |
+| `suggest(Player, Command, String[])` and `suggest(CommandSender, Command, String[])` | `suggest(CommandSender sender, String label, String[] args)`; see [Executor fallback](#executor-fallback) |
+| `CommandContext.getCommand()` | `getCommandName()`; `getParsedParams()` is now `Map<String, Object>` of typed values, and `getParam` / `getParamValue` return `Object` |
+| `AbstractCommand`, `AbstractTabExecutor`, `AbstractPlayerCommandExecutor`, `AbstractConsoleCommandExecutor` | `BaseCommandExecutor` (with `@CmdTarget` for player-only or console-only commands) or `BrigadierCommand` |
+| The built-in `WorldParser`, `GameModeParser`, `LocationParser` and `EnchantmentParser` | Paper's native argument types; see [Argument types](#argument-types) |
+| `CommandManager.unregister(String)` | Unregister the owning module |
+| `CommandManager.getPluginByCommand(Command)` | `getPluginByLabel(String)` |
+| `registerCoreCommand(CommandExecutor)` | `registerCoreCommand(BaseCommandExecutor)` |
+
+`getMappings`, custom validators, `handleHelp`, `getHelpCommand`, `createDefaultValidatorChain`, `executeCommand` and `buildMethodParams` remain. The full table is in the "Command engine (as of 7.0.0)" section of the framework's [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md).
+
+### Rejected formats
+
+The tree has to be unambiguous, so the framework checks every executor when it compiles it. These declarations are refused:
+
+- two different parameters at the same position after the same literals (for example `give <player>` and `give <amount>` on one command);
+- two mappings that end at the same path, including two methods with the same format on one class (a subclass may still override an inherited mapping);
+- a `<name...>` parameter that is not the last part of the format, a `<name...>` parameter whose type is not `String` or an array, and an array parameter without `...`;
+- a parameter type with no argument mapping and no registered `TypeParser`;
+- a `@CmdParam` name that does not appear in the format, or a `<name>` without a matching `@CmdParam`.
+
+A literal and an argument may share a position. When an executor is refused, only that module is not loaded: its commands, listeners and container are rolled back, and other modules and the framework's commands keep working. The console shows one SEVERE line of this form:
+
+```text
+Cannot load module <module>: executor <class>: <class>#<method> [<format>]: <reason>. Change @CmdMapping formats to use distinct literal prefixes, one parameter name/type per position, terminal <name...> arrays, and registered custom type parsers.
+```
+
+The reason is, for example, `competing parameter with <method>`, `duplicate path with <method>` or `greedy parameter must be last`.
+
+### Registration after start-up
+
+Paper builds its command tree during start-up. A command whose root is first registered after that, or whose tree changes, is not usable at once. The console logs one warning:
+
+```text
+Command /<label> from <owner> was registered after start-up; it becomes available after /minecraft:reload or a restart.
+```
+
+The command becomes usable after `/minecraft:reload` or a server restart. The framework never reloads data packs by itself. `/ul reload` reloads configuration only: it does not register or rebind commands, so it does not make such a command available. Installing or updating a module JAR still needs a restart.
 
 ## Mapping-based command executor
 
@@ -103,11 +165,11 @@ Till now, you only need to register the command executor to complete all the wor
 
 ### Tab completion
 
-::: tip Tab completion is wired into BaseCommandExecutor <Badge type="tip" text="v6.3.0+" />
-As of v6.3.0, `suggest(Player, Command, String[])` resolves the first-argument literal from the `@CmdMapping` format list *and* the `suggest` attribute of `@CmdParam` for parameter slots, through the shared `commands/tabcomplete/` dispatch — the sections below describe the full resolution order. You can still override `suggest(...)` yourself if you want different behaviour; the method remains `protected`.
-
-For a later argument, a literal token is suggested only from mappings whose earlier tokens match what the player has already typed, and each literal is offered once; a mapping the player may not use (permission or OP) never contributes a suggestion.
+::: tip Completion comes from the command tree <Badge type="tip" text="v7.0.0+" />
+As of v7.0.0, Brigadier suggests literals from the compiled tree, and each argument uses its `@CmdParam(suggest = ...)` provider, then the executor's `suggest` fallback, then the native suggestions of its argument type.
 :::
+
+A subcommand the sender may not use is not in that sender's tree, so it is never suggested; see [Visibility](#visibility). A provider of a mapping the sender may not use is not called.
 
 Need Tab suggestion for each command parameter, but don't want to write a lot of code?
 
@@ -131,17 +193,17 @@ public List<String> listName(Player player, Command command, String[] args) {
 
 UltiTools will first search for matching method names in the current class and try to call this method.
 
-A provider returns `List<String>`. The existing supported parameter lists are exactly `()`, `(Player)`, `(String)`, `(Player, String)` and `(Player, Command, String[])`; parameter order is not arbitrary. `Player` is the requesting player, `String` is the current partial token, `Command` is the current command, and `String[]` is its argument array.
+A provider returns `List<String>`. The existing supported parameter lists are exactly `()`, `(Player)`, `(String)`, `(Player, String)` and `(Player, Command, String[])`; parameter order is not arbitrary. `Player` is the requesting player, `String` is the current partial token, `Command` is the current command, and `String[]` is its argument array. As of v7.0.0 the `Command` is looked up by label in the server's public command map.
 
 #### Sender-aware completion <Badge type="tip" text="v6.3.2+" />
 
 As of v6.3.2, console, RCON and other `CommandSender` implementations use the same completion dispatch as players. Providers also accept exactly `(CommandSender)`, `(CommandSender, String)` and `(CommandSender, Command, String[])`. Use the exact `CommandSender` type, not a sender subclass. These forms work both in the executor and in a class named by `@CmdSuggest`.
 
-The same class-level and mapping-level permission and OP checks, and the effective `@CmdTarget`, filter candidates before literals or providers contribute results. `CONSOLE` means any non-player sender, not only `ConsoleCommandSender`. A denied request returns no candidates silently. For a console or RCON sender, `suggest` returns `null` instead of an empty list, so the server falls back to its default completion of online player names. Completion does not execute validators with side effects, cooldowns or usage locks, and does not emit command-denial messages.
+The same class-level and mapping-level permission and OP checks, and the effective `@CmdTarget`, filter candidates before literals or providers contribute results. `CONSOLE` means any non-player sender, not only `ConsoleCommandSender`. A denied request returns no candidates silently. As of v7.0.0, no candidates means an empty result for every kind of sender; the 6.x fallback that gave a console or RCON sender the server's online player names is gone. Completion does not execute validators with side effects, cooldowns or usage locks, and does not emit command-denial messages.
 
 A registered custom completer receives the requester through `TabCompletionContext.getSender()`. `getPlayer()` returns that player for a player request and `null` for every non-player request; custom completers must check for `null` before using player-only APIs. Player-only provider methods are skipped for non-player requests, never called with a null player. Zero-argument and String-only providers, built-in completers and registered `@key` completers remain available to both kinds of sender.
 
-The old protected `suggest(Player, Command, String[])` override hook still handles player requests; v6.3.2 adds `suggest(CommandSender, Command, String[])` without removing it. Existing Player overloads, constructors and player-based context factories/builders remain supported; a context built with a player also exposes that player as its sender.
+In 6.3.2 the protected `suggest(Player, Command, String[])` and `suggest(CommandSender, Command, String[])` hooks handled the executor's own completion. As of v7.0.0 both are removed and replaced by one hook, described in [Executor fallback](#executor-fallback). A context built with a player also exposes that player as its sender.
 
 #### Built-in completers (`@key` notation) <Badge type="tip" text="v6.3.0+" />
 
@@ -174,19 +236,19 @@ public void addPoint(@CmdSender Player player,
 
 :::
 
-::: tip Override suggest to build the completion list yourself
+#### Executor fallback <Badge type="tip" text="v7.0.0+" />
 
-If you are not satisfied with the completion list generated by UltiTools, you can override the `suggest` method to
-generate the completion list yourself.
+As of v7.0.0, an executor can override one completion hook. It is called for an argument whose `@CmdParam` names no `suggest` provider:
 
 ```java
 @Override
-protected List<String> suggest(Player player, Command command, String[] strings) {
-    ...
+protected List<String> suggest(CommandSender sender, String label, String[] args) {
+    // return null to keep the argument type's native suggestions
+    return null;
 }
 ```
 
-:::
+`label` is the command label as typed and `args` the input after it, including the partial token. Returning `null` keeps the native suggestions of the argument type (online players for a `Player`, loaded worlds for a `World`, and so on); returning a list replaces them, and an empty list means no candidates. Literal suggestions always come from the tree and cannot be changed here.
 
 #### @CmdSuggest
 
@@ -228,7 +290,14 @@ If a command does not require any parameters, simply leave the `format` value em
 @CmdMapping(format="")
 ```
 
-This type of command can have at most one occurrence.
+This type of command can have at most one occurrence. As of v7.0.0, two mappings with the same format on one class refuse the module at load; see [Rejected formats](#rejected-formats).
+
+#### Format syntax
+
+A format is a space-separated list of parts. A part written as a plain word is a literal (a subcommand name); a part written as `<name>` is an argument bound to the method parameter whose `@CmdParam` value is `name`; `<name...>` takes the rest of the line. As of v7.0.0:
+
+- An argument is one token separated by spaces. A `String` argument also accepts a double-quoted value, so `"a b"` is one argument; an unterminated quote is a syntax error.
+- A literal and an argument may sit at the same position, but two different arguments may not; see [Rejected formats](#rejected-formats).
 
 #### Variable Parameters
 
@@ -243,32 +312,37 @@ public void addPoint(@CmdSender Player player, @CmdParam("name") String[] name) 
 
 In this example, when a player enters `/somecmd add aa bb cc`, the `name` will be `['aa', 'bb', 'cc']`.
 
-#### Type Parsing
+As of v7.0.0, `<name...>` must be the last part of the format, and its parameter must be a `String` (the remaining text as one string) or an array (the remaining text split at spaces, each element parsed with the component type's mapping). When the tail is omitted, the method receives an empty value. An array parameter written as `<name>` without `...` is refused.
 
-Before passing parameters to a method, UltiTools converts the command's variable parameters based on the types required by the method.
+#### Argument types <Badge type="tip" text="v7.0.0+" />
 
-Parsers live in the shared `TypeParserRegistry`; look one up with `TypeParserRegistry.getInstance().getParser(SomeType.class)`.
+As of v7.0.0, each parameter type maps to a Brigadier argument type, so the client checks and completes the value:
 
-For some types, `BaseCommandExecutor` provides default parsers via `TypeParserRegistry.getInstance()` (including base types and arrays):
+| Java type | Argument |
+|---|---|
+| `String` | One token, non-ASCII text included; a double-quoted value is one argument |
+| `int` / `Integer`, `long` / `Long`, `double` / `Double`, `float` / `Float`, `boolean` / `Boolean` | Brigadier's matching typed argument |
+| `short` / `Short`, `byte` / `Byte` | Integer argument limited to the Java type's range |
+| `Player` | Paper's player selector, resolved against the sender |
+| `OfflinePlayer` | A player name, looked up by Bukkit when the method runs; suggests online player names |
+| `World`, `GameMode`, `UUID` | Paper's native world, game-mode and UUID arguments |
+| `Enchantment` | Paper's enchantment registry argument |
+| `Material` | A namespaced material key such as `minecraft:diamond` |
+| `Location` | Paper's fine position `x y z` in the sender's world; relative coordinates work |
+| Any other type with a registered `TypeParser` | One token parsed by that parser; see [Custom Type Parsers](#custom-type-parsers) |
 
-- String (Java built-in)
-- Float (Java built-in)
-- Double (Java built-in)
-- Integer (Java built-in)
-- Short (Java built-in)
-- Byte (Java built-in)
-- Long (Java built-in)
-- OfflinePlayer (Bukkit API)
-- Player (Bukkit API)
-- Material (Bukkit API)
-- UUID (Java built-in)
-- Boolean (Java built-in)
-- World (Bukkit API)
-- GameMode (Bukkit API)
-- Location (Bukkit API)
-- Enchantment (Bukkit API)
+Differences from 6.x that change what a player can type:
 
-To add a type, implement `TypeParser<T>` and register it with `TypeParserRegistry.getInstance().register(...)`; see [Custom Type Parsers](#custom-type-parsers).
+- `Boolean` accepts only `true` and `false`; 6.x converted any other input, `yes` included, to `false`.
+- `Material` needs the lower-case namespaced key (`minecraft:diamond`), not the enum spelling `DIAMOND`.
+- `Location` is `x y z`, not the 6.x `world,x,y,z` string.
+- A `Player` argument rejects a player who cannot be found instead of passing `null` to the method.
+
+The built-in `WorldParser`, `GameModeParser`, `LocationParser` and `EnchantmentParser`, and the implicit built-in registry entries, are removed. `TypeParserRegistry` keeps only parsers that a module registers explicitly, and a registered parser is used only for a type the table above does not map.
+
+#### Subcommand case <Badge type="tip" text="v7.0.0+" />
+
+As of v7.0.0, every literal matches regardless of case, including a literal after an argument (`/x <player> ADD`). Where a literal and an argument share a position, the literal wins in any case: with `<player>` beside `accept`, `/trade ACCEPT` runs the `accept` mapping. A double-quoted token is always an argument value: if that argument is a `String`, `/trade "Accept"` passes the string `Accept` to it instead of running `accept`. Argument values keep the case the sender typed.
 
 ### Permission
 
@@ -315,6 +389,32 @@ A method-level `@CmdTarget` may only narrow the class-level one (`BOTH` to `PLAY
 As of v6.3.0 this includes mappings the class inherits from a base executor class: a `@CmdTarget(CONSOLE)` class that inherits a `@CmdTarget(BOTH)` mapping is refused, and the log also names the class that declared the mapping.
 :::
 
+### Visibility <Badge type="tip" text="v7.0.0+" />
+
+As of v7.0.0, a command or subcommand the sender may not use is not part of that sender's command tree. This covers a missing `permission` on `@CmdExecutor` or `@CmdMapping`, `requireOp` for a sender who is not OP, and a `@CmdTarget` that excludes the sender (a console-only subcommand for a player, a player-only one for the console). Such a subcommand is not offered in Tab completion and cannot be run, and the usage reply does not list it. A literal shared with a mapping the sender may use stays visible.
+
+A hidden subcommand behaves as if it did not exist. Typed anyway, in any case, it gets exactly the reply that a nonexistent subcommand at the same position gets (for a first word, the unknown-command line followed by the command's help; see [Framework replies](#framework-replies)), and no business code runs. Execution still checks permission, sender type, cooldown and lock on every dispatch.
+
+::: warning Known limitation: catch-all argument beside a hidden subcommand
+When the same position also has a single-word or rest-of-line argument (for example `<name>` beside a permission-gated `admin`), typing the hidden name gets the unknown-command reply while every other word goes to the argument, so the command does not fully hide that the name is special.
+Do not put a catch-all argument and a permission-gated subcommand at the same level when the subcommand's name must stay secret.
+:::
+
+A permission change while a player stays online does not refresh that player's command tree; it refreshes after the player reconnects or after `/minecraft:reload`. Execution always checks permissions live.
+
+### Framework replies <Badge type="tip" text="v7.0.0+" />
+
+As of v7.0.0, input that matches no mapping still gets the framework's own reply instead of Minecraft's syntax error. Every position accepts a fallback argument, shown to players as `args`; as a consequence the client no longer marks mistyped input red. There are two replies:
+
+| When | English | Chinese |
+|---|---|---|
+| The first word after the label is not a subcommand the sender may use | `Unknown command, please enter /%s %s for help` in red, followed by the command's help | `未知指令，请使用/%s %s获取帮助` |
+| The input goes wrong after the first word | `§eCorrect Usage: §7/%s %s`, one line for each mapping the sender may use below the deepest part that matched | `§e正确用法: §7/%s %s` |
+
+In the first reply `%s %s` is the label and the help subcommand (`help` unless `getHelpCommand()` is overridden); in the second it is the label and a mapping's format. A value that its argument type cannot parse gets that type's error message in red instead. The help shown after the first reply goes through the same sender-type and permission checks as `/<label> help`. The label alone, with no `format = ""` mapping, shows the help. The texts come from the framework's language files (`lang/en.json` and `lang/zh.json`, keys `未知指令，请使用/%s %s获取帮助` and `指令正确用法`).
+
+Repeated or trailing spaces in console or panel input are normalised when the input reaches a fallback. A console or panel command whose last word is a subcommand followed by exactly one trailing space (for example `ul reload `) can be rejected before the framework sees it; trim such input before dispatching it.
+
 ### Asynchronous Execution
 
 If a command needs to execute a task that takes a long time, you need to add `@RunAsync` in front of the corresponding
@@ -329,42 +429,43 @@ public void listPoint(@CmdSender Player player) {
 
 This will create a new asynchronous thread to execute the method, avoiding blocking in the Bukkit main thread.
 
-Since the Bukkit API does not allow asynchronous calls, if you need to call the Bukkit API, you need to create a
-synchronous task:
+Since the Bukkit API does not allow asynchronous calls, if you need to call the Bukkit API, you need to schedule that part back onto the server thread. As of v7.0.0, inject the module's `Scheduler` (see [Scheduler API](/guide/advanced/scheduled-tasks#scheduler-api)) and submit the Bukkit work to the context that owns the data, here the player's:
 
 ```java
+@Autowired
+private Scheduler scheduler;
+
 @CmdMapping(format = "list")
 @RunAsync
 public void listPoint(@CmdSender Player player) {
     //do query
-    new BukkitRunnable() {
-        @Override
-        public void run() {
-            //call bukkit api
-        }
-    }.runTask(PluginMain.getInstance());
+    scheduler.entity(player).run(() -> {
+        //call bukkit api
+    });
 }
 ```
 
+An `@RunAsync` body runs off the server's main thread. It may do CPU work, file and database I/O and network calls. It must not read or change worlds, entities, blocks, chunks or inventories directly; submit that part as shown above. On the current 7.0 development line the async body itself is still started on the Bukkit scheduler, not on the module's `Scheduler`.
+
 ::: danger An `@RunAsync` body must not touch world, entity, block or chunk state directly. <Badge type="danger" text="v6.3.0+" />
-Asynchrony here is reserved for pure-CPU or I/O work. Any world, entity, block or chunk access an async body needs must be scheduled back onto the main thread as a synchronous task, `BukkitRunnable#runTask(...)` as in the example above or any other synchronous scheduler method such as `runTaskLater(...)`; the annotation never grants safe access to those APIs by itself. A handler whose body consists only of such state access has no reason to carry the annotation at all.
+Asynchrony here is reserved for pure-CPU or I/O work. Any world, entity, block or chunk access an async body needs must be submitted to a server-thread context, `scheduler.entity(player).run(...)` as in the example above or `global()` / `region(...)` for world state; the annotation never grants safe access to those APIs by itself. A handler whose body consists only of such state access has no reason to carry the annotation at all.
 :::
 
-An unannotated command body runs on the main thread. As of v6.3.0 it runs at the moment the command is dispatched when that happens on the main thread, and is deferred through `runTask()` only when the dispatch comes from another thread (before v6.3.0 every such body was deferred by one tick; see [When a command body runs](#when-a-command-body-runs) below). Either way the timing only changes when the body starts, not whether it can block the server: the whole body (including any expensive CPU or I/O work inside it) still runs synchronously on the main thread. Removing `@RunAsync` restores safe dispatch only for a handler that was never doing expensive work in the first place; a handler that mixes expensive work with Bukkit access keeps the expensive part off-thread and schedules only the Bukkit-touching part back onto the main thread through `runTask(...)`, the pattern shown above, rather than simply removing the annotation. Paper also does not guard every world, entity, block or chunk access from an async body: its asynchronous-operation checks cover a limited set of unsafe operations, so breaking the rule above can leave a handler running on unsafe or inconsistent state instead of crashing outright, and the absence of an exception is not evidence the code is safe. `@RunAsync` remains the right tool for a body that genuinely belongs off-thread and needs nothing more; when that body also needs a processing message, a timeout, or configurable behaviour around the boundary, use `@AsyncCommand` instead.
+An unannotated command body runs on the main thread. As of v6.3.0 it runs at the moment the command is dispatched when that happens on the main thread, and is deferred through `runTask()` only when the dispatch comes from another thread (before v6.3.0 every such body was deferred by one tick; see [When a command body runs](#when-a-command-body-runs) below). Either way the timing only changes when the body starts, not whether it can block the server: the whole body (including any expensive CPU or I/O work inside it) still runs synchronously on the main thread. Removing `@RunAsync` restores safe dispatch only for a handler that was never doing expensive work in the first place; a handler that mixes expensive work with Bukkit access keeps the expensive part off-thread and submits only the Bukkit-touching part to a server-thread context of the module's `Scheduler`, the pattern shown above, rather than simply removing the annotation. Paper also does not guard every world, entity, block or chunk access from an async body: its asynchronous-operation checks cover a limited set of unsafe operations, so breaking the rule above can leave a handler running on unsafe or inconsistent state instead of crashing outright, and the absence of an exception is not evidence the code is safe. `@RunAsync` remains the right tool for a body that genuinely belongs off-thread and needs nothing more; when that body also needs a processing message, a timeout, or configurable behaviour around the boundary, use `@AsyncCommand` instead.
 
 ### When a command body runs <Badge type="tip" text="v6.3.0+" />
 
-As of v6.3.0, a command body without `@RunAsync` or `@AsyncCommand` runs at the moment the command is dispatched, inside the dispatch, whenever that happens on the server's main thread. That is where Bukkit dispatches every command a player, the console, a command block, a command minecart, RCON or the panel's remote command sends. The body is deferred to the main thread with `runTask()` only when `onCommand` is called from another thread, as Bukkit's own commands behave. Before v6.3.0 every such body ran one tick after the dispatch, so its replies to a command block, a command minecart and RCON were lost: those senders read their output when the dispatch returns. In v6.3.0 the panel's remote command was not one of them: it ran as the server console, so its replies reached the panel through the log stream. As of v6.3.1 it runs with Paper's capturing command sender, which has the console's permissions but is not the console sender, so it is one of them: what the body prints before the dispatch returns comes back in the command's result, and what it prints later, from `@RunAsync`, `@AsyncCommand` or a scheduled task, is written to the server console and reaches the panel through the log stream (see [Panel Integration](/guide/advanced/panel-integration#remote-command-results)). This applies to every module, including third-party ones.
+As of v6.3.0, a command body without `@RunAsync` or `@AsyncCommand` runs at the moment the command is dispatched, inside the dispatch, whenever that happens on the server's main thread. That is where Bukkit dispatches every command a player, the console, a command block, a command minecart, RCON or the panel's remote command sends. The body is deferred to the main thread only when the dispatch comes from another thread, as Bukkit's own commands behave. Before v6.3.0 every such body ran one tick after the dispatch, so its replies to a command block, a command minecart and RCON were lost: those senders read their output when the dispatch returns. In v6.3.0 the panel's remote command was not one of them: it ran as the server console, so its replies reached the panel through the log stream. As of v6.3.1 it runs with Paper's capturing command sender, which has the console's permissions but is not the console sender, so it is one of them: what the body prints before the dispatch returns comes back in the command's result, and what it prints later, from `@RunAsync`, `@AsyncCommand` or a scheduled task, is written to the server console and reaches the panel through the log stream (see [Panel Integration](/guide/advanced/panel-integration#remote-command-results)). This applies to every module, including third-party ones.
 
 What to check in your module:
 
-- **Code that relied on the one-tick delay** must schedule that work itself with `runTask()`.
+- **Code that relied on the one-tick delay** must schedule that work itself; as of v7.0.0 submit it with the module's `Scheduler`, for example `scheduler.entity(player).run(...)`.
 - **An `InventoryClickEvent` handler**, including a GUI library's click callback, must not open or close an inventory directly, and must not call `performCommand` or `Bukkit.dispatchCommand` directly either. A module command dispatched there now runs its body, which may open or close an inventory, inside the click event, which Paper does not allow. Defer the call:
 
 ```java
 icon.onClick(event -> {
     event.setCancelled(true);
-    Bukkit.getScheduler().runTask(plugin, () -> player.performCommand("menu open shop"));
+    scheduler.entity(player).run(() -> player.performCommand("menu open shop"));
 });
 ```
 
@@ -465,7 +566,7 @@ As of v6.3.0 a command body runs at dispatch on the main thread, so a body that 
 command while holding its lock gets the nested dispatch refused with the message above (`SENDER`: from
 the same sender; `ALL`: from any sender). Acquiring the lock never waits, so nothing blocks, and the
 outer body's lock is released when it returns, normally or by throwing. Schedule the nested call with
-`runTask()` if it must run. Also as of v6.3.0, a lock taken during validation is released when the
+the module's `Scheduler` (for example `scheduler.entity(player).run(...)`) if it must run. Also as of v6.3.0, a lock taken during validation is released when the
 dispatch is then refused before the method runs: by the cooldown, which is checked after the lock, by
 a wrong argument count, by a parameter that does not parse, or by an exception thrown from a later validator's `shouldValidate` or `validate` or from a module's parameter parser; such an exception then propagates unchanged. Before v6.3.0 the lock stayed held until
 the player quit, and every later call of that mapping was refused.
@@ -477,6 +578,8 @@ As of v6.3.0, acquisition is the gate: the lock is taken inside validation itsel
 ## Command Context <Badge type="tip" text="v6.2.0+" />
 
 The `CommandContext` is an immutable object that encapsulates all information about a command invocation. It is passed to validators and is useful for accessing command metadata during execution.
+
+As of v7.0.0, `getParsedParams()` returns `Map<String, Object>` holding the parsed values, and `getParam` and `getParamValue` return `Object`: cast the result to the declared parameter type, or for `getParamValue` on an array parameter to its component type.
 
 ### Accessing Context Information
 
@@ -490,8 +593,8 @@ Player player = context.getPlayer();
 // Get the raw command sender
 CommandSender sender = context.getSender();
 
-// Get the command and its alias
-Command command = context.getCommand();
+// Get the command name and its alias (getCommand() before v7.0.0)
+String commandName = context.getCommandName();
 String alias = context.getAlias();
 
 // Get raw arguments
@@ -499,9 +602,9 @@ String[] args = context.getRawArgs();
 int argCount = context.getArgCount();
 String firstArg = context.getArg(0);
 
-// Get parsed parameters by name
-String[] nameValues = context.getParam("name");
-String singleValue = context.getParamValue("name");
+// Get parsed parameters by name; as of v7.0.0 they are typed values
+Object nameValue = context.getParam("name");
+Object singleValue = context.getParamValue("name");
 
 // Get the matched method and format
 Method method = context.getMatchedMethod();
@@ -594,7 +697,7 @@ Register the validator in your command executor:
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ValidatorCommand.java
 
 ::: warning A custom chain replaces all four default validators
-Passing a `ValidatorChain` to `super(...)` skips `createDefaultValidatorChain()`, so `SenderTypeValidator` (the class-level `@CmdTarget`), `PermissionValidator` (`requireOp` and the method-level `@CmdMapping` permissions, though the class-level `permission` is still enforced by Bukkit), `UsageLockValidator` (`@UsageLimit`) and `CooldownValidator` (`@CmdCD`) are all absent from the chain unless you add them yourself.
+Passing a `ValidatorChain` to `super(...)` skips `createDefaultValidatorChain()`, so `SenderTypeValidator` (the class-level `@CmdTarget`), `PermissionValidator` (`requireOp` and the method-level `@CmdMapping` permissions, though the class-level `permission` is still enforced, as of v7.0.0 by the root of the command tree rather than by Bukkit), `UsageLockValidator` (`@UsageLimit`) and `CooldownValidator` (`@CmdCD`) are all absent from the chain unless you add them yourself.
 Use the form shown just above instead: call `super()` and register your validator with `addValidator(...)`, which keeps the four defaults and orders yours by `getOrder()`.
 As of v6.3.0, a class or method whose `@CmdCD`/`@UsageLimit` has no matching validator in the custom chain is refused at plugin load rather than silently recording state without enforcing anything — see the tips under [Command cooldown](#command-cooldown) and [Execution lock](#execution-lock) above.
 :::
@@ -624,8 +727,8 @@ public void backupWorld(@CmdSender Player player) {
     // Runs asynchronously - safe for I/O operations
     performBackupLogic();
 
-    // Sync back to main thread for Bukkit operations
-    Bukkit.getScheduler().runTask(UltiTools.getInstance(), () -> {
+    // Back to the player's thread for Bukkit operations (as of v7.0.0)
+    scheduler.entity(player).run(() -> {
         player.sendMessage("Backup completed!");
     });
 }
@@ -658,10 +761,14 @@ Type parsers convert command argument strings into the types your methods requir
 
 ### Built-in Parsers
 
+As of v7.0.0, the built-in types are handled by native argument types instead of parsers; the list is in [Argument types](#argument-types). In 6.x the built-in parsers were:
+
 - **Primitive types**: String, Integer, Double, Float, Long, Short, Byte, Boolean
 - **Bukkit entities**: Player, OfflinePlayer, Material, World
 - **Other types**: UUID, Location, GameMode, Enchantment
 - **Arrays**: All types above support array syntax
+
+As of v7.0.0, a registered `TypeParser` reads one token (a double-quoted value counts as one token) and is used for a type that has no native mapping. When `parse` throws `TypeParseException`, the sender sees its message. The parser must already be registered when the module's commands are compiled; otherwise the type has no mapping and the module is refused (see [Rejected formats](#rejected-formats)). An array of that type works in a `<name...>` parameter. Paper keeps the registered argument types, a module's custom parser included, so replacing a module JAR needs a restart.
 
 ### Creating Custom Parsers
 
@@ -706,6 +813,10 @@ public void randomNumber(@CmdSender Player player,
 
 ## Vanilla Bukkit Command Executor Wrapper
 
+::: danger Removed in v7.0.0
+`AbstractCommand`, `AbstractPlayerCommandExecutor`, `AbstractTabExecutor` and `AbstractConsoleCommandExecutor` are removed in v7.0.0. This section describes 6.x; for 7.0, use `BaseCommandExecutor` with `@CmdTarget`, as in the blocks marked "As of v7.0.0" below.
+:::
+
 ### Player Command
 
 If you want a command to be executed only in the game (executed by the player), you can inherit the
@@ -714,6 +825,26 @@ If you want a command to be executed only in the game (executed by the player), 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerCommandExample.java
 
 It receives the command, its arguments and the player; unlike `CommandExecutor#onCommand`, there is no alias (label) parameter.
+
+As of v7.0.0, the same player-only command is a `BaseCommandExecutor` limited with `@CmdTarget`:
+
+```java
+@CmdTarget(CmdTarget.CmdTargetType.PLAYER)
+@CmdExecutor(alias = {"mycmd"})
+public class PlayerCommandExample extends BaseCommandExecutor {
+    @CmdMapping(format = "")
+    public void run(@CmdSender Player player) {
+        // your code
+    }
+
+    @Override
+    protected void handleHelp(CommandSender sender) {
+        // send help message
+    }
+}
+```
+
+A console sender does not see this command in its tree; see [Visibility](#visibility).
 
 If you try to execute this command in the console, you will receive an error
 message: `This command can only be performed in GAME!`
@@ -748,6 +879,8 @@ override the `onConsoleCommand` method.
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ConsoleCommandExample.java
 
 It receives the sender, the command and its arguments; unlike `CommandExecutor#onCommand`, there is no alias (label) parameter.
+
+As of v7.0.0, write the console-only command as a `BaseCommandExecutor` with `@CmdTarget(CmdTarget.CmdTargetType.CONSOLE)` on the class, in the same form as the player example above; completion for it is described in [Tab completion](#tab-completion).
 
 If you try to execute this command in the game, you will receive an error
 message: `This command can only be performed in CONSOLE!`
