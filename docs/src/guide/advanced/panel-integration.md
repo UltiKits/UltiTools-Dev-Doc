@@ -593,8 +593,9 @@ public void onPanelMessage(PanelMessageEvent event) {
 
 Two things are deliberate about this event, both worth knowing before you rely on it:
 
-- **Handlers run on the main thread.** The framework marshals the publish onto the main thread via
-  `Bukkit.getScheduler().runTask(...)` at the bridge, not `publishAsync` — `publishAsync` submits to
+- **Handlers run on the main thread.** The framework marshals the publish onto the main thread at the
+  bridge, through its own scheduler's `global()` context as of v7.0.0 (`Bukkit.getScheduler().runTask(...)`
+  in 6.x), not `publishAsync` — `publishAsync` submits to
   an async pool and does not reach the main thread at all, so it would not let a handler safely touch
   Bukkit API. A slow handler here costs server tick rate exactly the way a slow handler on any other
   Bukkit-thread event does; the framework logs a warning naming the message type when a publish takes
@@ -682,8 +683,9 @@ result is not valid JSON (`NaN` or an infinite number).
 - **Responders run on worker threads (as of v6.3.0).** The framework calls a responder on one of its
   own worker threads, never the server main thread and never the thread that reads the panel
   connection, so a slow responder no longer holds up other panel messages. A responder that uses
-  Bukkit API schedules that part onto the main thread itself, for example with
-  `Bukkit.getScheduler().runTask(...)`, and completes its future from there.
+  Bukkit API schedules that part onto the main thread itself, and completes its future from there: as of
+  v7.0.0 with the module's injected `Scheduler`, for example `scheduler.global().supply(...)`, and in 6.x
+  with `Bukkit.getScheduler().runTask(...)`.
 - **One deadline, counted from arrival.** One deadline of a few seconds starts when the request
   arrives and covers waiting for a worker, the call itself and the returned future. When it passes,
   the panel receives a timeout error naming the type and the module, and a result that arrives later

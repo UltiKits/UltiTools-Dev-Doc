@@ -169,6 +169,8 @@ Tick contexts round delays and periods up to whole ticks (`Ticks.ceil`), at a no
 
 An exception thrown by one execution of a repeating task is logged with the owner's name and does not stop the repetition. A one-shot task that throws ends `FAILED`; a repeating task never ends `FAILED`.
 
+As of v7.0.0, a one-shot task submitted through `run`, `runLater` or `execute` that throws also logs exactly one WARNING, `Error executing scheduled task of <owner>`, with the original exception and its stack trace, as the Bukkit scheduler did in 6.x. Its `completion()` still fails with that exception. A failing `supply` is reported only through its future and logs nothing, unless the future was cancelled after the task started; that otherwise unobservable failure is logged once.
+
 ### Handles and cancellation
 
 Every submission returns a `TaskHandle` with `state()`, `isRepeating()`, `cancel()` and `completion()`. States are `SCHEDULED`, `RUNNING`, `COMPLETED`, `FAILED`, `CANCELLED` and `RETIRED`.
@@ -193,6 +195,28 @@ An async task has no upper bound on its start time beyond "eventually", because 
 ### Unload and shutdown
 
 Unloading the owning module cancels every task of that module that has not started and every repeating task. A one-shot task that is running at that moment finishes. After the unload, every submission throws `RejectedExecutionException`; obtaining a context never throws, submitting to it does. Server shutdown unloads every module, so its tasks end the same way, and framework-owned tasks are cancelled afterwards.
+
+### Framework-scheduled work
+
+As of v7.0.0, the framework schedules its own background and main-thread work on a framework-owned `Scheduler` whose owner name is `UltiTools`, with the same contexts and rules as a module's scheduler ([#963](https://github.com/UltiKits/UltiTools-Reborn/pull/963)). Module code does not change; the differences you can observe are these:
+
+| Framework work | Context |
+|----------------|---------|
+| `TeleportService#delayTeleport` countdown | `entity(player)` |
+| Move check that cancels a delayed teleport | `global()` |
+| Update check, periodic JSON flush (`datasource.flushRate`), credential revoke on panel logout | `async()` |
+| `PanelMessageEvent` publish, PlaceholderAPI expansion download on join, the start-up economy report, panel power actions, telemetry and metrics hand-offs | `global()` |
+
+- **Delayed teleport.** The countdown runs on the player's entity context and ends as soon as the player leaves the server. The move check reads player positions on the main thread, no longer from an async thread.
+- **Failures.** A framework one-shot task that throws logs the WARNING described in [Submitting tasks](#submitting-tasks), naming `UltiTools`. Log records emitted inside a framework scheduler task are attributed as a scheduled task named `Scheduler`; records from a `BukkitRunnable` keep their `BukkitRunnable` attribution.
+- **Lifetime.** `/ul reload` neither cancels nor restarts framework work; repeating framework tasks keep running once each. A module unload does not touch it. Framework work is cancelled when UltiTools is disabled, after every module has been unloaded. A panel message that arrives while UltiTools is disabling is dropped with one `FINE` log line instead of being scheduled.
+- **Threading for callbacks.** Handlers of `PanelMessageEvent` run on the main thread through the framework's `global()` context. A panel responder still runs on a framework worker thread; see [Panel Integration](/guide/advanced/panel-integration).
+
+::: warning Known limitations
+`datasource.flushRate` must be a positive number of seconds; a negative value starts no periodic JSON flush (6.x flushed once), and the data is still written at shutdown. Calling `delayTeleport` twice for one player starts two countdowns, as in 6.x.
+:::
+
+On the current 7.0 development line, async command bodies (`@RunAsync`, `@AsyncCommand`) and the framework's start-up messages still run on the Bukkit scheduler; they are not owned, cancelled or retired by the framework scheduler.
 
 ## Automatic Lifecycle
 

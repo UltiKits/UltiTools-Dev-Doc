@@ -399,8 +399,8 @@ public void onPanelMessage(PanelMessageEvent event) {
 
 关于这个事件，有两点是刻意设计的，使用前值得了解：
 
-- **处理器运行在主线程上。** 框架在桥接处通过 `Bukkit.getScheduler().runTask(...)` 把发布
-  调度到主线程，而不是 `publishAsync`——`publishAsync` 提交到异步线程池，根本不会到达主线
+- **处理器运行在主线程上。** 框架在桥接处把发布调度到主线程：自 v7.0.0 起通过框架自己调度器的
+  `global()` 上下文（6.x 为 `Bukkit.getScheduler().runTask(...)`），而不是 `publishAsync`——`publishAsync` 提交到异步线程池，根本不会到达主线
   程，因此无法让处理器安全地调用 Bukkit API。这里一个慢处理器造成的服务器 tick 开销，与任
   何其他运行在 Bukkit 主线程上的事件完全一样；当一次发布耗时超过一个较小的固定阈值时，框
   架会记录一条指明消息类型的告警日志，但没有任何机制阻止处理器变慢。
@@ -461,8 +461,8 @@ responder 收到请求 `params` 的一份拷贝，其中多了一个成员 `acto
   `registerResponder` 的子类，或把 `dispatch` 的结果赋给 `CompletableFuture<JsonObject>` 的代码，需要修改。
 - **responder 运行在工作线程上（自 v6.3.0 起）。** 框架在自己的工作线程上调用 responder，既不是服务器
   主线程，也不是读取面板连接的线程，因此一个慢 responder 不会再拖住其他面板消息。responder 中需要调用
-  Bukkit API 的部分，由 responder 自己调度到主线程（例如通过 `Bukkit.getScheduler().runTask(...)`），
-  并在那里完成它的 future。
+  Bukkit API 的部分，由 responder 自己调度到主线程，并在那里完成它的 future：自 v7.0.0 起使用模块注入的
+  `Scheduler`，例如 `scheduler.global().supply(...)`；6.x 使用 `Bukkit.getScheduler().runTask(...)`。
 - **一个从请求到达时开始计算的期限。** 一个几秒的期限从请求到达时开始计算，涵盖等待工作线程、调用本身
   以及返回的 future。期限过后，面板收到一条指明类型和模块的超时错误，之后才到达的结果会被丢弃。同时最多
   处理 4 个请求，另有最多 64 个请求等待工作线程；超出的请求会立即被拒绝，并收到一条指明类型和模块的错误回复。

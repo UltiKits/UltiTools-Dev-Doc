@@ -271,7 +271,7 @@ Stored items need no change in the module. `ItemStackUtils` keeps its five metho
 
 As of v7.0.0 (unreleased), two APIs change for module authors. Rebuild the module against 7.0 as described above.
 
-- **Scheduling.** Inject `com.ultikits.ultitools.scheduling.Scheduler` with `@Autowired`; each module instance owns one, and unloading the module cancels its tasks. `@Scheduled` runs on it. Async repeating tasks run at a fixed rate, and tasks bound to an entity end when the entity is removed (for a player, on disconnect). See [Scheduler API](/guide/advanced/scheduled-tasks#scheduler-api).
+- **Scheduling.** Inject `com.ultikits.ultitools.scheduling.Scheduler` with `@Autowired`; each module instance owns one, and unloading the module cancels its tasks. `@Scheduled` runs on it. Async repeating tasks run at a fixed rate, and tasks bound to an entity end when the entity is removed (for a player, on disconnect). See [Scheduler API](/guide/advanced/scheduled-tasks#scheduler-api). The framework's own work moving onto its scheduler requires no change in module code; its visible effects are listed under [Framework-scheduled work](/guide/advanced/scheduled-tasks#framework-scheduled-work).
 - **Declarative GUI.** `DeclarativeGui` no longer inherits obliviate's `Gui`. The constructor takes the module's `UiService`, its `Scheduler` and a `Text` title with a fixed row count of 1 to 6; `InventoryType` constructors, `IconWrapper`, `RenderNodeDiffer`, `DiffResult` and `getPlayer()` (now `viewer()`) are gone; `ItemDisplay` takes an `ItemSpec`, and clicks use `onClick(GridAction)`. See [What changes in 7.0](/guide/advanced/declarative-gui#what-changes-in-7-0).
 
 ### Toasts and holograms in 7.0
