@@ -5,6 +5,44 @@
 `@ApiStatus.Experimental` 标记至少还会保留一个版本，等待运行这些被重写机制的真实服务器给出反馈。
 :::
 
+## 7.0 的变化 <Badge type="tip" text="v7.0.0+" />
+
+::: info 自 v7.0.0 起（尚未发布）
+声明式引擎不再继承 obliviate 的 `Gui`，也不再直接写入物品栏。每次构建都会产生整个界面的不可变 `Grid` 快照，并交给模块的 `UiService`，由它负责显示、点击分发和关闭结果。该包仍标记为 `@ApiStatus.Experimental`。
+:::
+
+引擎目前只在内存版界面服务上验证过，尚未在真实服务器上验证。下面第 3 至 7 节的代码及其引用的已编译示例展示的是 6.x API；本节列出 7.0 的变化。
+
+**构造。** 传入模块自己注入的 `UiService`、[`Scheduler`](/zh/guide/advanced/scheduled-tasks#调度器-api) 和 `Text` 标题；行数固定为 1 到 6，不再有 `InventoryType` 构造器：
+
+```java
+public class ShopPage extends DeclarativeGui {
+    public ShopPage(UiService ui, Scheduler scheduler, Player player) {
+        super(ui, scheduler, player, "shop", Text.plain("Item Shop"), 6);
+    }
+
+    @Override
+    public Widget build(BuildContext context) {
+        return Container.builder()
+            .child(TextButton.builder()
+                .text(Text.plain("Close"))
+                .color("RED")
+                .slot(49)
+                .onClick(click -> click.session().close())
+                .build())
+            .build();
+    }
+}
+```
+
+**打开。** `open()` 同步构建第一帧，通过 `UiService` 显示，并返回 `GridSession`。它必须在观看者所属线程上调用，否则抛出 `IllegalStateException`；页面已打开时再次调用会返回同一个会话。标题和行数在构造后不能更改，要改标题请打开新的页面实例。不要在同一个动作里关闭页面后立刻对同一页面调用 `open()`：它可能返回已结束的会话而什么也不显示。
+
+**组件。** `ItemDisplay.builder` 接收 `ItemSpec`；`TextButton` 的名称和说明使用 `Text`。`onClick(GridAction)` 收到 `GridClick`（观看者、槽位、点击类型和会话），`onClick(Runnable)` 仍可用。`IconWrapper`、`RenderNodeDiffer`、`DiffResult` 已删除，`getPlayer()` 改为 `viewer()`。旧的打开、点击和物品栏关闭钩子，改为在 `build` 中描述内容、把动作放在组件上，以及 `onGuiClose(UiResult<Ack>)`。新增的 `ItemSlotArea` 把已有容器的下标绑定到网格：默认只读（`VIEW`），允许移动物品必须显式 `.mode(BindingMode.EDITABLE)`。
+
+**重新渲染。** `setState(Runnable)` 先在调用线程上立即执行你的动作，然后请求重建。重建总是在之后的某个 tick、在观看者的实体上下文中执行；重建执行前到达的多个请求合并为一帧，构建过程中发出的请求在构建结束后补发，不会重入。一帧中排入的工作在下一帧执行。构建成功后，引擎把完整网格发给会话，由后端决定改写哪些槽位。来自后台线程的结果，请先用 `scheduler.entity(player).run(...)` 切回观看者线程，再修改状态。
+
+**错误处理。** 构建抛出异常时不会到达会话，观看者仍看到上一幅画面。延迟帧中的异常以 WARNING 记录（`Error executing GUI frame task`）；JVM `Error` 以 SEVERE 记录并重新抛出。组件树嵌套超过 64 层会抛出 `RenderDepthExceededException`，并同时上报给错误收集器。槽位在网格之外的节点会被跳过，重复占用同一容器下标的节点会被跳过；第二个占用同一槽位的节点会替换第一个；每种情况每个槽位只记录一次警告。`initState` 不断请求重建又抛出异常的页面，只要还开着就每 tick 重试一次；请在组件内捕获失败并构建错误状态。会话结束时，引擎先释放组件树再调用 `onGuiClose`；两者中的异常都会以 WARNING 记录，并写明界面和模块名。
+
 ## 1. 简介 (Introduction)
 
 传统的 Bukkit GUI 开发通常是命令式的：你需要手动创建 `Inventory`，手动设置每一个 `ItemStack`，并监听 `InventoryClickEvent` 来处理交互。随着界面复杂度的增加，这种方式会导致代码难以维护，状态管理变得异常痛苦。
@@ -15,7 +53,7 @@ UltiTools 的声明式 GUI 框架引入了 **UI = f(State)** 的理念：
 *   **响应式 (Reactive)**: 当数据（状态）发生变化时，界面会自动更新。
 
 ### 核心优势
-*   **自动 Diff 更新**: 框架内部使用 Diff 算法，只更新发生变化的 Slot，极大降低网络包发送量，提升客户端性能。
+*   **自动更新**: 你不需要自己写格子。6.x 及以前，框架对组件树做 Diff，只更新发生变化的 Slot。自 v7.0.0 起，引擎发送完整的网格快照，由界面后端决定重写哪些 Slot。
 *   **状态管理**: 内置类似 React/Flutter 的状态管理机制，轻松处理分页、多选、动态刷新等逻辑。
 *   **无需手动监听**: 点击事件直接绑定在组件上，无需在全局 Listener 中通过 Slot 判断逻辑。
 
@@ -134,7 +172,7 @@ GridView.<ShopItem>builder()
 3.  框架标记 `CounterWidget` 需要更新。
 4.  框架重新调用 `build()` 方法。
 5.  `TextButton` 被重新创建，文本变为 "Count: 1"。
-6.  Diff 算法检测到 Slot 13 的物品名称变了，于是发送包更新该位置的物品（而不会刷新整个界面）。
+6.  框架输出新的网格，其中只有 Slot 13 与上一幅不同（自 v7.0.0 起由界面后端而不是引擎比较网格）。
 
 ## 6. 进阶技巧 (Advanced Topics)
 

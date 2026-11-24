@@ -122,6 +122,78 @@ Bukkit.getScheduler().runTask(UltiTools.getInstance(), () -> {
 `@CmdCD` 也支持同样的绑定方式，见[命令冷却](/zh/guide/essentials/cmd-executor#配置项绑定的冷却时间)。
 :::
 
+## 调度器 API <Badge type="tip" text="v7.0.0+" />
+
+::: info 自 v7.0.0 起
+模块可以注入 `com.ultikits.ultitools.scheduling.Scheduler` 并直接提交任务；`@Scheduled` 运行在同一个调度器上。这是尚未发布的 7.0 行为。
+:::
+
+每个模块实例拥有一个 `Scheduler`，可注入到模块的 Bean 中：
+
+```java
+@Service
+public class RewardService {
+    @Autowired
+    private Scheduler scheduler;
+
+    public void rewardLater(Player player) {
+        scheduler.entity(player).runLater(Duration.ofSeconds(5), () -> player.sendMessage("Thanks for playing!"));
+    }
+}
+```
+
+`Scheduler` 按线程归属提供不同的 `TaskContext`，请选择与任务所访问数据相符的一个：
+
+| 方法 | 运行位置 | 用途 |
+|------|----------|------|
+| `global()` | 服务器主线程，按 tick 计时 | 世界时间、天气、服务器状态 |
+| `region(Location)` / `region(World, chunkX, chunkZ)` | 服务器主线程，按 tick 计时 | 方块与区块；`region(Location)` 在位置没有世界时抛出 `IllegalArgumentException` |
+| `entity(Entity)` | 服务器主线程，按 tick 计时 | 跟随某个实体或玩家的工作 |
+| `async()` | 异步线程池，按真实时间计时 | I/O、网络、计算；不要做 Bukkit API 相关工作 |
+
+在 Paper 上，三种 tick 上下文都运行在主线程；该契约不声明支持 Folia。
+
+### 提交任务
+
+`TaskContext` 提供下列方法，它同时也是 `java.util.concurrent.Executor`：
+
+| 方法 | 行为 |
+|------|------|
+| `run(Runnable)` | 执行一次，绝不内联；tick 上下文中在下一个 tick 执行 |
+| `runLater(Duration, Runnable)` | 延迟后执行一次；延迟为零等同于 `run`；负延迟抛出 `IllegalArgumentException` |
+| `runRepeating(Duration, Duration, Consumer<TaskHandle>)` | 初始延迟后按周期重复，直到被取消、退役或卸载。回调会收到自己的句柄，可以自行取消 |
+| `supply(Supplier<T>)` | 执行一次，并用结果或抛出的异常完成返回的 `CompletableFuture` |
+| `isCurrentThread()` | 调用线程当前是否拥有该上下文。异步上下文始终返回 `false` |
+
+tick 上下文把延迟和周期向上取整为整数 tick（`Ticks.ceil`），名义上每 tick 50 毫秒，服务器卡顿时会被拉长。tick 上下文的周期至少为一个 tick，异步上下文的周期必须为正。`Ticks.of(long)` 把 tick 数转换为 `Duration`。
+
+重复任务的某次执行抛出异常时，会连同所属者名称记录日志，不会中断重复。一次性任务抛出异常则以 `FAILED` 结束；重复任务永远不会以 `FAILED` 结束。
+
+### 句柄与取消
+
+每次提交都返回 `TaskHandle`，提供 `state()`、`isRepeating()`、`cancel()` 与 `completion()`。状态有 `SCHEDULED`、`RUNNING`、`COMPLETED`、`FAILED`、`CANCELLED`、`RETIRED`。
+
+- `cancel()` 阻止所有尚未开始的执行，不会中断正在进行的执行。只有把任务变为 `CANCELLED` 的那一次调用返回 `true`。
+- 已处于 `RUNNING` 的一次性任务无法取消：`cancel()` 返回 `false`，任务以 `COMPLETED` 或 `FAILED` 结束。
+- `completion()` 在一次性任务成功后正常完成；否则异常完成：`FAILED` 为抛出的异常，`CANCELLED`（包括模块卸载）为 `CancellationException`，`RETIRED` 为 `TaskRetiredException`。
+- 在 `supply` 返回的 future 完成之前取消它总是成功：尚未开始的任务不再运行；已开始的任务会执行完，结果被丢弃。
+
+### 需要提前考虑的行为
+
+::: warning 异步重复任务按固定频率运行
+周期按相邻两次执行的开始时刻计算，而不是从上一次结束算到下一次开始。因此异步重复任务相邻两次执行之间的间隔不保证是完整的一个周期。在当前实现中，同一重复任务的各次执行不会并发，仍在忙的一次会推迟下一次；但契约没有规定是否重叠，请不要依赖这两种行为。
+:::
+
+::: warning 实体任务在实体被移除时结束
+绑定到实体的任务在该实体被移除时退役（`RETIRED`）：非玩家实体死亡、消失或被丢弃时，玩家断开连接时。玩家死亡重生、实体切换维度，任务保持不变。对已被移除的实体，`run`、`runLater`、`runRepeating` 返回已处于 `RETIRED` 的句柄，`supply` 返回以 `TaskRetiredException` 失败的 future，`execute` 抛出 `RejectedExecutionException`。
+:::
+
+异步任务除“最终会执行”外没有开始时间的上限，这取决于服务器的异步线程池。不要在其中调用非线程安全的 Bukkit API。
+
+### 卸载与关服
+
+卸载所属模块会取消该模块所有尚未开始的任务和所有重复任务；此刻正在运行的一次性任务会执行完。卸载之后，任何提交都抛出 `RejectedExecutionException`：获取上下文不会抛出，向其提交才会。关服会卸载所有模块，其任务以同样方式结束，随后取消框架自有的任务。
+
 ## 自动生命周期管理
 
 使用 `@Scheduled` 注解的任务由框架自动管理：
@@ -129,7 +201,7 @@ Bukkit.getScheduler().runTask(UltiTools.getInstance(), () -> {
 - **注册**：插件加载时自动发现并启动任务
 - **取消**：当所属插件卸载或服务器关闭时，所有任务自动取消
 
-你无需手动追踪或取消任务。
+你无需手动追踪或取消任务。自 v7.0.0 起，`@Scheduled` 方法运行在模块自己的 `Scheduler` 上：`async = true` 使用其 `async()` 上下文，其余使用 `global()` 上下文，`delay` 与 `period` 仍以 tick 计。
 
 ## 使用要求
 
