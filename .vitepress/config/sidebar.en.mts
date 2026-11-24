@@ -91,6 +91,10 @@ const sidebarGuideEN: SidebarItemExt[] = [
                 link: 'advanced/module-dependencies'
             },
             {
+                text: 'Start-up Phases',
+                link: 'advanced/startup-phases'
+            },
+            {
                 text: 'Supporting servers below 1.21',
                 link: 'advanced/older-servers'
             },

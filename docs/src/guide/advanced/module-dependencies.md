@@ -57,6 +57,10 @@ A required plugin that is installed but not enabled yet is not refused early, be
 
 As of v6.3.0: dependency resolution looks a module up by either its simple class name or its `plugin.yml` `name:` value. If two installed modules declare the SAME `name:`, only one of them can claim that name in the dependency graph — whichever module is discovered first wins, and the console logs a WARNING naming both modules and the shared name so this is not silent. Which module wins follows discovery order, which as of v6.3.0 is file-name order, so it is the same for a given modules folder on every file system; a module whose main class has that simple name takes the name first. Even so, treat this WARNING as a signal to rename one module's `plugin.yml` `name:`, not as a resolution to rely on.
 
+## Class visibility of server plugins
+
+As of v7.0.0, a module can use the classes of the server plugins it lists under `depend:` or `softdepend:` in its `plugin.yml`; visibility of undeclared plugins is not guaranteed, and an absent `softdepend:` plugin does not stop the module from loading. See [Start-up Phases and Early Hooks](/guide/advanced/startup-phases#other-plugins-classes).
+
 ## Falling back to the legacy order
 
 `-Dultitools.useLegacyPluginLoading=true` restores the pre-6.3.0 behavior: every module loads in file-name order with no dependency resolution at all, including no cycle detection. This is a JVM system property, consumed once at server startup, not a reloadable config key — the same shape as Paper's own `-Dpaper.useLegacyPluginLoading=true`.
