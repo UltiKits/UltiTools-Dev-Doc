@@ -350,6 +350,8 @@ A module JAR is identified by the `main:` entry of its `plugin.yml`. When two or
 [UltiTools-API] These JAR files all declare the same module main class com.example.MyModule: MyModule-1.0.0.jar, MyModule-1.1.0.jar. The module's classes load only from MyModule-1.0.0.jar; the other copies are not loaded. Keep only one of them.
 ```
 
+As of v7.0.0, only that first copy's early hook can run at start-up, once; see [Start-up Phases and Early Hooks](/guide/advanced/startup-phases#duplicate-copies-and-order).
+
 The version numbers play no part here. In the example the older `1.0.0` keeps running because its file name sorts first, whatever the two `plugin.yml` files say. Before v6.3.0 each refused copy logged its own error line instead of this one warning.
 
 `/upm uninstall` removes every copy. As of v6.3.0 it deletes each JAR whose `plugin.yml` `main:` names the module's main class, whatever `name:` that JAR declares, and names each deleted file in its reply.

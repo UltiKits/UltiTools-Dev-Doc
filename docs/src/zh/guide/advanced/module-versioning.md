@@ -350,6 +350,8 @@ python3 scripts/symcheck.py 你的模块.jar UltiTools-API-<你声明的下限>.
 [UltiTools-API] 以下 JAR 文件都声明了同一个模块主类 com.example.MyModule：MyModule-1.0.0.jar, MyModule-1.1.0.jar。该模块的类只从 MyModule-1.0.0.jar 加载，其余副本不会加载；请只保留其中一个。
 ```
 
+自 v7.0.0 起，启动时只有这个排在最前的副本的早期钩子可能运行，且只运行一次；见[启动阶段与早期钩子](/zh/guide/advanced/startup-phases#重复副本与顺序)。
+
 这里不比较版本号。上例中较旧的 `1.0.0` 继续运行，原因是它的文件名排在前面，与两份 `plugin.yml` 中写的版本无关。v6.3.0 之前，每个被拒绝的副本各自输出一条错误日志，而不是这一条警告。
 
 `/upm uninstall` 会删除所有副本。自 v6.3.0 起，它删除每一个 `plugin.yml` 的 `main:` 指向该模块主类的 JAR，不论这个 JAR 声明的 `name:` 是什么，并在回复中列出每一个被删除的文件。

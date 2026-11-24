@@ -89,6 +89,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
                 link: 'advanced/module-dependencies'
             },
             {
+                text: '启动阶段与早期钩子',
+                link: 'advanced/startup-phases'
+            },
+            {
                 text: '支持 1.21 以下的服务端',
                 link: 'advanced/older-servers'
             },
