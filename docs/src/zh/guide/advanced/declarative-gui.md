@@ -37,7 +37,7 @@ public class ShopPage extends DeclarativeGui {
 
 **打开。** `open()` 同步构建第一帧，通过 `UiService` 显示，并返回 `GridSession`。它必须在观看者所属线程上调用，否则抛出 `IllegalStateException`；页面已打开时再次调用会返回同一个会话。标题和行数在构造后不能更改，要改标题请打开新的页面实例。不要在同一个动作里关闭页面后立刻对同一页面调用 `open()`：它可能返回已结束的会话而什么也不显示。
 
-**组件。** `ItemDisplay.builder` 接收 `ItemSpec`；`TextButton` 的名称和说明使用 `Text`。`onClick(GridAction)` 收到 `GridClick`（观看者、槽位、点击类型和会话），`onClick(Runnable)` 仍可用。`IconWrapper`、`RenderNodeDiffer`、`DiffResult` 已删除，`getPlayer()` 改为 `viewer()`。旧的打开、点击和物品栏关闭钩子，改为在 `build` 中描述内容、把动作放在组件上，以及 `onGuiClose(UiResult<Ack>)`。新增的 `ItemSlotArea` 把已有容器的下标绑定到网格：默认只读（`VIEW`），允许移动物品必须显式 `.mode(BindingMode.EDITABLE)`。
+**组件。** `ItemDisplay.builder` 接收 `ItemSpec`（见[物品与物品存储](/zh/guide/essentials/items)）；`TextButton` 的名称和说明使用 `Text`。`onClick(GridAction)` 收到 `GridClick`（观看者、槽位、点击类型和会话），`onClick(Runnable)` 仍可用。`IconWrapper`、`RenderNodeDiffer`、`DiffResult` 已删除，`getPlayer()` 改为 `viewer()`。旧的打开、点击和物品栏关闭钩子，改为在 `build` 中描述内容、把动作放在组件上，以及 `onGuiClose(UiResult<Ack>)`。新增的 `ItemSlotArea` 把已有容器的下标绑定到网格：默认只读（`VIEW`），允许移动物品必须显式 `.mode(BindingMode.EDITABLE)`。
 
 **重新渲染。** `setState(Runnable)` 先在调用线程上立即执行你的动作，然后请求重建。重建总是在之后的某个 tick、在观看者的实体上下文中执行；重建执行前到达的多个请求合并为一帧，构建过程中发出的请求在构建结束后补发，不会重入。一帧中排入的工作在下一帧执行。构建成功后，引擎把完整网格发给会话，由后端决定改写哪些槽位。来自后台线程的结果，请先用 `scheduler.entity(player).run(...)` 切回观看者线程，再修改状态。
 

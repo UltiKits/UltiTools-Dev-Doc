@@ -57,6 +57,10 @@ const sidebarGuideEN: SidebarItemExt[] = [
                 link: 'essentials/messages'
             },
             {
+                text: 'Items and Item Storage (7.0)',
+                link: 'essentials/items'
+            },
+            {
                 text: 'Exception Handling',
                 link: 'advanced/exception-handling'
             },
