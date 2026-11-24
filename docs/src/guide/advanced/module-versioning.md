@@ -227,6 +227,36 @@ As of v7.0.0 (unreleased), two APIs change for module authors. Rebuild the modul
 - **Scheduling.** Inject `com.ultikits.ultitools.scheduling.Scheduler` with `@Autowired`; each module instance owns one, and unloading the module cancels its tasks. `@Scheduled` runs on it. Async repeating tasks run at a fixed rate, and tasks bound to an entity end when the entity is removed (for a player, on disconnect). See [Scheduler API](/guide/advanced/scheduled-tasks#scheduler-api).
 - **Declarative GUI.** `DeclarativeGui` no longer inherits obliviate's `Gui`. The constructor takes the module's `UiService`, its `Scheduler` and a `Text` title with a fixed row count of 1 to 6; `InventoryType` constructors, `IconWrapper`, `RenderNodeDiffer`, `DiffResult` and `getPlayer()` (now `viewer()`) are gone; `ItemDisplay` takes an `ItemSpec`, and clicks use `onClick(GridAction)`. See [What changes in 7.0](/guide/advanced/declarative-gui#what-changes-in-7-0).
 
+### Toasts and holograms in 7.0
+
+::: warning Unreleased v7.0.0 removals
+As of v7.0.0, `com.ultikits.ultitools.widgets.Toast`, `NotificationService#sendToastNotification` and `com.ultikits.ultitools.widgets.Hologram` are removed.
+Migrate the callers as described below, then rebuild them against 7.0.
+:::
+
+**Toasts.** The advancement-based popup depended on deprecated, version-unstable server internals, and message text containing quotes could break its generated JSON. There is no replacement helper. `NotificationService` still offers `sendTitleNotification`, `sendSubTitleNotification`, `sendActionBarNotification`, `sendBossBarNotification` and `sendMessageNotification` (a chat message); some overloads also take a `Sound`. Use one of these, or chat, instead. The remaining `NotificationService` signatures will be adjusted separately in later 7.0 changes.
+
+**Holograms.** `Hologram` spawned an invisible armour stand for each text line. Use Paper's native `TextDisplay` entity instead; a single display can contain multiple lines. The following example disables entity persistence:
+
+```java
+World world = location.getWorld();
+if (world == null) {
+    throw new IllegalArgumentException("The display location must have a world");
+}
+TextDisplay display = world.spawn(location, TextDisplay.class, d -> {
+    d.text(messages.shared(Text.of(messages.key("hologram.welcome"))));
+    d.setBillboard(Display.Billboard.CENTER);
+    d.setPersistent(false);
+});
+// later: display.remove();
+```
+
+- Call `World#spawn` on the thread that owns the location. From another thread, switch first with the module's injected `Scheduler`, for example `scheduler.region(location).run(...)`; see [Scheduler API](/guide/advanced/scheduled-tasks#scheduler-api).
+- `Location#getWorld()` can return `null`, so check it before spawning, as the example does.
+- `messages` is the module's injected `com.ultikits.ultitools.text.Messages` service. Its `shared(Text)` method returns text for objects every player sees, such as a text display.
+
+The caller owns the display and removes it with `display.remove()` when it is no longer needed.
+
 ### Changed descriptors
 
 This situation is harder to notice, because nothing is removed and there is nothing to mark as deprecated. A method's descriptor covers both its parameter types and its return type, so a change to either produces a different symbol under the same name.
