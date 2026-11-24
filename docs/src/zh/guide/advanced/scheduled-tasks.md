@@ -169,6 +169,8 @@ tick 上下文把延迟和周期向上取整为整数 tick（`Ticks.ceil`），�
 
 重复任务的某次执行抛出异常时，会连同所属者名称记录日志，不会中断重复。一次性任务抛出异常则以 `FAILED` 结束；重复任务永远不会以 `FAILED` 结束。
 
+自 v7.0.0 起，通过 `run`、`runLater` 或 `execute` 提交的一次性任务抛出异常时，还会恰好记录一条 WARNING（`Error executing scheduled task of <所属者>`），附带原始异常及其堆栈，与 6.x 的 Bukkit 调度器一致；其 `completion()` 仍以该异常失败。`supply` 失败只交给返回的 future，不记录日志；只有 future 在任务开始后被取消、异常已无法被观察时，才记录一次。
+
 ### 句柄与取消
 
 每次提交都返回 `TaskHandle`，提供 `state()`、`isRepeating()`、`cancel()` 与 `completion()`。状态有 `SCHEDULED`、`RUNNING`、`COMPLETED`、`FAILED`、`CANCELLED`、`RETIRED`。
@@ -193,6 +195,28 @@ tick 上下文把延迟和周期向上取整为整数 tick（`Ticks.ceil`），�
 ### 卸载与关服
 
 卸载所属模块会取消该模块所有尚未开始的任务和所有重复任务；此刻正在运行的一次性任务会执行完。卸载之后，任何提交都抛出 `RejectedExecutionException`：获取上下文不会抛出，向其提交才会。关服会卸载所有模块，其任务以同样方式结束，随后取消框架自有的任务。
+
+### 框架调度的工作
+
+自 v7.0.0 起，框架把自己的后台与主线程工作提交到一个框架自有的 `Scheduler`，其所属者名称为 `UltiTools`，上下文和规则与模块的调度器相同（[#963](https://github.com/UltiKits/UltiTools-Reborn/pull/963)）。模块代码无需改动，可以观察到的差异如下：
+
+| 框架工作 | 上下文 |
+|----------|--------|
+| `TeleportService#delayTeleport` 的倒计时 | `entity(player)` |
+| 取消延迟传送的移动检查 | `global()` |
+| 更新检查、JSON 周期落盘（`datasource.flushRate`）、面板登出时吊销凭据 | `async()` |
+| 发布 `PanelMessageEvent`、玩家加入时下载 PlaceholderAPI 扩展、启动时的经济状态报告、面板电源操作、遥测与统计数据的交接 | `global()` |
+
+- **延迟传送。** 倒计时运行在该玩家的实体上下文中，玩家离开服务器时立即结束。移动检查在主线程上读取玩家位置，不再在异步线程上读取。
+- **失败。** 框架的一次性任务抛出异常时，记录[提交任务](#提交任务)中所述的 WARNING，所属者为 `UltiTools`。在框架调度器任务中产生的日志记录，归因为名为 `Scheduler` 的定时任务；来自 `BukkitRunnable` 的记录仍归因为 `BukkitRunnable`。
+- **生命周期。** `/ul reload` 不会取消或重启框架的工作，框架的重复任务仍各自只运行一份。卸载模块不影响它们。UltiTools 被禁用时，在所有模块卸载之后取消框架的工作。UltiTools 正在禁用时到达的面板消息不再调度，只记录一条 `FINE` 日志后丢弃。
+- **回调线程。** `PanelMessageEvent` 的处理器通过框架的 `global()` 上下文在主线程上运行。面板 responder 仍在框架的工作线程上运行，见[面板集成](/zh/guide/advanced/panel-integration)。
+
+::: warning 已知限制
+`datasource.flushRate` 必须是正数秒；负数不会启动 JSON 周期落盘（6.x 会落盘一次），停服时仍会写入数据。对同一玩家调用两次 `delayTeleport` 会启动两个倒计时，与 6.x 相同。
+:::
+
+在当前的 7.0 开发线上，异步命令方法体（`@RunAsync`、`@AsyncCommand`）和框架的启动消息仍运行在 Bukkit 调度器上，不由框架调度器拥有、取消或退役。
 
 ## 自动生命周期管理
 

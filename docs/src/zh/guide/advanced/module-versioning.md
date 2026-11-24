@@ -271,7 +271,7 @@ ItemStack item = itemRenderer.render(spec, player);
 
 自 v7.0.0 起（尚未发布），模块作者会遇到两处 API 变化。请按上文针对 7.0 重新构建模块。
 
-- **调度。** 用 `@Autowired` 注入 `com.ultikits.ultitools.scheduling.Scheduler`；每个模块实例拥有一个，卸载模块会取消其任务，`@Scheduled` 也运行在其上。异步重复任务按固定频率运行，绑定到实体的任务在实体被移除时结束（玩家则在断开连接时）。详见[调度器 API](/zh/guide/advanced/scheduled-tasks#调度器-api)。
+- **调度。** 用 `@Autowired` 注入 `com.ultikits.ultitools.scheduling.Scheduler`；每个模块实例拥有一个，卸载模块会取消其任务，`@Scheduled` 也运行在其上。异步重复任务按固定频率运行，绑定到实体的任务在实体被移除时结束（玩家则在断开连接时）。详见[调度器 API](/zh/guide/advanced/scheduled-tasks#调度器-api)。框架自身的工作改由其调度器运行，模块代码无需改动；可观察到的影响见[框架调度的工作](/zh/guide/advanced/scheduled-tasks#框架调度的工作)。
 - **声明式 GUI。** `DeclarativeGui` 不再继承 obliviate 的 `Gui`。构造器接收模块的 `UiService`、`Scheduler` 以及 `Text` 标题，行数固定为 1 到 6；`InventoryType` 构造器、`IconWrapper`、`RenderNodeDiffer`、`DiffResult` 和 `getPlayer()`（改为 `viewer()`）已删除；`ItemDisplay` 接收 `ItemSpec`，点击使用 `onClick(GridAction)`。详见[7.0 的变化](/zh/guide/advanced/declarative-gui#_7-0-的变化)。
 
 ### 7.0 的进度弹窗与悬浮字
@@ -298,7 +298,7 @@ TextDisplay display = world.spawn(location, TextDisplay.class, d -> {
 // later: display.remove();
 ```
 
-- `World#spawn` 必须在拥有目标位置的线程上调用。在其它线程上时，先通过模块注入的 `Scheduler` 切换线程，例如 `scheduler.region(location).run(...)`，详见[调度器 API](/zh/guide/advanced/scheduled-tasks#调度器-api)。
+- `World#spawn` 必须在拥有目标位置的线程上调用。在其它线程上时，先通过模块注入的 `Scheduler` 切换线程，例如 `scheduler.region(location).run(...)`，详见[调度器 API](/zh/guide/advanced/scheduled-tasks#调度器-api)。框架自身的工作改由其调度器运行，模块代码无需改动；可观察到的影响见[框架调度的工作](/zh/guide/advanced/scheduled-tasks#框架调度的工作)。
 - `Location#getWorld()` 可能返回 `null`，生成实体前要像示例那样检查。
 - `messages` 是模块注入的 `com.ultikits.ultitools.text.Messages` 服务，它的 `shared(Text)` 方法为所有玩家共同看到的对象（例如文字显示实体）生成文本。
 
