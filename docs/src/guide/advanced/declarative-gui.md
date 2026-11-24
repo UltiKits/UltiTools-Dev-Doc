@@ -55,7 +55,7 @@ The UltiTools declarative GUI framework adopts the **UI = f(State)** idea:
 
 ### Key benefits
 
-- **Automatic updates**: the framework diffs the widget tree and rebuilds only what changed. As of v7.0.0 the engine then sends a complete grid snapshot and the UI backend decides which slots to rewrite.
+- **Automatic updates**: you never write slots yourself. Up to 6.x the framework diffs the widget tree and updates only the changed slots. As of v7.0.0 the engine sends a complete grid snapshot and the UI backend decides which slots to rewrite.
 - **State management**: built-in state handling (similar to React/Flutter) makes pagination, selection and dynamic refresh easy to implement.
 - **No manual listeners**: click handlers attach to widgets directly — no global slot-based listener logic required.
 
