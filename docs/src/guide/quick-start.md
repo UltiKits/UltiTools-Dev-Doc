@@ -107,7 +107,7 @@ The optional `onReload()` and `onUnregister()` hooks handle custom reload and un
 instead.
 :::
 
-`onUnregister()` runs before the framework unregisters this module's commands and listeners, so the module's own beans are still alive during cleanup. `onReload()` runs after the framework's own reload steps: configuration reload and language catalogue refresh.
+`onUnregister()` runs before the framework unregisters this module's commands and listeners, so the module's own beans are still alive during cleanup. As of v7.0.0, screens that the module's `UiService` still shows are ended with `CloseReason.OWNER_UNLOADED` before `onUnregister()` runs and before the unload returns; see [UI: Intents and Sessions](/guide/advanced/ui-service#unload-and-server-stop). `onReload()` runs after the framework's own reload steps: configuration reload and language catalogue refresh.
 
 On `/ul reload`, the framework logs one line naming the module after `onReload()` has returned. A module whose existing override only logged its own reload no longer needs that log line and can delete the override. A module with real reload or unload work renames its existing `reloadSelf()`/`unregisterSelf()` override to `onReload()`/`onUnregister()`. Remove every `super.unregisterSelf()` call from the renamed hook, keep the module's real cleanup work, and let the framework unregister commands and listeners after `onUnregister()` returns.
 

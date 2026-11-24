@@ -70,8 +70,11 @@ The future always completes normally. A failed answer carries a `Failure` and a 
 | `TIMED_OUT` | The gateway did not answer within 30 seconds |
 | `INTERNAL_ERROR` | The gateway answered with an unexpected error |
 
-The future may complete on a framework thread. Switch to the main thread before you call Bukkit API, for
-example with `Bukkit.getScheduler().runTask(...)`.
+The future may complete on a framework thread. As of v7.0.0, continue in the player's entity context before you
+call Bukkit API, using the module's injected [`Scheduler`](/guide/advanced/scheduled-tasks#scheduler-api), for example
+`future.thenAcceptAsync(text -> player.sendMessage(text), scheduler.entity(player))`. If the player has left
+by then, that executor rejects the task and the dependent stage completes exceptionally with
+`RejectedExecutionException`.
 
 ## Link lifetime and expiry
 

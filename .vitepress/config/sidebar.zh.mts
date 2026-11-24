@@ -157,6 +157,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
         text: '界面系统',
         items: [
             {
+                text: '界面：意图与会话（7.0）',
+                link: 'advanced/ui-service'
+            },
+            {
                 text: 'GUI 界面',
                 link: 'advanced/gui'
             },
