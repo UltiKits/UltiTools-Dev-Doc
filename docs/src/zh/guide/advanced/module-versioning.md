@@ -281,7 +281,7 @@ ItemStack item = itemRenderer.render(spec, player);
 请按下文迁移调用方，再针对 7.0 重新构建。
 :::
 
-**进度弹窗（Toast）。** 旧实现借助进度（advancement）弹窗，依赖已弃用、跨版本不稳定的服务端内部接口，消息中的引号还可能破坏生成的 JSON。框架不提供替代的辅助类。`NotificationService` 仍提供 `sendTitleNotification`、`sendSubTitleNotification`、`sendActionBarNotification`、`sendBossBarNotification` 和 `sendMessageNotification`（聊天消息），其中部分重载还接收一个 `Sound`。请改用这些方法或聊天。`NotificationService` 的其余方法签名将在 7.0 后续改动中另行调整。
+**进度弹窗（Toast）。** 旧实现借助进度（advancement）弹窗，依赖已弃用、跨版本不稳定的服务端内部接口，消息中的引号还可能破坏生成的 JSON。框架不提供替代的辅助类。`NotificationService` 提供 `sendTitleNotification`、`sendSubTitleNotification`、`sendActionBarNotification`、`sendBossBarNotification` 和 `sendMessageNotification`（聊天消息），其中部分重载还接收一个 `Sound`。请改用这些方法或聊天。7.0 中这些方法改为接收 `Text` 和 Adventure 类型，参见 [7.0 的通知服务](#notification-service-7)。
 
 **悬浮字（Hologram）。** 旧的 `Hologram` 为每行文字生成一个隐形盔甲架。请改用 Paper 原生的 `TextDisplay` 实体，单个显示实体即可包含多行文字。下面的示例关闭了实体持久化：
 
@@ -303,6 +303,40 @@ TextDisplay display = world.spawn(location, TextDisplay.class, d -> {
 - `messages` 是模块注入的 `com.ultikits.ultitools.text.Messages` 服务，它的 `shared(Text)` 方法为所有玩家共同看到的对象（例如文字显示实体）生成文本。
 
 显示实体由调用方管理，不再需要时调用 `display.remove()` 移除。
+
+### 7.0 的通知服务 {#notification-service-7}
+
+::: warning 尚未发布的 v7.0.0 通知 API
+自 v7.0.0 起，`NotificationService` 改为接收 `Text`、`Duration` 和 Adventure 类型，所有方法都返回 `void`。
+针对 6.x 编译的模块与它不保持二进制兼容，请迁移调用并重新构建。
+:::
+
+通知服务按收件玩家的语言渲染每个 `Text`，共有十二个发送方法：四个抽象方法和八个默认重载。签名变化如下：
+
+| 7.0 之前 | 自 v7.0.0 起 |
+| --- | --- |
+| 消息、标题、副标题和动作栏的 `String` 参数 | `com.ultikits.ultitools.text.Text` |
+| Boss 栏 `int` 秒数 | 正的 `java.time.Duration`；默认仍为 25 秒 |
+| `org.bukkit.Sound` | Adventure 的 `net.kyori.adventure.sound.Sound`，按调用方给出的来源、音量和音调播放 |
+| 标题淡入、停留、淡出的 `int` tick | Adventure 的 `Title.Times`；默认仍为 500 毫秒、2.5 秒、1 秒 |
+| `boolean` 返回值 | `void`；必需参数为 `null` 时抛出以参数名为消息的 `NullPointerException`，时长为零或负数时抛出 `IllegalArgumentException` |
+| 两个接收调用方 Bukkit `BossBar` 的重载 | 一个接收 Adventure `BossBar.Color` 和 `BossBar.Overlay` 的完整重载 |
+| `new InMemoryNotificationService()` | `new InMemoryNotificationService(Messages, Scheduler)`，更推荐注入 `NotificationService` |
+| Bean 名称 `inMemoryNotificationService` 和接口全限定类名字符串 | 按类型查找：`@Autowired NotificationService` 或 `getBean(NotificationService.class)` |
+
+6.x 的调用
+
+```java
+notificationService.sendBossBarNotification(player, "Arena closes soon", 10);
+```
+
+在通过 `@Autowired` 注入 `messages` 和 `notifications` 后改写为：
+
+```java
+notifications.sendBossBarNotification(player, Text.of(messages.key("arena.closing")), Duration.ofSeconds(10));
+```
+
+把文字移到模块的语言文件中。玩家或服主输入的内容以 `Arg.string` 传入，并在语言文件中写 `<name>` 这样的占位符，不要拼进模板；固定文字用 `Text.plain(string)`。再次发送 Boss 栏通知现在会替换文字、颜色和样式，并重新开始唯一的倒计时；6.x 中文字保持不变，重叠的倒计时还会让 Boss 栏提前消失。各方法使用的线程和已知限制见[通知](/zh/guide/essentials/notifications)。
 
 ### 7.0 的文本与语言
 

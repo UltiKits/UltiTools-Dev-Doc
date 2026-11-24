@@ -281,7 +281,7 @@ As of v7.0.0, `com.ultikits.ultitools.widgets.Toast`, `NotificationService#sendT
 Migrate the callers as described below, then rebuild them against 7.0.
 :::
 
-**Toasts.** The advancement-based popup depended on deprecated, version-unstable server internals, and message text containing quotes could break its generated JSON. There is no replacement helper. `NotificationService` still offers `sendTitleNotification`, `sendSubTitleNotification`, `sendActionBarNotification`, `sendBossBarNotification` and `sendMessageNotification` (a chat message); some overloads also take a `Sound`. Use one of these, or chat, instead. The remaining `NotificationService` signatures will be adjusted separately in later 7.0 changes.
+**Toasts.** The advancement-based popup depended on deprecated, version-unstable server internals, and message text containing quotes could break its generated JSON. There is no replacement helper. `NotificationService` offers `sendTitleNotification`, `sendSubTitleNotification`, `sendActionBarNotification`, `sendBossBarNotification` and `sendMessageNotification` (a chat message); some overloads also take a `Sound`. Use one of these, or chat, instead. In 7.0 these methods take `Text` and Adventure types; see [Notification service in 7.0](#notification-service-7).
 
 **Holograms.** `Hologram` spawned an invisible armour stand for each text line. Use Paper's native `TextDisplay` entity instead; a single display can contain multiple lines. The following example disables entity persistence:
 
@@ -303,6 +303,40 @@ TextDisplay display = world.spawn(location, TextDisplay.class, d -> {
 - `messages` is the module's injected `com.ultikits.ultitools.text.Messages` service. Its `shared(Text)` method returns text for objects every player sees, such as a text display.
 
 The caller owns the display and removes it with `display.remove()` when it is no longer needed.
+
+### Notification service in 7.0 {#notification-service-7}
+
+::: warning Unreleased v7.0.0 notification API
+As of v7.0.0, `NotificationService` takes `Text`, `Duration` and Adventure types, and every method returns `void`.
+Modules compiled against 6.x are not binary compatible with it; migrate the calls and rebuild.
+:::
+
+The service renders each `Text` in the recipient's language. It has twelve sending methods: four abstract ones and eight default overloads. The signatures change as follows:
+
+| Before 7.0 | As of v7.0.0 |
+| --- | --- |
+| `String` message, title, subtitle and action-bar arguments | `com.ultikits.ultitools.text.Text` |
+| Boss-bar `int` seconds | A positive `java.time.Duration`; the default stays 25 seconds |
+| `org.bukkit.Sound` | Adventure `net.kyori.adventure.sound.Sound`, played with the caller's source, volume and pitch |
+| Title fade-in, stay and fade-out as `int` ticks | Adventure `Title.Times`; the defaults stay 500 ms, 2.5 s and 1 s |
+| `boolean` return values | `void`; a `null` required argument throws `NullPointerException` naming the parameter, a zero or negative duration throws `IllegalArgumentException` |
+| Two overloads taking a caller-owned Bukkit `BossBar` | One full overload taking Adventure `BossBar.Color` and `BossBar.Overlay` |
+| `new InMemoryNotificationService()` | `new InMemoryNotificationService(Messages, Scheduler)`, or preferably inject `NotificationService` |
+| Bean names `inMemoryNotificationService` and the interface's class-name string | Look up by type: `@Autowired NotificationService` or `getBean(NotificationService.class)` |
+
+A 6.x call such as
+
+```java
+notificationService.sendBossBarNotification(player, "Arena closes soon", 10);
+```
+
+becomes, with `messages` and `notifications` injected by `@Autowired`:
+
+```java
+notifications.sendBossBarNotification(player, Text.of(messages.key("arena.closing")), Duration.ofSeconds(10));
+```
+
+Move the text into the module's language file. Pass player or operator input as `Arg.string` with a `<name>` placeholder in the catalogue, never by joining it into the template; use `Text.plain(string)` for fixed text. A second boss-bar notification now replaces the bar's text, colour and overlay and restarts its single countdown; in 6.x the text stayed unchanged and overlapping countdowns made the bar disappear early. See [Notifications](/guide/essentials/notifications) for the threads each method uses and the known limitations.
 
 ### Text and languages in 7.0
 

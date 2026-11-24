@@ -59,6 +59,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
                 link: 'essentials/items'
             },
             {
+                text: '通知（7.0）',
+                link: 'essentials/notifications'
+            },
+            {
                 text: '异常处理',
                 link: 'advanced/exception-handling'
             },
