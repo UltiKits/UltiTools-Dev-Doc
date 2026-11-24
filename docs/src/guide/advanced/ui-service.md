@@ -241,16 +241,16 @@ The store answers `StoreAnswer.written()`, `refused(current)` or `unknown(cause)
 
 ## Unload and server stop
 
-When a module copy unloads, the framework ends its UI before it cancels the module's `@Scheduled` tasks and before `onUnregister()` runs. On the unloading thread it runs pending deliveries, starts the write of every `COMMIT` container with changes, ends every open session with `Closed(OWNER_UNLOADED)` (or the outcome already chosen), and then waits for the store answers. A failed module load that has already issued the service unloads it the same way. `show` during or after the unload returns a session that is already `Closed(OWNER_UNLOADED)` and opens nothing.
+A module unloads when an operator runs `/upm uninstall <module>`, when the server stops, and when its load fails after the service was issued. When a module copy unloads, the framework ends its UI before it cancels the module's `@Scheduled` tasks and before `onUnregister()` runs. On the unloading thread it runs pending deliveries, starts the write of every `COMMIT` container with changes, ends every open session with `Closed(OWNER_UNLOADED)` (or the outcome already chosen), and then waits for the store answers. `show` during or after the unload returns a session that is already `Closed(OWNER_UNLOADED)` and opens nothing.
 
 The store wait is bounded:
 
 | Situation | Wait |
 | --- | --- |
-| Unloading one module | Each write waits at most its commit timeout or about 10 seconds after the unload began, whichever comes first |
-| Server stop | One shared deadline of about 10 seconds for all modules, set before the first module unloads |
+| Unloading one module | Each write waits at most its remaining commit timeout or the remaining unload wait of about 10 seconds, whichever comes first |
+| Server stop | All modules share one budget of about 10 seconds, started before the first module unloads. Only the time spent unloading UI storage is charged, not the time other modules spend in their shutdown hooks; the budget is never refilled |
 
-At server stop a module unloaded late may get no wait at all if an earlier module's storage hangs. Its unanswered writes count as unknown and those containers end with `UNKNOWN_KEPT_BY_STORE`: no items are returned and the store is responsible for them.
+Once storage waits have used up the server-stop budget, later modules get no wait at all: their writes are treated as timed out at once. Unanswered writes count as unknown and those containers end with `UNKNOWN_KEPT_BY_STORE`: no items are returned and the store is responsible for them.
 
 ::: warning Keep storage alive until onUnregister
 Keep the connections and thread pools your `ContainerStore` uses open until your `onUnregister()` hook runs. Complete the store's stage without the server thread: during an unload the server thread is the one waiting, and tasks scheduled for it no longer run.
@@ -258,7 +258,7 @@ Keep the connections and thread pools your `ContainerStore` uses open until your
 
 ## Known limitations
 
-- The server stop shares one storage wait of about 10 seconds across all modules, as described above.
+- The server stop shares one storage-wait budget of about 10 seconds across all modules, as described above; a module unloaded after the budget is used up gets no wait.
 - Chest inventories contain display copies. The backend cancels clicks and drags before it applies its own transfers. Another plugin must not clear that cancellation with `setCancelled(false)` or `setResult(ALLOW)`, or vanilla can move the display copies and duplicate items.
 - Number-key swaps and Shift moves depend on the `InventoryAction` Paper computes from the displayed copy. While a redraw is pending the input may be ignored; wait for the redraw and retry.
 - Paper gives no signal when another plugin replaces a dialog. If another plugin shows its own dialog after yours, the timeout dismissal of yours also closes that dialog.
