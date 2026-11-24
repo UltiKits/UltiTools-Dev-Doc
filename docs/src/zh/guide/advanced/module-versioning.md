@@ -227,6 +227,36 @@ Module '%s' has no valid api-version (read: %s); UltiTools-API %s requires an in
 - **调度。** 用 `@Autowired` 注入 `com.ultikits.ultitools.scheduling.Scheduler`；每个模块实例拥有一个，卸载模块会取消其任务，`@Scheduled` 也运行在其上。异步重复任务按固定频率运行，绑定到实体的任务在实体被移除时结束（玩家则在断开连接时）。详见[调度器 API](/zh/guide/advanced/scheduled-tasks#调度器-api)。
 - **声明式 GUI。** `DeclarativeGui` 不再继承 obliviate 的 `Gui`。构造器接收模块的 `UiService`、`Scheduler` 以及 `Text` 标题，行数固定为 1 到 6；`InventoryType` 构造器、`IconWrapper`、`RenderNodeDiffer`、`DiffResult` 和 `getPlayer()`（改为 `viewer()`）已删除；`ItemDisplay` 接收 `ItemSpec`，点击使用 `onClick(GridAction)`。详见[7.0 的变化](/zh/guide/advanced/declarative-gui#_7-0-的变化)。
 
+### 7.0 的进度弹窗与悬浮字
+
+::: warning 尚未发布的 v7.0.0 删除项
+自 v7.0.0 起，`com.ultikits.ultitools.widgets.Toast`、`NotificationService#sendToastNotification` 和 `com.ultikits.ultitools.widgets.Hologram` 已删除。
+请按下文迁移调用方，再针对 7.0 重新构建。
+:::
+
+**进度弹窗（Toast）。** 旧实现借助进度（advancement）弹窗，依赖已弃用、跨版本不稳定的服务端内部接口，消息中的引号还可能破坏生成的 JSON。框架不提供替代的辅助类。`NotificationService` 仍提供 `sendTitleNotification`、`sendSubTitleNotification`、`sendActionBarNotification`、`sendBossBarNotification` 和 `sendMessageNotification`（聊天消息），其中部分重载还接收一个 `Sound`。请改用这些方法或聊天。`NotificationService` 的其余方法签名将在 7.0 后续改动中另行调整。
+
+**悬浮字（Hologram）。** 旧的 `Hologram` 为每行文字生成一个隐形盔甲架。请改用 Paper 原生的 `TextDisplay` 实体，单个显示实体即可包含多行文字。下面的示例关闭了实体持久化：
+
+```java
+World world = location.getWorld();
+if (world == null) {
+    throw new IllegalArgumentException("The display location must have a world");
+}
+TextDisplay display = world.spawn(location, TextDisplay.class, d -> {
+    d.text(messages.shared(Text.of(messages.key("hologram.welcome"))));
+    d.setBillboard(Display.Billboard.CENTER);
+    d.setPersistent(false);
+});
+// later: display.remove();
+```
+
+- `World#spawn` 必须在拥有目标位置的线程上调用。在其它线程上时，先通过模块注入的 `Scheduler` 切换线程，例如 `scheduler.region(location).run(...)`，详见[调度器 API](/zh/guide/advanced/scheduled-tasks#调度器-api)。
+- `Location#getWorld()` 可能返回 `null`，生成实体前要像示例那样检查。
+- `messages` 是模块注入的 `com.ultikits.ultitools.text.Messages` 服务，它的 `shared(Text)` 方法为所有玩家共同看到的对象（例如文字显示实体）生成文本。
+
+显示实体由调用方管理，不再需要时调用 `display.remove()` 移除。
+
 ### 描述符变更
 
 这种情形更难发现，因为没有任何内容被移除，也没有可以标记为废弃的对象。方法的描述符同时包含参数类型和返回类型，其中任何一项发生变化，都会在相同的名字下产生一个不同的符号。
