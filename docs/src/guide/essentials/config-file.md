@@ -181,6 +181,10 @@ For an explicit write, an `IOException` always means the file kept its bytes. A 
 
 Official language files are the one exception. They are framework-owned and may be replaced on upgrade; to customise text, copy an official file under a new name, edit the copy and select it in the main configuration (see [Internationalization](/guide/essentials/i18n)).
 
+::: tip 7.0 message catalogues
+As of v7.0.0, texts in the new `messages/<locale>.yml` catalogues are not customised by copying a file. Operators put only the changed keys into an override file; see [Operator overrides](/guide/essentials/messages#operator-overrides).
+:::
+
 ### `save()`
 
 As of v6.3.0, `save()` writes only the settings the module changed since the last load or save, and only where the file still holds the value it was read with. A setting declared as a `Map` is written entry by entry; a list, or a Bukkit value such as a `Location` or `Vector`, is written whole or not at all. A save never inserts a key the file lacks, never rewrites a comment and never removes a map entry the module did not remove.

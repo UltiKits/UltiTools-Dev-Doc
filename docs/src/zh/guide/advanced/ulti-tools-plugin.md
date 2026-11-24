@@ -49,6 +49,11 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 
 下表只列出部分公开 API。该类还提供 `getConfigs(Class)`、`getConfiguredLanguage()`、`reloadWithReport()`、`isNewerVersionThan(...)`，受保护的钩子 `onUnregister()`、`onReload()` 与 `onReload(ReloadReport)`，以及 `getPluginName()`、`getVersion()`、`getContext()` 等 getter。完整列表见 [Javadoc](/api/)。
 
+::: tip v7.0.0 起的消息
+7.0 中模块通过注入的 `Messages` 服务渲染文本，而不是 `i18n(...)`，见[消息与语言](/zh/guide/essentials/messages)。
+`i18n(...)`、`getLanguageCode()` 和 `getConfiguredLanguage()` 暂时保留。`language: auto` 时，`getConfiguredLanguage()` 返回解析出的后备语言的基础语言。
+:::
+
 :::tabs
 == 所有方法
 

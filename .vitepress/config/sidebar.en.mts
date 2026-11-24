@@ -53,6 +53,10 @@ const sidebarGuideEN: SidebarItemExt[] = [
                 link: 'essentials/i18n'
             },
             {
+                text: 'Messages and Languages (7.0)',
+                link: 'essentials/messages'
+            },
+            {
                 text: 'Exception Handling',
                 link: 'advanced/exception-handling'
             },

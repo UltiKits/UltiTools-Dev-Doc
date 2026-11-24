@@ -51,6 +51,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
                 link: 'essentials/i18n'
             },
             {
+                text: '消息与语言（7.0）',
+                link: 'essentials/messages'
+            },
+            {
                 text: '异常处理',
                 link: 'advanced/exception-handling'
             },
