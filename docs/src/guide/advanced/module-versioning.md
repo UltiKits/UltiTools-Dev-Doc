@@ -220,6 +220,13 @@ As of v7.0.0, replace all 15 public methods from the released 6.5.0 class as fol
 
 A module retaining XSeries must bundle its own dependency and relocate its packages with Maven Shade or Gradle Shadow (shade + relocate). Do not rely on the framework to supply it or declare it only as `provided`/`compileOnly`: Paper's `plugin.yml` `libraries:` mechanism is not available to UltiTools modules loaded by the framework. The [6.x runtime-library instructions](/guide/introduction) are not a supply guarantee for 7.0.
 
+### Scheduling and declarative GUI in 7.0
+
+As of v7.0.0 (unreleased), two APIs change for module authors. Rebuild the module against 7.0 as described above.
+
+- **Scheduling.** Inject `com.ultikits.ultitools.scheduling.Scheduler` with `@Autowired`; each module instance owns one, and unloading the module cancels its tasks. `@Scheduled` runs on it. Async repeating tasks run at a fixed rate, and tasks bound to an entity end when the entity is removed (for a player, on disconnect). See [Scheduler API](/guide/advanced/scheduled-tasks#scheduler-api).
+- **Declarative GUI.** `DeclarativeGui` no longer inherits obliviate's `Gui`. The constructor takes the module's `UiService`, its `Scheduler` and a `Text` title with a fixed row count of 1 to 6; `InventoryType` constructors, `IconWrapper`, `RenderNodeDiffer`, `DiffResult` and `getPlayer()` (now `viewer()`) are gone; `ItemDisplay` takes an `ItemSpec`, and clicks use `onClick(GridAction)`. See [What changes in 7.0](/guide/advanced/declarative-gui#what-changes-in-7-0).
+
 ### Changed descriptors
 
 This situation is harder to notice, because nothing is removed and there is nothing to mark as deprecated. A method's descriptor covers both its parameter types and its return type, so a change to either produces a different symbol under the same name.

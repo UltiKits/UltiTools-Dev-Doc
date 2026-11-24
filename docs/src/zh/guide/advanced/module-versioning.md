@@ -220,6 +220,13 @@ Module '%s' has no valid api-version (read: %s); UltiTools-API %s requires an in
 
 模块若继续使用 XSeries，必须用 Maven Shade 或 Gradle Shadow 自行打包依赖并重定位包名（shade + relocate）。不能依赖框架提供，也不能只声明为 `provided`/`compileOnly`：由框架加载的 UltiTools 模块不能使用 Paper 的 `plugin.yml` `libraries:` 机制。[6.x 的运行库说明](/zh/guide/introduction)不是 7.0 的依赖供应承诺。
 
+### 7.0 的调度与声明式 GUI
+
+自 v7.0.0 起（尚未发布），模块作者会遇到两处 API 变化。请按上文针对 7.0 重新构建模块。
+
+- **调度。** 用 `@Autowired` 注入 `com.ultikits.ultitools.scheduling.Scheduler`；每个模块实例拥有一个，卸载模块会取消其任务，`@Scheduled` 也运行在其上。异步重复任务按固定频率运行，绑定到实体的任务在实体被移除时结束（玩家则在断开连接时）。详见[调度器 API](/zh/guide/advanced/scheduled-tasks#调度器-api)。
+- **声明式 GUI。** `DeclarativeGui` 不再继承 obliviate 的 `Gui`。构造器接收模块的 `UiService`、`Scheduler` 以及 `Text` 标题，行数固定为 1 到 6；`InventoryType` 构造器、`IconWrapper`、`RenderNodeDiffer`、`DiffResult` 和 `getPlayer()`（改为 `viewer()`）已删除；`ItemDisplay` 接收 `ItemSpec`，点击使用 `onClick(GridAction)`。详见[7.0 的变化](/zh/guide/advanced/declarative-gui#_7-0-的变化)。
+
 ### 描述符变更
 
 这种情形更难发现，因为没有任何内容被移除，也没有可以标记为废弃的对象。方法的描述符同时包含参数类型和返回类型，其中任何一项发生变化，都会在相同的名字下产生一个不同的符号。

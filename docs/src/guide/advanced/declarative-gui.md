@@ -5,6 +5,44 @@ The repaint, click-dispatch and `GridView` positioning seams tracked in [issue #
 `@ApiStatus.Experimental` stays on the package for at least one more release, pending feedback from real servers running these rewritten mechanisms.
 :::
 
+## What changes in 7.0 <Badge type="tip" text="v7.0.0+" />
+
+::: info As of v7.0.0 (unreleased)
+The declarative engine no longer inherits obliviate's `Gui` or writes to an inventory. Each build produces an immutable `Grid` snapshot of the whole screen and hands it to the module's `UiService`, which owns display, click dispatch and the close result. The package is still `@ApiStatus.Experimental`.
+:::
+
+The engine has so far been verified only against an in-memory UI service, not a real server. The code in sections 3 to 7 below, and the compiled examples they include, show the 6.x API; this section lists what 7.0 changes.
+
+**Construction.** Pass the module's own injected `UiService` and [`Scheduler`](/guide/advanced/scheduled-tasks#scheduler-api) and a `Text` title; the row count is fixed at 1 to 6, and `InventoryType` constructors are gone:
+
+```java
+public class ShopPage extends DeclarativeGui {
+    public ShopPage(UiService ui, Scheduler scheduler, Player player) {
+        super(ui, scheduler, player, "shop", Text.plain("Item Shop"), 6);
+    }
+
+    @Override
+    public Widget build(BuildContext context) {
+        return Container.builder()
+            .child(TextButton.builder()
+                .text(Text.plain("Close"))
+                .color("RED")
+                .slot(49)
+                .onClick(click -> click.session().close())
+                .build())
+            .build();
+    }
+}
+```
+
+**Opening.** `open()` builds the first frame synchronously, shows it through the `UiService` and returns a `GridSession`. It must run on the viewer's owning thread, otherwise it throws `IllegalStateException`. Calling it while the page is open returns the same session. The title and row count cannot change after construction; open a new page instance to change the title. Do not call `open()` right after closing the same page in the same action: it can return the already ended session and show nothing.
+
+**Widgets.** `ItemDisplay.builder` takes an `ItemSpec`; `TextButton` names and lore take `Text`. `onClick(GridAction)` receives a `GridClick` (viewer, slot, click kind and session), and `onClick(Runnable)` remains. `IconWrapper`, `RenderNodeDiffer` and `DiffResult` are removed, and `getPlayer()` becomes `viewer()`. The old open, click and inventory-close hooks are replaced by describing content in `build`, putting actions on widgets, and `onGuiClose(UiResult<Ack>)`. The new `ItemSlotArea` binds indexes of an existing container into the grid: read-only (`VIEW`) by default, and moving items needs an explicit `.mode(BindingMode.EDITABLE)`.
+
+**Re-rendering.** `setState(Runnable)` runs your action immediately on the calling thread and then requests a rebuild. The rebuild always runs on a later tick, in the viewer's entity context; requests that arrive before it runs are coalesced into one frame, and a request made during a build is replayed after it, never re-entrantly. Work queued during a frame runs on the next frame. When the build succeeds the engine sends the full grid to the session, and the backend decides which slots to rewrite. Hand results from background threads to the viewer with `scheduler.entity(player).run(...)` before you change state.
+
+**Errors.** A build that throws never reaches the session, so the viewer keeps the previous picture. An exception in a deferred frame is logged as a WARNING (`Error executing GUI frame task`); a JVM `Error` is logged as SEVERE and rethrown. A widget tree nested deeper than 64 levels raises `RenderDepthExceededException`, which is also reported to the error collector. A node whose slot lies outside the grid is skipped, and a node that duplicates a container index is skipped; a second node claiming a slot replaces the first; each case logs one warning per slot. A page whose `initState` keeps requesting rebuilds and throwing is retried once per tick while it is open; catch the failure in the widget and build an error state. When the session ends, the engine disposes the widget tree first and then calls `onGuiClose`; an exception in either is logged as a WARNING naming the screen and the module.
+
 ## 1. Introduction
 
 Traditional Bukkit GUI development is usually imperative: you manually create an `Inventory`, set each `ItemStack`, and listen for `InventoryClickEvent` to handle interactions. As UI complexity grows this becomes hard to maintain and state management gets painful.
@@ -17,7 +55,7 @@ The UltiTools declarative GUI framework adopts the **UI = f(State)** idea:
 
 ### Key benefits
 
-- **Automatic diff updates**: the framework diffs the widget tree and only updates changed slots — reducing packets and improving client performance.
+- **Automatic updates**: the framework diffs the widget tree and rebuilds only what changed. As of v7.0.0 the engine then sends a complete grid snapshot and the UI backend decides which slots to rewrite.
 - **State management**: built-in state handling (similar to React/Flutter) makes pagination, selection and dynamic refresh easy to implement.
 - **No manual listeners**: click handlers attach to widgets directly — no global slot-based listener logic required.
 
@@ -147,7 +185,7 @@ How it works:
 3. framework marks `CounterWidget` dirty
 4. framework calls `build()` again
 5. the `TextButton` is recreated with `Count: 1`
-6. the diff algorithm detects the name change at slot 13 and updates only that slot (no full refresh)
+6. the framework emits the new grid and only slot 13 differs from the previous one (as of v7.0.0 the UI backend compares the grids, not the engine)
 
 ## 6. Advanced topics
 
