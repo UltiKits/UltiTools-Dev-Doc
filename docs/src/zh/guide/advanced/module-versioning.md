@@ -181,20 +181,20 @@ Module '%s' has no valid api-version (read: %s); UltiTools-API %s requires an in
 | `com.ultikits.ultitools.entities.Sounds` | Paper 的 `org.bukkit.Sound` |
 | `com.ultikits.ultitools.entities.Colors#getCode()` | 原生 `Material.<COLOR>_STAINED_GLASS_PANE`，或 7.0 新增的 `Colors#getGlassPaneMaterial()` |
 
-`Colors` 枚举本身仍保留，自 v7.0.0 起新增 `getGlassPaneMaterial()`；6.x 没有这个 getter。`new ItemStack(Material.CYAN_STAINED_GLASS_PANE)` 在 6.x 和 7.0 上都能使用。`ItemStackBuilder.of(Material)`、`of(ItemStack)` 和 `enchant(Enchantment, int)` 仍可用。自 v7.0.0 起，全部三个带 XSeries 参数类型的公开入口已移除：`new ItemStackBuilder(XMaterial)`、`ItemStackBuilder.of(XMaterial)` 和 `ItemStackBuilder.enchant(XEnchantment, int)`。分别改用对应的 `Material` 或 `Enchantment` 入口。
+`Colors` 枚举本身仍保留，自 v7.0.0 起新增 `getGlassPaneMaterial()`；6.x 没有这个 getter。`new ItemStack(Material.CYAN_STAINED_GLASS_PANE)` 在 6.x 和 7.0 上都能使用。自 v7.0.0 起，`ItemStackBuilder` 整体删除，包括带 XSeries 参数类型的入口；见 [7.0 的物品构建与存储](#item-construction-7)。
 
-自 v7.0.0 起，`ItemStackBuilder.of(String)` 使用 `Material.matchMaterial`，只接受当前材质名（如 `STONE`）或带命名空间的 key（如 `minecraft:stone`），并且材质必须是物品。未知名称、纯方块材质、历史别名、数字 ID 和 1.20 之后改过名的旧名（如 `GRASS`、`CHAIN`、`SCUTE`）返回 `null`。传入 `null` 字符串（`ItemStackBuilder.of((String) null)`）会抛出 `IllegalArgumentException`，而不是返回 `null`。链式调用前先检查返回值；框架不查询旧名称，也不回退为其他物品。
+在 7.0 中把材质名转换为物品，请使用 `Material.matchMaterial`。它接受当前材质名（如 `DIAMOND`）和带命名空间的 key（如 `minecraft:stone`）；框架不查询旧名称，也不回退为其他物品。把材质交给 `ItemSpec.builder` 之前，先排除 `null`、纯方块和空气的结果，写法见 [7.0 的物品构建与存储](#item-construction-7)。
 
 以下原生写法自 v7.0.0 起适用，使用 `org.bukkit.Material`、`org.bukkit.Sound`、`org.bukkit.enchantments.Enchantment`、`org.bukkit.inventory.ItemFlag` 和 Adventure 的 `net.kyori.adventure.text.Component`：
 
 | 6.x 写法 | 7.0 原生替代 |
 | --- | --- |
-| XSeries 材质或 `XVersionUtils` 物品工厂 | `ItemStackBuilder.of(Material.STONE).build()` |
+| XSeries 材质或 `XVersionUtils` 物品工厂 | `new ItemStack(Material.STONE)`，或 `itemRenderer.render(ItemSpec.builder(Material.STONE).build(), player)` |
 | 将 `XVersionUtils.getSound(Sounds.ENTITY_ENDERMAN_TELEPORT)` 传给 `playSound` | `player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, volume, pitch)`（音量和音调沿用原调用） |
-| 用 XSeries 附魔产生隐藏附魔的发光效果 | `ItemStackBuilder.of(Material.PAPER).meta(m -> m.setEnchantmentGlintOverride(true)).build()`（只显示光泽，不添加附魔） |
+| 用 XSeries 附魔产生隐藏附魔的发光效果 | `ItemSpec.builder(Material.PAPER).glint(true).build()`，再渲染（只显示光泽，不添加附魔） |
 | `XVersionUtils.sendActionBar(player, "Ready")` | `player.sendActionBar(Component.text("Ready"))` |
 
-音效和附魔 API 在游戏逻辑执行时调用，不要放在静态初始化或枚举构造器中。自 v7.0.0 起，`ItemStackBuilder.glow()` 使用原生 `Enchantment.LUCK_OF_THE_SEA` 和 `ItemFlag.HIDE_ENCHANTS`。也可以使用 `ItemStackBuilder.of(Material.PAPER).glow().build()`，但它会添加真实附魔；纯视觉效果请用 `ItemMeta#setEnchantmentGlintOverride(Boolean)`。彩色玻璃使用 `new ItemStack(Colors.CYAN.getGlassPaneMaterial())`；现有 GUI 的玻璃颜色和按钮材质不变。
+音效和附魔 API 在游戏逻辑执行时调用，不要放在静态初始化或枚举构造器中。纯视觉的光泽用 `ItemSpec.Builder#glint(true)`，已有物品栈用 `ItemMeta#setEnchantmentGlintOverride(Boolean)`；两者都不添加附魔。彩色玻璃使用 `new ItemStack(Colors.CYAN.getGlassPaneMaterial())`；现有 GUI 的玻璃颜色和按钮材质不变。
 
 #### XVersionUtils 全部方法的替代方式
 
@@ -219,6 +219,53 @@ Module '%s' has no valid api-version (read: %s); UltiTools-API %s requires an in
 | `getBlockFace(Block placedBlock)` | 没有直接等价物：读取 `placedBlock.getBlockData()`；若它是 `org.bukkit.block.data.Directional`，返回 `directional.getFacing()`，否则返回 `org.bukkit.block.BlockFace.NORTH` |
 
 模块若继续使用 XSeries，必须用 Maven Shade 或 Gradle Shadow 自行打包依赖并重定位包名（shade + relocate）。不能依赖框架提供，也不能只声明为 `provided`/`compileOnly`：由框架加载的 UltiTools 模块不能使用 Paper 的 `plugin.yml` `libraries:` 机制。[6.x 的运行库说明](/zh/guide/introduction)不是 7.0 的依赖供应承诺。
+
+### 7.0 的物品构建与存储 {#item-construction-7}
+
+::: warning 未发布的 v7.0.0 物品 API
+自 v7.0.0 起，`com.ultikits.ultitools.utils.ItemStackBuilder` 已删除。请改用 `ItemSpec` 和注入的 `ItemRenderer` 构建物品，再重新编译。
+:::
+
+名字和说明行移到模块的语言文件中，以 MiniMessage 编写。6.x 的构建器调用，例如
+
+```java
+ItemStack item = ItemStackBuilder.of(Material.DIAMOND).name("&aShop").lore("&7Click to buy").amount(3).glow().build();
+```
+
+在用 `@Autowired` 注入 `itemRenderer` 后改写为：
+
+```java
+ItemSpec spec = ItemSpec.builder(Material.DIAMOND)
+        .name(messages.key("shop.name"))
+        .addLore(messages.key("shop.click"))
+        .amount(3)
+        .glint(true)
+        .build();
+ItemStack item = itemRenderer.render(spec, player);
+```
+
+其余构建器方法的对应关系如下。表中 `builder` 是 `ItemSpec.Builder`，`stack` 是渲染出的或已有的 `ItemStack`，`key2` 和 `key3` 是模块语言文件中的 `MessageKey`：
+
+| 6.x 调用 | 7.0 替代 |
+| --- | --- |
+| `.amount(n)` | `builder.amount(n)`；超出 1 到 99 时抛出 `IllegalArgumentException`，不再截断 |
+| `.lore(...)` / `.addLore(...)` | `builder.lore(List.of(Text.of(key2), Text.of(key3)))` 替换全部说明行；`builder.addLore(key2)` 追加一行；固定组件用 `Text.literal(component)` |
+| `.glow()` | `builder.glint(true)`；不添加附魔 |
+| `.enchant(e, lvl)` | `builder.data(DataComponentTypes.ENCHANTMENTS, ItemEnchantments.itemEnchantments().add(e, lvl).build())` |
+| `.removeEnchant(e)` | 渲染后调用 `stack.removeEnchantment(e)` |
+| `.hideAttributes()` | `builder.hiddenInTooltip(Set.of(DataComponentTypes.ATTRIBUTE_MODIFIERS))` |
+| `.flags(flags)` | 渲染后调用 `stack.editMeta(meta -> meta.addItemFlags(flags))` |
+| `.hideAll()` | `stack.editMeta(meta -> meta.addItemFlags(ItemFlag.values()))`；与 6.x 一样，名字和说明行仍然显示。`builder.tooltipHidden(true)` 会隐藏整个提示框，包括名字和说明行 |
+| `.unbreakable()` | `builder.data(DataComponentTypes.UNBREAKABLE)` |
+| `.customModelData(n)` | `builder.data(DataComponentTypes.CUSTOM_MODEL_DATA, CustomModelData.customModelData().addFloat(n).build())` |
+| `.leatherColor(c)` | `builder.data(DataComponentTypes.DYED_COLOR, DyedItemColor.dyedItemColor(c))` |
+| `.skullOwner(player)` | `builder.data(DataComponentTypes.PROFILE, ResolvableProfile.resolvableProfile(player.getPlayerProfile()))` |
+| `.meta(consumer)` / `.item(consumer)` | 渲染后调用 `stack.editMeta(consumer)` / `consumer.accept(stack)` |
+| `ItemStackBuilder.of(existingStack)` | `existingStack.clone()`，再调用 Paper 的 `setData` 和 `unsetData` |
+| `.build()` / `.buildClone()` | `itemRenderer.render(spec, player)` 每次调用都创建新物品栈；复制已有物品栈用 `stack.clone()` |
+| `ItemStackBuilder.of(String)` | `Material m = Material.matchMaterial(name);`，再 `m != null && m.isItem() && !m.isAir() ? ItemSpec.builder(m) : null` |
+
+模块存储的物品无需改动。`ItemStackUtils` 保留五个方法，可读取 6.x 保存的字符串，写入 6.x 无法读取的新格式；升级前请备份存储的物品。见[物品与物品存储](/zh/guide/essentials/items)。
 
 ### 7.0 的调度与声明式 GUI
 

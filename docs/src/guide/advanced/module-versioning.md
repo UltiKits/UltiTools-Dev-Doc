@@ -181,20 +181,20 @@ Rebuild modules against 7.0 after replacing these removed public symbols:
 | `com.ultikits.ultitools.entities.Sounds` | Paper `org.bukkit.Sound` |
 | `com.ultikits.ultitools.entities.Colors#getCode()` | Native `Material.<COLOR>_STAINED_GLASS_PANE`, or the new 7.0 `Colors#getGlassPaneMaterial()` |
 
-`Colors` itself remains available and gains `getGlassPaneMaterial()` as of v7.0.0; that getter does not exist in 6.x. `new ItemStack(Material.CYAN_STAINED_GLASS_PANE)` works on both 6.x and 7.0. `ItemStackBuilder.of(Material)`, `of(ItemStack)` and `enchant(Enchantment, int)` remain available. As of v7.0.0, all three public entries with XSeries parameter types are removed: `new ItemStackBuilder(XMaterial)`, `ItemStackBuilder.of(XMaterial)` and `ItemStackBuilder.enchant(XEnchantment, int)`. Use the corresponding `Material` or `Enchantment` entries instead.
+`Colors` itself remains available and gains `getGlassPaneMaterial()` as of v7.0.0; that getter does not exist in 6.x. `new ItemStack(Material.CYAN_STAINED_GLASS_PANE)` works on both 6.x and 7.0. As of v7.0.0, `ItemStackBuilder` is removed as a whole, including its entries with XSeries parameter types; see [Item construction and storage in 7.0](#item-construction-7).
 
-As of v7.0.0, `ItemStackBuilder.of(String)` uses `Material.matchMaterial` and accepts only current material names such as `STONE` or namespaced keys such as `minecraft:stone`, provided they identify an item. Unknown names, block-only materials, historical aliases, numeric IDs and old names renamed after 1.20 (such as `GRASS`, `CHAIN` and `SCUTE`) return `null`. A `null` string argument (`ItemStackBuilder.of((String) null)`) throws `IllegalArgumentException`, rather than returning `null`. Check the result before chaining; there is no legacy-name lookup or fallback item.
+To turn a material name into an item in 7.0, use `Material.matchMaterial`. It accepts current material names such as `DIAMOND` and namespaced keys such as `minecraft:stone`; there is no legacy-name lookup or fallback item. Reject `null`, block-only and air results before passing the material to `ItemSpec.builder`, as shown in [Item construction and storage in 7.0](#item-construction-7).
 
 The following native replacements apply as of v7.0.0. Use `org.bukkit.Material`, `org.bukkit.Sound`, `org.bukkit.enchantments.Enchantment`, `org.bukkit.inventory.ItemFlag` and Adventure's `net.kyori.adventure.text.Component`:
 
 | 6.x approach | Native replacement for 7.0 |
 | --- | --- |
-| XSeries material / `XVersionUtils` item factory | `ItemStackBuilder.of(Material.STONE).build()` |
+| XSeries material / `XVersionUtils` item factory | `new ItemStack(Material.STONE)`, or `itemRenderer.render(ItemSpec.builder(Material.STONE).build(), player)` |
 | `XVersionUtils.getSound(Sounds.ENTITY_ENDERMAN_TELEPORT)` passed to `playSound` | `player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, volume, pitch)` (keep the caller's existing volume and pitch) |
-| XSeries enchantment used for a hidden glow | `ItemStackBuilder.of(Material.PAPER).meta(m -> m.setEnchantmentGlintOverride(true)).build()` (visual glint without adding an enchantment) |
+| XSeries enchantment used for a hidden glow | `ItemSpec.builder(Material.PAPER).glint(true).build()`, then render it (visual glint without adding an enchantment) |
 | `XVersionUtils.sendActionBar(player, "Ready")` | `player.sendActionBar(Component.text("Ready"))` |
 
-Call sound and enchantment APIs during gameplay, not in static initializers or enum constructors. `ItemStackBuilder.glow()` uses the native `Enchantment.LUCK_OF_THE_SEA` and `ItemFlag.HIDE_ENCHANTS` as of v7.0.0. `ItemStackBuilder.of(Material.PAPER).glow().build()` is also available, but it adds a real enchantment; use `ItemMeta#setEnchantmentGlintOverride(Boolean)` for a purely visual effect. For colored glass, use `new ItemStack(Colors.CYAN.getGlassPaneMaterial())`; existing GUI glass colors and button materials remain unchanged.
+Call sound and enchantment APIs during gameplay, not in static initializers or enum constructors. For a purely visual glint, use `ItemSpec.Builder#glint(true)`, or `ItemMeta#setEnchantmentGlintOverride(Boolean)` on an existing stack; neither adds an enchantment. For colored glass, use `new ItemStack(Colors.CYAN.getGlassPaneMaterial())`; existing GUI glass colors and button materials remain unchanged.
 
 #### Replacing every XVersionUtils method
 
@@ -219,6 +219,53 @@ As of v7.0.0, replace all 15 public methods from the released 6.5.0 class as fol
 | `getBlockFace(Block placedBlock)` | No direct equivalent: read `placedBlock.getBlockData()`; if it is `org.bukkit.block.data.Directional`, return `directional.getFacing()`, otherwise return `org.bukkit.block.BlockFace.NORTH` |
 
 A module retaining XSeries must bundle its own dependency and relocate its packages with Maven Shade or Gradle Shadow (shade + relocate). Do not rely on the framework to supply it or declare it only as `provided`/`compileOnly`: Paper's `plugin.yml` `libraries:` mechanism is not available to UltiTools modules loaded by the framework. The [6.x runtime-library instructions](/guide/introduction) are not a supply guarantee for 7.0.
+
+### Item construction and storage in 7.0 {#item-construction-7}
+
+::: warning Unreleased v7.0.0 item API
+As of v7.0.0, `com.ultikits.ultitools.utils.ItemStackBuilder` is removed. Build items with `ItemSpec` and the injected `ItemRenderer`, then recompile.
+:::
+
+Names and lore move into the module's language files as MiniMessage. A 6.x builder call such as
+
+```java
+ItemStack item = ItemStackBuilder.of(Material.DIAMOND).name("&aShop").lore("&7Click to buy").amount(3).glow().build();
+```
+
+becomes, with `itemRenderer` injected by `@Autowired`:
+
+```java
+ItemSpec spec = ItemSpec.builder(Material.DIAMOND)
+        .name(messages.key("shop.name"))
+        .addLore(messages.key("shop.click"))
+        .amount(3)
+        .glint(true)
+        .build();
+ItemStack item = itemRenderer.render(spec, player);
+```
+
+The remaining builder methods map as follows. Here `builder` is an `ItemSpec.Builder`, `stack` is a rendered or existing `ItemStack`, and `key2` and `key3` are `MessageKey`s from the module's language files:
+
+| 6.x call | 7.0 replacement |
+| --- | --- |
+| `.amount(n)` | `builder.amount(n)`; values outside 1 to 99 throw `IllegalArgumentException` instead of being clamped |
+| `.lore(...)` / `.addLore(...)` | `builder.lore(List.of(Text.of(key2), Text.of(key3)))` replaces all lines; `builder.addLore(key2)` appends one; fixed components use `Text.literal(component)` |
+| `.glow()` | `builder.glint(true)`; no enchantment is added |
+| `.enchant(e, lvl)` | `builder.data(DataComponentTypes.ENCHANTMENTS, ItemEnchantments.itemEnchantments().add(e, lvl).build())` |
+| `.removeEnchant(e)` | `stack.removeEnchantment(e)` after rendering |
+| `.hideAttributes()` | `builder.hiddenInTooltip(Set.of(DataComponentTypes.ATTRIBUTE_MODIFIERS))` |
+| `.flags(flags)` | `stack.editMeta(meta -> meta.addItemFlags(flags))` after rendering |
+| `.hideAll()` | `stack.editMeta(meta -> meta.addItemFlags(ItemFlag.values()))`; like 6.x, the name and lore stay visible. `builder.tooltipHidden(true)` hides the whole tooltip, name and lore included |
+| `.unbreakable()` | `builder.data(DataComponentTypes.UNBREAKABLE)` |
+| `.customModelData(n)` | `builder.data(DataComponentTypes.CUSTOM_MODEL_DATA, CustomModelData.customModelData().addFloat(n).build())` |
+| `.leatherColor(c)` | `builder.data(DataComponentTypes.DYED_COLOR, DyedItemColor.dyedItemColor(c))` |
+| `.skullOwner(player)` | `builder.data(DataComponentTypes.PROFILE, ResolvableProfile.resolvableProfile(player.getPlayerProfile()))` |
+| `.meta(consumer)` / `.item(consumer)` | `stack.editMeta(consumer)` / `consumer.accept(stack)` after rendering |
+| `ItemStackBuilder.of(existingStack)` | `existingStack.clone()`, then Paper's `setData` and `unsetData` |
+| `.build()` / `.buildClone()` | `itemRenderer.render(spec, player)` creates a new stack on every call; `stack.clone()` copies an existing one |
+| `ItemStackBuilder.of(String)` | `Material m = Material.matchMaterial(name);` then `m != null && m.isItem() && !m.isAir() ? ItemSpec.builder(m) : null` |
+
+Stored items need no change in the module. `ItemStackUtils` keeps its five methods, reads strings saved by 6.x and writes a new format that 6.x cannot read; back up stored items before upgrading. See [Items and Item Storage](/guide/essentials/items).
 
 ### Scheduling and declarative GUI in 7.0
 
