@@ -122,6 +122,78 @@ As of v7.0.0, all modules, whether or not they use bindings, must be rebuilt aga
 `@CmdCD` accepts the same kind of binding for command cooldowns, see [Command cooldown](/guide/essentials/cmd-executor#binding-the-cooldown-to-a-config-key).
 :::
 
+## Scheduler API <Badge type="tip" text="v7.0.0+" />
+
+::: info As of v7.0.0
+Modules can inject `com.ultikits.ultitools.scheduling.Scheduler` and submit tasks to it directly. `@Scheduled` runs on the same scheduler. This is unreleased 7.0 behaviour.
+:::
+
+Each module instance owns one `Scheduler`. Inject it into a module bean:
+
+```java
+@Service
+public class RewardService {
+    @Autowired
+    private Scheduler scheduler;
+
+    public void rewardLater(Player player) {
+        scheduler.entity(player).runLater(Duration.ofSeconds(5), () -> player.sendMessage("Thanks for playing!"));
+    }
+}
+```
+
+A `Scheduler` hands out a `TaskContext` per thread affinity. Pick the one that matches the data the task touches:
+
+| Method | Runs on | Use for |
+|--------|---------|---------|
+| `global()` | Server main thread, tick based | World time, weather, server state |
+| `region(Location)` / `region(World, chunkX, chunkZ)` | Server main thread, tick based | Blocks and chunks; `region(Location)` throws `IllegalArgumentException` if the location has no world |
+| `entity(Entity)` | Server main thread, tick based | Work that follows one entity or player |
+| `async()` | Async pool, wall-clock based | I/O, networking, computation; never Bukkit API work |
+
+On Paper all three tick contexts run on the main thread; the contract does not declare Folia support.
+
+### Submitting tasks
+
+A `TaskContext` offers these methods, which also make it a `java.util.concurrent.Executor`:
+
+| Method | Behaviour |
+|--------|-----------|
+| `run(Runnable)` | Runs once, never inline; on a tick context, on the next tick |
+| `runLater(Duration, Runnable)` | Runs once after a delay; a zero delay behaves as `run`; a negative delay throws `IllegalArgumentException` |
+| `runRepeating(Duration, Duration, Consumer<TaskHandle>)` | Runs after the initial delay, then at the period, until cancelled, retired or unloaded. The consumer receives its own handle and may cancel itself |
+| `supply(Supplier<T>)` | Runs once and completes the returned `CompletableFuture` with the result or the exception |
+| `isCurrentThread()` | Whether the calling thread owns this context. The async context always answers `false` |
+
+Tick contexts round delays and periods up to whole ticks (`Ticks.ceil`), at a nominal 50 ms per tick, so they stretch when the server lags. A period must be at least one tick on a tick context and positive on the async context. `Ticks.of(long)` converts a tick count to a `Duration`.
+
+An exception thrown by one execution of a repeating task is logged with the owner's name and does not stop the repetition. A one-shot task that throws ends `FAILED`; a repeating task never ends `FAILED`.
+
+### Handles and cancellation
+
+Every submission returns a `TaskHandle` with `state()`, `isRepeating()`, `cancel()` and `completion()`. States are `SCHEDULED`, `RUNNING`, `COMPLETED`, `FAILED`, `CANCELLED` and `RETIRED`.
+
+- `cancel()` stops every run that has not started and never interrupts a run in progress. It returns `true` only for the call that moved the task to `CANCELLED`.
+- A one-shot task that is already `RUNNING` cannot be cancelled: `cancel()` returns `false` and the task ends `COMPLETED` or `FAILED`.
+- `completion()` completes normally after a successful one-shot, and exceptionally with the thrown exception (`FAILED`), a `CancellationException` (`CANCELLED`, including module unload) or a `TaskRetiredException` (`RETIRED`).
+- Cancelling the future returned by `supply` before it completes always succeeds. A task that has not started never runs; one that has started finishes and its result is discarded.
+
+### Behaviour to plan for
+
+::: warning Async repeating tasks run at a fixed rate
+The period is counted between the starts of consecutive runs, not from the end of one run to the start of the next. The gap between two consecutive runs of an async repeating task is therefore not guaranteed to be a full period. In the current implementation the runs of one repeating task do not execute concurrently, so a run that is still busy delays the next one, but the contract leaves overlap unspecified; do not rely on either behaviour.
+:::
+
+::: warning Entity tasks end when the entity is removed
+A task bound to an entity is retired (`RETIRED`) when that entity is removed: for a non-player entity that dies, despawns or is discarded, and for a player when they disconnect. A player who dies and respawns, and any entity changing dimension, keeps its tasks. On an already removed entity, `run`, `runLater` and `runRepeating` return a handle that is already `RETIRED`, `supply` returns a future failed with `TaskRetiredException`, and `execute` throws `RejectedExecutionException`.
+:::
+
+An async task has no upper bound on its start time beyond "eventually", because it depends on the server's async pool. Do not call thread-unsafe Bukkit API from it.
+
+### Unload and shutdown
+
+Unloading the owning module cancels every task of that module that has not started and every repeating task. A one-shot task that is running at that moment finishes. After the unload, every submission throws `RejectedExecutionException`; obtaining a context never throws, submitting to it does. Server shutdown unloads every module, so its tasks end the same way, and framework-owned tasks are cancelled afterwards.
+
 ## Automatic Lifecycle
 
 Tasks annotated with `@Scheduled` are automatically managed by the framework:
@@ -129,7 +201,7 @@ Tasks annotated with `@Scheduled` are automatically managed by the framework:
 - **Registration**: Tasks are discovered and started when the plugin loads
 - **Cancellation**: All tasks are automatically cancelled when the owning plugin is unloaded or the server shuts down
 
-You do not need to track or cancel tasks manually.
+You do not need to track or cancel tasks manually. As of v7.0.0, `@Scheduled` methods run on the module's own `Scheduler`: `async = true` uses its `async()` context and every other method its `global()` context, with `delay` and `period` still counted in ticks.
 
 ## Requirements
 
