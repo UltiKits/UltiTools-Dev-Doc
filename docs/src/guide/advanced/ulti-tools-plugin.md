@@ -49,6 +49,11 @@ As of v6.3.0, the six-parameter constructor is removed. Use the no-argument cons
 
 The tables below list only part of the public API. The class also has `getConfigs(Class)`, `getConfiguredLanguage()`, `reloadWithReport()`, `isNewerVersionThan(...)`, the protected hooks `onUnregister()`, `onReload()` and `onReload(ReloadReport)`, and getters such as `getPluginName()`, `getVersion()` and `getContext()`. See the [Javadoc](/api/) for the full list.
 
+::: tip Messages as of v7.0.0
+In 7.0, a module renders text through the injected `Messages` service instead of `i18n(...)`; see [Messages and Languages](/guide/essentials/messages).
+`i18n(...)`, `getLanguageCode()` and `getConfiguredLanguage()` remain for now. With `language: auto`, `getConfiguredLanguage()` returns the base language of the resolved fallback language.
+:::
+
 :::tabs
 == 所有方法
 

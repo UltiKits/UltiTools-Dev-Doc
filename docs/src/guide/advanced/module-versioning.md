@@ -257,6 +257,20 @@ TextDisplay display = world.spawn(location, TextDisplay.class, d -> {
 
 The caller owns the display and removes it with `display.remove()` when it is no longer needed.
 
+### Text and languages in 7.0
+
+::: warning Unreleased v7.0.0 text engine
+As of v7.0.0, modules ship `messages/<locale>.yml` catalogues and send text through the injected `Messages` service.
+6.x language files are not converted; the `i18n(...)` path still works for now.
+:::
+
+- **Language files.** Move texts to `src/main/resources/messages/<locale>.yml` with lowercase dotted keys and MiniMessage values. `§` and `&` colour codes are not interpreted there, and only `.yml` files are read. Re-create the texts; the 6.x `lang/` files, sentence keys and custom language names are not converted.
+- **Source language.** Declare `source-language` in the module's `plugin.yml` if the module's own texts are not English; it defaults to `en`.
+- **Sending text.** Inject `com.ultikits.ultitools.text.Messages` with `@Autowired`, build keys with `messages.key(path)` and send with `messages.send(...)`, so each player sees their own client language. Pass player or operator input as `Arg.string`, never as part of a template. Use `messages.shared(Text)` for entity names, text displays and shared boss bars.
+- **Defaults.** New installations ship `language: auto` and `fallback-language: auto`; on a host whose time zone is not a China zone, the console and the fallback are English. See [Language selection](/guide/essentials/messages#language-selection).
+
+The `i18n(...)` path, `getLanguageCode()` and `getConfiguredLanguage()` remain in 7.0 while callers migrate; their removal is a separate, later change. See [Messages and Languages](/guide/essentials/messages).
+
 ### Changed descriptors
 
 This situation is harder to notice, because nothing is removed and there is nothing to mark as deprecated. A method's descriptor covers both its parameter types and its return type, so a change to either produces a different symbol under the same name.

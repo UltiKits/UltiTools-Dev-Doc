@@ -171,6 +171,10 @@ public List<AbstractConfigEntity> getAllConfigs() {
 
 官方语言文件是唯一的例外。它们归框架所有，升级时可能被替换；要定制文字，请复制官方文件并改名，编辑副本，再在主配置中选择它（见[国际化](/zh/guide/essentials/i18n)）。
 
+::: tip 7.0 的消息语言文件
+自 v7.0.0 起，新的 `messages/<语言>.yml` 语言文件中的文本不通过复制文件来定制。服主只把要改的键写进覆盖文件，见[服主覆盖文件](/zh/guide/essentials/messages#operator-overrides)。
+:::
+
 ### `save()`
 
 自 v6.3.0 起，`save()` 只写模块自上次加载或保存以来改过的设置，并且只在文件该处仍是读取时的值时才写。声明为 `Map` 的设置按条目写入；列表，以及 `Location`、`Vector` 这类 Bukkit 值，要么整体写入，要么不写。保存从不补入文件缺少的键，从不改写注释，也从不删除模块没有删除的映射条目。
