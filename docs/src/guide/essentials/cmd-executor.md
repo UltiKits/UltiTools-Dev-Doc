@@ -411,7 +411,7 @@ As of v7.0.0, input that matches no mapping still gets the framework's own reply
 | The first word after the label is not a subcommand the sender may use | `Unknown command, please enter /<label> <help> for help` in red, followed by the command's help | `未知指令，请使用/<label> <help>获取帮助` in red |
 | The input goes wrong after the first word | `Correct Usage: ` in yellow, then `/<label> <format>` in grey; one line for each mapping the sender may use below the deepest part that matched | `正确用法: ` 黄色，其后 `/<label> <format>` 灰色 |
 
-In the first reply `<label>` is the command label and `<help>` the help subcommand (`help` unless `getHelpCommand()` is overridden); in the second `<format>` is a mapping's format. A value that its argument type cannot parse gets that type's error message in red instead (key `command.reply.argument_error`). The help shown after the first reply goes through the same sender-type and permission checks as `/<label> help`. The label alone, with no `format = ""` mapping, shows the help.
+In the first reply `<label>` is the command label and `<help>` the help subcommand (`help` unless `getHelpCommand()` is overridden); in the second `<format>` is a mapping's format. A value rejected by a module's own argument parser gets that parser's message in red instead (key `command.reply.argument_error`); the message is shown as the parser wrote it, untranslated. A value that Minecraft's native integer argument rejects, such as `abc` where an `int` is expected, keeps the usage reply. The help shown after the first reply goes through the same sender-type and permission checks as `/<label> help`. The label alone, with no `format = ""` mapping, shows the help.
 
 The unknown-command reply for a nonexistent subcommand and for a subcommand the sender may not use is produced by the same code, and both are rendered for the same recipient in the same way, so a hidden subcommand stays indistinguishable (see [Visibility](#visibility)).
 
@@ -423,7 +423,7 @@ As of v7.0.0, every reply the command package sends goes through the framework's
 |---|---|---|
 | `command.reply.unknown` | `Unknown command, please enter /<label> <help> for help` | `未知指令，请使用/<label> <help>获取帮助` |
 | `command.reply.usage` | `Correct Usage: /<label> <format>` | `正确用法: /<label> <format>` |
-| `command.reply.argument_error` | the argument type's error, in red | 该参数类型的错误信息（红色） |
+| `command.reply.argument_error` | a module argument parser's error message, in red | 模块参数解析器的错误信息（红色） |
 | `command.error.op_required` | `You don't have permission to run this command!` | `你没有权限执行这个指令！` |
 | `command.error.no_permission` | `Executing this command requires <permission> permission` | `执行此命令需要 <permission> 权限` |
 | `command.error.player_only` | `This command can only be performed in GAME!` | `只有游戏内可以执行这个指令！` |

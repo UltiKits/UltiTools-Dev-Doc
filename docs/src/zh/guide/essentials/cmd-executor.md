@@ -390,7 +390,7 @@ public void addPoint(@CmdSender Player player, @CmdParam("name") String[] name) 
 | 标签后的第一个词不是发送者可用的子命令 | `Unknown command, please enter /<label> <help> for help`（红色），随后是该命令的帮助 | `未知指令，请使用/<label> <help>获取帮助`（红色） |
 | 第一个词之后的输入出错 | `Correct Usage: ` 黄色，其后 `/<label> <format>` 灰色；已匹配的最深一段之下、发送者可用的每个映射一行 | `正确用法: ` 黄色，其后 `/<label> <format>` 灰色 |
 
-第一种回复中的 `<label>` 是命令标签，`<help>` 是帮助子命令（除非重写了 `getHelpCommand()`，否则为 `help`）；第二种中的 `<format>` 是一个映射的 format。参数类型无法解析的值改为得到该类型的红色错误消息（键 `command.reply.argument_error`）。第一种回复之后显示的帮助与 `/<标签> help` 经过同样的发送者类型与权限检查。只输入命令标签、且没有 `format = ""` 映射时显示帮助。
+第一种回复中的 `<label>` 是命令标签，`<help>` 是帮助子命令（除非重写了 `getHelpCommand()`，否则为 `help`）；第二种中的 `<format>` 是一个映射的 format。被模块自己的参数解析器拒绝的值，改为得到该解析器给出的红色错误消息（键 `command.reply.argument_error`），消息按解析器写的原样显示，不翻译。被 Minecraft 原生整数参数拒绝的值（例如需要 `int` 时输入 `abc`）仍得到用法回复。第一种回复之后显示的帮助与 `/<标签> help` 经过同样的发送者类型与权限检查。只输入命令标签、且没有 `format = ""` 映射时显示帮助。
 
 不存在的子命令与发送者无权使用的子命令，其未知指令回复由同一段代码生成、以同样方式渲染给同一接收者，因此被隐藏的子命令与不存在的子命令无法区分（见[可见性](#可见性)）。
 
@@ -402,7 +402,7 @@ public void addPoint(@CmdSender Player player, @CmdParam("name") String[] name) 
 |---|---|---|
 | `command.reply.unknown` | `Unknown command, please enter /<label> <help> for help` | `未知指令，请使用/<label> <help>获取帮助` |
 | `command.reply.usage` | `Correct Usage: /<label> <format>` | `正确用法: /<label> <format>` |
-| `command.reply.argument_error` | 参数类型的错误信息（红色） | 该参数类型的错误信息（红色） |
+| `command.reply.argument_error` | 模块参数解析器的错误信息（红色） | 模块参数解析器的错误信息（红色） |
 | `command.error.op_required` | `You don't have permission to run this command!` | `你没有权限执行这个指令！` |
 | `command.error.no_permission` | `Executing this command requires <permission> permission` | `执行此命令需要 <permission> 权限` |
 | `command.error.player_only` | `This command can only be performed in GAME!` | `只有游戏内可以执行这个指令！` |
