@@ -62,6 +62,34 @@ ui.show(player, leave).result().thenAcceptAsync(result -> {
 
 Treat every result other than `Completed(true)` as "not confirmed". `UiResult.value()` throws `IllegalStateException` on a `Closed` result, so check `isCompleted()` first.
 
+### Chat confirmation {#chat-confirmation}
+
+The `Confirm` above is the only confirmation the framework offers as of v7.0.0. The 6.x chat confirmation (`Confirm.chat(...)`, `ChatConfirm`) and the chest confirmation (`BaseConfirmationPage`, `Confirm.gui(...)`) are removed. A module that wants a "click in chat" prompt writes it itself with Adventure's `ClickEvent.callback`. Import `java.util.UUID`, `org.bukkit.entity.Player`, `net.kyori.adventure.text.Component`, `net.kyori.adventure.text.format.NamedTextColor` and `net.kyori.adventure.text.event.ClickCallback` / `ClickEvent`. Given a target `Player player` and `Runnable onConfirm` / `onCancel`:
+
+```java
+UUID target = player.getUniqueId();
+ClickCallback.Options once = ClickCallback.Options.builder().uses(1).build();
+Component yes = Component.text("[Confirm]", NamedTextColor.GREEN).clickEvent(ClickEvent.callback(audience -> {
+    if (audience instanceof Player clicker && clicker.getUniqueId().equals(target)) {
+        onConfirm.run();
+    }
+}, once));
+Component no = Component.text("[Cancel]", NamedTextColor.RED).clickEvent(ClickEvent.callback(audience -> {
+    if (audience instanceof Player clicker && clicker.getUniqueId().equals(target)) {
+        onCancel.run();
+    }
+}, once));
+player.sendMessage(Component.text("Delete this home?").appendNewline().append(yes).append(Component.space()).append(no));
+```
+
+Properties to plan for:
+
+- Prompts expire on the server after Paper's default callback lifetime (about 12 hours); clicking an expired button does nothing.
+- Clicks do not pass through the command pipeline, so command blockers of other plugins never see them.
+- Paper logs an exception thrown by a button's action and does not disconnect the player.
+- The two buttons are independent: confirm and then cancel runs both actions once each. A module that needs mutually exclusive actions enforces that itself.
+- Unloading the module does not revoke pending callbacks; until one expires, clicking an old button can still run code of the unloaded module.
+
 ### Choice
 
 A `Choice<T>` shows one button per option. Options have text labels and an optional tooltip, no item icons; use a `Grid` for icons. At least one option is required, option values must be unique, and they should be immutable.
@@ -301,4 +329,4 @@ Keep the connections and thread pools your `ContainerStore` uses open until your
 - Do not open two screens for the same storage key at once. If a screen for a key is still open with unsaved changes and you open another for the same key, the new screen reads the old data; the framework does not merge the two copies. End the old screen, wait for its commit, then read the key and show it again.
 - When the framework rejects a click, the client first draws its own prediction and the server then corrects it, so the picture can flicker. This is part of the game protocol. Other viewers of the same container see a change one tick later than the player who made it.
 - While a module is unloaded, reloaded or updated on a running server, the framework waits on the server thread for unsaved storage screens for up to about 10 seconds. That equals Paper's default `watchdog.early-warning-delay` (10000 milliseconds), so a full wait can make Paper print `The server has not responded for 10 seconds! Creating thread dump` and a thread dump. The server is not crashing; look at the store that did not answer. Paper prints no such warning while the server is stopping.
-- The declarative engine now hands `Grid` snapshots to the `UiService` instead of inheriting obliviate's `Gui`. Modules with 6.x screens must be migrated and rebuilt against 7.0; see [Declarative GUI](/guide/advanced/declarative-gui).
+- The declarative engine now hands `Grid` snapshots to the `UiService` instead of inheriting obliviate's `Gui`. Modules with 6.x screens must be migrated and rebuilt against 7.0; see [Declarative GUI](/guide/advanced/declarative-gui). The legacy chest pages and both old confirmation widgets (chest and chat) are removed too; see [Chat confirmation](#chat-confirmation) and [Legacy chest pages and confirmation widgets in 7.0](/guide/advanced/module-versioning#legacy-chest-removal).

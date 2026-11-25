@@ -274,6 +274,24 @@ ItemStack item = itemRenderer.render(spec, player);
 - **调度。** 用 `@Autowired` 注入 `com.ultikits.ultitools.scheduling.Scheduler`；每个模块实例拥有一个，卸载模块会取消其任务，`@Scheduled` 也运行在其上。异步重复任务按固定频率运行，绑定到实体的任务在实体被移除时结束（玩家则在断开连接时）。详见[调度器 API](/zh/guide/advanced/scheduled-tasks#调度器-api)。框架自身的工作改由其调度器运行，模块代码无需改动；可观察到的影响见[框架调度的工作](/zh/guide/advanced/scheduled-tasks#框架调度的工作)。
 - **声明式 GUI。** `DeclarativeGui` 不再继承 obliviate 的 `Gui`。构造器接收模块的 `UiService`、`Scheduler` 以及 `Text` 标题，行数固定为 1 到 6；`InventoryType` 构造器、`IconWrapper`、`RenderNodeDiffer`、`DiffResult` 和 `getPlayer()`（改为 `viewer()`）已删除；`ItemDisplay` 接收 `ItemSpec`，点击使用 `onClick(GridAction)`。详见[7.0 的变化](/zh/guide/advanced/declarative-gui#_7-0-的变化)。
 
+### 7.0 中的旧箱子页面与确认组件 {#legacy-chest-removal}
+
+::: warning 未发布的 v7.0.0 删除项
+自 v7.0.0 起，`abstracts.gui.BaseInventoryPage`、`abstracts.gui.BasePaginationPage`、`abstracts.gui.BaseConfirmationPage`、`widgets.Confirm`、`widgets.impl.ChatConfirm`、`widgets.impl.InventoryConfirm`、`entities.Buttons`、`entities.ViewType`（均在 `com.ultikits.ultitools` 下）以及 `DependenceManagers#initInventoryAPI` 已删除，不保留弃用桥接。仍引用其中任何一个的模块无法针对 7.0 编译，针对 6.x 构建的模块在 7.0 上无法加载。请针对 7.0 重新构建。
+:::
+
+框架 JAR 不再打包 obliviate-invs 与 UniversalScheduler。6.x 没有对它们做重定位，所以直接使用 `mc.obliviate.*` 或 `com.github.Anon8281.*` 的模块用的是框架自带的副本；这类模块必须自行打包这些库，或改写相关代码。`Colors` 仍然保留。
+
+| 6.x | 7.0 |
+|---|---|
+| `BaseInventoryPage` | `DeclarativeGui`，见[声明式 GUI](/zh/guide/advanced/declarative-gui) |
+| `BasePaginationPage` | 保存页码的 `State` 加显示当前切片的 `GridView`，见[声明式 GUI](/zh/guide/advanced/declarative-gui) |
+| `BaseConfirmationPage`、`Confirm.gui(...)` | 界面服务的 `Confirm`，见 [UI：意图与会话](/zh/guide/advanced/ui-service#notice-and-confirm) |
+| `Confirm.chat(...)` | 由模块自行发送可点击的聊天提示，见 [UI：意图与会话](/zh/guide/advanced/ui-service#chat-confirmation) |
+| `Buttons`、`ViewType` | 没有替代类型；使用 `TextButton` 的标签或框架标签键 |
+
+6.x 的旧页面仍作为 6.x 资料保留在 [GUI 界面系统](/zh/guide/advanced/gui)。
+
 ### 7.0 的进度弹窗与悬浮字
 
 ::: warning 尚未发布的 v7.0.0 删除项

@@ -35,6 +35,10 @@ UltiTools API是UltiTools的核心，UltiTools API提供了一套完整的API，
 在 6.x 系列中，自 v6.3.0 起，UltiTools API 将 obliviate-invs 和 UniversalScheduler 打包到自己的 JAR 中。Paper 根据框架 `plugin.yml` 的 `libraries:` 声明下载 ByteBuddy、HikariCP、XSeries、Java-WebSocket、commons-dbutils 和 JavaMail。Gson、MySQL Connector/J、protobuf、slf4j 和原生 Adventure 由 Paper 服务端自身提供。模块可以对这些库声明 `provided` 作用域，不必自行打包。在 6.x 中直接使用 XSeries 的模块应针对框架声明的同一版本编译：6.3.0 使用 13.7.1，自 6.3.1 起使用 14.0.0。
 
 ::: warning 未发布的 v7.0.0 依赖变更
+自 v7.0.0 起，框架 JAR 不再打包 obliviate-invs 与 UniversalScheduler，基于 obliviate-invs 的旧箱子页面也已删除（见 [GUI 界面系统](/zh/guide/advanced/gui)）。直接使用这些库的模块必须自行打包，或改写相关代码；见[模块版本管理](/zh/guide/advanced/module-versioning#legacy-chest-removal)。
+:::
+
+::: warning 未发布的 v7.0.0 依赖变更
 自 v7.0.0 起，框架不再提供 XSeries 或 `XVersionUtils`，请改用 Paper 原生的 `Material`、`Sound`、`Enchantment` 和 Adventure API。
 模块若保留 XSeries，须自行 shade 并 relocate；UltiTools 模块不能使用 Paper 的 `libraries:` 机制。
 :::

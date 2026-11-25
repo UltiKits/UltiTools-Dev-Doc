@@ -11,6 +11,8 @@ The repaint, click-dispatch and `GridView` positioning seams tracked in [issue #
 The declarative engine no longer inherits obliviate's `Gui` or writes to an inventory. Each build produces an immutable `Grid` snapshot of the whole screen and hands it to the module's `UiService`, which owns display, click dispatch and the close result. The package is still `@ApiStatus.Experimental`.
 :::
 
+As of v7.0.0 the declarative engine is also the only chest UI API of the framework: `BaseInventoryPage`, `BasePaginationPage` and `BaseConfirmationPage` are removed. Paging is done with a `State` that holds the page number and a `GridView` that shows the current slice; confirmations use `Confirm` of the [UI service](/guide/advanced/ui-service#notice-and-confirm). The old pages are described, as 6.x material, in [GUI Interface](/guide/advanced/gui).
+
 The engine has so far been verified only against an in-memory UI service, not a real server. The code in sections 3 to 7 below, and the compiled examples they include, show the 6.x API; this section lists what 7.0 changes.
 
 **Construction.** Pass the module's own injected `UiService` and [`Scheduler`](/guide/advanced/scheduled-tasks#scheduler-api) and a `Text` title; the row count is fixed at 1 to 6, and `InventoryType` constructors are gone:

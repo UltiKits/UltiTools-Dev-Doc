@@ -2,13 +2,32 @@
 
 <Badge type="tip" text="v6.2.0+" />
 
-::: info 现代 GUI 系统
-GUI 系统已使用 `BaseInventoryPage`、`BasePaginationPage` 和 `BaseConfirmationPage` 重建。这些类取代了 `PagingPage` 和 `OkCancelPage`，后两者已在 v6.3.0 删除。
+::: danger v7.0.0 已删除
+本页描述 6.x 系列的命令式箱子界面，7.0.0 将其删除且不保留弃用桥接：`BaseInventoryPage`、`BasePaginationPage`、`BaseConfirmationPage`、确认组件 `Confirm` 及其箱子式（`InventoryConfirm`）与聊天式（`ChatConfirm`）实现、`Buttons`、`ViewType` 以及随框架打包的 obliviate-invs 库。引用其中任何一个的模块无法针对 7.0 编译，针对 6.x 构建的模块在 7.0 上无法加载；请使用下表的替代方案。
 :::
 
-UltiTools 提供了基于 [obliviate-invs](https://github.com/hamza-cskn/obliviate-invs) 库的全面 GUI 系统。这个集成使您无需担心低级 Bukkit 背包管理，就能创建丰富、交互式的背包界面。
+::: info 现代 GUI 系统（仅 6.x）
+6.x 中的 GUI 系统由 `BaseInventoryPage`、`BasePaginationPage` 和 `BaseConfirmationPage` 构建。这些类取代了 `PagingPage` 和 `OkCancelPage`，后两者已在 v6.3.0 删除。
+:::
 
-## 架构概述
+## 7.0 中的替代方案 <Badge type="tip" text="v7.0.0+" />
+
+| 7.0 中已删除 | 改用 | 文档 |
+|---|---|---|
+| `BaseInventoryPage` | `DeclarativeGui`：在 `build(BuildContext)` 中返回由 `Container`、`TextButton`、`ItemDisplay` 组成的组件树 | [声明式 GUI](/zh/guide/advanced/declarative-gui) |
+| `BasePaginationPage` | 在 `State` 中保存页码，用 `GridView` 构建当前页切片，用 `setState` 翻页 | [声明式 GUI](/zh/guide/advanced/declarative-gui) |
+| `BaseConfirmationPage`、`Confirm.gui(...)` | 界面服务的 `Confirm`（`com.ultikits.ultitools.ui.Confirm`），通过 `UiService#show` 显示 | [UI：意图与会话](/zh/guide/advanced/ui-service#notice-and-confirm) |
+| `Confirm.chat(...)`（`ChatConfirm`） | 框架不再提供；由模块自行发送可点击的聊天提示 | [UI：意图与会话](/zh/guide/advanced/ui-service#chat-confirmation) |
+| `Buttons`、`ViewType` | 没有替代类型；使用 `TextButton` 的标签或框架标签键 | [对话框按钮](/zh/guide/advanced/ui-service#dialog-buttons) |
+| obliviate-invs、UniversalScheduler | 不再随框架打包；见[模块版本管理](/zh/guide/advanced/module-versioning#legacy-chest-removal) | |
+
+`Colors` 在 7.0 中仍然保留。
+
+以下各节描述已发布的 6.x API，仅供仍面向 6.x 的模块参考。
+
+UltiTools 6.x 提供了基于 [obliviate-invs](https://github.com/hamza-cskn/obliviate-invs) 库的 GUI 系统。这个集成使您无需担心低级 Bukkit 背包管理，就能创建丰富、交互式的背包界面。
+
+## 架构概述（6.x）
 
 GUI 系统建立在三个核心抽象类上：
 
@@ -21,6 +40,10 @@ GUI 系统建立在三个核心抽象类上：
 所有类都扩展自 obliviate-invs 的 `Gui`，并使用**模板方法模式** — 通过重写特定方法来自定义行为，同时受益于内置的工具栏、槽位计算和导航功能。
 
 ## BaseInventoryPage
+
+::: warning v7.0.0 已删除
+请改用 `DeclarativeGui`，见[声明式 GUI](/zh/guide/advanced/declarative-gui)。
+:::
 
 所有背包 GUI 的基础类。提供结构化的生命周期、工具栏管理和常见 UI 任务的辅助方法。
 
@@ -134,6 +157,10 @@ gui.onClose(event -> {
 
 ## BasePaginationPage
 
+::: warning v7.0.0 已删除
+请改用 `State` 与 `GridView`，见[声明式 GUI](/zh/guide/advanced/declarative-gui)。
+:::
+
 用于显示大型列表（玩家、传送点、商店），`BasePaginationPage` 自动处理分页与导航按钮。
 
 ### 类结构
@@ -195,6 +222,10 @@ gui.refresh();                               // 用更新的项目重新打开 G
 
 ## BaseConfirmationPage
 
+::: warning v7.0.0 已删除，聊天式确认一并删除
+`BaseConfirmationPage`、`Confirm.gui(...)` 与聊天式 `Confirm.chat(...)` 均已删除。界面服务的 `Confirm` 是仅存的确认方式，见 [UI：意图与会话](/zh/guide/advanced/ui-service#notice-and-confirm)。
+:::
+
 带有确定和取消按钮的确认对话框。
 
 ### 类结构
@@ -247,7 +278,7 @@ BaseConfirmationPage.builder(player)
 
 ## 颜色
 
-UltiTools 提供 `Colors` 枚举用于创建彩色玻璃按钮和装饰：
+UltiTools 提供 `Colors` 枚举用于创建彩色玻璃按钮和装饰（`Colors` 在 7.0 中保留；下面用法中的 `createActionButton` 随 `BaseInventoryPage` 一起删除）：
 
 ```java
 public enum Colors {
@@ -287,6 +318,10 @@ ItemStack glass = XVersionUtils.getColoredPlaneGlass(Colors.CYAN);
 <<< @/../examples/src/main/java/com/ultikits/docs/gui/CustomPaginationGui.java
 
 ## 已删除的 API
+
+::: warning v7.0.0 已删除
+下面 v6.3.0 的说明让你迁移到的 `BaseInventoryPage`、`BasePaginationPage` 和 `BaseConfirmationPage`，自身也在 v7.0.0 删除。请按本页开头所示迁移到 `DeclarativeGui` 与界面服务。
+:::
 
 ::: warning v6.3.0 已删除
 `PagingPage` 与 `OkCancelPage` 已在 v6.3.0 删除（6.2.x 中已弃用），仍继承它们的代码无法编译。
@@ -335,7 +370,7 @@ gui.onClose(event -> {
 
 ### 测试
 
-使用 `BaseInventoryPageTest` 中的测试模式：
+在 6.x 中可使用 `BaseInventoryPageTest` 中的测试模式（该类随 `BaseInventoryPage` 在 7.0.0 删除）：
 
 ```java
 @Test
@@ -347,7 +382,7 @@ void testGuiCreation() {
 
 ## 参考资源
 
-- [obliviate-invs Wiki](https://github.com/hamza-cskn/obliviate-invs/wiki)
+- [obliviate-invs Wiki](https://github.com/hamza-cskn/obliviate-invs/wiki)（仅 6.x；自 v7.0.0 起不再随框架打包）
 - [Bukkit 背包事件](https://hub.spigotmc.org/javadocs/spigot/org/bukkit/event/inventory/package-summary.html)
 - [Adventure 文本 API](https://docs.advntr.dev/)
 - [UltiTools v6.2.0 框架指南](/zh/guide/introduction)
