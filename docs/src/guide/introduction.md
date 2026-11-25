@@ -35,6 +35,10 @@ UltiTools API is the core of UltiTools, providing a comprehensive set of APIs th
 In the 6.x line, as of v6.3.0, UltiTools API bundles obliviate-invs and UniversalScheduler into its own JAR. Paper downloads ByteBuddy, HikariCP, XSeries, Java-WebSocket, commons-dbutils and JavaMail from the `libraries:` entries in the framework's `plugin.yml`. Gson, MySQL Connector/J, protobuf, slf4j and native Adventure come from the Paper server itself. Modules can declare these libraries with `provided` scope instead of bundling them. For XSeries in 6.x, compile against the framework's declared version: 13.7.1 in 6.3.0, 14.0.0 as of 6.3.1.
 
 ::: warning Unreleased v7.0.0 dependency change
+As of v7.0.0, the framework JAR no longer bundles obliviate-invs or UniversalScheduler, and the legacy chest pages built on obliviate-invs are removed (see [GUI Interface](/guide/advanced/gui)). A module that used those libraries directly must package them itself or rewrite that code; see [Module versioning](/guide/advanced/module-versioning#legacy-chest-removal).
+:::
+
+::: warning Unreleased v7.0.0 dependency change
 As of v7.0.0, the framework no longer supplies XSeries or `XVersionUtils`; use Paper's native `Material`, `Sound`, `Enchantment` and Adventure APIs.
 A module keeping XSeries must shade and relocate it itself; UltiTools modules cannot use Paper's `libraries:` mechanism.
 :::

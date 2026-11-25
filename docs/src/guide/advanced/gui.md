@@ -2,13 +2,32 @@
 
 <Badge type="tip" text="v6.2.0+" />
 
-::: info Modern GUI System
-The GUI system has been rebuilt with `BaseInventoryPage`, `BasePaginationPage`, and `BaseConfirmationPage` base classes. They replace `PagingPage` and `OkCancelPage`, which were removed in v6.3.0.
+::: danger Removed in v7.0.0
+This page documents the imperative chest pages of the 6.x line, which 7.0.0 removes with no deprecated bridge: `BaseInventoryPage`, `BasePaginationPage`, `BaseConfirmationPage`, the confirmation widget `Confirm` with its chest-based (`InventoryConfirm`) and chat-based (`ChatConfirm`) implementations, `Buttons`, `ViewType` and the bundled obliviate-invs library. A module that references one of them does not compile against 7.0, and a module built against 6.x fails to load on 7.0; use the replacements below.
 :::
 
-UltiTools provides a comprehensive GUI system built on top of the [obliviate-invs](https://github.com/hamza-cskn/obliviate-invs) library. This integration allows you to create rich, interactive inventory-based interfaces without worrying about low-level Bukkit inventory management.
+::: info Modern GUI System (6.x only)
+In 6.x the GUI system is built with `BaseInventoryPage`, `BasePaginationPage`, and `BaseConfirmationPage` base classes. They replaced `PagingPage` and `OkCancelPage`, which were removed in v6.3.0.
+:::
 
-## Architecture Overview
+## Replacements in 7.0 <Badge type="tip" text="v7.0.0+" />
+
+| Removed in 7.0 | Use instead | Documented in |
+|---|---|---|
+| `BaseInventoryPage` | `DeclarativeGui`: return a tree of `Container`, `TextButton` and `ItemDisplay` from `build(BuildContext)` | [Declarative GUI](/guide/advanced/declarative-gui) |
+| `BasePaginationPage` | Keep the page number in a `State`, build the visible slice with `GridView`, and turn pages with `setState` | [Declarative GUI](/guide/advanced/declarative-gui) |
+| `BaseConfirmationPage`, `Confirm.gui(...)` | `Confirm` of the UI service (`com.ultikits.ultitools.ui.Confirm`), shown with `UiService#show` | [UI: Intents and Sessions](/guide/advanced/ui-service#notice-and-confirm) |
+| `Confirm.chat(...)` (`ChatConfirm`) | None in the framework; the module sends its own clickable chat prompt | [UI: Intents and Sessions](/guide/advanced/ui-service#chat-confirmation) |
+| `Buttons`, `ViewType` | No replacement type; use a `TextButton` label or the framework label keys | [Dialog buttons](/guide/advanced/ui-service#dialog-buttons) |
+| obliviate-invs, UniversalScheduler | No longer bundled; see [Module versioning](/guide/advanced/module-versioning#legacy-chest-removal) | |
+
+`Colors` remains in 7.0.
+
+The sections below describe the 6.x API as released and are kept for modules that still target 6.x.
+
+UltiTools 6.x provides a GUI system built on top of the [obliviate-invs](https://github.com/hamza-cskn/obliviate-invs) library. This integration allows you to create rich, interactive inventory-based interfaces without worrying about low-level Bukkit inventory management.
+
+## Architecture Overview (6.x)
 
 The GUI system is built on three core abstraction classes:
 
@@ -21,6 +40,10 @@ The GUI system is built on three core abstraction classes:
 All classes extend `Gui` from obliviate-invs and use the **Template Method pattern** — override specific methods to customize behavior while benefiting from built-in functionality like toolbars, slot calculations, and navigation.
 
 ## BaseInventoryPage
+
+::: warning Removed in v7.0.0
+Use `DeclarativeGui` instead; see [Declarative GUI](/guide/advanced/declarative-gui).
+:::
 
 The foundation class for all inventory GUIs. It provides a structured lifecycle, toolbar management, and helper methods for common UI tasks.
 
@@ -134,6 +157,10 @@ gui.onClose(event -> {
 
 ## BasePaginationPage
 
+::: warning Removed in v7.0.0
+Use `State` and `GridView` instead; see [Declarative GUI](/guide/advanced/declarative-gui).
+:::
+
 For displaying large lists (players, warps, shops), `BasePaginationPage` automatically handles pagination with next/previous buttons.
 
 ### Class Structure
@@ -195,6 +222,10 @@ gui.refresh();                               // Re-opens GUI with updated items
 
 ## BaseConfirmationPage
 
+::: warning Removed in v7.0.0, together with the chat-based confirmation
+`BaseConfirmationPage`, `Confirm.gui(...)` and the chat-based `Confirm.chat(...)` are removed. The `Confirm` of the UI service is the only confirmation left; see [UI: Intents and Sessions](/guide/advanced/ui-service#notice-and-confirm).
+:::
+
 For confirmation dialogs with OK and Cancel buttons.
 
 ### Class Structure
@@ -247,7 +278,7 @@ BaseConfirmationPage.builder(player)
 
 ## Colors
 
-UltiTools provides a `Colors` enum for creating colored glass buttons and decorations:
+UltiTools provides a `Colors` enum for creating colored glass buttons and decorations (`Colors` remains in 7.0; the `createActionButton` helper in the usage below is removed with `BaseInventoryPage`):
 
 ```java
 public enum Colors {
@@ -287,6 +318,10 @@ Override button creation methods to customize appearance:
 <<< @/../examples/src/main/java/com/ultikits/docs/gui/CustomPaginationGui.java
 
 ## Removed API
+
+::: warning Removed in v7.0.0
+`BaseInventoryPage`, `BasePaginationPage` and `BaseConfirmationPage`, which the v6.3.0 note below tells you to migrate to, are themselves removed in v7.0.0. Migrate to `DeclarativeGui` and the UI service as shown at the top of this page.
+:::
 
 ::: warning Removed in v6.3.0
 `PagingPage` and `OkCancelPage` were removed in v6.3.0 (they were deprecated in 6.2.x); code that still extends them no longer compiles.
@@ -335,7 +370,7 @@ gui.onClose(event -> {
 
 ### Testing
 
-Use the test patterns from `BaseInventoryPageTest`:
+In 6.x, use the test patterns from `BaseInventoryPageTest` (the class is removed in 7.0.0 with `BaseInventoryPage`):
 
 ```java
 @Test
@@ -347,7 +382,7 @@ void testGuiCreation() {
 
 ## References
 
-- [obliviate-invs Wiki](https://github.com/hamza-cskn/obliviate-invs/wiki)
+- [obliviate-invs Wiki](https://github.com/hamza-cskn/obliviate-invs/wiki) (6.x only; no longer bundled as of v7.0.0)
 - [Bukkit Inventory Events](https://hub.spigotmc.org/javadocs/spigot/org/bukkit/event/inventory/package-summary.html)
 - [Adventure Text API](https://docs.advntr.dev/)
 - [UltiTools v6.2.0 Framework Guide](/guide/introduction)

@@ -274,6 +274,24 @@ As of v7.0.0 (unreleased), two APIs change for module authors. Rebuild the modul
 - **Scheduling.** Inject `com.ultikits.ultitools.scheduling.Scheduler` with `@Autowired`; each module instance owns one, and unloading the module cancels its tasks. `@Scheduled` runs on it. Async repeating tasks run at a fixed rate, and tasks bound to an entity end when the entity is removed (for a player, on disconnect). See [Scheduler API](/guide/advanced/scheduled-tasks#scheduler-api). The framework's own work moving onto its scheduler requires no change in module code; its visible effects are listed under [Framework-scheduled work](/guide/advanced/scheduled-tasks#framework-scheduled-work).
 - **Declarative GUI.** `DeclarativeGui` no longer inherits obliviate's `Gui`. The constructor takes the module's `UiService`, its `Scheduler` and a `Text` title with a fixed row count of 1 to 6; `InventoryType` constructors, `IconWrapper`, `RenderNodeDiffer`, `DiffResult` and `getPlayer()` (now `viewer()`) are gone; `ItemDisplay` takes an `ItemSpec`, and clicks use `onClick(GridAction)`. See [What changes in 7.0](/guide/advanced/declarative-gui#what-changes-in-7-0).
 
+### Legacy chest pages and confirmation widgets in 7.0 {#legacy-chest-removal}
+
+::: warning Unreleased v7.0.0 removals
+As of v7.0.0, `abstracts.gui.BaseInventoryPage`, `abstracts.gui.BasePaginationPage`, `abstracts.gui.BaseConfirmationPage`, `widgets.Confirm`, `widgets.impl.ChatConfirm`, `widgets.impl.InventoryConfirm`, `entities.Buttons` and `entities.ViewType` (all under `com.ultikits.ultitools`) and `DependenceManagers#initInventoryAPI` are removed, with no deprecated bridge. A module that references one of them does not compile against 7.0, and a module built against 6.x fails to load on 7.0. Rebuild it against 7.0.
+:::
+
+The framework JAR no longer bundles obliviate-invs or UniversalScheduler. 6.x did not relocate them, so a module that used `mc.obliviate.*` or `com.github.Anon8281.*` directly was using the framework's copies; it must package those libraries itself or rewrite that code. `Colors` remains.
+
+| 6.x | 7.0 |
+|---|---|
+| `BaseInventoryPage` | `DeclarativeGui`, see [Declarative GUI](/guide/advanced/declarative-gui) |
+| `BasePaginationPage` | A `State` that holds the page number and a `GridView` that shows the slice, see [Declarative GUI](/guide/advanced/declarative-gui) |
+| `BaseConfirmationPage`, `Confirm.gui(...)` | `Confirm` of the UI service, see [UI: Intents and Sessions](/guide/advanced/ui-service#notice-and-confirm) |
+| `Confirm.chat(...)` | The module sends its own clickable chat prompt, see [UI: Intents and Sessions](/guide/advanced/ui-service#chat-confirmation) |
+| `Buttons`, `ViewType` | No replacement type; use a `TextButton` label or the framework label keys |
+
+The 6.x pages are still described, as 6.x material, in [GUI Interface](/guide/advanced/gui).
+
 ### Toasts and holograms in 7.0
 
 ::: warning Unreleased v7.0.0 removals

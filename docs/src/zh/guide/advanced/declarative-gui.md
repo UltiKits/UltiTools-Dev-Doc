@@ -11,6 +11,8 @@
 声明式引擎不再继承 obliviate 的 `Gui`，也不再直接写入物品栏。每次构建都会产生整个界面的不可变 `Grid` 快照，并交给模块的 `UiService`，由它负责显示、点击分发和关闭结果。该包仍标记为 `@ApiStatus.Experimental`。
 :::
 
+自 v7.0.0 起声明式引擎也是框架唯一的箱子界面 API：`BaseInventoryPage`、`BasePaginationPage` 和 `BaseConfirmationPage` 已删除。分页用保存页码的 `State` 加显示当前切片的 `GridView` 完成；确认改用[界面服务](/zh/guide/advanced/ui-service#notice-and-confirm)的 `Confirm`。旧页面作为 6.x 资料仍见 [GUI 界面系统](/zh/guide/advanced/gui)。
+
 引擎目前只在内存版界面服务上验证过，尚未在真实服务器上验证。下面第 3 至 7 节的代码及其引用的已编译示例展示的是 6.x API；本节列出 7.0 的变化。
 
 **构造。** 传入模块自己注入的 `UiService`、[`Scheduler`](/zh/guide/advanced/scheduled-tasks#调度器-api) 和 `Text` 标题；行数固定为 1 到 6，不再有 `InventoryType` 构造器：
