@@ -104,7 +104,7 @@ eventBus.publishAsync(event);
 
 ::: warning 异步限制
 - 可取消事件**不能**异步发布 — 框架会抛出 `IllegalArgumentException`
-- 异步处理器不能调用大多数 Bukkit API 方法（使用 `Bukkit.getScheduler().runTask()` 切回主线程）
+- 异步处理器不能调用大多数 Bukkit API 方法（自 v7.0.0 起，把这部分工作交给模块注入的 [`Scheduler`](/zh/guide/advanced/scheduled-tasks#调度器-api)：与玩家相关用 `scheduler.entity(player).run(...)`，与服务器状态相关用 `scheduler.global().run(...)`）
 :::
 
 ## 可取消事件

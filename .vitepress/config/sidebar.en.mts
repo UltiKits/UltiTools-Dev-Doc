@@ -159,6 +159,10 @@ const sidebarGuideEN: SidebarItemExt[] = [
         text: 'UI System',
         items: [
             {
+                text: 'UI: Intents and Sessions (7.0)',
+                link: 'advanced/ui-service'
+            },
+            {
                 text: 'GUI Interface',
                 link: 'advanced/gui'
             },

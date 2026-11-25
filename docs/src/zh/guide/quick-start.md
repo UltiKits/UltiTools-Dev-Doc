@@ -102,7 +102,7 @@ api-version: 700
 `onUnregister()`。
 :::
 
-`onUnregister()` 在框架注销该模块的命令与监听器之前运行，此时模块自身的 bean 仍然存活。`onReload()` 在框架自身的重载步骤之后运行：配置重载与语言目录刷新。
+`onUnregister()` 在框架注销该模块的命令与监听器之前运行，此时模块自身的 bean 仍然存活。自 v7.0.0 起，模块的 `UiService` 仍在显示的界面会在 `onUnregister()` 运行之前、卸载返回之前以 `CloseReason.OWNER_UNLOADED` 结束；参见[界面：意图与会话](/zh/guide/advanced/ui-service#unload-and-server-stop)。`onReload()` 在框架自身的重载步骤之后运行：配置重载与语言目录刷新。
 
 执行 `/ul reload` 时，框架会在 `onReload()` 返回之后记录一行日志，写明模块名称。如果模块原有的重写只是记录自己的重载日志，这个重写可以直接删除。如果模块有实际的重载或卸载工作，把原有的 `reloadSelf()`/`unregisterSelf()` 重写改名为 `onReload()`/`onUnregister()`。从改名后的钩子中删除所有 `super.unregisterSelf()` 调用，保留模块自己的实际清理逻辑；框架会在 `onUnregister()` 返回后注销命令和监听器。
 
