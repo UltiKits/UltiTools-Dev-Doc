@@ -182,7 +182,7 @@ A `Choice` shows each option's tooltip on its button. Inside a form, the options
 
 ### What the client shows {#client-display}
 
-- The native client draws a safety-warning icon next to a dialog's title. It is not a button the framework adds, and a module cannot remove it. Do not count it among the action buttons listed above.
+- The native client draws a safety-warning icon next to a dialog's title. It is not a button the framework adds. Do not count it among the action buttons listed above.
 - A slider shows its label and the current value, not the two ends of its range. To let players know the range, put it in the label or the body text.
 
 ## Timeouts
