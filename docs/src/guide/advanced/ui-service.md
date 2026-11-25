@@ -125,6 +125,7 @@ Paper's dialog carries slider numbers as `float`. The dialog backend accepts a f
 | --- | --- |
 | `Completed(value)` | The player answered |
 | `Closed(PLAYER)` | The player closed the screen: the cancel button of a form or choice, or closing a chest inventory. Also a dialog answer the framework rejects as invalid; it logs one WARNING with the owner |
+| `Closed(INTERRUPTED)` | The game or another plugin ended the screen rather than the player, or the framework could not open it. See [When each reason appears](#close-reasons) (as of v7.0.0) |
 | `Closed(DISCONNECTED)` | The player left the server, or was already offline when `show` was called |
 | `Closed(REPLACED)` | Another intent was shown to the same player; a player has at most one open session |
 | `Closed(TIMED_OUT)` | The timeout elapsed |
@@ -135,6 +136,34 @@ Paper's dialog carries slider numbers as `float`. The dialog backend accepts a f
 When no backend supports an intent, nothing opens and the player's previous session stays open. More `CloseReason` constants may be added in a 7.x minor release.
 
 `session.close()` may be called from any thread and more than once. The screen closes and the result completes later, never inside the call, so it is safe from a grid action or an event handler.
+
+### When each reason appears {#close-reasons}
+
+As of v7.0.0, `INTERRUPTED` covers the cases where the screen ended without the player choosing to close it. The table lists what produces each reason on each backend:
+
+| Reason | Dialog | Chest screen |
+| --- | --- | --- |
+| `PLAYER` | The player pressed Cancel, or the answer was rejected as invalid | The player closed the inventory |
+| `DISCONNECTED` | The player left the server | The player left the server. A close the game reports as "cannot use" followed by a quit in the same tick also counts |
+| `INTERRUPTED` | The player died, changed worlds, or another inventory opened for the player (the open event was not cancelled) | The game or another plugin closed the inventory: death, teleport, another inventory opened, a plugin call. Also when the framework could not open the screen, or reopen it after a title change |
+| `REPLACED` | The framework showed the player's next screen | The same |
+| `CLOSED_BY_CODE` | The module called `session.close()` | The same |
+| `OWNER_UNLOADED` | The module was unloaded | The same |
+| `TIMED_OUT` | The timeout elapsed | The same, if you set a timeout |
+
+A chest screen also ends at once with `INTERRUPTED` when its first open, or its reopen after a title change, is refused, for example because another plugin cancelled the open event. The storage commit still runs as usual (see below).
+
+The framework closes nothing else for you. When another inventory opens and interrupts a dialog, the new inventory stays open.
+
+### Interrupted dialogs {#interrupted-dialogs}
+
+A shown dialog ends with `Closed(INTERRUPTED)` when its player dies, changes worlds, or another inventory opens for the player. A cancelled death event or inventory-open event does not interrupt it. The result is delivered like every other result, in a task of the viewer's entity context.
+
+Paper sends no signal for other ways a dialog can be displaced, for example another plugin showing its own dialog. The framework cannot tell, so such a session stays open until its timeout. Give a dialog that can sit on screen for a long time a suitable explicit timeout with `ShowOptions` instead of relying on the 10-minute default.
+
+### The close reason does not change storage {#close-reason-and-storage}
+
+For a screen bound to a storage container, the reason only describes how the screen ended. A container with unsaved changes is committed the same way whether the session ended with `PLAYER`, `INTERRUPTED`, `DISCONNECTED` or any other reason, and an unchanged container writes nothing. The reason adds no tick before the commit.
 
 ## Dialog buttons
 
@@ -151,9 +180,14 @@ The framework catalogue renders these keys as OK, Yes, No, Submit and Cancel in 
 
 A `Choice` shows each option's tooltip on its button. Inside a form, the options of a `ChoiceInput` are not shown with tooltips, because Paper's option entries have no tooltip field.
 
+### What the client shows {#client-display}
+
+- The native client draws a safety-warning icon next to a dialog's title. It is not a button the framework adds, and a module cannot remove it. Do not count it among the action buttons listed above.
+- A slider shows its label and the current value, not the two ends of its range. To let players know the range, put it in the label or the body text.
+
 ## Timeouts
 
-Notice, Confirm, Form and Choice time out after 10 minutes by default; a grid has no timeout. Pass `ShowOptions` to change it:
+Notice, Confirm, Form and Choice time out after 10 minutes by default; a grid has no timeout. A timeout is also what ends a dialog that the game displaced in a way the server cannot see (see [Interrupted dialogs](#interrupted-dialogs)). Pass `ShowOptions` to change it:
 
 ```java
 ui.show(player, form, ShowOptions.builder().timeout(Duration.ofMinutes(2)).build());
@@ -209,9 +243,11 @@ Icons are rendered for each viewer through the [item renderer](/guide/essentials
 
 A click is applied to the snapshot the backend had when the click was reported. A click made on an older picture that arrives after a redraw runs the action of the redrawn slot, so keep each action safe for whatever the slot shows now. Slots bound to a container are redrawn automatically when the container changes.
 
-### Cursor on close
+### Cursor before opening and on close {#cursor-on-close}
 
-Opening a grid never reads or writes the player's cursor. When the screen closes, the framework closes the inventory through Paper and does not move the cursor item itself; Paper handles it as for any closed inventory. The items in the chest inventory are display copies, never real items.
+As of v7.0.0, before it shows a chest screen or a dialog, the framework checks the menu the player has open. If it is the player's own backpack (survival or creative) and the cursor or the 2x2 crafting grid holds items, the framework closes that menu the way vanilla does: the items go back into the backpack, and what does not fit drops at the player's feet. Those items are not carried into the new screen. An empty backpack gets no extra close, and a container the player already has open is left to Paper's normal opening rules.
+
+When a chest screen closes, the framework closes the inventory through Paper and does not move the cursor item itself; Paper handles it as for any closed inventory. The items in the chest inventory are display copies, never real items.
 
 ### Bound containers and storage
 
@@ -262,4 +298,7 @@ Keep the connections and thread pools your `ContainerStore` uses open until your
 - Chest inventories contain display copies. The backend cancels clicks and drags before it applies its own transfers. Another plugin must not clear that cancellation with `setCancelled(false)` or `setResult(ALLOW)`, or vanilla can move the display copies and duplicate items.
 - Number-key swaps and Shift moves depend on the `InventoryAction` Paper computes from the displayed copy. While a redraw is pending the input may be ignored; wait for the redraw and retry.
 - Paper gives no signal when another plugin replaces a dialog. If another plugin shows its own dialog after yours, the timeout dismissal of yours also closes that dialog.
+- Do not open two screens for the same storage key at once. If a screen for a key is still open with unsaved changes and you open another for the same key, the new screen reads the old data; the framework does not merge the two copies. End the old screen, wait for its commit, then read the key and show it again.
+- When the framework rejects a click, the client first draws its own prediction and the server then corrects it, so the picture can flicker. This is part of the game protocol. Other viewers of the same container see a change one tick later than the player who made it.
+- While a module is unloaded, reloaded or updated on a running server, the framework waits on the server thread for unsaved storage screens for up to about 10 seconds. That equals Paper's default `watchdog.early-warning-delay` (10000 milliseconds), so a full wait can make Paper print `The server has not responded for 10 seconds! Creating thread dump` and a thread dump. The server is not crashing; look at the store that did not answer. Paper prints no such warning while the server is stopping.
 - The declarative engine now hands `Grid` snapshots to the `UiService` instead of inheriting obliviate's `Gui`. Modules with 6.x screens must be migrated and rebuilt against 7.0; see [Declarative GUI](/guide/advanced/declarative-gui).
