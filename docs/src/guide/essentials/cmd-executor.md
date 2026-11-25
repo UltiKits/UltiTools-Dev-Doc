@@ -408,10 +408,51 @@ As of v7.0.0, input that matches no mapping still gets the framework's own reply
 
 | When | English | Chinese |
 |---|---|---|
-| The first word after the label is not a subcommand the sender may use | `Unknown command, please enter /%s %s for help` in red, followed by the command's help | `未知指令，请使用/%s %s获取帮助` |
-| The input goes wrong after the first word | `§eCorrect Usage: §7/%s %s`, one line for each mapping the sender may use below the deepest part that matched | `§e正确用法: §7/%s %s` |
+| The first word after the label is not a subcommand the sender may use | `Unknown command, please enter /<label> <help> for help` in red, followed by the command's help | `未知指令，请使用/<label> <help>获取帮助` in red |
+| The input goes wrong after the first word | `Correct Usage: ` in yellow, then `/<label> <format>` in grey; one line for each mapping the sender may use below the deepest part that matched | `正确用法: ` 黄色，其后 `/<label> <format>` 灰色 |
 
-In the first reply `%s %s` is the label and the help subcommand (`help` unless `getHelpCommand()` is overridden); in the second it is the label and a mapping's format. A value that its argument type cannot parse gets that type's error message in red instead. The help shown after the first reply goes through the same sender-type and permission checks as `/<label> help`. The label alone, with no `format = ""` mapping, shows the help. The texts come from the framework's language files (`lang/en.json` and `lang/zh.json`, keys `未知指令，请使用/%s %s获取帮助` and `指令正确用法`).
+In the first reply `<label>` is the command label and `<help>` the help subcommand (`help` unless `getHelpCommand()` is overridden); in the second `<format>` is a mapping's format. A value rejected by a module's own argument parser gets that parser's message in red instead (key `command.reply.argument_error`); the message is shown as the parser wrote it, untranslated. A value that Minecraft's native integer argument rejects, such as `abc` where an `int` is expected, keeps the usage reply. The help shown after the first reply goes through the same sender-type and permission checks as `/<label> help`. The label alone, with no `format = ""` mapping, shows the help.
+
+The unknown-command reply for a nonexistent subcommand and for a subcommand the sender may not use is produced by the same code, and both are rendered for the same recipient in the same way, so a hidden subcommand stays indistinguishable (see [Visibility](#visibility)).
+
+### Reply language and message keys <Badge type="tip" text="v7.0.0+" />
+
+As of v7.0.0, every reply the command package sends goes through the framework's message service (see [Messages and Languages](/guide/essentials/messages)), not through legacy `§` colour codes and not through the server language. With `language: auto`, a player receives each reply in their own Minecraft client language; the console, command blocks and panel feedback get the `fallback-language` from `config.yml`. A command run on behalf of a non-player sender gets the fallback language even when a player triggered it. The framework's thirteen reply texts are the `command.*` keys of the `ultitools` namespace, shipped in `messages/en.yml` and `messages/zh.yml`:
+
+| Key | English | Chinese |
+|---|---|---|
+| `command.reply.unknown` | `Unknown command, please enter /<label> <help> for help` | `未知指令，请使用/<label> <help>获取帮助` |
+| `command.reply.usage` | `Correct Usage: /<label> <format>` | `正确用法: /<label> <format>` |
+| `command.reply.argument_error` | a module argument parser's error message, in red | 模块参数解析器的错误信息（红色） |
+| `command.error.op_required` | `You don't have permission to run this command!` | `你没有权限执行这个指令！` |
+| `command.error.no_permission` | `Executing this command requires <permission> permission` | `执行此命令需要 <permission> 权限` |
+| `command.error.player_only` | `This command can only be performed in GAME!` | `只有游戏内可以执行这个指令！` |
+| `command.error.console_only` | `This command can only be performed in CONSOLE!` | `只可以在后台执行这个指令！` |
+| `command.error.sender_locked` | `Please wait for last Command Processing!` | `请先等待上一条命令执行完毕！` |
+| `command.error.server_locked` | `Please wait for last Command Processing which sent by other players!` | `请先等待其他玩家发送的命令执行完毕！` |
+| `command.error.cooldown` | `Frequent operations, please try again in <seconds> seconds` | `操作频繁，请 <seconds> 秒后再试` |
+| `command.error.execution_failed` | `Command execution failed: <error>` | `命令执行出错: <error>` |
+| `command.async.processing` | `Processing...` | `处理中...` |
+| `command.async.timeout` | `Command execution timed out; no longer waiting. The command continues running in the background.` | `命令执行超时，已停止等待，命令仍在后台继续执行` |
+
+Operators override these texts in `plugins/UltiTools/messages/<locale>.yml` with dotted or nested keys and MiniMessage values; overrides of framework keys need a restart. Arguments are inserted as literal text, so `<format>` pieces such as `<target>` or `<words...>` in a usage line stay visible. The cooldown seconds are a plain integer (`<seconds:'0'>`).
+
+::: warning The old reply texts changed form
+Before v7.0.0 these replies were English or Chinese sentences with embedded legacy colour codes, chosen by the server language. The wording and colours are the same, but they are now components in the recipient's language, and overrides use the message files above. Module help (`handleHelp`) and the texts a module's own code sends remain the module's own.
+:::
+
+### Validation failures <Badge type="tip" text="v7.0.0+" />
+
+A validator reports a failure with `CommandValidator.ValidationResult`. Besides the `String` factories `failure(String)` and `failure(String, String)`, as of v7.0.0 there is `ValidationResult.failure(Text, String)`: the first argument is deferred text (`com.ultikits.ultitools.text.Text`) rendered in the recipient's language, the second a diagnostic key. The framework's own validators use it for the refusals listed above.
+
+- `getErrorText()` returns the deferred text, or `null` for a success and for a failure built with a `String`.
+- `getErrorMessage()` returns the legacy string, and returns `null` for a failure built with `Text`. Code that reads a result must check `getErrorText()` first; `ChainValidationResult.getErrorText()` reads the first failure, as `getErrorMessage()` does.
+- A `String` failure of your own validator is sent unchanged: it is not translated and not passed through a catalogue.
+- A module's own `TypeParser` that throws `TypeParseException` shows its message as written, untranslated; the fixed English sentences of the framework's parser helpers are not translated either.
+
+```java
+return ValidationResult.failure(Text.of(MessageKey.of("my-module", "world.denied")), "world.denied");
+```
 
 Repeated or trailing spaces in console or panel input are normalised when the input reaches a fallback. A console or panel command whose last word is a subcommand followed by exactly one trailing space (for example `ul reload `) can be rejected before the framework sees it; trim such input before dispatching it.
 
@@ -451,7 +492,7 @@ An `@RunAsync` body runs off the server's main thread. It may do CPU work, file 
 Asynchrony here is reserved for pure-CPU or I/O work. Any world, entity, block or chunk access an async body needs must be submitted to a server-thread context, `scheduler.entity(player).run(...)` as in the example above or `global()` / `region(...)` for world state; the annotation never grants safe access to those APIs by itself. A handler whose body consists only of such state access has no reason to carry the annotation at all.
 :::
 
-An unannotated command body runs on the main thread. As of v6.3.0 it runs at the moment the command is dispatched when that happens on the main thread, and is deferred through `runTask()` only when the dispatch comes from another thread (before v6.3.0 every such body was deferred by one tick; see [When a command body runs](#when-a-command-body-runs) below). Either way the timing only changes when the body starts, not whether it can block the server: the whole body (including any expensive CPU or I/O work inside it) still runs synchronously on the main thread. Removing `@RunAsync` restores safe dispatch only for a handler that was never doing expensive work in the first place; a handler that mixes expensive work with Bukkit access keeps the expensive part off-thread and submits only the Bukkit-touching part to a server-thread context of the module's `Scheduler`, the pattern shown above, rather than simply removing the annotation. Paper also does not guard every world, entity, block or chunk access from an async body: its asynchronous-operation checks cover a limited set of unsafe operations, so breaking the rule above can leave a handler running on unsafe or inconsistent state instead of crashing outright, and the absence of an exception is not evidence the code is safe. `@RunAsync` remains the right tool for a body that genuinely belongs off-thread and needs nothing more; when that body also needs a processing message, a timeout, or configurable behaviour around the boundary, use `@AsyncCommand` instead.
+An unannotated command body runs on the main thread. As of v6.3.0 it runs at the moment the command is dispatched when that happens on the main thread, and is handed to the `global()` context of the framework scheduler only when the dispatch comes from another thread (before v6.3.0 every such body was deferred by one tick; see [When a command body runs](#when-a-command-body-runs) below). Either way the timing only changes when the body starts, not whether it can block the server: the whole body (including any expensive CPU or I/O work inside it) still runs synchronously on the main thread. Removing `@RunAsync` restores safe dispatch only for a handler that was never doing expensive work in the first place; a handler that mixes expensive work with Bukkit access keeps the expensive part off-thread and submits only the Bukkit-touching part to a server-thread context of the module's `Scheduler`, the pattern shown above, rather than simply removing the annotation. Paper also does not guard every world, entity, block or chunk access from an async body: its asynchronous-operation checks cover a limited set of unsafe operations, so breaking the rule above can leave a handler running on unsafe or inconsistent state instead of crashing outright, and the absence of an exception is not evidence the code is safe. `@RunAsync` remains the right tool for a body that genuinely belongs off-thread and needs nothing more; when that body also needs a processing message, a timeout, or configurable behaviour around the boundary, use `@AsyncCommand` instead.
 
 ### When a command body runs <Badge type="tip" text="v6.3.0+" />
 
@@ -484,7 +525,7 @@ If you don't want a command to be executed in large quantities and consume serve
 
 Parameter type is integer, in second.
 
-If the command is executed before the cooldown ends, the message `操作频繁，请 %d 秒后再试` will be sent, with the remaining seconds substituted for `%d`. As of v6.3.0, `en.json` carries this parameterized key, so English-locale servers see the translated `Frequent operations, please try again in %d seconds` instead of the raw Chinese string.
+If the command is executed before the cooldown ends, the message `command.error.cooldown` is sent: `Frequent operations, please try again in <seconds> seconds` in English, `操作频繁，请 <seconds> 秒后再试` in Chinese. As of v7.0.0 it is rendered in the player's own client language (see [Reply language and message keys](#reply-language-and-message-keys)), and the remaining seconds are shown as a plain integer; before v7.0.0 the text depended on the server language (`en.json` carried a `%d` key as of v6.3.0). A partly elapsed second is rounded up, so a command with `@CmdCD(5)` can show 6 seconds.
 
 This restriction only takes effect on **players**.
 
@@ -557,10 +598,10 @@ Available types are:
 
 As of v6.3.0, `@UsageLimit` may also be placed on the executor class, or on the base class that declares the mappings. A mapping without its own `@UsageLimit` uses the class-level one; a method-level annotation governs its own mapping.
 
-Under the `LimitType.SENDER` strategy, the player will receive a prompt: `Please wait for last Command Processing!`
+Under the `LimitType.SENDER` strategy, the player will receive a prompt (`command.error.sender_locked`): `Please wait for last Command Processing!` (Chinese: `请先等待上一条命令执行完毕！`)
 
 Under the `LimitType.ALL` strategy, the player will receive a
-prompt: `Please wait for last Command Processing which sent by other players!`
+prompt (`command.error.server_locked`): `Please wait for last Command Processing which sent by other players!` (Chinese: `请先等待其他玩家发送的命令执行完毕！`). As of v7.0.0 both prompts are rendered in the recipient's client language.
 
 As of v6.3.0 a command body runs at dispatch on the main thread, so a body that dispatches its own
 command while holding its lock gets the nested dispatch refused with the message above (`SENDER`: from
@@ -743,17 +784,52 @@ As of v6.3.0, `timeout()` is a deadline on how long the framework *waits*, not a
 ```java
 @AsyncCommand(
     showProcessing = true,                      // Show "Processing..." message
-    processingMessageKey = "command.backup.processing",  // Custom i18n message
+    processingMessageKey = "my-module:backup.processing",  // Namespaced message key (as of v7.0.0)
     timeout = 60                                // 60 second timeout (0 = no timeout, defaults to 30 if omitted)
 )
 @CmdMapping(format = "backup")
 public void backupWorld(@CmdSender Player player) {
     // Configuration above:
-    // - Shows the text of command.backup.processing while executing
-    //   (the default 处理中... / Processing... is used only when the key is empty)
-    // - Uses custom i18n key instead of default
+    // - Shows the text of my-module:backup.processing while executing
+    //   (the default ultitools:command.async.processing is used when the key is empty or invalid)
+    // - Uses the module's own message instead of the default
 }
 ```
+
+### Processing message key <Badge type="tip" text="v7.0.0+" />
+
+As of v7.0.0, `processingMessageKey` is a namespaced message key in the form `<namespace>:<path>`, for example `my-module:backup.processing`. The text lives in the module's own language files (`messages/en.yml`, `messages/zh.yml`; see [Messages and Languages](/guide/essentials/messages)), where the namespace is the module's `plugin.yml` name in lower case, and the colour comes from that catalogue. Each player sees it in their own client language. An empty value uses the framework's `ultitools:command.async.processing` (`Processing...`). A value that is not a valid key logs one warning per executor and value and also uses the default:
+
+```text
+Invalid processingMessageKey on <executor class>: <value>; using the default processing message
+```
+
+```yaml
+# src/main/resources/messages/en.yml of the module "my-module"
+backup:
+  processing: "<yellow>Backing up the world..."
+```
+
+Migrating code written against 6.x: the 6.x value was an `i18n(...)` key (the old examples used `command.backup.processing`) and the text was sent in yellow by the framework. Rename the key to `<namespace>:<path>`, move its text into the module's `messages/<locale>.yml` with the colour written in MiniMessage, and keep `showProcessing` as it was. A 6.x value without a colon is invalid under 7.0 and falls back to the default text.
+
+### Scheduling, timeout and unload <Badge type="tip" text="v7.0.0+" />
+
+As of v7.0.0, command bodies are run by the framework's own `Scheduler` (see [Framework-scheduled work](/guide/advanced/scheduled-tasks#framework-scheduled-work)), not by the Bukkit scheduler, and no direct use of the Bukkit scheduler remains in the command package:
+
+- **Bodies.** A `@RunAsync` or `@AsyncCommand` body runs on the framework scheduler's `async()` context, once. It is not an entity task, so a player leaving does not skip the body or its completion hooks (such as lock release). The failure reply (`command.error.execution_failed`) of an asynchronous body is sent from the worker thread that ran it.
+- **Timeout watcher.** The timeout of `@AsyncCommand` is a watcher scheduled on the framework scheduler. The `command.async.timeout` notice is delivered in the player's `entity(player)` context, and to any other sender in the `global()` context. It is sent once, and the watcher is cancelled when the body finishes first. Reporting a timeout only stops waiting: the body is **not** interrupted and keeps running to completion.
+- **Unload and server stop.** Before a module's resources are released, the framework waits for asynchronous command bodies that are still running, without interrupting them; new asynchronous submissions to an unloading executor are refused. The wait shares one deadline of about 10 seconds: a single module unload gives that module's executors one fresh allowance, and a whole server stop shares one allowance across all executors, the framework's own commands first and before any framework service is closed. Only time actually spent waiting is charged. When the allowance runs out, each executor that still has running bodies logs one warning and the unload continues:
+
+```text
+Async command unload wait expired for <executor class>: <n> invocation(s); work continues in the background
+```
+
+- **What a body must not rely on after that warning.** The body keeps running in the background after the module's resources are gone: do not touch the module's services, data, listeners or scheduler (a retired scheduler refuses new submissions with `RejectedExecutionException`), and do not block a body waiting for a `global()` or `entity()` callback, because the unloading thread cannot run that callback while it waits.
+- **Watchdog.** On a running server the wait happens on the server thread, so a full wait coincides with Paper's default watchdog early warning (10 seconds) and prints a thread dump; it is not a crash. The command wait is independent of the UI storage wait, so the worst case is about 20 seconds. See [Live-unload waits](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md#live-unload-waits-and-paper-watchdog-warnings) in `COMPATIBILITY.md`.
+
+::: warning Known limitations
+A `@CmdCD(5)` command can display 6 seconds of cooldown because a partly elapsed second is rounded up. An asynchronous body that is still running after the unload wait is not interrupted; it finishes on its own after the module's resources are gone, so write long bodies to stop on their own when their module is no longer enabled.
+:::
 
 ## Custom Type Parsers <Badge type="tip" text="v6.2.0+" />
 

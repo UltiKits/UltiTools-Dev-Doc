@@ -216,7 +216,7 @@ As of v7.0.0, the framework schedules its own background and main-thread work on
 `datasource.flushRate` must be a positive number of seconds; a negative value starts no periodic JSON flush (6.x flushed once), and the data is still written at shutdown. Calling `delayTeleport` twice for one player starts two countdowns, as in 6.x.
 :::
 
-On the current 7.0 development line, async command bodies (`@RunAsync`, `@AsyncCommand`) and the framework's start-up messages still run on the Bukkit scheduler; they are not owned, cancelled or retired by the framework scheduler.
+As of v7.0.0, async command bodies (`@RunAsync`, `@AsyncCommand`) and the command timeout watcher run on the framework scheduler; when a module is unloaded the framework waits for bodies that are still running instead of cancelling them (see the command executor page). On the current 7.0 development line, the framework's start-up messages still run on the Bukkit scheduler; they are not owned, cancelled or retired by the framework scheduler.
 
 ## Automatic Lifecycle
 

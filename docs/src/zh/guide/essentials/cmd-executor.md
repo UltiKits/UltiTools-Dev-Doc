@@ -387,10 +387,51 @@ public void addPoint(@CmdSender Player player, @CmdParam("name") String[] name) 
 
 | 何时 | 英文 | 中文 |
 |---|---|---|
-| 标签后的第一个词不是发送者可用的子命令 | `Unknown command, please enter /%s %s for help`（红色），随后是该命令的帮助 | `未知指令，请使用/%s %s获取帮助` |
-| 第一个词之后的输入出错 | `§eCorrect Usage: §7/%s %s`，已匹配的最深一段之下、发送者可用的每个映射一行 | `§e正确用法: §7/%s %s` |
+| 标签后的第一个词不是发送者可用的子命令 | `Unknown command, please enter /<label> <help> for help`（红色），随后是该命令的帮助 | `未知指令，请使用/<label> <help>获取帮助`（红色） |
+| 第一个词之后的输入出错 | `Correct Usage: ` 黄色，其后 `/<label> <format>` 灰色；已匹配的最深一段之下、发送者可用的每个映射一行 | `正确用法: ` 黄色，其后 `/<label> <format>` 灰色 |
 
-第一种回复中的 `%s %s` 是命令标签和帮助子命令（除非重写了 `getHelpCommand()`，否则为 `help`）；第二种是命令标签和一个映射的 format。参数类型无法解析的值改为得到该类型的红色错误消息。第一种回复之后显示的帮助与 `/<标签> help` 经过同样的发送者类型与权限检查。只输入命令标签、且没有 `format = ""` 映射时显示帮助。这些文字来自框架的语言文件（`lang/en.json` 与 `lang/zh.json`，键为 `未知指令，请使用/%s %s获取帮助` 与 `指令正确用法`）。
+第一种回复中的 `<label>` 是命令标签，`<help>` 是帮助子命令（除非重写了 `getHelpCommand()`，否则为 `help`）；第二种中的 `<format>` 是一个映射的 format。被模块自己的参数解析器拒绝的值，改为得到该解析器给出的红色错误消息（键 `command.reply.argument_error`），消息按解析器写的原样显示，不翻译。被 Minecraft 原生整数参数拒绝的值（例如需要 `int` 时输入 `abc`）仍得到用法回复。第一种回复之后显示的帮助与 `/<标签> help` 经过同样的发送者类型与权限检查。只输入命令标签、且没有 `format = ""` 映射时显示帮助。
+
+不存在的子命令与发送者无权使用的子命令，其未知指令回复由同一段代码生成、以同样方式渲染给同一接收者，因此被隐藏的子命令与不存在的子命令无法区分（见[可见性](#可见性)）。
+
+### 回复语言与消息键 <Badge type="tip" text="v7.0.0+" />
+
+自 v7.0.0 起，命令包发出的每一条回复都经过框架的消息服务（见[消息与语言](/zh/guide/essentials/messages)），不再使用传统 `§` 颜色码，也不再按服务器语言选择。`language: auto` 时，玩家按自己的 Minecraft 客户端语言收到回复；控制台、命令方块和面板反馈使用 `config.yml` 中的 `fallback-language`。代非玩家发送者执行的命令，即使由玩家触发，也使用后备语言。框架的 13 条回复文本是 `ultitools` 命名空间下的 `command.*` 键，随框架发布在 `messages/en.yml` 与 `messages/zh.yml` 中：
+
+| 键 | 英文 | 中文 |
+|---|---|---|
+| `command.reply.unknown` | `Unknown command, please enter /<label> <help> for help` | `未知指令，请使用/<label> <help>获取帮助` |
+| `command.reply.usage` | `Correct Usage: /<label> <format>` | `正确用法: /<label> <format>` |
+| `command.reply.argument_error` | 模块参数解析器的错误信息（红色） | 模块参数解析器的错误信息（红色） |
+| `command.error.op_required` | `You don't have permission to run this command!` | `你没有权限执行这个指令！` |
+| `command.error.no_permission` | `Executing this command requires <permission> permission` | `执行此命令需要 <permission> 权限` |
+| `command.error.player_only` | `This command can only be performed in GAME!` | `只有游戏内可以执行这个指令！` |
+| `command.error.console_only` | `This command can only be performed in CONSOLE!` | `只可以在后台执行这个指令！` |
+| `command.error.sender_locked` | `Please wait for last Command Processing!` | `请先等待上一条命令执行完毕！` |
+| `command.error.server_locked` | `Please wait for last Command Processing which sent by other players!` | `请先等待其他玩家发送的命令执行完毕！` |
+| `command.error.cooldown` | `Frequent operations, please try again in <seconds> seconds` | `操作频繁，请 <seconds> 秒后再试` |
+| `command.error.execution_failed` | `Command execution failed: <error>` | `命令执行出错: <error>` |
+| `command.async.processing` | `Processing...` | `处理中...` |
+| `command.async.timeout` | `Command execution timed out; no longer waiting. The command continues running in the background.` | `命令执行超时，已停止等待，命令仍在后台继续执行` |
+
+服主在 `plugins/UltiTools/messages/<locale>.yml` 中用点分或嵌套键与 MiniMessage 值覆盖这些文本；框架键的覆盖需要重启才生效。参数按字面文本插入，因此用法行里的 `<target>`、`<words...>` 这类片段会原样显示。冷却秒数显示为普通整数（`<seconds:'0'>`）。
+
+::: warning 旧回复文本的形式变了
+v7.0.0 之前，这些回复是带内嵌传统颜色码的英文或中文句子，按服务器语言选择。现在措辞与颜色含义不变，但它们是按接收者语言渲染的组件，覆盖请用上面的消息文件。模块自己的帮助（`handleHelp`）以及模块代码自己发送的文本仍归模块所有。
+:::
+
+### 验证失败 <Badge type="tip" text="v7.0.0+" />
+
+验证器用 `CommandValidator.ValidationResult` 报告失败。除 `String` 工厂 `failure(String)` 与 `failure(String, String)` 外，自 v7.0.0 起还有 `ValidationResult.failure(Text, String)`：第一个参数是延迟渲染、按接收者语言显示的文本（`com.ultikits.ultitools.text.Text`），第二个是诊断用的键。框架自带的验证器用它给出上面列出的拒绝回复。
+
+- `getErrorText()` 返回延迟文本；成功以及用 `String` 构造的失败返回 `null`。
+- `getErrorMessage()` 返回传统字符串；用 `Text` 构造的失败返回 `null`。读取结果的代码必须先检查 `getErrorText()`；`ChainValidationResult.getErrorText()` 与 `getErrorMessage()` 一样读取第一个失败。
+- 你自己验证器的 `String` 失败原样发送：不翻译，也不经过任何语言目录。
+- 模块自己的 `TypeParser` 抛出 `TypeParseException` 时，其消息原样显示、不翻译；框架解析器辅助方法里固定的英文句子同样不翻译。
+
+```java
+return ValidationResult.failure(Text.of(MessageKey.of("my-module", "world.denied")), "world.denied");
+```
 
 控制台或面板输入中连续或行尾的空格，在输入到达兜底时会被规范化。最后一个词是子命令、其后恰好跟一个空格的控制台或面板命令（例如 `ul reload `）可能在框架看到之前就被拒绝；分派前请去掉这类行尾空格。
 
@@ -429,7 +470,7 @@ public void listPoint(@CmdSender Player player) {
 这里的异步只留给纯 CPU 或 I/O 工作。异步方法体里任何对世界、实体、方块或区块的访问，都必须提交给服务器线程上的上下文：像上面示例那样用 `scheduler.entity(player).run(...)`，世界状态则用 `global()` / `region(...)`；注解本身从不授予对这些 API 的安全访问。方法体只做这类状态访问的处理器根本没有理由标注它。
 :::
 
-未标注 `@RunAsync` 的命令方法体在主线程上执行。自 v6.3.0 起，命令在主线程上被分派时，方法体就在分派的当下执行；只有分派来自其他线程时，才通过 `runTask()` 推迟（v6.3.0 之前一律推迟一个 tick，见下方[命令方法体何时执行](#命令方法体何时执行)）。无论哪种时序，都只改变方法体何时开始，不改变它是否会阻塞：整个方法体（包括其中任何耗时的 CPU 或 I/O 工作）依然会在主线程上同步执行。去掉 `@RunAsync` 只对本来就不做耗时工作的方法体是安全的，恢复的是其他命令同样使用的这套调度；如果方法体同时包含耗时工作与 Bukkit 访问，需要做的是把耗时部分留在异步线程，只把触碰 Bukkit 状态的那一段提交给模块 `Scheduler` 的服务器线程上下文（就像上面示例那样），而不是简单去掉注解。Paper 也不会拦截异步方法体里全部对世界、实体、方块或区块的访问：它的异步操作检查只覆盖一部分不安全的操作，因此违反上面这条规则时，方法体可能在不安全或不一致的状态下继续运行，而不是直接崩溃；没有抛出异常并不能证明代码是安全的。对确实应该异步执行、且不需要更多控制的方法体，`@RunAsync` 仍然是正确的选择；如果它还需要处理中提示、超时或可配置的边界行为，就改用 `@AsyncCommand`。
+未标注 `@RunAsync` 的命令方法体在主线程上执行。自 v6.3.0 起，命令在主线程上被分派时，方法体就在分派的当下执行；只有分派来自其他线程时，才交给框架调度器的 `global()` 上下文（v6.3.0 之前一律推迟一个 tick，见下方[命令方法体何时执行](#命令方法体何时执行)）。无论哪种时序，都只改变方法体何时开始，不改变它是否会阻塞：整个方法体（包括其中任何耗时的 CPU 或 I/O 工作）依然会在主线程上同步执行。去掉 `@RunAsync` 只对本来就不做耗时工作的方法体是安全的，恢复的是其他命令同样使用的这套调度；如果方法体同时包含耗时工作与 Bukkit 访问，需要做的是把耗时部分留在异步线程，只把触碰 Bukkit 状态的那一段提交给模块 `Scheduler` 的服务器线程上下文（就像上面示例那样），而不是简单去掉注解。Paper 也不会拦截异步方法体里全部对世界、实体、方块或区块的访问：它的异步操作检查只覆盖一部分不安全的操作，因此违反上面这条规则时，方法体可能在不安全或不一致的状态下继续运行，而不是直接崩溃；没有抛出异常并不能证明代码是安全的。对确实应该异步执行、且不需要更多控制的方法体，`@RunAsync` 仍然是正确的选择；如果它还需要处理中提示、超时或可配置的边界行为，就改用 `@AsyncCommand`。
 
 ### 命令方法体何时执行 <Badge type="tip" text="v6.3.0+" />
 
@@ -461,7 +502,7 @@ icon.onClick(event -> {
 
 参数类型为整数，单位为秒。
 
-冷却结束之前执行该指令将会发送消息：`操作频繁，请 %d 秒后再试`（`%d` 会替换为剩余秒数）。自 v6.3.0 起 `en.json` 含此带参数的键，英文服务器显示 `Frequent operations, please try again in %d seconds`。
+冷却结束之前执行该指令将会发送消息 `command.error.cooldown`：英文 `Frequent operations, please try again in <seconds> seconds`，中文 `操作频繁，请 <seconds> 秒后再试`。自 v7.0.0 起它按玩家自己的客户端语言渲染（见[回复语言与消息键](#回复语言与消息键)），剩余秒数显示为普通整数；v7.0.0 之前文本取决于服务器语言（v6.3.0 起 `en.json` 含带 `%d` 的键）。未走完的一秒向上取整，因此 `@CmdCD(5)` 的命令可能显示 6 秒。
 
 此限制仅对**玩家**生效。
 
@@ -526,7 +567,7 @@ icon.onClick(event -> {
 
 自 v6.3.0 起，`@UsageLimit` 也可以写在执行器类上，或写在声明这些映射的基类上。没有自带 `@UsageLimit` 的映射使用类级注解；方法级注解只管辖它自己的映射。
 
-在 `LimitType.SENDER` 策略下，玩家在上一条该指令执行完毕之前重复执行前将会收到提示：`请先等待上一条命令执行完毕！`
+在 `LimitType.SENDER` 策略下，玩家在上一条该指令执行完毕之前重复执行前将会收到提示（`command.error.sender_locked`）：`请先等待上一条命令执行完毕！`（英文 `Please wait for last Command Processing!`）
 
 自 v6.3.0 起，命令方法体在主线程上于分派时执行，因此持有锁的方法体再分派自身命令时，嵌套的那次分派会以上面的提示被拒绝（`SENDER`：同一发送者；`ALL`：任何发送者）。获取锁从不等待，因此不会阻塞；外层方法体返回时（无论正常返回还是抛出异常）会释放它的锁。如果嵌套调用必须执行，请用模块的 `Scheduler` 调度（例如 `scheduler.entity(player).run(...)`）。同样自 v6.3.0 起，校验时已获取的锁，在分派随后于方法执行前被拒绝时会被释放：被冷却拒绝（冷却在锁之后检查）、参数个数不对、参数无法解析，或者后续验证器的 `shouldValidate` / `validate`、模块的参数解析器抛出异常（该异常随后原样抛出）。v6.3.0 之前，这种情况下锁会一直保留到玩家退出，此后该映射的每一次调用都会被拒绝。
 
@@ -534,7 +575,7 @@ icon.onClick(event -> {
 自 v6.3.0 起，获取即为门槛：锁在验证本身内部被获取，被拦截的发送者在方法执行前就会被拒绝；`ALL` 范围的锁只能由获取它的发送者释放，其他发送者的完成不再能释放它。与上面的 `@CmdCD` 一样，链中缺少 `UsageLockValidator` 的 `@UsageLimit(SENDER|ALL)` 会在加载时拒绝，并指出问题类与方法；`LimitType.NONE` 不受此约束。
 :::
 
-在 `LimitType.ALL` 策略下，玩家在服内上一条该指令执行完毕之前重复执行前将会收到提示：`请先等待其他玩家发送的命令执行完毕！`
+在 `LimitType.ALL` 策略下，玩家在服内上一条该指令执行完毕之前重复执行前将会收到提示（`command.error.server_locked`）：`请先等待其他玩家发送的命令执行完毕！`（英文 `Please wait for last Command Processing which sent by other players!`）。自 v7.0.0 起这两条提示都按接收者的客户端语言渲染。
 
 ## 命令上下文 <Badge type="tip" text="v6.2.0+" />
 
@@ -704,17 +745,52 @@ public void backupWorld(@CmdSender Player player) {
 ```java
 @AsyncCommand(
     showProcessing = true,                      // 显示"处理中..."消息
-    processingMessageKey = "command.backup.processing",  // 自定义 i18n 消息
+    processingMessageKey = "my-module:backup.processing",  // 带命名空间的消息键（v7.0.0 起）
     timeout = 60                                // 60 秒超时（0 = 无超时，不设置时默认 30 秒）
 )
 @CmdMapping(format = "backup")
 public void backupWorld(@CmdSender Player player) {
     // 上述配置的作用：
-    // - 执行时显示 command.backup.processing 对应的文本
-    //   （只有键为空时才使用默认的 处理中... / Processing...）
-    // - 使用自定义 i18n 键而不是默认值
+    // - 执行时显示 my-module:backup.processing 对应的文本
+    //   （键为空或无效时使用默认的 ultitools:command.async.processing）
+    // - 使用模块自己的消息而不是默认值
 }
 ```
+
+### 处理中提示的消息键 <Badge type="tip" text="v7.0.0+" />
+
+自 v7.0.0 起，`processingMessageKey` 是形如 `<namespace>:<path>` 的带命名空间消息键，例如 `my-module:backup.processing`。文本放在模块自己的语言文件里（`messages/en.yml`、`messages/zh.yml`，见[消息与语言](/zh/guide/essentials/messages)），命名空间是模块 `plugin.yml` 中 name 的小写形式，颜色来自该目录；每个玩家按自己的客户端语言看到它。留空使用框架的 `ultitools:command.async.processing`（`处理中...`）。不是合法键的值会按执行器与取值各记录一次警告，并同样使用默认文本：
+
+```text
+Invalid processingMessageKey on <executor class>: <value>; using the default processing message
+```
+
+```yaml
+# 模块 "my-module" 的 src/main/resources/messages/zh.yml
+backup:
+  processing: "<yellow>正在备份世界..."
+```
+
+迁移 6.x 的代码：6.x 的取值是 `i18n(...)` 键（旧示例用 `command.backup.processing`），框架会把文本以黄色发送。把键改成 `<namespace>:<path>`，把文本移到模块的 `messages/<locale>.yml`，颜色用 MiniMessage 写在文本里，`showProcessing` 不变。不含冒号的 6.x 取值在 7.0 下无效，会退回默认文本。
+
+### 调度、超时与卸载 <Badge type="tip" text="v7.0.0+" />
+
+自 v7.0.0 起，命令方法体由框架自己的 `Scheduler` 运行（见[框架自己调度的工作](/zh/guide/advanced/scheduled-tasks#框架调度的工作)），不再用 Bukkit 调度器，命令包中也不再直接使用 Bukkit 调度器：
+
+- **方法体。** `@RunAsync` 或 `@AsyncCommand` 的方法体在框架调度器的 `async()` 上下文中运行一次。它不是实体任务，因此玩家离线不会跳过方法体及其完成钩子（例如释放锁）。异步方法体的失败回复（`command.error.execution_failed`）由运行它的工作线程发送。
+- **超时监视器。** `@AsyncCommand` 的超时是调度在框架调度器上的监视器。`command.async.timeout` 通知对玩家在其 `entity(player)` 上下文中送达，对其他发送者在 `global()` 上下文中送达；只发送一次，方法体先结束时监视器被取消。报告超时只表示停止等待：方法体**不会**被中断，会继续运行至完成。
+- **卸载与停服。** 释放模块资源之前，框架会等待仍在运行的异步命令方法体，且不中断它们；正在卸载的执行器会拒绝新的异步提交。这段等待共用约 10 秒的期限：单个模块卸载时，该模块的各执行器共用一份新的额度；整个服务器停止时，所有执行器共用一份额度，框架自己的命令最先，且早于任何框架服务关闭。只有实际等待的时间才计入。额度用完后，每个仍有方法体在运行的执行器记录一条警告，卸载继续：
+
+```text
+Async command unload wait expired for <executor class>: <n> invocation(s); work continues in the background
+```
+
+- **出现该警告后，方法体不能依赖什么。** 方法体在模块资源被释放之后仍会在后台继续运行：不要再触碰模块的服务、数据、监听器或调度器（已退役的调度器会以 `RejectedExecutionException` 拒绝新的提交），也不要让方法体阻塞等待 `global()` 或 `entity()` 的回调，因为正在卸载的线程在等待期间无法运行该回调。
+- **看门狗。** 在运行中的服务器上，等待发生在服务器线程上，所以等满时会与 Paper 默认的看门狗早期预警（10 秒）同时出现并打印线程转储；这不是崩溃。命令等待与界面存储等待相互独立，因此最坏约 20 秒。详见 `COMPATIBILITY.md` 中的 [Live-unload waits](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md#live-unload-waits-and-paper-watchdog-warnings)。
+
+::: warning 已知限制
+`@CmdCD(5)` 的命令可能显示 6 秒冷却，因为未走完的一秒向上取整。卸载等待之后仍在运行的异步方法体不会被中断；它在模块资源消失之后自行结束，因此请让耗时较长的方法体在模块不再启用时自行停止。
+:::
 
 ## 自定义类型解析器 <Badge type="tip" text="v6.2.0+" />
 
