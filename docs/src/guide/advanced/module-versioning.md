@@ -168,6 +168,8 @@ Before upgrading the framework, let each pending `/upm update` complete one conf
 
 As of v7.0.0, install, update and uninstall requests take effect at the next restart. If your procedure relied on an immediate uninstall, queue the request and restart the server. You can [review and undo requests](#updating-and-uninstalling-on-a-server) before restarting.
 
+As of v7.0.0, modules that add custom enchantments, change tags or bundle data packs can [declare them in a bootstrap hook](/guide/advanced/startup-phases#bootstrap-content), not in `registerSelf()`. Removing these modules can affect saved worlds; back up your world before removing one.
+
 ### Native item and sound APIs in 7.0
 
 ::: warning Unreleased v7.0.0 migration
@@ -561,6 +563,8 @@ As of v7.0.0, operators (OPs) and the server console can run these commands. The
 | `/upm uninstall <module>` | Queue the identified JARs for deletion and list their names in the reply. |
 | `/upm pending` | List changes, download status and the results of applying changes at this start. |
 | `/upm revoke <module>` | Undo an unapplied change for that module or cancel an in-progress download. |
+
+As of v7.0.0, when uninstalling a module that added custom content, before the queued removal takes effect, the `/upm uninstall` reply and `/upm pending` both warn by content kind: custom enchantments are permanently lost from items when their chunks are loaded and saved, and items another plugin stored as raw bytes cannot be read while the enchantment is missing; a bundled data pack’s recipes and advancements disappear; and added item categories stop working.
 
 The pending list shows at most one entry per module. A successfully staged different version replaces a pending install or update; requesting the same pending version changes nothing. Requesting an install of the running version cancels its pending update or uninstall, or changes nothing if neither is pending.
 

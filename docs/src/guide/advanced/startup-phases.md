@@ -43,13 +43,16 @@ public final class MyModuleBootstrap implements ModuleBootstrap {
 }
 ```
 
-`ModuleBootstrap` is marked `@ApiStatus.Experimental`. The hook is called once per start, on the server start-up thread, and only for an admitted module: a JAR that fails security validation or is refused for its `api-version` is never called. The `ModuleBootstrapContext` it receives offers three things:
+`ModuleBootstrap` is marked `@ApiStatus.Experimental`. The hook is called once per start, on the server start-up thread, and only for an admitted module: a JAR that fails security validation or is refused for its `api-version` is never called. The `ModuleBootstrapContext` it receives offers the following methods (including the three content channels added as of v7.0.0):
 
 | Method | Returns |
 |---|---|
 | `moduleName()` | The module's `plugin.yml` `name:`, or its JAR file name if no name is declared |
 | `moduleJar()` | The absolute, normalized path of the module's JAR |
 | `logger()` | A `java.util.logging.Logger` whose output goes to Paper's bootstrap logger, prefixed with `[UltiTools/<module name>]` |
+| `enchantments()` | `EnchantmentChannel`, for declaring custom enchantments |
+| `tags()` | `TagChannel`, for adding to or replacing tags |
+| `datapacks()` | `DatapackChannel`, for declaring bundled data packs |
 
 `ModuleBootstrapContext` is implemented by the framework; modules must not implement it.
 
@@ -76,6 +79,52 @@ Later, during enable, one line in the language configured for UltiTools, for exa
 and in Chinese `[UltiTools-API] 模块 'MyModule-1.0.0.jar' 在本次启动的引导阶段失败，未加载；原因见前面的引导错误。`. Bootstrap-phase lines are English only, because the language files are not loaded yet. A module that lists the failed module under `depends` is then refused by the usual rules in [Module Load Ordering](/guide/advanced/module-dependencies).
 
 The failure lasts only for this start. The next start calls the hook again.
+
+## Declaring custom content {#bootstrap-content}
+
+As of v7.0.0, use the three content channels inside `ModuleBootstrap#bootstrap(ModuleBootstrapContext)` in the class named by your module's `bootstrapper:`. They let you add new custom enchantments, change tags, and declare data packs bundled in your module JAR. The tag channel only supports `RegistryKey.ITEM` and `RegistryKey.ENCHANTMENT`. The framework does not expose other registries for direct writes or let you replace existing enchantments through the enchantment channel.
+
+Use the namespace derived from your module name by `MessageKey.namespaceFor(...)` for new enchantment keys and for tags you create or replace with `setTag`. `addToTag` can extend a tag in another namespace. Paper runs the `EnchantmentDefinition` callback later, when it builds the enchantment registry. On a native data reload (`/minecraft:reload`), the framework replays tag declarations and data pack discovery without calling the module hook or the enchantment definition again.
+
+This example uses the `MyModule` descriptor above. Bundle `datapacks/frost/pack.mcmeta` and the pack resources in the module JAR. Pack names match `[a-z0-9_-]{1,32}`; shipping the directory alone does not activate it. Once discovered, the pack appears as `UltiTools/mymodule.frost` in `datapack list`.
+
+```java
+public final class MyModuleBootstrap implements ModuleBootstrap {
+    @Override
+    public void bootstrap(ModuleBootstrapContext context) {
+        Key edge = Key.key("mymodule:frost_edge");
+        Key sword = Key.key("minecraft:diamond_sword");
+        context.enchantments().register(edge, (builder, tags) -> builder
+                .description(Component.text("Frost Edge"))
+                .supportedItems(RegistrySet.keySet(RegistryKey.ITEM, RegistryKey.ITEM.typedKey(sword)))
+                .weight(5).maxLevel(3)
+                .minimumCost(EnchantmentRegistryEntry.EnchantmentCost.of(1, 10))
+                .maximumCost(EnchantmentRegistryEntry.EnchantmentCost.of(21, 10))
+                .anvilCost(2).activeSlots(EquipmentSlotGroup.MAINHAND));
+        context.tags().addToTag(RegistryKey.ENCHANTMENT, Key.key("minecraft:in_enchanting_table"), List.of(edge));
+        context.tags().setTag(RegistryKey.ITEM, Key.key("mymodule:frost_weapons"), List.of(sword));
+        context.datapacks().embedded("frost");
+    }
+}
+```
+
+As of v7.0.0, a declared pack may not contain `data/<namespace>/worldgen/`, `data/<namespace>/dimension/` or `data/<namespace>/dimension_type/`, including inside pack overlays. If it does, UltiTools refuses to load the whole module, even if its hook catches the declaration exception. The enable log says the module was not loaded because the named data pack contains world-generation content, and gives the offending directory.
+
+### When a content declaration fails
+
+As of v7.0.0, if `bootstrap()` throws, the framework discards all of that hook's channel declarations: none are written to the game. The channels close when the hook exits, so do not keep them for `registerSelf()` or reload. This guarantee does not extend to writes already made by Paper: if, for example, an invalid enchantment definition fails during start-up, the framework stops applying further declarations for that module and refuses to load it. Entries already written or packs already discovered can remain until the next restart. Unrelated modules continue; the usual rules still apply to modules that require the failed one.
+
+### Start-up log and content record
+
+As of v7.0.0, bootstrap logs an English declaration count for each contributing module, for example `[UltiTools] Module 'MyModule-1.0.0.jar' declared custom content: 1 enchantment(s), 2 tag change(s), 1 data pack(s).` During enable, the server log shows a count in the server's configured language for each contributing module that did not fail during bootstrap. With `language: en`, the default message for the example is:
+
+```text
+Module 'MyModule' added custom content at this start: 1 enchantment(s), 2 tag change(s), 1 data pack(s).
+```
+
+The framework-owned record at `plugins/UltiTools/bootstrap/contributions.json` tracks each module's declarations by content kind, not what Paper actually accepted. After a contributing module's JAR is removed, the next start logs the removal once, with a separate consequence for each affected kind. A module that stops declaring some entries also gets a warning about the missing entries. A JAR still present but refused for its `api-version` does not count as removed.
+
+If the record cannot be read, the framework tries to set it aside as `contributions.json.unreadable-*` and rebuilds from declarations on this and subsequent starts. Removal warnings may be incomplete until every module has started successfully at least once; a module already removed before its record could be rebuilt cannot be recovered from current declarations. Do not edit the record or the generated ZIPs in `plugins/UltiTools/bootstrap/datapacks/`. See [Commands and pending changes](/guide/advanced/module-versioning#commands-and-pending-changes) before removing a module.
 
 ## Other plugins' classes
 
@@ -112,3 +161,7 @@ The first start therefore needs network access to Maven Central; later starts re
 - Disabling and re-enabling UltiTools without a full restart is unsupported, as are server `/reload` and plugin-manager hot reload. The module class loader is closed when the framework disables and is not rebuilt by a re-enable. `/ul reload` still reloads configuration only.
 - A module whose hook failed is not enabled, but its JAR stays on the shared module class path. Other modules that use its classes can still be affected, especially by a failed static initializer.
 - As of v7.0.0, pending installs and updates are applied in bootstrap but confirmed only after modules load during enable. If start-up is interrupted before confirmation, the next start removes the unconfirmed install or restores the previous JAR for an unconfirmed update. Let start-up finish before stopping the server. See [application and recovery at start-up](/guide/advanced/module-versioning#application-and-recovery-at-start-up).
+- As of v7.0.0, a module whose bootstrap succeeds but whose enable fails still contributes on every start while its JAR remains installed and its bootstrap succeeds; remove the JAR and restart to stop it.
+- As of v7.0.0, a module whose tag references another module's enchantment also fails to load if that enchantment fails to register at start-up.
+- As of v7.0.0, if a failed module start causes its generated data pack ZIP to be cleaned up, a previous `datapack disable` is reset; Paper enables the pack when it reappears.
+- As of v7.0.0, the content channels depend on experimental Paper APIs and may change in a later 7.x release when Paper changes them.
