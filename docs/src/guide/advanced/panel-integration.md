@@ -343,9 +343,7 @@ As of v6.3.0 the verdict records the policy decision, not the outcome of the ope
 When the `logs` capability is on, the framework attaches its log handler each time the panel
 connection opens, and sends console log records to the panel for as long as the connection stays up.
 As of v6.3.0 the stream is a full mirror of the server console; see [The stream mirrors the server console](#the-stream-mirrors-the-server-console).
-As of v6.3.0, the lines the framework itself writes or streams here (player join and quit, plugin
-actions, the online-player count, server status and file operation messages) follow the `language` key
-of the main plugin config; see [Internationalization](/guide/essentials/i18n). Before v6.3.0 they were always Chinese.
+As of v7.0.0, framework log text is forwarded to the panel without being translated again. Framework logs rendered from message catalogues, such as module reload completion messages, use the server's fallback language (`fallback-language` when explicitly set). Fixed English diagnostics remain in English. See [Language selection](/guide/essentials/messages#language-selection).
 
 As of v6.3.0, a `log_stream` or `log_stream_control` request whose action is `start`, `stop`,
 `pause` or `resume` receives an error response stating that the action is not supported, and

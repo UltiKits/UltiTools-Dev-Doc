@@ -3,7 +3,7 @@
 自 v7.0.0 起，框架在 `com.ultikits.ultitools.text` 包中提供一套文本引擎。消息是用 MiniMessage 编写的 Adventure 组件，每个玩家看到的是自己 Minecraft 客户端语言的版本，文本来自使用点分键的 YAML 语言文件。服主在覆盖文件里修改文本；玩家的语言没有译文时，以及控制台输出，使用后备语言。
 
 ::: warning 未发布的 v7.0.0 行为
-本页描述尚未发布的 7.0.0 框架。6.x 框架只有 [I18n 多语言](/zh/guide/essentials/i18n) 中描述的 `i18n(...)` 路径。
+本页描述尚未发布的 7.0.0 框架。
 :::
 
 ## 语言文件
@@ -139,7 +139,7 @@ fallback-language: "auto"
 
 后备语言在启动时和每次成功的完整 `/ul reload` 时解析，并记录所选语言及原因，例如 `Fallback language: <language> (system time zone <zone>; set fallback-language in config.yml to override)`。无效的值会记录为 `Invalid language locale: <value>` 或 `Invalid fallback-language locale: <value>`。
 
-自 v7.0.0 起，当 `fallback-language` 设置为与 `language` 不同的具体语言时，已迁移的框架日志和完整 `/ul reload` 的汇总使用 `fallback-language`。即使命令由玩家执行，完整重载的汇总也使用服务器的后备语言。
+自 v7.0.0 起，通过消息目录生成的框架日志（例如模块重载完成的日志）使用服务器后备语言。即使命令由玩家执行，完整 `/ul reload` 的汇总也使用后备语言。部分诊断（例如缺少配置注释键的警告）是固定英文。
 
 云主机和容器常用 UTC，因此在那里新装默认使用英文，与 6.x 出厂的中文默认不同。中文客户端在语言文件有中文译文的地方仍看到中文。想要中文，写 `fallback-language: zh` 并执行完整的 `/ul reload`。
 
@@ -184,16 +184,38 @@ fallback-language: "auto"
 自 v7.0.0 起，完整的 `/ul reload` 也会从磁盘上的框架 JAR 重读内置消息目录。运行中替换 JAR，或在 JAR 尚未拷贝完整时重载，都可能导致框架消息在重启前异常。
 :::
 
-## 旧的 `i18n(...)` 路径
+## 配置注释、命令描述与补全提示 {#module-annotation-text}
 
-在调用方迁移期间，6.x 的语言系统在 7.0 中仍然存在。`i18n(...)`、`getLanguageCode()`、`getConfiguredLanguage()` 以及 `lang/` 中的文件按 [I18n 多语言](/zh/guide/essentials/i18n) 所述工作，旧路径仍会读取自定义语言文件。移除它是之后单独的改动。自 v7.0.0 起，在旧路径移除之前，如果旧路径使用的语言与后备语言不同，控制台可能同时出现两种语言的日志。
+::: info 注解文本（自 v7.0.0 起）
+配置注释、模块命令描述和补全提示按服务器后备语言解析，不随玩家语言变化。
+:::
 
-`language` 为 `auto`、空白或缺失时，`getConfiguredLanguage()` 返回解析出的后备语言的基础语言，旧路径加载该语言。具体名称（包括自定义名称）原样返回。
+`@ConfigEntry(comment = "{path}")` 中的令牌、`@CmdExecutor(description = …)`、没有匹配补全方法时的 `@CmdParam(suggest = …)`，都可以引用模块 `messages/` 内的键。路径最多 128 个字符，只允许小写字母、数字、下划线或连字符组成的片段，用点号分隔。单个小写词也可能匹配顶层键；如果想保留描述或提示原文，请写成完整句子。
 
-新的语言文件不读取 6.x 文件。6.x 的语言文件、句子键、自定义语言名称和服主的修改都不会转换。请用点分键和 MiniMessage 值重新编写所需文本。模块迁移见[模块版本](/zh/guide/advanced/module-versioning#modules-6x-to-7)。
+框架先查服务器后备语言及其基础语言，再查模块源语言及其基础语言，两者都可使用服主覆盖。命中的 MiniMessage 文本转为纯文本。路径无效或没有可用译文时，注释保留原令牌，每次加载对该字段最多告警一次；描述和提示保留原文。
+
+把 6.x 配置注释的译文从 `lang/` 移到 `messages/<locale>.yml` 时，如果改了措辞，请把旧文字原样列入 `@ConfigEntry(previousComments = …)`。框架才能识别并替换 `config.yml` 中自己写入的旧注释。无法识别的注释（包括只与 6.x 自定义 `lang/` 文件匹配的注释）原样保留为服主内容。
+
+例如，若 6.x 的中文注释是「锁等待超时」，修改译文时应把这段旧文字保留在注解里：
+
+```java
+@ConfigEntry(comment = "{config.lock.timeout}", previousComments = {"锁等待超时"})
+private int lockTimeout = 30;
+```
+
+```yaml
+# messages/zh.yml
+config.lock.timeout: "等待获取锁的最长时间"
+```
+
+成功执行完整 `/ul reload` 后，补全提示使用新的后备语言，框架能识别为自己写入的配置注释也会刷新。命令描述只在注册时解析，改动后需重启才能更新。
+
+## 旧文本体系
+
+自 v7.0.0 起，6.x 的旧语言体系已移除。旧 API 和文本的替代写法见[旧文本体系迁移](/zh/guide/essentials/i18n)。
 
 ## 已知限制
 
 - 时区规则使用时区 ID 而不是 UTC 偏移，并且只在启动和完整 `/ul reload` 时解析。
-- 6.x 的语言文件和自定义名称不会转换为新的语言文件。
+- 不会自动导入旧语言文件或服主改过的译文；请按[旧文本体系迁移](/zh/guide/essentials/i18n)手动迁移。
 - 没有 `language` 键的配置按 `auto` 处理，而不是 6.x 的默认值 `zh`。

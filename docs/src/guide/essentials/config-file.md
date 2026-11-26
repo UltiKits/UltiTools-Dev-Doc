@@ -72,14 +72,26 @@ As of v6.3.0, a setting the operator writes as a flat dotted key is that setting
 
 As of v6.3.2, a successfully parsed and validated initialization reports one nonfatal WARNING per minimal key subtree without an `@ConfigEntry` declaration. It names the module, relative file and safely displayed key, never a value, and does not change the file. Inherited declarations and nested, flat or mixed dotted setting paths count; a declared map, list, array or converter-owned value owns its entire subtree. Normal reloads and saves do not repeat this diagnostic, but a new initialization does. An undeclared key may still be used by a manual reader: the warning does not mean it is unused or safe to delete.
 
-A literal `comment` is written when its key is inserted. A comment that is exactly one trimmed language token, such as `comment = "{config.limit}"`, is resolved through the module catalogue in the current framework `language`. As of v6.3.0 the framework rewrites only the comment lines it can identify as its own: the entry's comment, or its trailing run of lines, equal byte for byte (the entry's column, `# ` and the text) to its rendering of the token in a catalogue the module's jar ships, of the text the module resolves now, of the bare token, or of an older shipped text listed in `previousComments`. An operator's note above the entry, a framework comment the operator edited and every literal comment are kept byte for byte. Start-up and `/ul reload` refresh the framework's lines in the current language; a save, an operator change and a panel edit rewrite no comment. Missing catalogue keys retain the token and warn once; line breaks/control characters are sanitized before YAML comments are created.
+::: info Configuration comment tokens as of v7.0.0
+A comment such as `{config.lock.timeout}` is resolved through the module's `messages/` catalogue using the server fallback language.
+:::
 
-When a module changes the catalogue wording of a token comment, servers that upgraded still hold the old text. List that text so it keeps following the language:
+A literal `comment` is written when its key is inserted. A comment that is exactly one token after trimming is rendered as plain text under the [annotation text rules](/guide/essentials/messages#module-annotation-text). If it cannot be resolved, the token stays and the framework warns at most once per field per load. Line breaks and control characters are sanitized before writing YAML comments.
+
+Startup and `/ul reload` refresh only framework-owned comments. The comment or its trailing lines must match, byte for byte, a shipped rendering, the current rendering, the bare token or a text listed in `previousComments`. Operator notes, framework comments an operator edited and literal comments are preserved. Saves, operator writes and panel edits do not rewrite comments.
+
+When changing a translation, list older shipped text already on disk in `previousComments`:
 
 ```java
 @ConfigEntry(path = "lock.timeout", comment = "{config.lock.timeout}",
         previousComments = {"Lock timeout in seconds"})
 private int lockTimeout = 30;
+```
+
+Define the key in the module’s `src/main/resources/messages/en.yml`:
+
+```yaml
+config.lock.timeout: "Maximum time to wait for the lock"
 ```
 
 The legacy `parser` attribute and its parser classes were removed in v6.4.0. Fields use the declared-type converter registry; for a custom type, register a `ConfigConverter` as described in [Config Converters](/guide/advanced/config-converters).
@@ -178,8 +190,6 @@ Nothing else is written: no save at stop, unload or replacement, no repair of an
 Every write goes through one write gate. A write declares the keys it owns; after rendering, every byte outside them must equal the file as read, and the file must still hold the bytes it was read from. Otherwise nothing is written: one WARNING names the file, the keys and the reason, never a value, and the values in memory are used.
 
 For an explicit write, an `IOException` always means the file kept its bytes. A refusal is a `ConfigWriteRefusedException`. A failure to publish the file is a plain `IOException`; as of v6.3.0 the framework puts the file back before throwing it (see [Atomic replacement](#atomic-replacement)). A module that rolls its in-memory change back on the `IOException` therefore stays in step with the file.
-
-Official language files are the one exception. They are framework-owned and may be replaced on upgrade; to customise text, copy an official file under a new name, edit the copy and select it in the main configuration (see [Internationalization](/guide/essentials/i18n)).
 
 ::: tip 7.0 message catalogues
 As of v7.0.0, texts in the new `messages/<locale>.yml` catalogues are not customised by copying a file. Operators put only the changed keys into an override file; see [Operator overrides](/guide/essentials/messages#operator-overrides).
@@ -348,9 +358,9 @@ SomePlugin.getConfigManager().reloadConfigs(SomePlugin.getInstance());
 
 As of v6.3.0, reload performs a three-way comparison of the last effective baseline, live fields and incoming file. Memory-only edits survive and stay dirty; disk-only edits are adopted; conflicts take disk with a located, redacted warning. Maps merge recursively by whole keys and lists/scalars are atomic. A whole field the operator deleted from the file binds its declared default, with one warning naming the key, unless the module changed it since the last load or save; the file is not written either way. A failed reload of one configuration entity is all-or-nothing: if it fails, for example because validation rejects a value, memory is exactly as it was before the call and the exception is rethrown. A rejected value therefore cannot stay in a field and be kept by the next reload as an unsaved edit over the corrected file; fix the file and reload again. The same applies to a file that cannot be read or parsed: the reload throws `ConfigurationException` naming the file, and a module that calls `reload()` itself and catches only `IOException` should also catch `ConfigurationException` to report it. Memory-only map order is preserved when that disk map is unchanged; reload does not write it. This is not a concurrent map-insertion ordering policy.
 
-As documented for v6.3.2, a module reload is not a transaction across all its configuration files. The first failing file stops the remaining steps: earlier files retain their reloaded values, while the failed file keeps its running values. Language rebuilding, new-language token-comment refresh and the module reload hook are not reached, so earlier files can retain old-language framework comments. Correct the failing file and finish a successful reload; use a full `/ul reload` to apply a changed server-wide language.
+As documented for v6.3.2, a module reload is not a transaction across all its configuration files. The first failing file stops the remaining steps: earlier files retain their reloaded values, while the failed file keeps its running values. Module message override loading, token-comment refresh and the module reload hook are not reached, so earlier files can retain old-language framework comments. Correct the failing file and finish a successful reload; use a full `/ul reload` to apply a changed server-wide language.
 
-After the module's language is rebuilt by `/ul reload`, and before its own reload hook, the framework rewrites the comment lines it identifies as its own in the new language, through the write gate over a fresh read of each file. No value, key or other comment line is written.
+As of v7.0.0, a module reload rereads its message catalogue overrides, then refreshes framework-owned token comments using the current server fallback language before calling the module's reload hook. The refresh rereads each file before writing and changes no values, keys or other comment lines.
 
 As of v6.3.0 no configuration of an older module copy is saved when a newer copy replaces it. The newer copy reads the files as they are; once it is active, one warning names the old copy's dropped file and keys. Unload releases its registry owners and writes nothing.
 

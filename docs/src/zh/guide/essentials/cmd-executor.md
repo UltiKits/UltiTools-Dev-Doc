@@ -208,7 +208,7 @@ public void tp(@CmdSender Player player, @CmdParam(value = "target", suggest = "
 
 ::: tip suggest 可以直接填写固定字符串
 
-如果你仅仅只是想返回一个简单的提示字符串，那么你只需要在 `suggest` 字段中写上你想要的字符串即可。这里的字符串也支持i18n国际化。
+自 v7.0.0 起，如果没有与 `suggest` 匹配的补全方法，框架会在模块的消息目录中查找小写点分路径。键不存在或写法不符合规则时，直接显示原文。路径规则（包括单段键）见[配置注释、命令描述与补全提示](/zh/guide/essentials/messages#module-annotation-text)。
 
 ```java
 @CmdMapping(format = "add <name>")
@@ -771,7 +771,10 @@ backup:
   processing: "<yellow>正在备份世界..."
 ```
 
-迁移 6.x 的代码：6.x 的取值是 `i18n(...)` 键（旧示例用 `command.backup.processing`），框架会把文本以黄色发送。把键改成 `<namespace>:<path>`，把文本移到模块的 `messages/<locale>.yml`，颜色用 MiniMessage 写在文本里，`showProcessing` 不变。不含冒号的 6.x 取值在 7.0 下无效，会退回默认文本。
+::: info 处理中提示迁移（自 v7.0.0 起）
+将旧的处理中提示改为 `<namespace>:<path>`，在模块的 `messages/<locale>.yml` 中定义文本和 MiniMessage 颜色；`showProcessing` 不变。
+没有命名空间的旧键会退回默认文本。
+:::
 
 ### 调度、超时与卸载 <Badge type="tip" text="v7.0.0+" />
 
