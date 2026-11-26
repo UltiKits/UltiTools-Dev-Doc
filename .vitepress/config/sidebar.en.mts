@@ -193,6 +193,10 @@ const sidebarGuideEN: SidebarItemExt[] = [
             {
                 text: 'Module Versioning',
                 link: 'advanced/module-versioning'
+            },
+            {
+                text: 'Upgrading from 6.x to 7.0',
+                link: 'advanced/upgrading-to-7'
             }
         ]
     },
@@ -260,6 +264,10 @@ const sidebarGuideEN: SidebarItemExt[] = [
         base: '/guide/',
         text: 'Release Notes',
         items: [
+            {
+                text: '7.0.0 (Unreleased)',
+                link: 'release-notes/7.0.0'
+            },
             {
                 text: '6.5.0',
                 link: 'release-notes/6.5.0'
