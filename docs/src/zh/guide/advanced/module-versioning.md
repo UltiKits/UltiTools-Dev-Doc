@@ -374,7 +374,7 @@ notifications.sendBossBarNotification(player, Text.of(messages.key("arena.closin
 - **旧文本 API。** 用 `Messages` 替换 `i18n(...)`。若确实需要服务器后备语言，注入 `LocaleResolver` 并调用 `fallback()`，不再调用 `getLanguageCode()` 或 `getConfiguredLanguage()`。
 - **语言声明。** 删除 `supported()` 覆盖和旧语言声明，随模块打包支持的语言文件。
 
-完整的旧 API 对照见[旧文本体系迁移](/zh/guide/essentials/i18n)。
+逐项核对代码中是否还有[已删除的旧文本类型和入口](/zh/guide/essentials/i18n#removed-text-apis)。[迁移对照表](/zh/guide/essentials/i18n)还说明了配置注释和语言文件的迁移方式。
 
 ### 描述符变更
 

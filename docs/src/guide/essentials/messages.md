@@ -139,7 +139,7 @@ fallback-language: "auto"
 
 The fallback is resolved at startup and on a successful full `/ul reload`, which logs the selected language and the reason, for example `Fallback language: <language> (system time zone <zone>; set fallback-language in config.yml to override)`. An invalid value is logged as `Invalid language locale: <value>` or `Invalid fallback-language locale: <value>`.
 
-As of v7.0.0, framework logs and the full `/ul reload` summary use `fallback-language` when it is set to a different locale from `language`. The full reload summary uses the server's fallback language even when a player runs the command.
+As of v7.0.0, catalogue-backed framework logs, such as the message that a module finished reloading, use the server's fallback language. The full `/ul reload` summary uses that language even when a player runs the command. Some diagnostics, such as the warning for a missing configuration comment key, are fixed English text.
 
 Cloud hosts and containers commonly use UTC, so a new installation there uses English, unlike the Chinese default that 6.x shipped. Chinese clients still see Chinese wherever the catalogue has it. To choose Chinese, set `fallback-language: zh` and run a full `/ul reload`.
 
@@ -193,6 +193,20 @@ Configuration comments, module command descriptions and completion hints use the
 The token in `@ConfigEntry(comment = "{path}")`, `@CmdExecutor(description = …)`, and `@CmdParam(suggest = …)` when no completion method matches can reference a key in the module's `messages/` catalogue. Paths are at most 128 characters long and consist of segments of lowercase letters, digits, underscores or hyphens, separated by dots. A single lowercase word can also match a top-level key; use a full sentence for a literal description or hint.
 
 The lookup tries the server fallback locale and its base language, then the module's source locale and its base language, including operator overrides. A matching MiniMessage value is rendered as plain text. If the path is invalid or no translation is available, a comment keeps the original token and warns at most once per field per load; descriptions and hints keep the original text.
+
+When moving 6.x configuration comment translations from `lang/` to `messages/<locale>.yml`, list the exact old wording in `@ConfigEntry(previousComments = …)` if you change it. This lets the framework recognize the existing `config.yml` comment as its own and replace it. Unrecognized comments, including those that only match a custom 6.x `lang/` file, are preserved as operator content.
+
+For example, if the 6.x English comment was `Lock timeout`, keep it in the annotation when you change the translation:
+
+```java
+@ConfigEntry(comment = "{config.lock.timeout}", previousComments = {"Lock timeout"})
+private int lockTimeout = 30;
+```
+
+```yaml
+# messages/en.yml
+config.lock.timeout: "How long to wait for the lock"
+```
 
 After a successful full `/ul reload`, hints use the new fallback language and configuration comments still recognized as framework-owned are refreshed. Command descriptions are resolved only when the command is registered, so restart to refresh them after a change.
 

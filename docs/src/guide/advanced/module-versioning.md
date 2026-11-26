@@ -374,7 +374,7 @@ The legacy text system is removed. Migrate before upgrading.
 - **Legacy text APIs.** Replace `i18n(...)` with `Messages`. If you need the server fallback language, inject `LocaleResolver` and call `fallback()` instead of using `getLanguageCode()` or `getConfiguredLanguage()`.
 - **Language declarations.** Remove `supported()` overrides and old language declarations. Ship the supported locales with the module instead.
 
-For the full list of replacements, see [Legacy Text Migration](/guide/essentials/i18n).
+Check your code against the [complete list of removed legacy text types and entry points](/guide/essentials/i18n#removed-text-apis). The [migration table](/guide/essentials/i18n) also covers configuration comments and language files.
 
 ### Changed descriptors
 

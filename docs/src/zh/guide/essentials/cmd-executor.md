@@ -208,7 +208,7 @@ public void tp(@CmdSender Player player, @CmdParam(value = "target", suggest = "
 
 ::: tip suggest 可以直接填写固定字符串
 
-如果你仅仅只是想返回一个简单的提示字符串，那么你只需要在 `suggest` 字段中写上你想要的字符串即可。这里的字符串也支持i18n国际化。
+自 v7.0.0 起，如果没有与 `suggest` 匹配的补全方法，框架会在模块的消息目录中查找小写点分路径。键不存在或写法不符合规则时，直接显示原文。路径规则（包括单段键）见[配置注释、命令描述与补全提示](/zh/guide/essentials/messages#module-annotation-text)。
 
 ```java
 @CmdMapping(format = "add <name>")

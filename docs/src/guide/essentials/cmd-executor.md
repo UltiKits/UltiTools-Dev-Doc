@@ -222,8 +222,7 @@ Four built-in keys are available: `@players` (online players), `@worlds` (loaded
 
 ::: tip A fixed string can be given in suggest
 
-If you just want to return a simple prompt string, then you only need to write the string you want in the `suggest`
-field. The string here also supports internationalization.
+As of v7.0.0, if no completion method matches `suggest`, the framework looks up a lowercase dotted path in the module's message catalogue. A missing key or any other spelling is shown as written. See [Module annotation text](/guide/essentials/messages#module-annotation-text) for the path rules, including single-segment keys.
 
 ```java
 @CmdMapping(format = "add <name>")

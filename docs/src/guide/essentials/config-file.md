@@ -360,7 +360,7 @@ As of v6.3.0, reload performs a three-way comparison of the last effective basel
 
 As documented for v6.3.2, a module reload is not a transaction across all its configuration files. The first failing file stops the remaining steps: earlier files retain their reloaded values, while the failed file keeps its running values. Module message override loading, token-comment refresh and the module reload hook are not reached, so earlier files can retain old-language framework comments. Correct the failing file and finish a successful reload; use a full `/ul reload` to apply a changed server-wide language.
 
-After the module's language is rebuilt by `/ul reload`, and before its own reload hook, the framework rewrites the comment lines it identifies as its own in the new language, through the write gate over a fresh read of each file. No value, key or other comment line is written.
+As of v7.0.0, a module reload rereads its message catalogue overrides, then refreshes framework-owned token comments using the current server fallback language before calling the module's reload hook. The refresh rereads each file before writing and changes no values, keys or other comment lines.
 
 As of v6.3.0 no configuration of an older module copy is saved when a newer copy replaces it. The newer copy reads the files as they are; once it is active, one warning names the old copy's dropped file and keys. Unload releases its registry owners and writes nothing.
 
