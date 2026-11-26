@@ -2,7 +2,7 @@
 
 `@ultikits/cli` is the official command-line tool for publishing UltiTools plugin modules to the [UltiCloud](https://panel.ultikits.com/) marketplace. Developers can use it to authenticate, initialize project metadata, upload JAR files, and manage published modules and versions.
 
-This page describes `@ultikits/cli` 2.0.1. Versions 1.x do not work with UltiCloud; upgrade with `npm install -g @ultikits/cli@latest` and run `ultikits login` again.
+Except for the preview scaffold described below, this page covers `@ultikits/cli` 2.0.1. Versions 1.x do not work with UltiCloud; upgrade with `npm install -g @ultikits/cli@latest` and run `ultikits login` again.
 
 ::: tip Recommended: local publishing
 Official UltiTools modules are published locally by their maintainers: the accepted JAR is attached to a GitHub release and that same file is published to UltiCloud with the CLI. Third-party developers can use the same path.
@@ -70,61 +70,92 @@ ultikits logout     # Remove stored credentials
 
 ## Scaffolding a New Module
 
-The fastest way to start a new UltiTools module is with `ultikits create`:
+`ultikits create` scaffolds an UltiTools module for UltiTools-API 7.0.0 or later. The template targets Paper 26.3 and Java 25. This command does not generate modules for 6.x.
+
+::: warning Preview scaffold (as of v7.0.0)
+UltiTools-API 7.0.0 and the CLI update that generates this scaffold have not been released. The API version defaults to `7.0.0-SNAPSHOT`.
+:::
 
 ```bash
 ultikits create
 ```
 
-The command prompts you for:
+The project directory defaults to the module name. To specify another name, use `ultikits create my-plugin-dir`.
 
-| Prompt | Default | Description |
-|--------|---------|-------------|
-| Module name | — | PascalCase name (e.g., `UltiHome`, `MyPlugin`) |
-| Package name | Derived from name | Java package (e.g., `com.ultikits.plugins.home`) |
-| Description | — | Short description of the module |
-| Author | `git config user.name` | Your name |
-| API version | `6.2.2` | UltiTools-API version. This default lags the current release; use the latest version instead. |
+### Interactive Prompts
 
-CLI 2.0.1 generates this project structure (the template is unchanged since 1.2.0):
+| Prompt | Default | Accepted input |
+|--------|---------|----------------|
+| `Module name (e.g., UltiHome):` | None | Two or more ASCII letters or digits, starting with an uppercase letter. `UltiToolsPlugin` and `UltiToolsModule` are not allowed. |
+| `Java package name:` | Derived from the module name, e.g. `com.ultikits.plugins.home` for `UltiHome` | Dot-separated lowercase Java identifiers. Each segment must start with `a`–`z` or `_`, followed by zero or more lowercase letters, digits or underscores. Reserved words are not allowed. |
+| `Short description:` | None | A short description. It must not be blank after trimming. |
+| `Author:` | `git config user.name`, if available | An author name. It must not be blank after trimming. |
+| `UltiTools-API version:` | `7.0.0-SNAPSHOT` | Three numeric parts (`X.Y.Z`), optionally followed by one or more hyphen-separated ASCII alphanumeric suffixes, e.g. `7.0.0-SNAPSHOT`. The derived API level must fit in a signed 32-bit integer. Versions below `7.0.0` are rejected and the prompt is shown again. |
 
-```
+### Generated Project
+
+For `UltiHome` with the default Java package, the command writes these files:
+
+```text
 UltiHome/
-├── pom.xml                          # Maven build with UltiTools-API, test deps, JaCoCo
-├── README.md                        # Bilingual readme template
 ├── .gitignore
-├── src/main/java/.../UltiHome.java  # Main class with @UltiToolsModule
-├── src/main/resources/
-│   ├── plugin.yml                   # Plugin descriptor
-│   └── lang/
-│       ├── en.yml                   # English language file
-│       └── zh.yml                   # Chinese language file
-└── src/test/java/.../               # Test directory (empty, ready for tests)
+├── README.md
+├── pom.xml
+└── src/main/
+    ├── java/com/ultikits/plugins/home/UltiHome.java
+    └── resources/
+        ├── plugin.yml
+        └── messages/
+            ├── en.yml
+            └── zh.yml
 ```
 
-Before compiling against UltiTools-API 6.3.0, migrate the generated template:
+The CLI also attempts to initialize a Git repository. It does not create an empty `src/test/java` directory.
 
-- Select API version `6.3.0` and set `api-version: 630` in `src/main/resources/plugin.yml`; the template still writes `620`.
-- Remove the empty `unregisterSelf()` and `reloadSelf()` overrides from the main class. These methods are final in 6.3.0; put cleanup in `protected void onUnregister()` and reload logic in `protected void onReload()` if needed.
+The generated `pom.xml` configures Maven to build with JDK 25 and includes test dependencies. It adds the Maven Central snapshot repository only if the selected UltiTools-API version ends in `-SNAPSHOT`.
 
-For a 7.0 target, rebuild against UltiTools-API 7.0 and declare at least `api-version: 700` as of v7.0.0; the `630` instruction above is for 6.x. See [Modules from 6.x to 7.0](/guide/advanced/module-versioning#modules-6x-to-7).
+The module descriptor `plugin.yml` contains an unquoted integer `api-version`. The CLI joins the three numeric parts of the selected framework version, ignoring the suffix: `7.0.0-SNAPSHOT` yields `api-version: 700`, while `7.0.1` yields `api-version: 701`.
 
-Then compile the migrated project:
+`messages/en.yml` and `messages/zh.yml` contain matching sample message keys with MiniMessage values. The descriptor sets `source-language: en`. See [Messages](/guide/essentials/messages) for how to use the catalogues.
+
+The generated main class implements `registerSelf()` and supplies the `onUnregister()` and `onReload()` hooks. It does not override the final `unregisterSelf()` or `reloadSelf()` methods.
+
+```java
+package com.ultikits.plugins.home;
+
+import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
+import com.ultikits.ultitools.annotations.UltiToolsModule;
+
+@UltiToolsModule(scanBasePackages = "com.ultikits.plugins.home")
+public class UltiHome extends UltiToolsPlugin {
+
+    @Override
+    public boolean registerSelf() {
+        return true;
+    }
+
+    @Override
+    protected void onUnregister() {
+        // Release any module-owned resources here.
+    }
+
+    @Override
+    protected void onReload() {
+        // Refresh any module-owned state after configuration reload.
+    }
+}
+```
+
+### Build and Test
+
+Follow the next steps printed by the command. For the default directory in this example, run these commands with JDK 25:
 
 ```bash
 cd UltiHome
-mvn compile
+mvn package
 ```
 
-You can also specify a target directory:
-
-```bash
-ultikits create my-plugin-dir
-```
-
-::: tip Annotated classes are discovered through scanBasePackages
-After scaffolding, add commands in a `commands/` package, services in a `service/` package, and configs in a `config/` package. The framework auto-discovers annotated classes via `@UltiToolsModule(scanBasePackages)`.
-:::
+`mvn package` runs any tests you add under `src/test/java` and writes the module JAR to `target/`. To test the built module on a Paper 26.3 server running Java 25 and the matching UltiTools-API version, place the JAR in `plugins/UltiTools/plugins/` and restart the server.
 
 ## Project Setup
 
