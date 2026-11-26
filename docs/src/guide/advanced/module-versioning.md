@@ -164,7 +164,9 @@ Module '%s' has no valid api-version (read: %s); UltiTools-API %s requires an in
 
 A JAR refused by the integer/minimum-level check (missing, non-integer or below `700`) is excluded from the shared class path and supplies neither main nor helper classes to other modules. Each refusal counts once in `Failed`; unrelated modules continue loading. If `m-6.3.0.jar` (630) and `m-7.0.0.jar` (700) declare the same main class, the old copy is refused and the new one supplies the classes even though its file name sorts later. The start-up duplicate warning still names both files and identifies `m-7.0.0.jar` as the JAR the classes load from. The framework does not delete the old file automatically. Among admitted copies, file-name ordering still applies; the module version does not select the newest copy.
 
-Before upgrading the framework, let each pending `/upm update` complete one confirming startup on the old framework. Cancel unwanted updates first as described under [Updating and uninstalling](#updating-and-uninstalling-on-a-server): `/upm uninstall` also unloads the module and deletes its JARs, so back up files you need first. Do not carry an unconfirmed 6.x update into 7.0: API refusal can trigger the existing transaction rollback, and the restored old JAR is below 700 too. After completing or cancelling pending updates, stop the server, replace modules with their rebuilt 7.0 versions, keep only the intended JAR for each module, then upgrade the framework and start.
+Before upgrading the framework, let each pending `/upm update` complete one confirming startup on the old framework. Cancel unwanted updates first as described under [Updating and uninstalling](#updating-and-uninstalling-on-a-server) for 6.x: on the old framework, `/upm uninstall` also unloads the module and deletes its JARs, so back up files you need first. Do not carry an unconfirmed 6.x update into 7.0: API refusal can trigger the existing transaction rollback, and the restored old JAR is below 700 too. After completing or cancelling pending updates, stop the server, replace modules with their rebuilt 7.0 versions, keep only the intended JAR for each module, then upgrade the framework and start.
+
+As of v7.0.0, install, update and uninstall requests take effect at the next restart. If your procedure relied on an immediate uninstall, queue the request and restart the server. You can [review and undo requests](#updating-and-uninstalling-on-a-server) before restarting.
 
 ### Native item and sound APIs in 7.0
 
@@ -497,9 +499,9 @@ As of v7.0.0, only that first copy's early hook can run at start-up, once; see [
 
 The version numbers play no part here. In the example the older `1.0.0` keeps running because its file name sorts first, whatever the two `plugin.yml` files say. Before v6.3.0 each refused copy logged its own error line instead of this one warning.
 
-`/upm uninstall` removes every copy. As of v6.3.0 it deletes each JAR whose `plugin.yml` `main:` names the module's main class, whatever `name:` that JAR declares, and names each deleted file in its reply.
+From v6.3.0 through the rest of 6.x, `/upm uninstall` identifies JARs whose `plugin.yml` `main:` names the module’s main class, regardless of their declared `name:`, and lists deleted files in its reply. As of v7.0.0, the command lists the identified JARs queued for deletion rather than deleting them while the server runs. At restart, it checks that the files still match the record.
 
-`/upm update` refuses to update a module while such a copy would win. As of v6.3.0, before it downloads anything, it looks in the modules folder for another JAR that declares the module's `main:` and whose file name sorts before the new JAR's name. As of v7.0.0, an API-refused copy is not a class-path blocker for this check. If it finds one, the new version could never load there: the copy would keep supplying the classes and the update would be rolled back at every start. So the command stages nothing, and its reply names the new JAR and every such copy. Remove them and run `/upm update` again; no restart is needed in between. A copy that sorts after the new JAR does not stop the update, and the start-up warning above still names it.
+`/upm update` refuses to update a module while such a copy would win. As of v6.3.0, before it downloads anything, it looks in the modules folder for another JAR that declares the module's `main:` and whose file name sorts before the new JAR's name. As of v7.0.0, an API-refused copy is not a class-path blocker for this check. If it finds one, the new version could never load there: the copy would keep supplying the classes and the update would be rolled back at every start. So the command stages nothing, and its reply names the new JAR and every such copy. After moving those copies away, you can retry `/upm update` without restarting first. Applying the queued update still requires a restart. A copy that sorts after the new JAR does not stop the update, and the start-up warning above still names it.
 
 ## Version selection by API level
 
@@ -517,11 +519,11 @@ Which versions a server is offered and installs depends on the framework it runs
 
 A server on 6.3.0 through 6.x sends its level (`apiLevel`, and `minApiLevel=630`) when it looks up a module's versions: in 6.3.0 with every catalogue request, as of v6.3.1 only on the module versions route. A framework before 6.3.0 sends none, and UltiCloud treats such a request as coming from a framework before 6.3.0, so released 6.2.x servers are not offered a 6.3.0 build. This applies to `/upm install`, `/upm install <module> <version>`, `/upm versions`, `/upm update` and the update check at start-up. The update check reports only a version this server can install and never mentions one that needs a newer UltiTools-API. `/upm list` still lists every module in the catalogue; Install on a module with no compatible version replies with the reason.
 
-As of v6.3.2, `/upm check`, `/upm update <module>` and `/upm update all` reply `Update check still running; try again in a few seconds.` until the startup check completes, including before its manager exists. They do not consume partial results; update commands download and stage nothing during this time. These commands read the completed startup result, not a new check: wait for completion and retry. A completed check with failed lookups instead reports `Update check incomplete: could not confirm the latest version of <names>.`.
+From v6.3.2 through the rest of 6.x, `/upm check`, `/upm update <module>` and `/upm update all` reply `Update check still running; try again in a few seconds.` until the startup check completes, including before its manager exists. They do not consume partial results; update commands download and stage nothing during this time. These commands read the completed startup result, not a new check: wait for completion and retry. A completed check with failed lookups instead reports `Update check incomplete: could not confirm the latest version of <names>.`.
 
-As of v7.0.0, module version requests carry `apiLevel` and `minApiLevel=700`. `/upm install` and `/upm update` use the same integer parser and floor of 700 after downloading; downloads above the framework's own level are still refused. The 630 range and reply examples below describe 6.x, not 7.0.
+As of v7.0.0, module version requests carry `apiLevel` and `minApiLevel=700`. `/upm install` and `/upm update` use the same integer parser and floor of 700 after downloading; downloads above the framework's own level are still refused. `/upm update <module>` can proceed before the start-up update check completes if an existing queued change identifies the module. `/upm check` and `/upm update all` still wait for the check.
 
-`/upm` also checks what it downloads. `/upm install` writes the JAR into the modules folder as `<id>-<version>.jar.part`, a name the module loader never reads, and reads its `plugin.yml` again; `/upm update` makes the same check on the copy it downloads into `.ultikits/upm-transactions/`. A module whose `api-version` is absent, not an integer, below 630 or above the framework's level is refused: the download is deleted and nothing is written to the modules folder. For `/upm update` the staged download is discarded and no update is recorded. The reply names the declared level, the framework's level and the accepted range. With `language: en`:
+The download locations, 630 range and reply examples below apply to 6.x. `/upm` also checks what it downloads. `/upm install` writes the JAR into the modules folder as `<id>-<version>.jar.part`, a name the module loader never reads, and reads its `plugin.yml` again; `/upm update` makes the same check on the copy it downloads into `.ultikits/upm-transactions/`. A module whose `api-version` is absent, not an integer, below 630 or above the framework's level is refused: the download is deleted and nothing is written to the modules folder. For `/upm update` the staged download is discarded and no update is recorded. The reply names the declared level, the framework's level and the accepted range. With `language: en`:
 
 ```text
 Cannot install ultirecipe: UltiCloud has no version of it that this server can install. This UltiTools-API is at API level 630 and installs only modules declaring api-version 630 to 630. Nothing was written to the modules folder.
@@ -546,6 +548,43 @@ The post-download check is what protects the server in that case.
 
 ## Updating and uninstalling on a server
 
+As of v7.0.0, `/upm install`, `/upm update` and `/upm uninstall` queue changes for the next restart. Running modules keep working until then. An uninstall request does not disable the module immediately, and `/ul reload` does not apply the queue. To stop a module urgently, queue its uninstall and restart the server.
+
+### Commands and pending changes
+
+As of v7.0.0, operators (OPs) and the server console can run these commands. The new `pending` and `revoke` subcommands do not require separate permission nodes.
+
+| Command | Action |
+| --- | --- |
+| `/upm install <module>` or `/upm install <module> <version>` | Stage a compatible catalogue version or the specified version. Installing a different version of a running module counts as an update. |
+| `/upm update <module>` or `/upm update all` | Stage an update for one module or for all modules with available updates. |
+| `/upm uninstall <module>` | Queue the identified JARs for deletion and list their names in the reply. |
+| `/upm pending` | List changes, download status and the results of applying changes at this start. |
+| `/upm revoke <module>` | Undo an unapplied change for that module or cancel an in-progress download. |
+
+The pending list shows at most one entry per module. A successfully staged different version replaces a pending install or update; requesting the same pending version changes nothing. Requesting an install of the running version cancels its pending update or uninstall, or changes nothing if neither is pending.
+
+Uninstall replaces a pending update. If a module is only waiting to be installed, uninstall cancels the install without queuing a deletion. Uninstall also cancels an in-progress download for the module, even if an uninstall is already queued. An ordinary update does not override a pending uninstall: revoke it first, or use `install` to specify the version to keep.
+
+When changes are pending, each OP gets one reminder on joining per server run. Adding or replacing a change can trigger another reminder the next time that OP joins; it does not notify OPs who stay online. At each OP's first join after a restart, they also get a summary if changes were handled at that start. Run `/upm pending` for the individual results.
+
+### Application and recovery at start-up
+
+As of v7.0.0, install and update stage downloads in `.ultikits/upm-transactions/` under the server root and check the JAR's module identity, version and API level without modifying the modules directory. A new install in 6.x could overwrite a file of the same name. In 7.0, if that file already exists, a new install is refused before downloading or queuing anything, and the file is left untouched. Move or delete it before retrying. If a conflicting file appears after queuing, start-up leaves it in place and records the failed install.
+
+On restart, the framework processes removals before applying installs and updates in the [bootstrap phase](/guide/advanced/startup-phases), before building the module class loader. If a JAR queued for deletion no longer matches the recorded file, the framework leaves it in place, drops its deletion and asks you in the start-up log to run `/upm uninstall` again if needed. The JAR can still load.
+
+An install or update is kept only if the module loads from the target JAR at the expected version. Otherwise the framework rolls back the change: it removes a newly installed JAR from the modules directory or restores the previous JAR for an update, and reports the result in the start-up log. A failed bootstrap hook also triggers rollback for a new install. If a JAR is held open and cannot be removed, the log warns you and recovery continues at the next start.
+
+If start-up is interrupted, the framework uses the retained transaction record to finish or roll back the change at the next start. An unconfirmed install or update does not count as successful. Entries marked as failed remain visible in `/upm pending` but cannot be revoked; the next change request for that module reports the earlier failure. Entries that require operator action cannot be revoked either; check the files named in the start-up log.
+
+### Known limitations
+
+- As of v7.0.0, both install and update rely on atomic moves: the modules and transaction directories must be on the same file system.
+- As of v7.0.0, the pending changes' transaction records are not flushed with `fsync`; a power loss or system crash can lose the most recently queued request, so check `/upm pending` after restarting.
+
+### Updates and uninstalls in 6.x
+
 As of v6.3.0, `/upm update <module>` no longer replaces the JAR while the server runs. It downloads the new version into `.ultikits/upm-transactions/` under the server root and records it, and nothing in the modules folder changes until the next start. At that start, before any module loads, the old JAR is moved aside and kept and the new JAR is moved in. After the modules load, the update is kept only if your module is loaded from the new JAR at the new version; otherwise the new JAR is removed, the old JAR is put back, and the start-up log names both versions and says the restored version loads at the next start.
 
 This has two consequences for a module author:
@@ -557,7 +596,7 @@ A move that fails, such as a read-only folder or a file held open, leaves the mo
 
 As of v6.3.0, an update only ever moves, replaces or deletes a file whose SHA-256 matches its record: the downloaded JAR, or the old JAR it kept aside. If something else has changed one of those files, or put a file where the update needs a free place (for example a copy under the new JAR's name), the update does nothing to any file. It keeps its record in a state that means "on hold for the operator", and the start-up log names each unexpected file with the hash it expected and the one it found. Later starts repeat that line and do nothing else, and `/upm update` and `/upm uninstall` of that module refuse until you resolve it. To resolve it, check the named files, take back any JAR you need from `.ultikits/upm-transactions/`, then delete the update record named in the line and the folder of the same name.
 
-`/upm uninstall <module>` unloads every loaded instance through the framework's full unload path, deletes the module's JARs, and cancels any update of it still waiting for the next start, whichever of the module's names it was given. A JAR it cannot delete now, for example on Windows where the running server keeps every module JAR open, is recorded and deleted at the next start before any module loads.
+In 6.x, `/upm uninstall <module>` unloads every loaded instance through the framework's full unload path, deletes the module's JARs, and cancels any update of it still waiting for the next start, whichever of the module's names it was given. A JAR it cannot delete now, for example on Windows where the running server keeps every module JAR open, is recorded and deleted at the next start before any module loads.
 
 As of v6.3.0, before the next start deletes a recorded JAR it confirms that the file is still the one the uninstall recorded. If it cannot read the JAR to confirm that, it leaves the JAR in place, so the module can load again at that start, reports the JAR and the read error in the start-up log at SEVERE level, and keeps the deletion recorded for the start after.
 
