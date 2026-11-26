@@ -2,7 +2,13 @@
 
 `@ultikits/cli` 是官方命令行工具，用于将 UltiTools 插件模块发布到 [UltiCloud](https://panel.ultikits.com/) 市场。开发者可以使用它进行身份验证、初始化项目元数据、上传 JAR 文件，以及管理已发布的模块和版本。
 
-本页对应 `@ultikits/cli` 2.0.1。1.x 版本无法连接 UltiCloud，请用 `npm install -g @ultikits/cli@latest` 升级并重新运行 `ultikits login`。
+除下文的预发布脚手架外，本页对应 `@ultikits/cli` 2.0.1。1.x 版本无法连接 UltiCloud，请用 `npm install -g @ultikits/cli@latest` 升级并重新运行 `ultikits login`。
+
+::: warning 预发布脚手架（自 v7.0.0 起）
+7.0 模板将在 CLI `2.0.1` 之后的下一个版本中提供，该版本尚未发布。
+在此之前，`npm install -g @ultikits/cli` 安装的是 `2.0.1`，仍使用 6.x 模板，生成的模块无法在 UltiTools-API 7.0 上运行。
+UltiTools-API 7.0.0 也尚未发布；预发布脚手架默认使用 `7.0.0-SNAPSHOT`。
+:::
 
 ::: tip 推荐：本地发布
 官方 UltiTools 模块由维护者在本地发布：把验收通过的 JAR 附加到 GitHub Release，再用 CLI 将同一个文件发布到 UltiCloud。第三方开发者也可以使用相同的路径。
@@ -25,6 +31,7 @@ ultikits --version
 
 - Node.js 18 及以上
 - npm 或其他 Node 包管理器
+- JDK 25 及以上版本和 Maven，用于构建 7.0 模板生成的工程
 
 :::
 
@@ -70,61 +77,90 @@ ultikits logout     # 删除已保存的凭据
 
 ## 创建新模块
 
-创建新 UltiTools 模块最快的方式是使用 `ultikits create`：
+在包含 7.0 模板的 CLI 版本中，`ultikits create` 只生成面向 UltiTools-API 7.0.0 及以上版本的模块工程。模板以 Paper 26.3 和 Java 25 为目标。
+
+要升级已有的 6.x 模块，见[6.x 模块升到 7.0](/zh/guide/advanced/module-versioning#modules-6x-to-7)。
 
 ```bash
 ultikits create
 ```
 
-命令会依次提示你输入：
+项目目录默认与模块同名。要指定其他目录名，可运行 `ultikits create my-plugin-dir`。
 
-| 提示 | 默认值 | 说明 |
-|------|--------|------|
-| Module name | — | 模块名称，PascalCase 格式（如 `UltiHome`、`MyPlugin`） |
-| Package name | 由名称自动推导 | Java 包名（如 `com.ultikits.plugins.home`） |
-| Description | — | 模块简短描述 |
-| Author | `git config user.name` | 作者名 |
-| API version | `6.2.2` | UltiTools-API 版本。该默认值落后于当前正式版，建议手动改为最新版。 |
+### 交互提示
 
-CLI 2.0.1 生成以下项目结构（模板自 1.2.0 起未变）：
+| 提示原文 | 默认值 | 释义及输入要求 |
+|----------|--------|----------------|
+| `Module name (e.g., UltiHome):` | 无 | 模块名。至少两个 ASCII 字母或数字，首字符须为大写字母。不得使用 `UltiToolsPlugin` 或 `UltiToolsModule`。 |
+| `Java package name:` | 根据模块名推导，例如 `UltiHome` 对应 `com.ultikits.plugins.home` | Java 包名，由点分隔的小写标识符组成。每段以 `a`–`z` 或 `_` 开头，后续字符只能是小写字母、数字或下划线。不得使用保留字。 |
+| `Short description:` | 无 | 模块简介。去掉首尾空白后不能为空。 |
+| `Author:` | `git config user.name` 的值（如有） | 作者名。去掉首尾空白后不能为空。 |
+| `UltiTools-API version:` | `7.0.0-SNAPSHOT` | 框架版本。使用三段数字（`X.Y.Z`），可附加一段或多段以连字符分隔的 ASCII 字母数字后缀，例如 `7.0.0-SNAPSHOT`。换算出的 API 级别不得超出 32 位有符号整数的范围。低于 `7.0.0` 的版本会被拒绝，命令会要求重新输入。 |
 
-```
+### 生成的工程
+
+以模块名 `UltiHome` 和默认 Java 包名为例，命令会生成以下文件：
+
+```text
 UltiHome/
-├── pom.xml                          # Maven 构建，包含 UltiTools-API、测试依赖、JaCoCo
-├── README.md                        # 中英双语 README 模板
 ├── .gitignore
-├── src/main/java/.../UltiHome.java  # 带 @UltiToolsModule 的主类
-├── src/main/resources/
-│   ├── plugin.yml                   # 插件描述文件
-│   └── lang/
-│       ├── en.yml                   # 英文语言文件
-│       └── zh.yml                   # 中文语言文件
-└── src/test/java/.../               # 测试目录（空，等待编写测试）
+├── README.md
+├── pom.xml
+└── src/main/
+    ├── java/com/ultikits/plugins/home/UltiHome.java
+    └── resources/
+        ├── plugin.yml
+        └── messages/
+            ├── en.yml
+            └── zh.yml
 ```
 
-用 UltiTools-API 6.3.0 编译之前，需要迁移生成的模板：
+CLI 还会尝试初始化 Git 仓库，但不会创建空的 `src/test/java` 目录。
 
-- 选择 API 版本 `6.3.0`，并把 `src/main/resources/plugin.yml` 的 `api-version` 设为 `630`；模板仍会写入 `620`。
-- 删除主类中空的 `unregisterSelf()` 和 `reloadSelf()` 覆写。这两个方法在 6.3.0 中为 final；如需清理或重载逻辑，分别放进 `protected void onUnregister()` 和 `protected void onReload()`。
+生成的 `pom.xml` 设置了编译参数 `--release 25`，并包含测试依赖。请安装 JDK 25 或更高版本，并用它运行 Maven。只有所选 UltiTools-API 版本以 `-SNAPSHOT` 结尾时，才会添加 Maven Central 快照仓库。
 
-自 v7.0.0 起，面向 7.0 时须针对 UltiTools-API 7.0 重新构建并声明至少 `api-version: 700`；上面的 `630` 要求用于 6.x。见[6.x 模块升到 7.0](/zh/guide/advanced/module-versioning#modules-6x-to-7)。
+模块描述文件 `plugin.yml` 中的 `api-version` 是不带引号的整数。CLI 将所选框架版本的三段数字拼接起来，不计后缀：`7.0.0-SNAPSHOT` 生成 `api-version: 700`，`7.0.1` 则生成 `api-version: 701`。
 
-然后编译迁移后的项目：
+`messages/en.yml` 和 `messages/zh.yml` 使用相同的示例消息键，值用 MiniMessage 编写。描述文件将源语言设为 `source-language: en`。用法见[消息与语言](/zh/guide/essentials/messages)。
+
+生成的主类实现 `registerSelf()`，并提供 `onUnregister()` 和 `onReload()` 两个钩子。它不覆写 `final` 方法 `unregisterSelf()` 和 `reloadSelf()`。
+
+```java
+package com.ultikits.plugins.home;
+
+import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
+import com.ultikits.ultitools.annotations.UltiToolsModule;
+
+@UltiToolsModule(scanBasePackages = "com.ultikits.plugins.home")
+public class UltiHome extends UltiToolsPlugin {
+
+    @Override
+    public boolean registerSelf() {
+        return true;
+    }
+
+    @Override
+    protected void onUnregister() {
+        // Release any module-owned resources here.
+    }
+
+    @Override
+    protected void onReload() {
+        // Refresh any module-owned state after configuration reload.
+    }
+}
+```
+
+### 构建与测试
+
+按命令输出的 `Next steps:`（下一步）操作。以示例中的默认目录为例，使用 JDK 25 或更高版本运行：
 
 ```bash
 cd UltiHome
-mvn compile
+mvn package
 ```
 
-也可以指定目标目录：
-
-```bash
-ultikits create my-plugin-dir
-```
-
-::: tip 框架通过 scanBasePackages 发现带注解的类
-创建完成后，在 `commands/` 包中添加命令类，`service/` 包中添加服务类，`config/` 包中添加配置类。框架通过 `@UltiToolsModule(scanBasePackages)` 自动发现带注解的类。
-:::
+`mvn package` 会运行你在 `src/test/java` 中添加的测试，并将模块 JAR 写入 `target/`。要测试模块，把生成的 JAR 放入服务器的 `plugins/UltiTools/plugins/` 目录，然后重启服务器。服务器应运行 Paper 26.3、Java 25 和与模块匹配的 UltiTools-API 版本。
 
 ## 项目配置
 
@@ -236,10 +272,12 @@ CLI 从多个来源解析元数据，优先级如下：
 自 v6.3.0 起，UltiCloud 从你发布的 JAR 根目录的 `plugin.yml` 中读取 `api-version`，与该版本一起保存。没有任何命令行参数或 `ultikits.json` 字段可以设置它，UltiCloud 只从 JAR 中读取。请以整数形式声明：
 
 ```yaml
-api-version: 630
+api-version: 700
 ```
 
-上面的 `630` 是 6.3.0 构建的例子。6.3.0 至 6.x 的服务器查询范围为 630 到其自身 API 级别；更早的框架只查询低于 630 的版本。自 v7.0.0 起，服务器请求使用 `minApiLevel=700`，`/upm install` 和 `/upm update` 也只接受从 700 到框架自身级别的整数声明。为 7.0 重新构建的 JAR 应写 `api-version: 700`，只改 `api-version` 数字不能让 6.x 模块在 7.0 上运行，必须针对 UltiTools-API 7.0 重新构建。见[模块版本规范](/zh/guide/advanced/module-versioning#按-api-级别选择版本)。
+从 6.3.0 起，6.x 服务器查询的级别范围为 630 到框架自身的 API 级别；更早的框架只查询低于 630 的版本。自 v7.0.0 起，服务器请求使用 `minApiLevel=700`，`/upm install` 和 `/upm update` 也只接受从 700 到框架自身级别的整数声明。
+
+脚手架按你选的 UltiTools-API 版本写入对应的整数：`7.0.0` 和 `7.0.0-SNAPSHOT` 对应 `700`，`7.0.1` 对应 `701`。服务器上的框架 API 级别低于模块声明的级别时，框架会拒绝加载该模块。只改 `api-version` 不能让 6.x 模块在 7.0 上运行，必须针对 UltiTools-API 7.0 重新构建。见[模块版本规范](/zh/guide/advanced/module-versioning#按-api-级别选择版本)。
 
 根目录 `plugin.yml` 没有声明整数 `api-version` 的 JAR 会在上传时被拒绝：版本不会发布，仍以已声明的文件处于待上传状态。见[因 API 级别被拒绝上传](#因-api-级别被拒绝上传)。
 
@@ -394,10 +432,10 @@ jobs:
           Path("release-notes.md").write_text(body + "\n", encoding="utf-8")
           PY
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '25'
           distribution: 'temurin'
           cache: maven
 
