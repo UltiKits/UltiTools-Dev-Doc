@@ -8,7 +8,9 @@
 
 1. 核对新的构建目标和 [6.x 模块升级到 7.0 的要求](./module-versioning#modules-6x-to-7)。
 2. 核对[已删除的 API](./module-versioning#api-被移除)，在重新构建前替换旧调用。
-3. 将[文本与语言文件](./module-versioning#_7-0-的文本与语言)迁移到 7.0 的消息系统。
-4. 核对[物品构建与存储](./module-versioning#item-construction-7)和[旧箱子页面与确认组件](./module-versioning#legacy-chest-removal)。
-5. 重新构建并[检查生成的模块 JAR](./module-versioning#检查产物)。
-6. 阅读[启动时应用模块变更与恢复](./module-versioning#启动时应用与恢复)，再重启测试服务器以验证升级。
+3. 迁移命令类：见[从 6.x 迁移](/zh/guide/essentials/cmd-executor#从-6-x-迁移)和[被拒绝的格式](/zh/guide/essentials/cmd-executor#被拒绝的格式)。
+4. 将[文本与语言文件](./module-versioning#_7-0-的文本与语言)迁移到 7.0 的消息系统。
+5. 用[原生物品与音效 API](./module-versioning#_7-0-原生物品与音效-api)替换已删除的物品与音效工具，再核对[物品构建与存储](./module-versioning#item-construction-7)和[旧箱子页面与确认组件](./module-versioning#legacy-chest-removal)。
+6. 核对[调度与声明式 GUI](./module-versioning#_7-0-的调度与声明式-gui)、[进度弹窗与悬浮字](./module-versioning#_7-0-的进度弹窗与悬浮字)和[通知服务](./module-versioning#notification-service-7)的行为变化。
+7. 重新构建并[检查生成的模块 JAR](./module-versioning#检查产物)。
+8. 阅读[启动时应用模块变更与恢复](./module-versioning#启动时应用与恢复)，再重启测试服务器以验证升级。
