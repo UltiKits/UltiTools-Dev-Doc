@@ -47,7 +47,7 @@ const sidebarGuideZH: SidebarItemExt[] = [
                 link: 'essentials/query-dsl'
             },
             {
-                text: 'I18n 多语言',
+                text: '旧文本体系迁移',
                 link: 'essentials/i18n'
             },
             {

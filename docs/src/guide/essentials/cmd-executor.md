@@ -810,7 +810,10 @@ backup:
   processing: "<yellow>Backing up the world..."
 ```
 
-Migrating code written against 6.x: the 6.x value was an `i18n(...)` key (the old examples used `command.backup.processing`) and the text was sent in yellow by the framework. Rename the key to `<namespace>:<path>`, move its text into the module's `messages/<locale>.yml` with the colour written in MiniMessage, and keep `showProcessing` as it was. A 6.x value without a colon is invalid under 7.0 and falls back to the default text.
+::: info Processing notices as of v7.0.0
+Replace the old processing-notice key with `<namespace>:<path>` and define the text and MiniMessage colour in `messages/<locale>.yml`; leave `showProcessing` unchanged.
+An old key without a namespace falls back to the default notice.
+:::
 
 ### Scheduling, timeout and unload <Badge type="tip" text="v7.0.0+" />
 

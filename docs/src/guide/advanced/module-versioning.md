@@ -364,15 +364,17 @@ Move the text into the module's language file. Pass player or operator input as 
 
 ::: warning Unreleased v7.0.0 text engine
 As of v7.0.0, modules ship `messages/<locale>.yml` catalogues and send text through the injected `Messages` service.
-6.x language files are not converted; the `i18n(...)` path still works for now.
+The legacy text system is removed. Migrate before upgrading.
 :::
 
-- **Language files.** Move texts to `src/main/resources/messages/<locale>.yml` with lowercase dotted keys and MiniMessage values. `§` and `&` colour codes are not interpreted there, and only `.yml` files are read. Re-create the texts; the 6.x `lang/` files, sentence keys and custom language names are not converted.
+- **Language files.** Move translations you still need from `lang/` to `src/main/resources/messages/<locale>.yml`, with lowercase dotted keys and MiniMessage values. Only `.yml` is read. The new catalogues do not interpret `§` or `&` colour codes or import legacy files.
 - **Source language.** Declare `source-language` in the module's `plugin.yml` if the module's own texts are not English; it defaults to `en`.
 - **Sending text.** Inject `com.ultikits.ultitools.text.Messages` with `@Autowired`, build keys with `messages.key(path)` and send with `messages.send(...)`, so each player sees their own client language. Pass player or operator input as `Arg.string`, never as part of a template. Use `messages.shared(Text)` for entity names, text displays and shared boss bars.
 - **Defaults.** New installations ship `language: auto` and `fallback-language: auto`; on a host whose time zone is not a China zone, the console and the fallback are English. See [Language selection](/guide/essentials/messages#language-selection).
+- **Legacy text APIs.** Replace `i18n(...)` with `Messages`. If you need the server fallback language, inject `LocaleResolver` and call `fallback()` instead of using `getLanguageCode()` or `getConfiguredLanguage()`.
+- **Language declarations.** Remove `supported()` overrides and old language declarations. Ship the supported locales with the module instead.
 
-The `i18n(...)` path, `getLanguageCode()` and `getConfiguredLanguage()` remain in 7.0 while callers migrate; their removal is a separate, later change. See [Messages and Languages](/guide/essentials/messages).
+For the full list of replacements, see [Legacy Text Migration](/guide/essentials/i18n).
 
 ### Changed descriptors
 

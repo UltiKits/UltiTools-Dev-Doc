@@ -364,15 +364,17 @@ notifications.sendBossBarNotification(player, Text.of(messages.key("arena.closin
 
 ::: warning 未发布的 v7.0.0 文本引擎
 自 v7.0.0 起，模块随包提供 `messages/<语言>.yml` 语言文件，并通过注入的 `Messages` 服务发送文本。
-6.x 语言文件不会被转换；`i18n(...)` 路径暂时仍可使用。
+旧文本体系已移除，升级前必须迁移。
 :::
 
-- **语言文件。** 把文本移到 `src/main/resources/messages/<语言>.yml`，使用小写点分键和 MiniMessage 值。那里不解释 `§` 和 `&` 颜色码，并且只读取 `.yml` 文件。请重新编写文本；6.x 的 `lang/` 文件、句子键和自定义语言名称不会被转换。
+- **语言文件。** 将 `lang/` 中需要保留的译文移到 `src/main/resources/messages/<locale>.yml`，改用小写点分键和 MiniMessage 值。只读取 `.yml`，不解释 `§` 或 `&` 颜色码；旧文件不会自动导入。
 - **源语言。** 模块自身文本不是英文时，在模块的 `plugin.yml` 中声明 `source-language`；默认为 `en`。
 - **发送文本。** 用 `@Autowired` 注入 `com.ultikits.ultitools.text.Messages`，用 `messages.key(path)` 构造键，用 `messages.send(...)` 发送，每个玩家就会看到自己客户端语言的版本。玩家或服主的输入以 `Arg.string` 传入，绝不拼进模板。实体名称、文本展示实体和共享 Boss 栏使用 `messages.shared(Text)`。
 - **默认值。** 新装时 `language` 与 `fallback-language` 均为 `auto`；主机时区不是中国时区时，控制台和后备语言为英文。见[语言选择](/zh/guide/essentials/messages#language-selection)。
+- **旧文本 API。** 用 `Messages` 替换 `i18n(...)`。若确实需要服务器后备语言，注入 `LocaleResolver` 并调用 `fallback()`，不再调用 `getLanguageCode()` 或 `getConfiguredLanguage()`。
+- **语言声明。** 删除 `supported()` 覆盖和旧语言声明，随模块打包支持的语言文件。
 
-`i18n(...)` 路径、`getLanguageCode()` 和 `getConfiguredLanguage()` 在调用方迁移期间仍保留在 7.0 中；移除它们是之后单独的改动。见[消息与语言](/zh/guide/essentials/messages)。
+完整的旧 API 对照见[旧文本体系迁移](/zh/guide/essentials/i18n)。
 
 ### 描述符变更
 

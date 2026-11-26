@@ -49,8 +49,8 @@ public class PluginMain extends UltiToolsPlugin {
 }
 ```
 
-::: warning The i18n attribute is deprecated (as of v6.5.0)
-`@UltiToolsModule(i18n = ...)` and `@I18n` are deprecated for removal; their signatures are unchanged and still accepted. Do not declare languages: ship `lang/<code>.json` files in your module JAR and remove the attribute. See [Internationalization](/guide/essentials/i18n#declaring-languages-is-deprecated).
+::: warning Language declarations removed (as of v7.0.0)
+Remove legacy language annotations and the language attribute on `@UltiToolsModule`. Ship `messages/<locale>.yml` as described in [Legacy Text Migration](/guide/essentials/i18n).
 :::
 
 ## @EnableAutoRegister

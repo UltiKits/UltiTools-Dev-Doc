@@ -49,7 +49,7 @@ const sidebarGuideEN: SidebarItemExt[] = [
                 link: 'essentials/query-dsl'
             },
             {
-                text: 'Internationalization',
+                text: 'Legacy Text Migration',
                 link: 'essentials/i18n'
             },
             {

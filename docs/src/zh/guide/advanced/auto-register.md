@@ -49,8 +49,8 @@ public class PluginMain extends UltiToolsPlugin {
 }
 ```
 
-::: warning i18n 属性已弃用（v6.5.0 起）
-`@UltiToolsModule(i18n = ...)` 与 `@I18n` 已弃用并计划移除；签名不变，仍可使用。请不要再声明语言：把 `lang/<语言码>.json` 文件打包进模块 JAR，并删除该属性。详见[多语言](/zh/guide/essentials/i18n#声明语言已弃用)。
+::: warning 语言声明已移除（自 v7.0.0 起）
+删除旧语言注解及 `@UltiToolsModule` 的语言属性，随模块打包 `messages/<locale>.yml`。见[旧文本体系迁移](/zh/guide/essentials/i18n)。
 :::
 
 ## @EnableAutoRegister 注解

@@ -64,8 +64,8 @@ Use `@CmdExecutor` and `@CmdMapping` just like a UltiTools module:
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/GreetCommand.java
 
-::: tip Command descriptions are plain strings
-Command descriptions use the raw `description` attribute from `@CmdExecutor`. The `i18n()` method is not available for external plugins — use plain strings.
+::: tip Command descriptions as of v7.0.0
+External plugins use the original `@CmdExecutor` description without looking up a module message key.
 :::
 
 ## Writing Event Listeners
@@ -126,7 +126,7 @@ As of v6.3.2, a failure during subsequent scheduled-task, player-cache, EventBus
 |---------|-----------------|-----------------|
 | Base class | `extends UltiToolsPlugin` | `extends JavaPlugin` |
 | Registration | `@UltiToolsModule` + `registerSelf()` | `UltiToolsAPI.connect(this)` |
-| i18n | `plugin.i18n("key")` available | Not available — use plain strings |
+| Command descriptions | May reference a key in the module’s `messages/` catalogue | Use the original `description` |
 | Config entities | Full support (`@ConfigEntity`) | **Not available** — use Bukkit `getConfig()` |
 | Config-bound `@Scheduled` / `@CmdCD` (v6.3.0+) | Supported, see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing) | Refused, use literal `period` / `delay` / `value` |
 | Data storage | `plugin.getDataOperator(Class)` | `UltiToolsAPI.getDataOperator(plugin, Class)` |

@@ -64,8 +64,8 @@ depend: [UltiTools]
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/GreetCommand.java
 
-::: tip 命令描述使用纯字符串
-命令描述使用 `@CmdExecutor` 的原始 `description` 属性。外部插件不支持 `i18n()` 方法——请使用纯字符串。
+::: tip 命令描述（自 v7.0.0 起）
+外部插件的命令描述直接使用 `@CmdExecutor` 的 `description` 原文，不查模块消息目录。
 :::
 
 ## 编写事件监听器
@@ -126,7 +126,7 @@ public void onCustomEvent(MyCustomEvent event) {
 |------|---------------|---------|
 | 基类 | `extends UltiToolsPlugin` | `extends JavaPlugin` |
 | 注册方式 | `@UltiToolsModule` + `registerSelf()` | `UltiToolsAPI.connect(this)` |
-| 国际化 | `plugin.i18n("key")` 可用 | 不可用——使用纯字符串 |
+| 命令描述 | 可引用模块 `messages/` 中的键 | 使用 `description` 原文 |
 | 配置实体 | 完整支持（`@ConfigEntity`） | **不可用** — 请使用 Bukkit `getConfig()` |
 | 绑定到配置项的 `@Scheduled` / `@CmdCD`（v6.3.0+） | 支持，见[绑定到配置项的时间](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间) | 会被拒绝，请使用字面量 `period` / `delay` / `value` |
 | 数据存储 | `plugin.getDataOperator(Class)` | `UltiToolsAPI.getDataOperator(plugin, Class)` |

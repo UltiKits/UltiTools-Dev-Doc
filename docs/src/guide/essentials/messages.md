@@ -3,7 +3,7 @@
 As of v7.0.0, the framework has a text engine in the package `com.ultikits.ultitools.text`. Messages are Adventure components written in MiniMessage. Each player sees them in their own Minecraft client language, and the texts come from YAML language files with dotted keys. Operators change texts in override files, and a fallback language covers players whose language has no translation and the console.
 
 ::: warning Unreleased v7.0.0 behaviour
-This page describes the unreleased 7.0.0 framework. A 6.x framework has only the `i18n(...)` path described in [Internationalization](/guide/essentials/i18n).
+This page describes the unreleased 7.0.0 framework.
 :::
 
 ## Language files
@@ -139,7 +139,7 @@ fallback-language: "auto"
 
 The fallback is resolved at startup and on a successful full `/ul reload`, which logs the selected language and the reason, for example `Fallback language: <language> (system time zone <zone>; set fallback-language in config.yml to override)`. An invalid value is logged as `Invalid language locale: <value>` or `Invalid fallback-language locale: <value>`.
 
-As of v7.0.0, migrated framework logs and the full `/ul reload` summary use `fallback-language` when it is set to a different locale from `language`. The full reload summary uses the server's fallback language even when a player runs the command.
+As of v7.0.0, framework logs and the full `/ul reload` summary use `fallback-language` when it is set to a different locale from `language`. The full reload summary uses the server's fallback language even when a player runs the command.
 
 Cloud hosts and containers commonly use UTC, so a new installation there uses English, unlike the Chinese default that 6.x shipped. Chinese clients still see Chinese wherever the catalogue has it. To choose Chinese, set `fallback-language: zh` and run a full `/ul reload`.
 
@@ -184,16 +184,24 @@ As of v7.0.0, if an override file cannot be parsed as a YAML catalogue, the fram
 As of v7.0.0, the full `/ul reload` also re-reads the bundled message catalogue from the framework JAR on disk. Replacing it or reloading while it is only partly copied can break framework messages until the server restarts.
 :::
 
-## The legacy `i18n(...)` path
+## Module annotation text {#module-annotation-text}
 
-The 6.x language system still exists in 7.0 while its callers migrate. `i18n(...)`, `getLanguageCode()`, `getConfiguredLanguage()` and the files in `lang/` work as described in [Internationalization](/guide/essentials/i18n), and the legacy path still loads custom language files. Removing it is a separate, later change. As of v7.0.0, until the legacy path is removed, the console can contain lines in both languages when the legacy and fallback languages differ.
+::: info Annotation text as of v7.0.0
+Configuration comments, module command descriptions and completion hints use the server fallback language, not the player's locale.
+:::
 
-When `language` is `auto`, blank or missing, `getConfiguredLanguage()` returns the base language of the resolved fallback, and the legacy path loads that language. A concrete name, including a custom one, is returned unchanged.
+The token in `@ConfigEntry(comment = "{path}")`, `@CmdExecutor(description = …)`, and `@CmdParam(suggest = …)` when no completion method matches can reference a key in the module's `messages/` catalogue. Paths are at most 128 characters long and consist of segments of lowercase letters, digits, underscores or hyphens, separated by dots. A single lowercase word can also match a top-level key; use a full sentence for a literal description or hint.
 
-The new catalogues do not read 6.x files. 6.x language files, sentence keys, custom language names and operator edits are not converted. Re-create the needed texts as dotted keys with MiniMessage values. For migrating a module, see [Module Versioning](/guide/advanced/module-versioning#modules-6x-to-7).
+The lookup tries the server fallback locale and its base language, then the module's source locale and its base language, including operator overrides. A matching MiniMessage value is rendered as plain text. If the path is invalid or no translation is available, a comment keeps the original token and warns at most once per field per load; descriptions and hints keep the original text.
+
+After a successful full `/ul reload`, hints use the new fallback language and configuration comments still recognized as framework-owned are refreshed. Command descriptions are resolved only when the command is registered, so restart to refresh them after a change.
+
+## Legacy text system
+
+As of v7.0.0, the 6.x language system is removed. See [Legacy Text Migration](/guide/essentials/i18n) for the replacements for old APIs and texts.
 
 ## Known limitations
 
 - The time-zone rule uses the zone ID, not the UTC offset, and is resolved only at startup and on a full `/ul reload`.
-- 6.x language files and custom names are not converted to the new catalogues.
+- Legacy files and operator edits are not imported. Move the translations you need by following [Legacy Text Migration](/guide/essentials/i18n).
 - A configuration without a `language` key is treated as `auto`, not as the 6.x default `zh`.
