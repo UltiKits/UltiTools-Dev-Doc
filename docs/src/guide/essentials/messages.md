@@ -139,6 +139,8 @@ fallback-language: "auto"
 
 The fallback is resolved at startup and on a successful full `/ul reload`, which logs the selected language and the reason, for example `Fallback language: <language> (system time zone <zone>; set fallback-language in config.yml to override)`. An invalid value is logged as `Invalid language locale: <value>` or `Invalid fallback-language locale: <value>`.
 
+As of v7.0.0, migrated framework logs and the full `/ul reload` summary use `fallback-language` when it is set to a different locale from `language`. The full reload summary uses the server's fallback language even when a player runs the command.
+
 Cloud hosts and containers commonly use UTC, so a new installation there uses English, unlike the Chinese default that 6.x shipped. Chinese clients still see Chinese wherever the catalogue has it. To choose Chinese, set `fallback-language: zh` and run a full `/ul reload`.
 
 Existing configuration files are never rewritten. An existing concrete `language: zh` or `en` without a fallback key keeps that language as its fallback. A configuration without a `language` key is treated as `auto`, not as the former 6.x default `zh`, and the key is not written back.
@@ -156,7 +158,7 @@ Operators do not edit the module JAR. They put only the keys they want to change
 | a module | `plugins/UltiTools/pluginConfig/<module>/messages/<locale>.yml` |
 | the framework | `plugins/UltiTools/messages/<locale>.yml` |
 
-An override file with a new locale name adds a language. Deleting an override restores the shipped text. Override files follow the same rules as shipped files (`.yml` only, UTF-8, dotted keys, MiniMessage). The framework reads these files but never writes them.
+An override file with a new locale name adds a language. Override files follow the same rules as shipped files (`.yml` only, UTF-8, dotted keys, MiniMessage). The framework reads these files but never writes them.
 
 Next to them, the framework keeps read-only reference copies of the shipped files in `messages/reference/`. They start with this header and are rewritten from the shipped bytes; editing them has no effect:
 
@@ -167,20 +169,24 @@ Next to them, the framework keeps read-only reference copies of the shipped file
 
 ## Reloading
 
+As of v7.0.0, the full `/ul reload` re-reads the framework's override files at `plugins/UltiTools/messages/<locale>.yml` and reloads the modules. `/ul reload <module>` re-reads only that module's message overrides (see [Operator overrides](#operator-overrides)).
+
 | Change | Takes effect on |
 | --- | --- |
 | `language` or `fallback-language` in `config.yml` | a successful full `/ul reload`, or a restart |
-| a module override file | reloading the module (`/ul reload <module>`), or a restart |
-| a framework override file | a restart only |
+| a module override file | reloading the module (`/ul reload <module>`), a full `/ul reload`, or a restart |
+| a framework override file | a full `/ul reload`, or a restart |
 | a player's client language | the next message |
 
-::: warning Framework overrides need a restart
-In 7.0, framework catalogue overrides are read at startup only and are not reloaded by `/ul reload`. A later change adds the reload hook.
+As of v7.0.0, if an override file cannot be parsed as a YAML catalogue, the framework logs a warning with the file name and the parser's error location when available. The reload continues without that file: messages fall back to the shipped text where available, not the last valid override. Deleting the file has the same fallback effect on the next reload.
+
+::: warning Stop the server before replacing the framework JAR
+As of v7.0.0, the full `/ul reload` also re-reads the bundled message catalogue from the framework JAR on disk. Replacing it or reloading while it is only partly copied can break framework messages until the server restarts.
 :::
 
 ## The legacy `i18n(...)` path
 
-The 6.x language system still exists in 7.0 while its callers migrate. `i18n(...)`, `getLanguageCode()`, `getConfiguredLanguage()` and the files in `lang/` work as described in [Internationalization](/guide/essentials/i18n), and the legacy path still loads custom language files. Removing it is a separate, later change.
+The 6.x language system still exists in 7.0 while its callers migrate. `i18n(...)`, `getLanguageCode()`, `getConfiguredLanguage()` and the files in `lang/` work as described in [Internationalization](/guide/essentials/i18n), and the legacy path still loads custom language files. Removing it is a separate, later change. As of v7.0.0, until the legacy path is removed, the console can contain lines in both languages when the legacy and fallback languages differ.
 
 When `language` is `auto`, blank or missing, `getConfiguredLanguage()` returns the base language of the resolved fallback, and the legacy path loads that language. A concrete name, including a custom one, is returned unchanged.
 
@@ -188,7 +194,6 @@ The new catalogues do not read 6.x files. 6.x language files, sentence keys, cus
 
 ## Known limitations
 
-- Framework catalogue overrides reload only on restart (see [Reloading](#reloading)).
 - The time-zone rule uses the zone ID, not the UTC offset, and is resolved only at startup and on a full `/ul reload`.
 - 6.x language files and custom names are not converted to the new catalogues.
 - A configuration without a `language` key is treated as `auto`, not as the 6.x default `zh`.

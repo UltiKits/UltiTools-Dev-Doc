@@ -139,6 +139,8 @@ fallback-language: "auto"
 
 后备语言在启动时和每次成功的完整 `/ul reload` 时解析，并记录所选语言及原因，例如 `Fallback language: <language> (system time zone <zone>; set fallback-language in config.yml to override)`。无效的值会记录为 `Invalid language locale: <value>` 或 `Invalid fallback-language locale: <value>`。
 
+自 v7.0.0 起，当 `fallback-language` 设置为与 `language` 不同的具体语言时，已迁移的框架日志和完整 `/ul reload` 的汇总使用 `fallback-language`。即使命令由玩家执行，完整重载的汇总也使用服务器的后备语言。
+
 云主机和容器常用 UTC，因此在那里新装默认使用英文，与 6.x 出厂的中文默认不同。中文客户端在语言文件有中文译文的地方仍看到中文。想要中文，写 `fallback-language: zh` 并执行完整的 `/ul reload`。
 
 已有的配置文件绝不会被改写。已有具体 `language: zh` 或 `en` 且没有后备键的配置，以该语言作为后备语言。没有 `language` 键的配置按 `auto` 处理，而不是 6.x 原先的默认值 `zh`，也不会把这个键写回文件。
@@ -156,7 +158,7 @@ fallback-language: "auto"
 | 模块 | `plugins/UltiTools/pluginConfig/<模块>/messages/<语言>.yml` |
 | 框架 | `plugins/UltiTools/messages/<语言>.yml` |
 
-使用新语言名称的覆盖文件会增加一种语言。删除覆盖文件即恢复随包文本。覆盖文件遵守与随包文件相同的规则（只读 `.yml`、UTF-8、点分键、MiniMessage）。框架只读取这些文件，从不写入。
+使用新语言名称的覆盖文件会增加一种语言。覆盖文件遵守与随包文件相同的规则（只读 `.yml`、UTF-8、点分键、MiniMessage）。框架只读取这些文件，从不写入。
 
 框架在它们旁边的 `messages/reference/` 中保存随包文件的只读参考副本。副本以下面的文件头开始，并按随包内容重写；修改副本没有任何效果：
 
@@ -167,20 +169,24 @@ fallback-language: "auto"
 
 ## 重载 {#reloading}
 
+自 v7.0.0 起，完整的 `/ul reload` 会重读框架自己的覆盖文件 `plugins/UltiTools/messages/<语言>.yml`，并重载各模块。`/ul reload <模块>` 只重读指定模块的消息覆盖文件（见[服主覆盖文件](#operator-overrides)）。
+
 | 改动 | 生效时机 |
 | --- | --- |
 | `config.yml` 中的 `language` 或 `fallback-language` | 成功的完整 `/ul reload`，或重启 |
-| 模块覆盖文件 | 重载该模块（`/ul reload <模块>`），或重启 |
-| 框架覆盖文件 | 仅重启 |
+| 模块覆盖文件 | 重载该模块（`/ul reload <模块>`）、完整的 `/ul reload`，或重启 |
+| 框架覆盖文件 | 完整的 `/ul reload`，或重启 |
 | 玩家的客户端语言 | 下一条消息 |
 
-::: warning 框架覆盖文件需要重启
-7.0 中框架语言文件的覆盖只在启动时读取，`/ul reload` 不会重载。后续改动会补上重载入口。
+自 v7.0.0 起，如果覆盖文件无法解析为 YAML 语言目录，框架会记录一条警告，注明文件名；解析器若提供错误位置，警告也会包含该位置。重载会跳过该文件并继续，有随包文本时恢复随包文本，不沿用上一次有效的覆盖。删除覆盖文件后，下一次重载也会按同样的方式回退。
+
+::: warning 更换框架 JAR 前先停服
+自 v7.0.0 起，完整的 `/ul reload` 也会从磁盘上的框架 JAR 重读内置消息目录。运行中替换 JAR，或在 JAR 尚未拷贝完整时重载，都可能导致框架消息在重启前异常。
 :::
 
 ## 旧的 `i18n(...)` 路径
 
-在调用方迁移期间，6.x 的语言系统在 7.0 中仍然存在。`i18n(...)`、`getLanguageCode()`、`getConfiguredLanguage()` 以及 `lang/` 中的文件按 [I18n 多语言](/zh/guide/essentials/i18n) 所述工作，旧路径仍会读取自定义语言文件。移除它是之后单独的改动。
+在调用方迁移期间，6.x 的语言系统在 7.0 中仍然存在。`i18n(...)`、`getLanguageCode()`、`getConfiguredLanguage()` 以及 `lang/` 中的文件按 [I18n 多语言](/zh/guide/essentials/i18n) 所述工作，旧路径仍会读取自定义语言文件。移除它是之后单独的改动。自 v7.0.0 起，在旧路径移除之前，如果旧路径使用的语言与后备语言不同，控制台可能同时出现两种语言的日志。
 
 `language` 为 `auto`、空白或缺失时，`getConfiguredLanguage()` 返回解析出的后备语言的基础语言，旧路径加载该语言。具体名称（包括自定义名称）原样返回。
 
@@ -188,7 +194,6 @@ fallback-language: "auto"
 
 ## 已知限制
 
-- 框架语言文件的覆盖只在重启时重载（见[重载](#reloading)）。
 - 时区规则使用时区 ID 而不是 UTC 偏移，并且只在启动和完整 `/ul reload` 时解析。
 - 6.x 的语言文件和自定义名称不会转换为新的语言文件。
 - 没有 `language` 键的配置按 `auto` 处理，而不是 6.x 的默认值 `zh`。
