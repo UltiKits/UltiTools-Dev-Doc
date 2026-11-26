@@ -10,7 +10,7 @@
 
 启动现在分两个阶段进行。
 
-1. 引导阶段，在任何世界加载之前。Paper 先解析框架的运行库。随后 UltiTools 应用待处理的模块更新与删除，接纳 `plugins/UltiTools/plugins/` 中的模块 JAR，构建共享的模块类加载器，并调用每个已接纳且声明了早期钩子的模块的钩子。该阶段以一行汇总结束：
+1. 引导阶段，在任何世界加载之前。Paper 先解析框架的运行库。自 v7.0.0 起，UltiTools 随后应用待生效的模块卸载、安装和更新，接纳 `plugins/UltiTools/plugins/` 中的模块 JAR，构建共享的模块类加载器，并调用每个已接纳且声明了早期钩子的模块的钩子。该阶段以一行汇总结束：
 
    ```text
    [UltiTools] Bootstrap: processed pending module changes; 3 module JAR(s) on the module class path; 1 module bootstrap(s) ran, 0 failed.
@@ -111,4 +111,4 @@ com.example.other.SomeClass is not available to modules. If this class belongs t
 
 - 不支持在不完全重启的情况下禁用后再启用 UltiTools，也不支持服务器的 `/reload` 和插件管理器的热重载。框架禁用时会关闭模块类加载器，重新启用不会重建它。`/ul reload` 仍然只重载配置。
 - 钩子失败的模块不会启用，但它的 JAR 仍留在共享的模块类路径上。使用它的类的其他模块仍可能受影响，静态初始化失败时尤其如此。
-- 待处理的模块更新在引导阶段（世界加载之前）应用，但要等启用阶段模块加载完成后才确认。如果服务器在这之间停止或崩溃，下次启动会恢复之前的 JAR。请等启动完成后再停止服务器。
+- 自 v7.0.0 起，待生效的安装和更新在引导阶段应用，但要等启用阶段模块加载完成后才确认。如果启动在确认之前中断，下次启动会移除未经确认的新装 JAR，或为未经确认的更新恢复旧 JAR。请等启动完成后再停止服务器。见[启动时应用与恢复](/zh/guide/advanced/module-versioning#启动时应用与恢复)。

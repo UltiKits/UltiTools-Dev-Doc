@@ -10,7 +10,7 @@ This page describes the unreleased 7.0.0 framework. A 6.x framework has no boots
 
 Start-up now runs in two phases.
 
-1. Bootstrap phase, before any world loads. Paper first resolves the framework's runtime libraries. UltiTools then applies pending module updates and deletions, admits the module JARs in `plugins/UltiTools/plugins/`, builds the shared module class loader, and calls the early hook of each admitted module that declares one. It ends with one summary line:
+1. Bootstrap phase, before any world loads. Paper first resolves the framework's runtime libraries. As of v7.0.0, UltiTools then applies pending module uninstalls, installs and updates, admits the module JARs in `plugins/UltiTools/plugins/`, builds the shared module class loader, and calls the early hook of each admitted module that declares one. It ends with one summary line:
 
    ```text
    [UltiTools] Bootstrap: processed pending module changes; 3 module JAR(s) on the module class path; 1 module bootstrap(s) ran, 0 failed.
@@ -111,4 +111,4 @@ The first start therefore needs network access to Maven Central; later starts re
 
 - Disabling and re-enabling UltiTools without a full restart is unsupported, as are server `/reload` and plugin-manager hot reload. The module class loader is closed when the framework disables and is not rebuilt by a re-enable. `/ul reload` still reloads configuration only.
 - A module whose hook failed is not enabled, but its JAR stays on the shared module class path. Other modules that use its classes can still be affected, especially by a failed static initializer.
-- Pending module updates are applied in the bootstrap phase, before worlds load, but confirmed only after modules load during enable. If the server stops or crashes in between, the next start restores the previous JAR. Let start-up finish before stopping the server.
+- As of v7.0.0, pending installs and updates are applied in bootstrap but confirmed only after modules load during enable. If start-up is interrupted before confirmation, the next start removes the unconfirmed install or restores the previous JAR for an unconfirmed update. Let start-up finish before stopping the server. See [application and recovery at start-up](/guide/advanced/module-versioning#application-and-recovery-at-start-up).
