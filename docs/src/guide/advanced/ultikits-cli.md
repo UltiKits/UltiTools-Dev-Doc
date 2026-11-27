@@ -10,17 +10,9 @@ Until then, `npm install -g @ultikits/cli` installs `2.0.1`, which still generat
 UltiTools-API 7.0.0 is also unreleased; the preview scaffold defaults to `7.0.0-SNAPSHOT`.
 :::
 
-To use the preview template before the CLI release, run it from the repository source instead of using the globally installed command:
+To build a 7.0 module in the meantime, follow Quick Start to write the [`pom.xml`](/guide/quick-start#maven-build) and [module descriptor](/guide/quick-start#module-descriptor) by hand, then continue with the module entry point.
 
-```bash
-git clone https://github.com/UltiKits/ultikits-cli.git
-cd ultikits-cli
-npm ci
-npm run build
-node dist/bin/ultikits.js create
-```
-
-Run `node dist/bin/ultikits.js create [directory]` from the CLI checkout, replacing `[directory]` with a target directory name or omitting it as above. The only optional argument selects the output directory; `create` always prompts and has no non-interactive options.
+The optional argument to `ultikits create [directory]` only selects the output directory; `create` always prompts and has no non-interactive options.
 
 ::: tip Recommended: local publishing
 Official UltiTools modules are published locally by their maintainers: the accepted JAR is attached to a GitHub release and that same file is published to UltiCloud with the CLI. Third-party developers can use the same path.
@@ -176,53 +168,68 @@ mvn package
 
 ### Module tests without a server {#serverless-module-tests}
 
-Put JUnit Jupiter tests in `src/test/java`, in the same Java package as the code they exercise. The preview scaffold includes Jupiter and Mockito as test dependencies; for a hand-written project, add them with test scope and use a Surefire version that runs Jupiter tests. Run `mvn test`. These examples use the JUnit 5 Jupiter API (`org.junit.jupiter.api`) and public UltiTools APIs. A mock records or supplies values; it does not run Paper.
+Put JUnit Jupiter tests in `src/test/java`, in the same Java package as the code they exercise. The preview scaffold includes Jupiter and Mockito as test dependencies; for a hand-written project, add them with test scope and use a Surefire version that runs Jupiter tests. Run `mvn test`. These examples use JUnit Jupiter 6.1.3 (`org.junit.jupiter.api`), as included in the 7.0 scaffold, and public UltiTools APIs. A mock records or supplies values; it does not run Paper.
 
 #### Message catalogues
 
-In both files, nest `named` under `greeting:`: put `named: "Hello, <name>!"` in `src/main/resources/messages/en.yml` and put `named: "你好，<name>！"` in `src/main/resources/messages/zh.yml`. Compare the sets of string keys and render each parameterized message in both locales with distinct test values. A missing, misspelled or escaped `<name>` makes the expected text fail even if the key sets match. Add a rendering assertion for each parameterized key in your module. Read from the module's resources directory so a dependency JAR cannot supply a file with the same name. This does not check the server's locale selection, overrides or in-game delivery.
+In both files, nest `named` under `greeting:`: put `named: "Hello, <name>!"` in `src/main/resources/messages/en.yml` and put `named: "你好，<name>！"` in `src/main/resources/messages/zh.yml`. Compare the keys of all scalar values in the two files, including numbers and booleans, and render each parameterized message in both locales with distinct test values. Use SnakeYAML, supplied by Paper API, to read scalar values as text, as the framework does when loading messages. A missing, misspelled or escaped `<name>` makes the expected text fail even if the key sets match. Add a rendering assertion for each parameterized key in your module. Read from the module's resources directory so a dependency JAR cannot supply a file with the same name. This does not check the server's locale selection, overrides or in-game delivery.
 
 ```java
+package com.example.mymodule;
+
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.charset.StandardCharsets;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.nodes.MappingNode;
+import org.yaml.snakeyaml.nodes.ScalarNode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class MessageCatalogueTest {
     @Test
     void bothLocalesProvideTheSameKeysAndRenderTheName() throws Exception {
         var en = load("en");
         var zh = load("zh");
-        assertEquals(keys(en), keys(zh));
+        assertEquals(en.keySet(), zh.keySet());
         assertEquals("Hello, test-name!", renderGreeting(en));
         assertEquals("你好，test-name！", renderGreeting(zh));
     }
 
-    private static YamlConfiguration load(String locale) throws Exception {
+    private static Map<String, String> load(String locale) throws Exception {
         var module = Path.of(System.getProperty("basedir", "."));
         var catalogue = module.resolve("src/main/resources/messages/" + locale + ".yml");
         try (var reader = Files.newBufferedReader(catalogue, StandardCharsets.UTF_8)) {
-            var yaml = new YamlConfiguration();
-            yaml.load(reader);
-            return yaml;
+            var messages = new LinkedHashMap<String, String>();
+            collectScalars(assertInstanceOf(MappingNode.class, new Yaml().compose(reader)), "", messages);
+            return messages;
         }
     }
 
-    private static Set<String> keys(YamlConfiguration yaml) {
-        return yaml.getKeys(true).stream().filter(yaml::isString).collect(Collectors.toSet());
+    private static void collectScalars(MappingNode mapping, String prefix, Map<String, String> messages) {
+        for (var entry : mapping.getValue()) {
+            var key = assertInstanceOf(ScalarNode.class, entry.getKeyNode()).getValue();
+            var path = prefix + key;
+            if (entry.getValueNode() instanceof MappingNode nested) {
+                collectScalars(nested, path + ".", messages);
+            } else {
+                var scalar = assertInstanceOf(ScalarNode.class, entry.getValueNode(), path);
+                assertNull(messages.putIfAbsent(path, scalar.getValue()), "Duplicate message key: " + path);
+            }
+        }
     }
 
-    private static String renderGreeting(YamlConfiguration yaml) {
-        String template = yaml.getString("greeting.named");
+    private static String renderGreeting(Map<String, String> messages) {
+        String template = messages.get("greeting.named");
         assertNotNull(template);
         var rendered = MiniMessage.miniMessage().deserialize(template, Placeholder.unparsed("name", "test-name"));
         return PlainTextComponentSerializer.plainText().serialize(rendered);
@@ -235,6 +242,8 @@ class MessageCatalogueTest {
 Use the classes from [UI: Intents and Sessions](./ui-service). For a form, build a `FormResponse` with the input handles from the captured form, not new handles with the same keys. For a chest, call the action from the captured grid with a mock click. The test executor runs inline so you can assert your callback's effects, not Paper's scheduling, dialog input, layout, or inventory event routing. Check those on Paper with a client.
 
 ```java
+package com.example.mymodule.ui;
+
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -318,6 +327,8 @@ class ModuleUiTest {
 Use the two classes from [Config-Bound Timing](./scheduled-tasks#config-bound-timing). Check that the method points to the intended config class and YAML key; test the method's own work separately by calling it with test dependencies. Neither check exercises config registration, the first tick or repeat interval, or how `/ul reload` applies a new value. Check those on Paper.
 
 ```java
+package com.example.mymodule.scheduling;
+
 import com.ultikits.ultitools.annotations.ConfigEntry;
 import com.ultikits.ultitools.annotations.Scheduled;
 import org.junit.jupiter.api.Test;
@@ -341,9 +352,11 @@ class BoundScheduleTest {
 
 #### Config validation
 
-Pass candidate values to `validateProposedProperties`; it checks the proposed state and restores the original fields even on failure. This example checks rejection of an empty value without reading or writing a YAML file. Test the loading and reload path with an actual YAML file on Paper if you need to verify live behavior.
+Pass candidate values to `validateProposedProperties`; it checks the proposed state and restores the original fields even on failure. This example checks rejection of an empty value without reading or writing a YAML file. Validation tries to construct a temporary instance, so declare a nested test config class `public static` and give it an accessible `(String)` or no-argument constructor. Test the loading and reload path with an actual YAML file on Paper if you need to verify live behavior.
 
 ```java
+package com.example.mymodule.config;
+
 import com.google.gson.JsonObject;
 import com.ultikits.ultitools.abstracts.AbstractConfigEntity;
 import com.ultikits.ultitools.annotations.ConfigEntity;

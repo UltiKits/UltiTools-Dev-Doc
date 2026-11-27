@@ -118,6 +118,8 @@ There is no password (masked) input, because Paper's dialog text input has no su
 Supply a `CreateHome` callback to handle a submission; it is not called if the form closes without a submission. The example uses `Text.plain`, so it does not need a message catalogue.
 
 ```java
+package com.example.mymodule.ui;
+
 import com.ultikits.ultitools.scheduling.Scheduler;
 import com.ultikits.ultitools.text.Text;
 import com.ultikits.ultitools.ui.Form;
@@ -273,6 +275,8 @@ An icon is a `GridItem`: an `ItemSpec` and an optional `GridAction`. The player 
 Supply a `joinArena` callback that takes the player who clicked the icon. After the callback returns, the click action closes the session.
 
 ```java
+package com.example.mymodule.ui;
+
 import com.ultikits.ultitools.item.ItemSpec;
 import com.ultikits.ultitools.text.Text;
 import com.ultikits.ultitools.ui.Grid;

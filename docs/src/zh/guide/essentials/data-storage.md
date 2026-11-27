@@ -380,7 +380,7 @@ WhereCondition.builder().column("somecol").value(someval).build();
 |---|---|
 | MySQL | SQL `LIKE` 分别使用 `value%`、`%value`、`%value%`。`value` 中的 `%` 匹配零个或多个字符，`_` 匹配一个字符。框架不添加 `ESCAPE` 子句，也不转义传入的值；MySQL 按其转义规则（默认用反斜杠转义）和排序规则匹配。 |
 | SQLite | SQL 模式和通配符与 MySQL 相同。没有 `ESCAPE` 子句时，反斜杠是普通字符。SQLite 默认的 `LIKE` 只忽略 ASCII 字母的大小写，区分非 ASCII 字母的大小写。 |
-| JSON | 分别使用 Java 的 `startsWith`、`endsWith`、`contains`，区分大小写；`%`、`_` 和反斜杠都是普通字符。操作器会解析映射列名，或读取传入的 Java 字段路径（嵌套路径以点分隔），用 `toString()` 将非空值转为文本，跳过缺失或值为 `null` 的字段。 |
+| JSON | 分别使用 Java 的 `startsWith`、`endsWith`、`contains`，区分大小写；`%`、`_` 和反斜杠都是普通字符。操作器会解析映射列名，或读取传入的 Java 字段路径（嵌套路径以点分隔），用 `toString()` 将非空值转为文本，跳过缺失或值为 `null` 的字段。数值按转为文本后的形式匹配。例如，整数 `15` 在 JSON 后端以 `15.0` 参与匹配，后缀 `5` 不匹配；SQL 后端若按 `15` 匹配则会命中。 |
 
 在 MySQL 和 SQLite 上，匹配模式通过 JDBC 参数绑定，但 `column` 原样进入 SQL，不像 `WhereCondition` 那样检查它是否在实体的 `@Column` 映射中。只传入代码中固定的列名，或从固定的允许列表中选择列名；不要把用户输入直接作为 `column`。若数据库拒绝未知列名，会抛出带 `DATA_OPERATION_FAILED`（`ULTI-3008`）的 `DataAccessException`，其 `getMessage()` 原文为 `Failed to query with LIKE`。`column` 为 `null` 不会被拒绝，而是成了 SQL 的 `NULL` 操作数，不匹配任何记录。JSON 同样不检查列名是否在映射中，找不到路径或路径为 `null`、空字符串时无匹配结果。
 

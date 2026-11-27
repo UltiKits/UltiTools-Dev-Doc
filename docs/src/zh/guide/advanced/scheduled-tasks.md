@@ -61,6 +61,8 @@
 针对 7.0，可以把下面两个类放到模块的同一个扫描包中，各自保存为同名 `.java` 文件。自动注册开启时由框架扫描配置类；关闭时在 `getAllConfigs()` 中只返回一个该类的实例。不要另建一个配置对象给任务读取。
 
 ```java
+package com.example.mymodule.scheduling;
+
 import com.ultikits.ultitools.abstracts.AbstractConfigEntity;
 import com.ultikits.ultitools.annotations.ConfigEntity;
 import com.ultikits.ultitools.annotations.ConfigEntry;
@@ -77,6 +79,8 @@ public class BoundScheduleConfig extends AbstractConfigEntity {
 ```
 
 ```java
+package com.example.mymodule.scheduling;
+
 import com.ultikits.ultitools.annotations.Scheduled;
 import com.ultikits.ultitools.annotations.Service;
 

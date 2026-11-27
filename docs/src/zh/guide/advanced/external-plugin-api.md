@@ -116,6 +116,8 @@ UltiTools 尚未加载时，`connect` 抛出 `IllegalStateException`。登记抛
 
 [UltiTools 外部插件示例仓库](https://github.com/UltiKits/UltiTools-External-Example)演示了 `JavaPlugin` 的接入方式。请选择与框架版本相符的示例版本。
 
-不启动 Paper 也可测试登记路径：捕获 `LifecycleEvents.COMMANDS` 的处理器，传入测试用 `Commands` 注册器来触发它，再用 Brigadier 的 `CommandDispatcher<CommandSourceStack>` 执行注册出的命令树。验证事件之前没有命令根和别名，执行注册后的命令会调用注入的服务。这能替代 Bukkit `onCommand` 或 `PluginCommand` 的登记测试，但不能证明 Paper 的启动顺序、命令树复制方式或客户端行为。
+UltiTools 7.0 没有为外部插件提供受支持的无服务器命令注册测试夹具。`LifecycleEvents.COMMANDS` 的处理器登记在 UltiTools 自己的生命周期管理器上，不在外部 `JavaPlugin` 上。在单元测试中，可以直接调用命令处理方法和补全提供方法，也可以通过反射检查注解声明的映射、别名和权限。直接调用会绕过框架分派，不能验证参数绑定或权限检查。
+
+在 Paper 服务器上验证命令和别名实际注册、有权限和无权限的玩家看到预期的命令和补全建议，以及实际命令树能正确分派命令并给出语法错误提示。
 
 如果测试使用 `org.mockbukkit.mockbukkit:mockbukkit-v26.3:4.123.0`，且在初始化注册表时失败，请检查夹具 `registries/registry_key_class_relation.json`。这个版本缺少 Paper 26.3 需要的 `minecraft:timeline` 和 `minecraft:world_clock` 映射。[UltiTools-Reborn](https://github.com/UltiKits/UltiTools-Reborn) 的对应夹具位于 `src/test/resources/registries/registry_key_class_relation.json`。请放在 `src/test/resources`，不要打入插件 JAR。

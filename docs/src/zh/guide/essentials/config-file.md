@@ -17,6 +17,8 @@
 下面是一个完整的 7.0 单文件配置类。`@ConfigEntry` 指定 YAML 键和注释，字段初始值就是默认值。示例直接声明访问方法，不需要 Lombok。
 
 ```java
+package com.example.mymodule.config;
+
 import com.ultikits.ultitools.abstracts.AbstractConfigEntity;
 import com.ultikits.ultitools.annotations.ConfigEntity;
 import com.ultikits.ultitools.annotations.ConfigEntry;
@@ -211,8 +213,8 @@ UltiTools 提供了校验注解来防止无效的配置值。详情请参阅[配
 
 ### `save()`
 
-
 `saveConfig(path, type)` 只保存当前模块中按该路径登记的配置实体。如果查找时路径从未登记，即使磁盘上已有同名文件，也会抛出 `NullPointerException`，不会创建、登记或写入文件。先登记配置实体再保存；若已持有登记过的实体，也可以直接调用它的 `save()`。
+
 `save()` 只写模块自上次加载或保存以来改过的设置，并且只在文件该处仍是读取时的值时才写。声明为 `Map` 的设置按条目写入；列表，以及 `Location`、`Vector` 这类 Bukkit 值，要么整体写入，要么不写。保存从不补入文件缺少的键，从不改写注释，也从不删除模块没有删除的映射条目。
 
 因此，服主在磁盘上改过的值、删掉的键，以及框架无法使用的值（`interval: 3O0`）都不会被覆盖。模块的改动留在内存中，一条 WARNING 列出该键。比较依据是上次读取的文字：服主不经 `/ul reload` 直接在磁盘上改过某个设置后，即使值不变（例如把 `64` 改成 `64.0`），模块对该设置的下一次改动也不会写入，直到重载重新读取文件。没有内容可写的保存不改动文件字节和修改时间。

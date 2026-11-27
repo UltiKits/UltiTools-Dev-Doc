@@ -61,6 +61,8 @@ Use `periodKey`, `delayKey`, or both to replace the corresponding literal with a
 For 7.0, put these two classes in the same scanned package in your module, in separate `.java` files named after the classes. With automatic config registration enabled, let the framework discover the config class. With it disabled, return one instance of that class from `getAllConfigs()`. Do not create a separate config object for the task to read.
 
 ```java
+package com.example.mymodule.scheduling;
+
 import com.ultikits.ultitools.abstracts.AbstractConfigEntity;
 import com.ultikits.ultitools.annotations.ConfigEntity;
 import com.ultikits.ultitools.annotations.ConfigEntry;
@@ -77,6 +79,8 @@ public class BoundScheduleConfig extends AbstractConfigEntity {
 ```
 
 ```java
+package com.example.mymodule.scheduling;
+
 import com.ultikits.ultitools.annotations.Scheduled;
 import com.ultikits.ultitools.annotations.Service;
 

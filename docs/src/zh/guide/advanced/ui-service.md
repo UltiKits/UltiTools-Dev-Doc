@@ -118,6 +118,8 @@ Choice<String> kit = Choice.<String>builder(Text.of(messages.key("kit.title")))
 调用方提供 `CreateHome` 回调来处理表单提交；关闭而未提交时不会调用它。示例用 `Text.plain`，不需要消息词典。
 
 ```java
+package com.example.mymodule.ui;
+
 import com.ultikits.ultitools.scheduling.Scheduler;
 import com.ultikits.ultitools.text.Text;
 import com.ultikits.ultitools.ui.Form;
@@ -273,6 +275,8 @@ session.result().thenAcceptAsync(result -> handle(player, result), scheduler.ent
 调用方提供 `joinArena` 回调，接收点击图标的玩家。回调返回后，点击动作关闭会话。
 
 ```java
+package com.example.mymodule.ui;
+
 import com.ultikits.ultitools.item.ItemSpec;
 import com.ultikits.ultitools.text.Text;
 import com.ultikits.ultitools.ui.Grid;

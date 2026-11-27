@@ -10,17 +10,9 @@
 UltiTools-API 7.0.0 也尚未发布；预发布脚手架默认使用 `7.0.0-SNAPSHOT`。
 :::
 
-要在 CLI 发版前使用预览模板，请从仓库源码运行，不要调用全局安装的版本：
+在预发布阶段开发 7.0 模块时，请按快速开始手写 [`pom.xml`](/zh/guide/quick-start#maven-构建配置) 和[模块描述文件](/zh/guide/quick-start#模块描述文件)，然后继续编写主类。
 
-```bash
-git clone https://github.com/UltiKits/ultikits-cli.git
-cd ultikits-cli
-npm ci
-npm run build
-node dist/bin/ultikits.js create
-```
-
-在 CLI 检出目录运行 `node dist/bin/ultikits.js create [directory]`，将 `[directory]` 替换为目标目录名，或像上例一样省略。此可选参数只指定输出目录；`create` 始终通过交互提示收集输入，没有非交互选项。
+`ultikits create [directory]` 的可选参数只指定输出目录；`create` 始终通过交互提示收集输入，没有非交互选项。
 
 ::: tip 推荐：本地发布
 官方 UltiTools 模块由维护者在本地发布：把验收通过的 JAR 附加到 GitHub Release，再用 CLI 将同一个文件发布到 UltiCloud。第三方开发者也可以使用相同的路径。
@@ -176,53 +168,68 @@ mvn package
 
 ### 不启动服务器的模块测试 {#serverless-module-tests}
 
-将 JUnit Jupiter 测试放在 `src/test/java` 下，与被测代码使用相同的 Java 包。预览脚手架已添加 Jupiter 和 Mockito 测试依赖；手写工程需要将两者添加为 `test` 依赖，并使用支持 Jupiter 的 Surefire 版本。运行 `mvn test`。下列示例使用 JUnit 5 的 Jupiter API（`org.junit.jupiter.api`）和 UltiTools 公开 API。模拟对象只记录或提供测试值，不运行 Paper。
+将 JUnit Jupiter 测试放在 `src/test/java` 下，与被测代码使用相同的 Java 包。预览脚手架已添加 Jupiter 和 Mockito 测试依赖；手写工程需要将两者添加为 `test` 依赖，并使用支持 Jupiter 的 Surefire 版本。运行 `mvn test`。下列示例使用 JUnit Jupiter 6.1.3（`org.junit.jupiter.api`，与 7.0 脚手架一致）和 UltiTools 公开 API。模拟对象只记录或提供测试值，不运行 Paper。
 
 #### 消息文件
 
-本例在两份文件的 `greeting:` 下各写一个缩进的 `named` 键：在 `src/main/resources/messages/en.yml` 写入 `named: "Hello, <name>!"`，在 `src/main/resources/messages/zh.yml` 中写入 `named: "你好，<name>！"`。比较两份文件的文本键集合，再给占位符传入可区分的测试值，分别渲染两种语言的消息。即使键集合相同，漏写、拼错或转义 `<name>` 也会导致结果与预期文本不符。为模块中每条带参数的消息添加这样的渲染断言。直接读取模块的资源目录，避免误读依赖 JAR 中的同名文件。这里不检查服务器的语言选择、覆盖文件或游戏内投递。
+本例在两份文件的 `greeting:` 下各写一个缩进的 `named` 键：在 `src/main/resources/messages/en.yml` 写入 `named: "Hello, <name>!"`，在 `src/main/resources/messages/zh.yml` 中写入 `named: "你好，<name>！"`。比较两份文件中所有标量值的键，包括数字和布尔值，再给占位符传入可区分的测试值，分别渲染两种语言的消息。用 Paper API 提供的 SnakeYAML 读取标量原文，与框架加载消息时的处理一致。即使键集合相同，漏写、拼错或转义 `<name>` 也会导致结果与预期文本不符。为模块中每条带参数的消息添加这样的渲染断言。直接读取模块的资源目录，避免误读依赖 JAR 中的同名文件。这里不检查服务器的语言选择、覆盖文件或游戏内投递。
 
 ```java
+package com.example.mymodule;
+
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.charset.StandardCharsets;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.nodes.MappingNode;
+import org.yaml.snakeyaml.nodes.ScalarNode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class MessageCatalogueTest {
     @Test
     void bothLocalesProvideTheSameKeysAndRenderTheName() throws Exception {
         var en = load("en");
         var zh = load("zh");
-        assertEquals(keys(en), keys(zh));
+        assertEquals(en.keySet(), zh.keySet());
         assertEquals("Hello, test-name!", renderGreeting(en));
         assertEquals("你好，test-name！", renderGreeting(zh));
     }
 
-    private static YamlConfiguration load(String locale) throws Exception {
+    private static Map<String, String> load(String locale) throws Exception {
         var module = Path.of(System.getProperty("basedir", "."));
         var catalogue = module.resolve("src/main/resources/messages/" + locale + ".yml");
         try (var reader = Files.newBufferedReader(catalogue, StandardCharsets.UTF_8)) {
-            var yaml = new YamlConfiguration();
-            yaml.load(reader);
-            return yaml;
+            var messages = new LinkedHashMap<String, String>();
+            collectScalars(assertInstanceOf(MappingNode.class, new Yaml().compose(reader)), "", messages);
+            return messages;
         }
     }
 
-    private static Set<String> keys(YamlConfiguration yaml) {
-        return yaml.getKeys(true).stream().filter(yaml::isString).collect(Collectors.toSet());
+    private static void collectScalars(MappingNode mapping, String prefix, Map<String, String> messages) {
+        for (var entry : mapping.getValue()) {
+            var key = assertInstanceOf(ScalarNode.class, entry.getKeyNode()).getValue();
+            var path = prefix + key;
+            if (entry.getValueNode() instanceof MappingNode nested) {
+                collectScalars(nested, path + ".", messages);
+            } else {
+                var scalar = assertInstanceOf(ScalarNode.class, entry.getValueNode(), path);
+                assertNull(messages.putIfAbsent(path, scalar.getValue()), "Duplicate message key: " + path);
+            }
+        }
     }
 
-    private static String renderGreeting(YamlConfiguration yaml) {
-        String template = yaml.getString("greeting.named");
+    private static String renderGreeting(Map<String, String> messages) {
+        String template = messages.get("greeting.named");
         assertNotNull(template);
         var rendered = MiniMessage.miniMessage().deserialize(template, Placeholder.unparsed("name", "test-name"));
         return PlainTextComponentSerializer.plainText().serialize(rendered);
@@ -235,6 +242,8 @@ class MessageCatalogueTest {
 使用[界面意图与会话](./ui-service)中的两个类。构造 `FormResponse` 时使用捕获到的表单中的输入句柄，不要另建同名句柄。对箱子界面，从捕获到的 `Grid` 取出动作，传入模拟点击对象并调用它。测试执行器直接运行回调，只验证模块对此的处理；Paper 的调度、表单输入、布局和物品栏事件分发需在 Paper 服务器和客户端上确认。
 
 ```java
+package com.example.mymodule.ui;
+
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -318,6 +327,8 @@ class ModuleUiTest {
 使用[配置绑定计时](./scheduled-tasks#config-bound-timing)中的两个类。检查方法是否指向预期的配置类和 YAML 键；任务的业务逻辑可另用测试依赖直接调用。两种测试都不验证配置登记、首次触发的 tick、重复间隔或 `/ul reload` 应用新值的行为；这些需在 Paper 上确认。
 
 ```java
+package com.example.mymodule.scheduling;
+
 import com.ultikits.ultitools.annotations.ConfigEntry;
 import com.ultikits.ultitools.annotations.Scheduled;
 import org.junit.jupiter.api.Test;
@@ -341,9 +352,11 @@ class BoundScheduleTest {
 
 #### 配置校验
 
-把候选值交给 `validateProposedProperties`。它校验候选状态，失败时也会恢复原字段值。本例不读写 YAML，检查空值是否被拒绝。要验证实际加载或重载的结果，请在 Paper 上使用真实 YAML 文件测试。
+把候选值交给 `validateProposedProperties`。它校验候选状态，失败时也会恢复原字段值。本例不读写 YAML，检查空值是否被拒绝。校验会尝试构造一个临时实例，所以测试中的嵌套配置类须声明为 `public static`，并提供可访问的 `(String)` 或无参构造器。要验证实际加载或重载的结果，请在 Paper 上使用真实 YAML 文件测试。
 
 ```java
+package com.example.mymodule.config;
+
 import com.google.gson.JsonObject;
 import com.ultikits.ultitools.abstracts.AbstractConfigEntity;
 import com.ultikits.ultitools.annotations.ConfigEntity;
