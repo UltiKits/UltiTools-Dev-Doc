@@ -1,14 +1,12 @@
 # 流式查询 DSL
 
-::: info 自 v6.2.0 起
-流式查询 DSL 自 UltiTools-API v6.2.0 起可用。
-:::
+7.0.0 尚未发布。本页介绍自 v7.0.0 起适用的查询 API，概览见 [7.0.0 更新说明](../release-notes/7.0.0)。
 
-UltiTools 提供了一套流式查询 DSL，让你可以使用可读性强的链式 API 来构建数据查询。无需手动构建 `WhereCondition` 对象，你可以直接编写表达力更强的查询语句。
+`DataOperator#query()` 创建一个可链式调用的查询构建器。
 
 ## 基本用法
 
-从任意 `DataOperator` 获取 `Query` 构建器：
+在模块中，通过 `plugin.getDataOperator(HomeEntity.class)` 获取操作器。实体必须登记在当前模块的数据作用域中。普通 Paper 插件调用 `UltiToolsAPI.connect(this)` 成功后，使用 `UltiToolsAPI.getDataOperator(this, HomeEntity.class)`。实体发现、额外登记和所有权错误见[实体登记](./data-storage#entity-registration)。
 
 ```java
 DataOperator<HomeEntity> dataOperator = plugin.getDataOperator(HomeEntity.class);
@@ -19,13 +17,13 @@ List<HomeEntity> homes = dataOperator.query()
     .list();
 ```
 
-本页的代码片段只是片段。[完整示例](#完整示例)中的 `HomeEntity` 只映射了 `player_id` 和 `name`；查询 `world` 的片段假定它还映射了 `world` 列，`PlayerEntity` 则代表带有 `balance` 和 `level` 列的实体。你使用的每个列名都必须是该实体的 `@Column`：MySQL 与 SQLite 后端会以 `DataAccessException` 拒绝 `eq` 中的未知列，而 `in` 这类在内存中求值的运算符遇到未知列时不匹配任何行。
+各代码片段独立使用，操作器须与实体类型对应。[完整示例](#完整示例)中的 `HomeEntity` 映射 `player_id` 和 `name`；使用 `world` 的片段假定你已添加该映射。`playerOperator` 是 `DataOperator<PlayerEntity>`，这些片段假定实体映射 `balance` 和 `level`。请使用 `@Column` 中的列名而不是 Java 字段名。MySQL 和 SQLite 会以 `DataAccessException` 拒绝 `eq` 中的未知列；`in` 对无法解析的字段不匹配任何行。
 
 ## 条件
 
 ### where / and
 
-使用 `where()` 开始第一个条件，使用 `and()` 添加额外条件：
+用 `where(column)` 指定第一个条件的列，用 `and(column)` 指定后续列。两者都只选择下一次比较使用的列；比较调用才添加条件。所有条件必须同时满足，`where` 不会清除已有条件。
 
 ```java
 // 根据玩家和名称查找特定的家
@@ -41,18 +39,18 @@ HomeEntity home = dataOperator.query()
 
 | 运算符 | 说明 | 示例 |
 |--------|------|------|
-| `eq(value)` | 等于 | `.where("name").eq("base")` |
-| `ne(value)` | 不等于 | `.where("status").ne("disabled")` |
+| `eq(value)` | 交给后端的 `WhereCondition`，比较方式为 `EQUAL` | `.where("name").eq("base")` |
+| `ne(value)` | 非空字段值的 Java `equals` 返回 `false` | `.where("name").ne("base")` |
 | `gt(value)` | 大于 | `.where("level").gt(10)` |
 | `lt(value)` | 小于 | `.where("balance").lt(1000.0)` |
 | `gte(value)` | 大于等于 | `.where("level").gte(5)` |
 | `lte(value)` | 小于等于 | `.where("balance").lte(500.0)` |
-| `like(pattern)` | `%` 匹配任意字符序列，`_` 匹配单个字符；不区分大小写（见下文） | `.where("name").like("%base%")` |
-| `in(collection)` | 值在集合中 | `.where("world").in(worldList)` |
+| `like(pattern)` | 匹配整个非空值的字符串表示（见下文） | `.where("name").like("%base%")` |
+| `in(collection)` | 字段值非空，且集合的 `contains` 返回 `true` | `.where("world").in(worlds)` |
 
 ```java
 // 查找余额在 100 到 1000 之间的玩家
-List<PlayerEntity> players = dataOperator.query()
+List<PlayerEntity> players = playerOperator.query()
     .where("balance").gte(100.0)
     .and("balance").lte(1000.0)
     .list();
@@ -64,39 +62,42 @@ List<HomeEntity> homes = dataOperator.query()
     .list();
 ```
 
-`like` 不会交给数据库执行。它在所有后端上都在内存中求值，不区分大小写：`%` 与 `_` 被转换为 Java 正则表达式，其余字符按正则解释，`.`、`(`、`[` 等需自行转义。
+`like` 在内存中使用 Java 正则表达式的 `(?i)` 模式，把 `%` 替换为 `.*`、`_` 替换为 `.`，其余字符仍按正则解释。这不是 SQL `LIKE`；用作字面量的正则元字符需要转义。
+
+范围比较把 `null` 排在非空值之前，两个 `null` 相等；标准的有限数值按精确值比较（浮点值按其实际二进制值），而不是统一转成 `double`。内置后端拒绝 `eq(null)` 及以 `NaN`、无穷大为条件值的 `eq`。`eq(null)` 并不表示 `IS NULL`。
 
 ## 排序
 
-使用 `orderBy()`（升序）或 `orderByDesc()`（降序）对结果排序：
+使用 `orderBy(column)` 升序或 `orderByDesc(column)` 降序。只保留最后一次指定的排序列和方向。排序采用与范围条件相同的比较规则。
 
 ```java
 // 按余额降序获取玩家
-List<PlayerEntity> richest = dataOperator.query()
+List<PlayerEntity> richest = playerOperator.query()
     .orderByDesc("balance")
     .list();
 
 // 按等级升序排序
-List<PlayerEntity> sorted = dataOperator.query()
+List<PlayerEntity> sorted = playerOperator.query()
     .orderBy("level")
     .list();
 ```
 
 ## 分页
 
-使用 `limit()` 和 `offset()` 进行分页：
+对排序后的结果先应用 `offset(start)`（跳过的行数，默认 `0`），再应用 `limit(count)`（最多返回的行数，默认不限）。负偏移不跳过任何行，负上限表示不限，`limit(0)` 返回空结果。
 
 ```java
 // 获取第 2 页，每页 10 条
 int pageSize = 10;
 int page = 2;
-List<PlayerEntity> pageResults = dataOperator.query()
+List<PlayerEntity> pageResults = playerOperator.query()
+    .orderBy("id")
     .limit(pageSize)
     .offset((page - 1) * pageSize)
     .list();
 ```
 
-只有 `eq` 条件会交给存储后端。其他运算符、排序、`offset` 与 `limit` 都在内存中作用于所有满足 `eq` 条件的行，因此这种写法仍会加载全部匹配数据。数据量大的表请使用 `DataOperator.page(...)`。
+内置后端使用默认查询实现。`list()` 把 `eq` 转成 `WhereCondition` 交给 `getAll(...)`；没有 `eq` 就调用无条件的 `getAll()`。MySQL 和 SQLite 在 SQL 中应用这些等值条件，JSON 后端自行匹配。其他条件、排序和截取在取回候选结果后由 DSL 在内存中执行。即使只取一页，也会先读取全部候选行。大表在 MySQL 或 SQLite 上可改用[数据存储](./data-storage)中的 `DataOperator.page(...)`，不要假定 JSON 的无条件分页与 SQL 相同。
 
 ## 终端操作
 
@@ -104,11 +105,11 @@ List<PlayerEntity> pageResults = dataOperator.query()
 
 | 方法 | 返回类型 | 说明 |
 |------|----------|------|
-| `list()` | `List<T>` | 返回所有匹配结果 |
-| `first()` | `T`（可为null） | 返回第一个匹配结果，无匹配则返回 `null` |
-| `exists()` | `boolean` | 存在匹配结果则返回 `true` |
-| `count()` | `long` | 统计匹配结果数量 |
-| `delete()` | `int` | 删除匹配结果，返回实际删除的行数 |
+| `list()` | `List<T>` | 返回筛选、排序和分页后的结果 |
+| `first()` | `T` | 将构建器的上限收窄为最多一行，再调用 `list()`；无结果返回 `null` |
+| `exists()` | `boolean` | 无条件时检查 `getAll()` 是否非空；仅有 `eq` 时调用 `exist(...)`。这两条路径忽略分页；含其他条件时使用 `first()` |
+| `count()` | `long` | 返回 `list()` 的大小，包含分页的影响，不执行 SQL `COUNT` |
+| `delete()` | `int` | 按 ID 逐条删除 `list()` 选出的行；内置后端返回实际删除数 |
 
 ```java
 // 检查玩家是否有家
@@ -127,14 +128,18 @@ int deleted = dataOperator.query()
     .delete();
 ```
 
-自 v6.3.0 起，`delete()` 返回后端实际删除的行数，其他写入方先删掉的匹配行不计入。匹配到的行中有 id 为 `null` 的行时，`delete()` 在删除任何内容之前抛出 `DataAccessException`，因为没有任何删除操作能定位这一行。
+构建器有状态，独立查询请重新调用 `query()`。`delete()` 先检查所选行的 ID；若任一 ID 为 `null`，会在删除任何行之前抛出 `DataAccessException`（`ULTI-3007`）。异常原文为 `Query#delete() matched a <entity class> row with a null id, which no delete can address; nothing was deleted.`
+
+内置后端对按 ID 找到的实体调用 `onDelete()`；其他写入方先删掉的行不计入结果。删除不会在写入时重新检查原查询条件，也不会自动为整批开启事务。第三方操作器的默认计数以删除前后的存在性检查估算。
+
+通过 `getAll(...)` 读取时，内置后端会在 DSL 的内存处理前对每个候选实体调用 `onLoad()`，即使它最终不在结果中。仅含 `eq` 条件的 `exists()` 不走这条读取路径。
 
 ## 完整示例
 
-以下是使用查询 DSL 的完整服务示例：
+下面的模块服务通过查询 DSL 查找、列出、检查和删除家。请将带 `@Table` 的 `HomeEntity` 随所属模块打包。
 
 <<< @/../examples/src/main/java/com/ultikits/docs/query/HomeServiceImpl.java
 
-::: tip 旧版 API
-`WhereCondition` API 仍然可用且未被弃用。查询 DSL 是一个更高级的替代方案，对于复杂查询可读性更好。你可以自由混合使用两种方式。
+::: tip 直接使用条件
+你也可以直接把 `WhereCondition` 传给 `DataOperator`。注意，后端的比较语义不一定与 DSL 的内存比较相同。
 :::
