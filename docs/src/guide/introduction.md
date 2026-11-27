@@ -4,56 +4,27 @@ footer: false
 
 # Introduction
 
+7.0.0 has not been released. This guide describes UltiTools-API 7.0. See the [7.0.0 release notes](/guide/release-notes/7.0.0) for changes.
+
 ## What is UltiTools?
 
-UltiTools is a basic plugin for Minecraft servers, which was released in June 2020. It has many basic and special functions, and cares about the feedback of each user.
+UltiTools is a Paper plugin that loads modules and provides the APIs they use. An UltiTools module has its own JAR and lifecycle, but UltiTools loads it rather than Paper loading it as a standalone plugin. This guide covers modules. If you already maintain a standalone Paper plugin, see the [External Plugin API](/guide/advanced/external-plugin-api) instead.
 
-It is committed to making more server owners build servers easily, reducing the troubles caused by incompatible plugins.
+## Runtime Requirements
 
-## Features
+As of v7.0.0, the framework targets Paper 26.3 (build 258) with Java 25. Older Paper versions and plain Spigot are not supported targets. To build a 7.0 module, use JDK 25 and Maven; the module template compiles with `--release 25`.
 
-* Compatibility in 6.x: As of v6.3.0, the framework supports Paper 1.19.2 build 163 or later, using the Java version required by the chosen Paper line (Java 17 for 1.19.2 to 1.20.4, Java 21 from 1.20.5). In the 6.3.x line, UltiKits, UltiLogin, UltiMail, UltiRemoteBag and UltiTrade require Minecraft 1.21+. As of v6.4.0, these five modules target the framework's supported floor and require UltiTools 6.4.0+ on Minecraft below 1.21; see [Supporting servers below 1.21](/guide/advanced/older-servers) for module updates and capability limits.
+As of v7.0.0, rebuild existing modules against UltiTools-API 7.0 and the target Paper. The module JAR's root `plugin.yml` must declare an integer `api-version` from `700` through the running framework's API level, inclusive. Editing that field alone does not make an old JAR compatible. See the [upgrade guide](/guide/advanced/upgrading-to-7) if you are migrating a module.
 
-* Advanced GUI: Most features have a graphical user interface, making it easy for players to operate.
+## Module APIs
 
-* Highly Customizable: UltiTools expands its functionality through modules. You can use any modules based on your needs.
+UltiTools provides [dependency injection](/guide/advanced/ioc-container), [configuration](/guide/essentials/config-file) and [data storage](/guide/essentials/data-storage). As of v7.0.0, annotation-based [commands](/guide/essentials/cmd-executor) register through Paper as Brigadier command trees, and modules send translated text using [`Messages`](/guide/essentials/messages) with `messages/<locale>.yml` catalogues.
 
-* Comprehensive Configuration: The default configuration can be used directly as a base, meeting the needs of beginners starting a server. Of course, everything can be customized.
+Start with [Quick Start](/guide/quick-start) to build a module, install it on a server and run its first command.
 
-* Continuous Maintenance: Any questions or suggestions can be submitted to via Github Issues. The author will promptly fix bugs and update new features based on player feedback and suggestions.
+## 6.x Documentation
 
-* Feature-Rich: UltiTools covers almost all the basic features needed for a server, including special features like GUI login and a mail system.
-
-* Performance Optimization: Every aspect of the plugin has been optimized to ensure a smooth experience while offering a range of features.
-
-As of v7.0.0, rebuild modules against the target Paper and UltiTools-API 7.0 and declare an integer `api-version: 700` (or higher) in the JAR's root `plugin.yml`. The framework loads modules unchanged, without bytecode rewriting, server-API probing, or startup or offline linkage audits. It does not automatically adapt 6.x modules to 7.0; see [Modules from 6.x to 7.0](/guide/advanced/module-versioning#modules-6x-to-7).
-
-## Why Choose UltiTools API for Plugin Development?
-
-UltiTools API is the core of UltiTools, providing a comprehensive set of APIs that enable easy development of feature-rich plugins.
-
-In the 6.x line, as of v6.3.0, UltiTools API bundles obliviate-invs and UniversalScheduler into its own JAR. Paper downloads ByteBuddy, HikariCP, XSeries, Java-WebSocket, commons-dbutils and JavaMail from the `libraries:` entries in the framework's `plugin.yml`. Gson, MySQL Connector/J, protobuf, slf4j and native Adventure come from the Paper server itself. Modules can declare these libraries with `provided` scope instead of bundling them. For XSeries in 6.x, compile against the framework's declared version: 13.7.1 in 6.3.0, 14.0.0 as of 6.3.1.
-
-::: warning Unreleased v7.0.0 dependency change
-As of v7.0.0, the framework JAR no longer bundles obliviate-invs or UniversalScheduler, and the legacy chest pages built on obliviate-invs are removed (see [GUI Interface](/guide/advanced/gui)). A module that used those libraries directly must package them itself or rewrite that code; see [Module versioning](/guide/advanced/module-versioning#legacy-chest-removal).
-:::
-
-::: warning Unreleased v7.0.0 dependency change
-As of v7.0.0, the framework no longer supplies XSeries or `XVersionUtils`; use Paper's native `Material`, `Sound`, `Enchantment` and Adventure APIs.
-A module keeping XSeries must shade and relocate it itself; UltiTools modules cannot use Paper's `libraries:` mechanism.
-:::
-
-See [Native item and sound APIs in 7.0](/guide/advanced/module-versioning#native-item-and-sound-apis-in-7-0) for removed symbols, string-material validation and migration examples.
-
-As of v6.3.0, the `adventure-platform-bukkit` library and the methods `DependenceManagers#getAdventure()`, `#initAdventure(UltiTools)` and `#closeAdventure()` have been removed. Send Adventure components through Paper's `Player#sendMessage(Component)` instead.
-
-UltiTools API provides a Spring-like IoC container (`SimpleContainer`) with annotation-driven dependency injection.
-
-UltiTools API offers a complete GUI API, allowing you to easily develop GUI plugins without worrying about the intricacies of GUI implementation.
-
-UltiTools API provides an advanced annotation system, enabling you to develop UltiTools plugins in the same way as you would develop Spring Boot applications (with UltiTools' own Spring-like IoC container).
-
-UltiTools also offers a Maven plugin that can automatically place compiled plugins into a folder and upload modules to UltiCloud, enhancing the quality of life in your plugin development.
+If you are working with 6.x, see the [archived v6.4.0 introduction](/v6.4.0/guide/introduction.html) and the [older-server guide](/guide/advanced/older-servers). That compatibility guidance does not apply to 7.0.
 
 ## The Team
 
