@@ -1,142 +1,119 @@
 # External Plugin API
 
-::: info Since v6.2.2
-Available in UltiTools-API 6.2.2 and later.
-:::
+7.0.0 has not been released. This guide describes the API as of v7.0.0 on Paper 26.3 with Java 25. For a 6.x plugin, start with the [upgrade guide](./upgrading-to-7#external-paper-plugins) or consult the [archived 6.4.0 guide](/v6.4.0/guide/advanced/external-plugin-api.html).
 
-The External Plugin API allows **any regular Bukkit plugin running on a Paper server** to use UltiTools framework features without extending `UltiToolsPlugin`. Your plugin stays a normal `JavaPlugin` — just call `UltiToolsAPI.connect(this)` and the framework scans your package for `@Service`, `@CmdExecutor`, `@EventListener`, `@Scheduled`, and more.
+An external plugin remains a regular `JavaPlugin`. Paper loads its JAR from `plugins/`; UltiTools does not load it as a module. Connecting gives its components access to UltiTools dependency injection, commands, data and other services without extending `UltiToolsPlugin`.
 
 ## Quick Start
 
-### 1. Add Dependency
+### 1. Build dependency
 
-**Maven**
 ```xml
 <dependency>
     <groupId>com.ultikits</groupId>
     <artifactId>UltiTools-API</artifactId>
-    <version>6.5.0</version>
+    <version>7.0.0-SNAPSHOT</version>
     <scope>provided</scope>
 </dependency>
 ```
 
-### 2. Declare Dependency in plugin.yml
+Use the [snapshot repository or a matching local build](/guide/quick-start) for preview development. Once 7.0.0 is released, use `7.0.0`. Do not bundle UltiTools-API in your JAR; Gradle uses `compileOnly`.
+
+### 2. Server dependency
 
 ```yaml
 name: MyExternalPlugin
 version: '1.0.0'
-main: com.example.myplugin.MyExternalPlugin
+main: com.ultikits.docs.external.MyExternalPlugin
+api-version: '26.3'
 depend: [UltiTools]
 ```
 
-::: warning UltiTools must be declared as a dependency
-`depend: [UltiTools]` is **required**. UltiTools must be loaded before your plugin so the framework is ready when `connect()` is called.
-:::
+As of v7.0.0 UltiTools itself is a Paper plugin, but on Paper 26.3 a regular `plugin.yml` plugin can still declare `depend: [UltiTools]`. Use it when enable always calls `connect`: Paper must load and enable UltiTools before your plugin. `softdepend: [UltiTools]` is for an optional integration: Paper can enable your plugin without UltiTools. In that case, check that UltiTools is enabled before entering code that uses its types; do not call `connect` unconditionally.
 
-### 3. Connect and Disconnect
+In this `plugin.yml`, `api-version: '26.3'` is the Paper API version, not the UltiTools module level `700`. Do not declare a `commands` entry for commands registered by UltiTools.
+
+### 3. Connection and disconnection
+
+Call `connect` in `onEnable()`, after any plugin state needed by scanned bean initializers has been prepared, and before using connected services. It creates and refreshes the child container before returning. Both overloads return `void`. Call `disconnect` in `onDisable()`; it is a no-op if there is no adapter. UltiTools also disconnects on `PluginDisableEvent` and during its own shutdown.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/MyExternalPlugin.java
 
-That's it. The framework automatically scans `com.example.myplugin` (derived from your main class) for annotated classes.
+On success, the console includes `[UltiTools-API] External plugin connected: <name> v<version>`. Repeating `connect` on the same connected instance is ignored and logs `[UltiTools-API] Plugin <name> is already connected. Ignoring duplicate connect().` It does not rescan or add entities to that connection.
 
-## What Gets Scanned
+If UltiTools has not loaded, `connect` throws `IllegalStateException`. If registration throws an exception, the API wraps it in `IllegalStateException` with `Failed to connect plugin <name> to UltiTools`; inspect the cause. The framework unwinds resources already registered, including the stage that failed, then releases the container and data scope for failures during registration. Inspect suppressed cleanup failures before retrying; plugin code's own side effects are not rolled back. Treat `isConnected` as a status check outside the connection call, not as a readiness signal from a bean initializer.
 
-When `connect()` is called, the framework scans your plugin's base package and registers:
+## Component scanning
 
-| Annotation | What it does |
-|------------|-------------|
-| `@Service` | Registered as a bean in the IoC container |
-| `@CmdExecutor` | Command class auto-registered with Bukkit |
-| `@EventListener` | Listener auto-registered with Bukkit |
-| `@Scheduled` | Methods scheduled as Bukkit tasks |
-| `@PlayerCache` | Per-player entries removed when the player quits (`Map<UUID, ?>`; as of v6.3.0 also `Set<UUID>` and `Map<?, UUID>`), with an optional save hook (`saveBeforeRemove`) |
-| `@ModuleEventHandler` | Subscribed to the UltiTools EventBus |
+The default scan starts at the package of `main` and includes its subpackages. It does not start at the JAR root or include sibling packages. If you move the example main class, put the example components in the same package or below it. The separate `@Table` scan looks in the plugin's own JAR, not just that component package.
 
-## Writing Services
-
-Services work exactly like in UltiTools modules — use `@Service` and `@Autowired`:
+| Component | Registration |
+|---|---|
+| `@Service` | Creates a managed bean. Use constructor injection or `@Autowired`; the plugin instance can be injected as `JavaPlugin` or its concrete main type. |
+| `@CmdExecutor` | An annotated `BaseCommandExecutor` bean is compiled into a Brigadier tree unless `manualRegister = true`. The framework also discovers managed `BrigadierCommand` beans. |
+| `@EventListener` | A bean implementing Bukkit `Listener` is registered unless `manualRegister = true`. Use Bukkit `@EventHandler` on its methods. |
+| `@Scheduled` | Scheduled methods on managed beans use the framework scheduler and are cancelled on disconnect. Use literal `delay` and `period`; an asynchronous literal period is measured in wall-clock time at 50 ms per configured tick. |
+| `@PlayerCache` | Registers per-player cache fields for quit handling, including any configured save hook; the fields stop being tracked on disconnect. |
+| `@ModuleEventHandler` | A public method on a managed bean with one `ModuleEvent` parameter (or a subtype) subscribes to the shared EventBus. Publish with `UltiToolsAPI.getEventBus().publish(event)`. |
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/GreetingService.java
 
-## Writing Commands
+<<< @/../examples/src/main/java/com/ultikits/docs/external/JoinListener.java
 
-Use `@CmdExecutor` and `@CmdMapping` just like a UltiTools module:
+## Command registration
+
+As of v7.0.0, `connect` discovers and compiles commands; UltiTools hands the trees to Paper's registrar at `LifecycleEvents.COMMANDS`. On normal Paper 26.3 startup, `POSTWORLD` plugins finish enabling before the initial command event, so connecting in `onEnable()` is early enough. Use `@CmdExecutor` and `@CmdMapping` without a `commands:` entry or a separate Bukkit `onCommand` handler. The Paper event registers command labels; `@CmdExecutor` supplies the aliases, permission and description.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/GreetCommand.java
 
-::: tip Command descriptions as of v7.0.0
-External plugins use the original `@CmdExecutor` description without looking up a module message key.
-:::
+An external plugin's `description` is literal even when it has its own message catalogue. Use `Messages` explicitly for replies written by your plugin. See [Command Executor](/guide/essentials/cmd-executor) for parsing and completion.
 
-## Writing Event Listeners
+| Situation | Console diagnostic |
+|---|---|
+| A new root or changed tree is connected after the initial event | `Command /<label> from <owner> was registered after start-up; it becomes available after /minecraft:reload or a restart.` |
+| The label collides with a command already bound by UltiTools for another owner | `Command /<label> from <owner> (<class>) conflicts with <previous owner> (<previous class>); rejected.` |
+| The Paper registrar does not return the requested label | `Command label /<label> from <owner> was not registered by Paper (label occupied).` |
 
-<<< @/../examples/src/main/java/com/ultikits/docs/external/JoinListener.java
+An invalid mapping can instead refuse the connection. Look for `Cannot load module <owner>: executor <class>: <reason>. Change @CmdMapping formats to use distinct literal prefixes, one parameter name/type per position, terminal <name...> arrays, and registered custom type parsers.` The diagnostic says `module` even for an external plugin. A label conflict alone does not mean that `connect` failed.
 
-## Data Storage
+`/minecraft:reload` reloads data packs and fires another commands event; it does not disconnect the plugin. `/ul reload` does not reconnect the plugin, rebind commands, or reload its configuration or catalogue overrides. Stop and restart the server after installing or replacing a JAR. Bukkit `/reload` and plugin-manager hot reload are not supported.
 
-Use `UltiToolsAPI.getDataOperator()` to get a `DataOperator` for your data entities. With the JSON or SQLite backend the data is stored in **your plugin's own data folder**, not UltiTools' folder. With MySQL it is stored in the server's configured MySQL database, in the table named by `@Table`, so choose a table name that no other plugin or module uses. `getDataOperator` refuses an entity class that is neither in your plugin's JAR nor passed to `connect`.
+## Data storage and transactions
+
+As of v7.0.0, `connect` discovers `@Table` entities in the plugin's own JAR using that plugin's class loader. For an entity your plugin owns in a separate library on its classpath, pass its class in `UltiToolsAPI.connect(this, LibraryEntity.class)`. This adds to JAR discovery; it does not let you claim another plugin's entities. Use `UltiToolsAPI.getDataOperator(plugin, Entity.class)` with the same plugin instance. A class not registered to that plugin is refused with `ULTI-3010` (`ENTITY_NOT_OWNED`).
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/StatsEntity.java
 
 <<< @/../examples/src/main/java/com/ultikits/docs/external/StatsService.java
 
-::: tip The server configuration selects the storage backend
-The storage backend (JSON, SQLite, or MySQL) is determined by the UltiTools server configuration, not your plugin. Your code works the same regardless. Query column names must still match the entity's @Column value, not the Java field name.
-:::
+The server selects the [storage backend](/guide/essentials/data-storage#entity-registration). JSON and SQLite use the external plugin's data folder. MySQL uses the configured database and the `@Table` name; choose a name that does not collide with another plugin's table. Use mapped column names in queries.
 
-## EventBus
+Annotate a managed service method with `@Transactional` and call it through the injected bean, rather than creating the service with `new`. The framework attaches the transaction manager for the external plugin's data scope. The same [proxy and transaction rules](/guide/advanced/transactions) apply as for a module.
 
-Use `UltiToolsAPI.getEventBus()` for inter-plugin communication:
+## External plugin messages {#external-plugin-messages}
 
-```java
-// Publish an event (MyCustomEvent must extend ModuleEvent)
-UltiToolsAPI.getEventBus().publish(new MyCustomEvent(data));
+As of v7.0.0, bundle at least one `messages/<locale>.yml` directly under `messages/` in the plugin's own JAR, for example `messages/en.yml` or `messages/zh-CN.yml`. The filename stem must be recognized by the text engine as a locale; `messages/config.yml`, nested files and `.yaml` files do not enable a catalogue. Classes run from an unpacked directory do not enable one either. Use the same [catalogue format and language selection](/guide/essentials/messages) as a module. Choose `source-language` in `paper-plugin.yml` or, if there is no `paper-plugin.yml`, in `plugin.yml`; absent or invalid values use `en`.
 
-// Subscribe via annotation in a @Service class
-@ModuleEventHandler
-public void onCustomEvent(MyCustomEvent event) {
-    // Handle event from any module or external plugin
-    // A handler parameter that does not extend ModuleEvent is skipped with a WARNING log, not registered
-}
-```
+With a catalogue, the injected `Messages` is bound to your plugin's normalized name. For `MyExternalPlugin`, `messages.key("greet.welcome")` gives `myexternalplugin:greet.welcome`. The framework refuses a connection if that namespace belongs to UltiTools, a loaded module or another external catalogue; a module arriving later cannot take over an existing external catalogue. Without a recognized bundled catalogue, there is no plugin-owned catalogue or generated messages directory. The bean inherits the framework `Messages` instance, with no namespace guarantee. To render a framework key, use an explicit key, such as `MessageKey.of("ultitools", "ul.help")`.
 
-## API Reference
+Put only changed keys in `plugins/<plugin name>/messages/<locale>.yml` (under the plugin's data folder). After a successful connection the framework writes bundled reference copies to its `messages/reference/`; editing those copies does not change the output. A refused connection does not write reference copies. Disconnect removes the in-memory catalogue without deleting files.
 
-| Method | Description |
-|--------|-------------|
-| `UltiToolsAPI.connect(JavaPlugin)` | Connect plugin to UltiTools framework |
-| `UltiToolsAPI.connect(JavaPlugin, Class<?>...)` (v6.3.0+) | Connect, and also register entity classes your plugin owns that live outside its own JAR |
-| `UltiToolsAPI.disconnect(JavaPlugin)` | Disconnect plugin from framework |
-| `UltiToolsAPI.isConnected(JavaPlugin)` | Check if a plugin is connected |
-| `UltiToolsAPI.getDataOperator(JavaPlugin, Class)` | Get a DataOperator scoped to the plugin (its data folder on JSON and SQLite) |
-| `UltiToolsAPI.getEventBus()` | Get the shared EventBus instance |
+Call `UltiToolsAPI.reloadMessages(this)` from your own reload command to reread the bundled files and overrides. It can run on any thread, but performs synchronous file I/O under the text engine lock. Call it after `connect` returns successfully, not during bean initialization. Before connection, during registration or after disconnect, it throws `IllegalStateException` with `Plugin <name> is not connected to UltiTools`. A connected plugin without a bundled catalogue gets a no-op. Malformed override files warn in the console and are ignored; bundled text remains the fallback. `/ul reload` does not refresh external catalogues.
 
-## Lifecycle
+## Module-only features
 
-- **Auto-disconnect**: If your plugin is disabled (server stop, `/reload`), UltiTools automatically disconnects it via a `PluginDisableEvent` listener. You don't strictly need `disconnect()` in `onDisable()`, but it's good practice.
-- **UltiTools shutdown**: When UltiTools itself shuts down, all external plugins are disconnected automatically via `disconnectAll()`.
-- **Cleanup**: On disconnect, all commands, listeners, scheduled tasks, EventBus subscriptions, and PlayerCache beans registered by your plugin are removed.
-- **Refused connection** (as of v6.3.0): if `connect()` throws because the framework refused your plugin after building its container — a command executor whose declared annotations it cannot enforce, or a config-bound `@Scheduled`/`@CmdCD` — nothing it registered for your plugin is left behind, so a fixed build can connect again in the same server session ([issue #537](https://github.com/UltiKits/UltiTools-Reborn/issues/537)).
+| Feature | External plugin |
+|---|---|
+| Module lifecycle | No `@UltiToolsModule` lifecycle, `registerSelf()`, or module `onReload()` hook. Use `JavaPlugin` lifecycle methods and manage your own reload command. |
+| Module bootstrap | `connect` is an enable-time API, not an entry point to UltiTools' early bootstrap for module enchantments, tags and data packs. An ordinary `plugin.yml` plugin does not get `ModuleBootstrapContext`. |
+| Configuration entities | No module `@ConfigEntity` registration or typed `UltiToolsPlugin.getConfig(Class)`; manage your plugin's files with `JavaPlugin.getConfig()` and `reloadConfig()`. |
+| Config-bound timing | A config-bound `@Scheduled` or `@CmdCD` on a discovered bean refuses connection. Use literal `delay` / `period` / `value`, or manage your own scheduling and configuration. |
+| Module admission and updates | Module-level `api-version` and `/upm` do not apply. Install your JAR as a server plugin. |
 
-As of v6.3.2, a failure during subsequent scheduled-task, player-cache, EventBus, command or listener registration also cleans attempted registrations in reverse order, including the partially completed failing stage, before releasing the container, data scope and newly inserted ownership. The same original exception is rethrown; cleanup failures are attached as suppressed exceptions and do not stop later cleanup attempts. If cleanup itself fails, resources may remain until restart: inspect the suppressed exceptions before reconnecting. Arbitrary side effects performed by your plugin during initialization are not rolled back; plugin initialization is not a transaction.
+## Command tests
 
-## Differences from UltiTools Modules
+The [UltiTools external-plugin example repository](https://github.com/UltiKits/UltiTools-External-Example) demonstrates the `JavaPlugin` integration. Choose an example revision that targets your framework version.
 
-| Feature | UltiTools Module | External Plugin |
-|---------|-----------------|-----------------|
-| Base class | `extends UltiToolsPlugin` | `extends JavaPlugin` |
-| Registration | `@UltiToolsModule` + `registerSelf()` | `UltiToolsAPI.connect(this)` |
-| Command descriptions | May reference a key in the module’s `messages/` catalogue | Use the original `description` |
-| Config entities | Full support (`@ConfigEntity`) | **Not available** — use Bukkit `getConfig()` |
-| Config-bound `@Scheduled` / `@CmdCD` (v6.3.0+) | Supported, see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing) | Refused, use literal `period` / `delay` / `value` |
-| Data storage | `plugin.getDataOperator(Class)` | `UltiToolsAPI.getDataOperator(plugin, Class)` |
-| Reload | `/ul reload` reloads module configs and language; a changed JAR still needs a server restart | Not available; implement your own reload command, and restart for a changed JAR |
-| plugin.yml | In 6.x, `api-version: 630` for a 6.3.0 build (a config-bound `@Scheduled` / `@CmdCD` requires at least `630`); as of v7.0.0, rebuild and declare at least `api-version: 700` | `depend: [UltiTools]` |
+To test registration without starting Paper, capture the `LifecycleEvents.COMMANDS` handler, invoke it with a test `Commands` registrar, and run the registered tree through a Brigadier `CommandDispatcher<CommandSourceStack>`. Assert that the root and aliases are absent before delivery and that executing the registered command calls the injected service. This tests the registration path in place of a Bukkit `onCommand` or `PluginCommand` test; it does not prove Paper's startup order, command-tree copying or client behaviour.
 
-## Complete Working Example
-
-Check out the [UltiTools-External-Example](https://github.com/UltiKits/UltiTools-External-Example) repository for a fully working example that demonstrates `@Service`, `@CmdExecutor`, `@EventListener`, `@Autowired`, and `DataOperator` CRUD in a standard Bukkit plugin.
-
-::: tip Related pages
-See also: [IoC Container](/guide/advanced/ioc-container) | [Command Executor](/guide/essentials/cmd-executor) | [Scheduled Tasks](/guide/advanced/scheduled-tasks) | [Module EventBus](/guide/advanced/module-eventbus)
-:::
+If your tests use `org.mockbukkit.mockbukkit:mockbukkit-v26.3:4.123.0` and fail during registry initialization, check the fixture `registries/registry_key_class_relation.json`. That version lacks the `minecraft:timeline` and `minecraft:world_clock` mappings needed by Paper 26.3. The framework's matching fixture lives in `src/test/resources/registries/registry_key_class_relation.json` in [UltiTools-Reborn](https://github.com/UltiKits/UltiTools-Reborn). Keep it under `src/test/resources`, not in your plugin JAR.
