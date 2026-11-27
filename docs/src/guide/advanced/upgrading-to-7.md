@@ -235,6 +235,12 @@ notifications.sendBossBarNotification(player, Text.of(messages.key("arena.closin
 
 Move the text into the module's language file. Pass player or operator input as `Arg.string` with a `<name>` placeholder in the catalogue, never by joining it into the template; use `Text.plain(string)` for fixed text. A second boss-bar notification now replaces the bar's text, colour and overlay and restarts its single countdown; in 6.x the text stayed unchanged and overlapping countdowns made the bar disappear early. See [Notifications](/guide/essentials/notifications) for the threads each method uses and the known limitations.
 
+## Configuration saving and JSON flushes {#config-save-and-flush}
+
+`UltiToolsPlugin#saveConfig(path, type)` threw `NullPointerException` in 6.x when the path was not registered for the module. As of v7.0.0 it throws `IllegalStateException` naming the module and path, and writes no file. Register the configuration entity before saving it. If 6.x code caught `NullPointerException` to detect a missing registration, check that `getConfig(path, type)` returns non-null instead. Do not catch `IllegalStateException` for this: `saveConfig` throws the same type when it is called off the server thread. A registered entity of another type still throws `ClassCastException`. See [`save()`](../essentials/config-file#save).
+
+In 6.x a negative `datasource.flushRate` made the JSON store flush once in the background shortly after start-up; later changes reached the table files only at a normal server stop. As of v7.0.0 a negative value starts no periodic flush, so that one background flush no longer happens, and UltiTools logs one warning at start-up. A normal server stop still attempts a final checkpoint, as it did in 6.x. To restore periodic flushes, set a positive number of seconds and restart the server. See [Operating JSON Storage](../essentials/data-storage#operating-json-storage).
+
 ## Rebuild and check the artifact {#rebuild-and-check}
 
 1. Rebuild from the migrated sources with both 7.0 build dependencies. If you raise the module's `api-version`, raise the module's own MAJOR version under the [module versioning rules](./module-versioning#choosing-the-number).
