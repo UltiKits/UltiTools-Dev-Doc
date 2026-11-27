@@ -432,7 +432,7 @@ The caller gets the original exception, or `UnexpectedRollbackException` for a r
 
 Each plugin’s JSON tables have a hidden `.ultitools-journal` folder beside them. Committed transactions are written there and forced to disk before `commit` returns; recovery replays them into the table files. For a module it is `plugins/UltiTools/data/<module name>/.ultitools-journal`; for an external plugin it is `data/.ultitools-journal` inside the plugin’s data folder. See [JSON Transaction Behavior](../advanced/transactions#json-transaction-behavior).
 
-As of v7.0.0, periodic JSON flushes use the asynchronous scheduler and wall-clock time. `datasource.flushRate` is in seconds: a positive value sets the period, a missing value or `0` uses `10` seconds, and a negative value disables periodic flushing. Normal shutdown still attempts a final checkpoint. Restart after changing this value.
+As of v7.0.0, periodic JSON flushes use the asynchronous scheduler and wall-clock time. `datasource.flushRate` is in seconds: a positive value sets the period, a missing value or `0` uses `10` seconds, and a negative value disables periodic flushing. In that case, UltiTools logs one startup warning with the configured value and tells you how to restore periodic flushing: set a positive interval in `config.yml` and restart the server. Normal shutdown still attempts a final checkpoint. Restart after changing this value.
 
 - Run one server process per data folder. Two servers must never use the same `plugins` data folder at the same time.
 - Back up the `.ultitools-journal` folder together with the table folders, or back up with the server stopped. A copy such as `cp dir/*` skips folders whose name starts with a dot.
