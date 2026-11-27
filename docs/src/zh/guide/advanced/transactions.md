@@ -123,7 +123,7 @@ JSON 事务能读到自己暂存的写入，其他线程只看到已提交的数
 
 ### JSON 实体 id
 
-每个 JSON 实体存为 `<id>.json`。`insert` 创建新 id 时，若该 id 符合下列任一情况，就抛出指明该 id 的 `DataAccessException`（`DATA_ENTITY_INVALID`）予以拒绝，事务内外、所有操作系统上都一样：
+每个 JSON 实体存为 `<id>.json`。`insert` 创建新 id 时，若该 id 符合下列任一情况，就抛出指明该 id 的 `DataAccessException`（`ULTI-3007`，`DATA_ENTITY_INVALID`）予以拒绝，事务内外、所有操作系统上都一样：
 
 - 为空串，或含 `/`、`\`、NUL 或其他控制字符（U+0000 至 U+001F、U+007F）；
 - 是 `.` 或 `..`，或以点或空格结尾；

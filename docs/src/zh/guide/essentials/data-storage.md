@@ -309,7 +309,8 @@ WhereCondition.builder().column("somecol").value(someval).build();
 
 `EQUAL` 匹配相等的值，`GREATER` 和 `LESS` 为严格大于和小于。
 
-- `INCLUDE`、`STARTSWITH` 和 `ENDSWITH` 在所有后端都把值作为文本字面匹配：`%`、`_`、`!` 和 `\` 都是普通字符，不是通配符或转义符。SQL 的 `getLike` 使用 `LIKE`，JSON 的 `getLike` 按原样做前缀、后缀或包含匹配；`Query#like` 见[查询 DSL](./query-dsl)。
+- `INCLUDE`、`STARTSWITH` 和 `ENDSWITH` 在所有后端都把值作为文本字面匹配：`%`、`_`、`!` 和 `\` 都是普通字符，不是通配符或转义符。`Query#like` 见[查询 DSL](./query-dsl)。
+- `getLike(column, value, likeType)` 不同：SQL 在值两侧补 `%` 后执行不转义的 `LIKE`，值里的 `%` 和 `_` 仍是通配符；JSON 按原样匹配。用户输入中的 `%`、`_` 要先转义或拒绝；需要在所有后端都字面匹配时，改用带 `INCLUDE`、`STARTSWITH` 或 `ENDSWITH` 的 `WhereCondition`。
 - 字母大小写和重音取决于后端：SQLite 只忽略 ASCII 字母的大小写；MySQL 按框架建表时使用的 `utf8mb3_general_ci` 排序规则比较，同时忽略大小写和重音（`é` 能匹配 `e`）；JSON 精确比较。
 - `GREATER` 和 `LESS` 用于 `byte`、`short`、`int`、`long`、`float` 或 `double` 字段（或其包装类型）时，在 SQLite 和 JSON 上按该字段类型的数值比较。请以该类型的数字传值（`10`，而不是 `"10"`）：在 MySQL 上字符串值按文本比较，于是 `"10"` 排在 `"2"` 之前。在 SQLite 上，列保持默认 `VARCHAR(255)` 类型时同样按类型比较，整数保持 64 位精度，所存的值按读回时的值比较：`0.1f` 这样的 `float` 既不大于也不小于 `0.1f`。这种按读回值的比较只适用于有限数字的值；超出 `double` 范围的数字以及任何文本都按绑定时的值比较。无穷大或 NaN 值会被拒绝（见下文“null 与非有限条件值”）。
 - 在 MySQL 上，留在默认文本列中的数值字段按双精度比较，在 ±9,007,199,254,740,992（2^53）以内精确，超出则只是近似。需要精确结果时，请为该列声明数值 `type`，例如 `BIGINT`。在 JSON 上按 `double` 比较，超出 2^53 时同样是近似的。
