@@ -432,7 +432,7 @@ dataOperator.transaction(() -> {
 
 每个插件的 JSON 表旁边都有一个隐藏的 `.ultitools-journal` 文件夹。已提交的事务在 `commit` 返回前写入日志并强制落盘；恢复时重放到表文件。模块的日志位于 `plugins/UltiTools/data/<模块名>/.ultitools-journal`；外部插件的日志位于其数据目录下的 `data/.ultitools-journal`。详见[JSON 事务行为](../advanced/transactions#json-事务行为)。
 
-自 v7.0.0 起，JSON 使用异步调度按墙钟时间周期落盘。`datasource.flushRate` 的单位为秒：正数设置周期，缺省或 `0` 时使用 `10` 秒，负数禁用周期落盘。正常停服仍尝试最后一次落盘；修改该值后需重启。
+自 v7.0.0 起，JSON 使用异步调度按墙钟时间周期落盘。`datasource.flushRate` 的单位为秒：正数设置周期，缺省或 `0` 时使用 `10` 秒，负数禁用周期落盘。此时 UltiTools 会在启动时记录一条警告，列出配置的数值和恢复办法：在 `config.yml` 中将周期设为正数，然后重启服务器。正常停服仍尝试最后一次落盘；修改该值后需重启。
 
 - 一个数据文件夹只运行一个服务器进程：两个服务器绝不能同时使用同一个 `plugins` 数据文件夹。
 - 备份时把 `.ultitools-journal` 文件夹与各表文件夹一起备份，或者在服务器停止时备份。`cp dir/*` 这类复制会跳过以点开头的文件夹。

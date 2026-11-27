@@ -224,7 +224,7 @@ tick 上下文把延迟和周期向上取整为整数 tick（`Ticks.ceil`），�
 - **回调线程。** `PanelMessageEvent` 的处理器通过框架的 `global()` 上下文在主线程上运行。面板 responder 仍在框架的工作线程上运行，见[面板集成](/zh/guide/advanced/panel-integration)。
 
 ::: warning 已知限制
-`datasource.flushRate` 为正数时按实际时间设置 JSON 落盘周期（单位为秒）；缺省或 `0` 时使用 `10` 秒，负数禁用周期落盘（6.x 会落盘一次）。正常停服仍尝试最后一次落盘。对同一玩家调用两次 `delayTeleport` 会启动两个倒计时，与 6.x 相同。
+`datasource.flushRate` 为正数时按实际时间设置 JSON 落盘周期（单位为秒）；缺省或 `0` 时使用 `10` 秒，负数禁用周期落盘，并在启动时记录一条警告（6.x 会落盘一次）。正常停服仍尝试最后一次落盘。对同一玩家调用两次 `delayTeleport` 会启动两个倒计时，与 6.x 相同。
 :::
 
 自 v7.0.0 起，异步命令方法体（`@RunAsync`、`@AsyncCommand`）与命令超时监视器运行在框架调度器上；卸载时框架会等待仍在运行的方法体，详见[命令执行器](../essentials/cmd-executor)。框架的启动消息也由框架调度器通过 `global()` 提交。
