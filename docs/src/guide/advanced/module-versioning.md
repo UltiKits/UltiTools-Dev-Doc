@@ -1,5 +1,7 @@
 # Module Versioning
 
+7.0.0 has not been released. Passages marked “as of v7.0.0” do not apply to 6.x.
+
 This page describes the version number used by **your module**. `UltiTools-API` follows a different convention for its own version number, explained in [Differences from the framework's version](#differences-from-the-framework-s-version).
 
 ## Choosing the number
@@ -104,7 +106,7 @@ An older pin provides only the guarantee described in the previous section. A mo
 A successful build only shows that the source still compiles. What breaks an already published JAR is the descriptor recorded in its bytecode, and compilation does not show it to you.
 :::
 
-[The JLS chapter on binary compatibility][jls13] lists every change that can cause this. The examples below cover removed APIs (including the 7.0 native API migration) and changed descriptors that this project has shipped or announced; they are not a complete list.
+[The JLS chapter on binary compatibility][jls13] lists every change that can cause this. The examples below cover removed APIs and changed descriptors that this project has shipped or announced; they are not a complete list.
 
 ### Removed API
 
@@ -124,7 +126,7 @@ A successful build is not hard to get, because this check only covers what the s
 
 The cost only arrives if you publish the raised pin: building against a newer framework may record newer descriptors, which means raising `api-version` as well, which leaves behind every server still on the older framework. Raising the pin is therefore useful as a check and poor as a fix. Raise it in a throwaway build, see what fails to compile, migrate away from those APIs, then decide separately whether the released pin should move.
 
-For APIs that carry deprecation notices, follow those notices and migrate before the removal is released. The 7.0 removals described below had no prior 6.x deprecation markers; v7.0.0 starts a new API baseline.
+For APIs that carry deprecation notices, follow those notices and migrate before the removal is released. For public APIs removed in v7.0.0, see the [upgrade table](./upgrading-to-7#removed-public-apis).
 
 ::: tip Reading a deprecation notice for its deadline
 As of v6.3.0, every `@Deprecated(forRemoval = true)` member carries a machine-checked `{@removeIn X.Y.Z}` javadoc tag naming the concrete removal version.
@@ -134,247 +136,39 @@ See [`compatibility/DEPRECATIONS.md`](https://github.com/UltiKits/UltiTools-Rebo
 
 ### Modules from 6.x to 7.0 {#modules-6x-to-7}
 
-As of v7.0.0, 6.x modules cannot load directly on 7.0. Update the build dependency to UltiTools-API 7.0, migrate removed APIs, rebuild against the target Paper, and declare an integer `api-version: 700` (or higher) in the JAR's root `plugin.yml`. Editing an old JAR's declaration alone does not repair references to removed APIs. A declaration above the installed framework's API level is still refused.
-
-7.0 loads modules unchanged and retains a shared parent-first `URLClassLoader`, but removes load-time bytecode adaptation, server-API probing, and startup and offline linkage audits. Retained container-skip diagnostics describe observed missing classes and handlers; they do not mean the framework restores missing capabilities.
-
-With a readable `plugin.yml` and a `main:` entry, these checks run before main-class resolution. An unreadable file or absent `main:` still receives the existing metadata refusal.
-
-| Refused declaration | Meaning |
-| --- | --- |
-| Integer below `700`, such as `630` | Below the running framework's minimum; install a rebuilt module |
-| Missing `api-version` | No valid declaration; the read value is `<missing>` in English or `<缺失>` in Chinese |
-| Empty or non-integer, such as `'26.3'`, `1.21` or `abc` | No valid declaration; a bare `api-version:` shows `<missing>` in English or `<缺失>` in Chinese. An empty string (`api-version: ''`) and other values are shown in single quotes, such as `''` or `'1.21'`, rather than reporting a low level |
-
-Missing and non-integer declarations share one message template; below-minimum integers use another. Quoted integers such as `'700'` are accepted too. These are the exact language-file templates, without the log prefix; `%s`, `%d` and the Chinese positional parameters are replaced at runtime with the JAR name, the declared or read value, the minimum and the running framework version (the order differs between the two templates):
-
-`language: en`
-
-```text
-Module '%s' declares api-version %d, below the minimum %d required by UltiTools-API %s; refusing to load. Install a module rebuilt for the current UltiTools-API; changing api-version alone does not make an old module compatible.
-Module '%s' has no valid api-version (read: %s); UltiTools-API %s requires an integer api-version of %d or higher -- refusing to load. Install a module rebuilt for the current UltiTools-API.
-```
-
-`language: zh`
-
-```text
-模块 '%s' 声明的 api-version 为 %d，低于 UltiTools-API %4$s 要求的最低级别 %3$d；拒绝加载。请安装针对当前 UltiTools-API 重新构建的模块；仅修改 api-version 无法使旧模块兼容。
-模块 '%s' 未声明有效的 api-version（读到的值：%s）；UltiTools-API %s 要求模块声明 %d 或更高的整数；拒绝加载。请安装针对当前 UltiTools-API 重新构建的模块。
-```
-
-A JAR refused by the integer/minimum-level check (missing, non-integer or below `700`) is excluded from the shared class path and supplies neither main nor helper classes to other modules. Each refusal counts once in `Failed`; unrelated modules continue loading. If `m-6.3.0.jar` (630) and `m-7.0.0.jar` (700) declare the same main class, the old copy is refused and the new one supplies the classes even though its file name sorts later. The start-up duplicate warning still names both files and identifies `m-7.0.0.jar` as the JAR the classes load from. The framework does not delete the old file automatically. Among admitted copies, file-name ordering still applies; the module version does not select the newest copy.
-
-Before upgrading the framework, let each pending `/upm update` complete one confirming startup on the old framework. Cancel unwanted updates first as described under [Updating and uninstalling](#updating-and-uninstalling-on-a-server) for 6.x: on the old framework, `/upm uninstall` also unloads the module and deletes its JARs, so back up files you need first. Do not carry an unconfirmed 6.x update into 7.0: API refusal can trigger the existing transaction rollback, and the restored old JAR is below 700 too. After completing or cancelling pending updates, stop the server, replace modules with their rebuilt 7.0 versions, keep only the intended JAR for each module, then upgrade the framework and start.
-
-As of v7.0.0, install, update and uninstall requests take effect at the next restart. If your procedure relied on an immediate uninstall, queue the request and restart the server. You can [review and undo requests](#updating-and-uninstalling-on-a-server) before restarting.
-
-As of v7.0.0, modules that add custom enchantments, change tags or bundle data packs can [declare them in a bootstrap hook](/guide/advanced/startup-phases#bootstrap-content), not in `registerSelf()`. Removing these modules can affect saved worlds; back up your world before removing one.
+As of v7.0.0, migrate and rebuild 6.x modules; do not just edit the old JAR declaration. Start with [Upgrading from 6.x to 7.0](./upgrading-to-7) and its [build target and module admission](./upgrading-to-7#build-target) requirements.
 
 ### Native item and sound APIs in 7.0
 
-::: warning Unreleased v7.0.0 migration
-As of v7.0.0, the framework no longer supplies XSeries or a cross-version material and sound compatibility layer.
-The 6.x instructions elsewhere on this site remain applicable only to those framework versions.
-:::
-
-Rebuild modules against 7.0 after replacing these removed public symbols:
-
-| Removed in v7.0.0 | Replacement |
-| --- | --- |
-| `com.ultikits.ultitools.utils.XVersionUtils` | Direct Paper and Adventure calls; see the complete method table below |
-| `com.ultikits.ultitools.entities.Sounds` | Paper `org.bukkit.Sound` |
-| `com.ultikits.ultitools.entities.Colors#getCode()` | Native `Material.<COLOR>_STAINED_GLASS_PANE`, or the new 7.0 `Colors#getGlassPaneMaterial()` |
-
-`Colors` itself remains available and gains `getGlassPaneMaterial()` as of v7.0.0; that getter does not exist in 6.x. `new ItemStack(Material.CYAN_STAINED_GLASS_PANE)` works on both 6.x and 7.0. As of v7.0.0, `ItemStackBuilder` is removed as a whole, including its entries with XSeries parameter types; see [Item construction and storage in 7.0](#item-construction-7).
-
-To turn a material name into an item in 7.0, use `Material.matchMaterial`. It accepts current material names such as `DIAMOND` and namespaced keys such as `minecraft:stone`; there is no legacy-name lookup or fallback item. Reject `null`, block-only and air results before passing the material to `ItemSpec.builder`, as shown in [Item construction and storage in 7.0](#item-construction-7).
-
-The following native replacements apply as of v7.0.0. Use `org.bukkit.Material`, `org.bukkit.Sound`, `org.bukkit.enchantments.Enchantment`, `org.bukkit.inventory.ItemFlag` and Adventure's `net.kyori.adventure.text.Component`:
-
-| 6.x approach | Native replacement for 7.0 |
-| --- | --- |
-| XSeries material / `XVersionUtils` item factory | `new ItemStack(Material.STONE)`, or `itemRenderer.render(ItemSpec.builder(Material.STONE).build(), player)` |
-| `XVersionUtils.getSound(Sounds.ENTITY_ENDERMAN_TELEPORT)` passed to `playSound` | `player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, volume, pitch)` (keep the caller's existing volume and pitch) |
-| XSeries enchantment used for a hidden glow | `ItemSpec.builder(Material.PAPER).glint(true).build()`, then render it (visual glint without adding an enchantment) |
-| `XVersionUtils.sendActionBar(player, "Ready")` | `player.sendActionBar(Component.text("Ready"))` |
-
-Call sound and enchantment APIs during gameplay, not in static initializers or enum constructors. For a purely visual glint, use `ItemSpec.Builder#glint(true)`, or `ItemMeta#setEnchantmentGlintOverride(Boolean)` on an existing stack; neither adds an enchantment. For colored glass, use `new ItemStack(Colors.CYAN.getGlassPaneMaterial())`; existing GUI glass colors and button materials remain unchanged.
+For material, sound and glint replacements, see [Native items and sounds](./upgrading-to-7#items-and-sounds).
 
 #### Replacing every XVersionUtils method
 
-As of v7.0.0, replace all 15 public methods from the released 6.5.0 class as follows on Paper 26.3. Here `color` is a retained `Colors` value, and item constructors are `org.bukkit.inventory.ItemStack`. “No direct equivalent” means no single Paper call preserves the whole helper's behaviour; keep the stated checks in your own code.
-
-| Removed 6.x method | Paper 26.3 replacement and behaviour to retain |
-| --- | --- |
-| `getColoredPlaneGlass(Colors color)` | `new ItemStack(Material.valueOf(color.name() + "_STAINED_GLASS_PANE"))`; for a fixed color use e.g. `Material.CYAN_STAINED_GLASS_PANE` |
-| `getColoredWool(Colors color)` | `new ItemStack(Material.valueOf(color.name() + "_WOOL"))` |
-| `getSign()` | `new ItemStack(Material.OAK_SIGN)` |
-| `getEndEye()` | `new ItemStack(Material.ENDER_EYE)` |
-| `getEmailMaterial(boolean isRead)` | `new ItemStack(isRead ? Material.FILLED_MAP : Material.PAPER)` |
-| `getHead(OfflinePlayer player)` | `new ItemStack(player.isOp() ? Material.DRAGON_HEAD : Material.PLAYER_HEAD)`; the old helper only chose the head type and did not set a player's skin |
-| `getGrassBlock()` | `new ItemStack(Material.GRASS_BLOCK)` |
-| `registerNewObjective(Scoreboard scoreboard, String name, String criteria, String displayName)` | No direct equivalent: first call `scoreboard.getObjective(name)` and return it if present; otherwise call `scoreboard.registerNewObjective(name, Criteria.DUMMY, displayName)`. The old helper ignored `criteria` and always created a dummy objective |
-| `getSound(Sounds sound)` | Use `Sound.ENTITY_ENDERMAN_TELEPORT` or another matching native constant; replace the deleted `Sounds` type in callers too |
-| `getBed(Colors bedColor)` | `new ItemStack(Material.valueOf(bedColor.name() + "_BED"))` |
-| `getItemDurability(ItemStack itemStack)` | No direct equivalent: if `itemStack.getItemMeta()` is `org.bukkit.inventory.meta.Damageable`, return `itemStack.getType().getMaxDurability() - damageable.getDamage()`; otherwise return `0`. `getDamage()` alone is damage taken, not remaining durability |
-| `getItemInHand(Player player, boolean isMainHand)` | `isMainHand ? player.getInventory().getItemInMainHand() : player.getInventory().getItemInOffHand()` |
-| `sendActionBar(Player player, String message)` | `player.sendActionBar(Component.text(message))` for literal text |
-| `sendPlayerList(Player player, String header, String footer)` | `player.setPlayerListHeaderFooter(header, footer)` preserves the string call; for literal Adventure text use `player.sendPlayerListHeaderAndFooter(Component.text(header), Component.text(footer))` |
-| `getBlockFace(Block placedBlock)` | No direct equivalent: read `placedBlock.getBlockData()`; if it is `org.bukkit.block.data.Directional`, return `directional.getFacing()`, otherwise return `org.bukkit.block.BlockFace.NORTH` |
-
-A module retaining XSeries must bundle its own dependency and relocate its packages with Maven Shade or Gradle Shadow (shade + relocate). Do not rely on the framework to supply it or declare it only as `provided`/`compileOnly`: Paper's `plugin.yml` `libraries:` mechanism is not available to UltiTools modules loaded by the framework. The [6.x runtime-library instructions](/guide/introduction) are not a supply guarantee for 7.0.
+For each method, see the [`XVersionUtils` replacement table](./upgrading-to-7#xversionutils-replacements).
 
 ### Item construction and storage in 7.0 {#item-construction-7}
 
-::: warning Unreleased v7.0.0 item API
-As of v7.0.0, `com.ultikits.ultitools.utils.ItemStackBuilder` is removed. Build items with `ItemSpec` and the injected `ItemRenderer`, then recompile.
-:::
-
-Names and lore move into the module's language files as MiniMessage. A 6.x builder call such as
-
-```java
-ItemStack item = ItemStackBuilder.of(Material.DIAMOND).name("&aShop").lore("&7Click to buy").amount(3).glow().build();
-```
-
-becomes, with `itemRenderer` injected by `@Autowired`:
-
-```java
-ItemSpec spec = ItemSpec.builder(Material.DIAMOND)
-        .name(messages.key("shop.name"))
-        .addLore(messages.key("shop.click"))
-        .amount(3)
-        .glint(true)
-        .build();
-ItemStack item = itemRenderer.render(spec, player);
-```
-
-The remaining builder methods map as follows. Here `builder` is an `ItemSpec.Builder`, `stack` is a rendered or existing `ItemStack`, and `key2` and `key3` are `MessageKey`s from the module's language files:
-
-| 6.x call | 7.0 replacement |
-| --- | --- |
-| `.amount(n)` | `builder.amount(n)`; values outside 1 to 99 throw `IllegalArgumentException` instead of being clamped |
-| `.lore(...)` / `.addLore(...)` | `builder.lore(List.of(Text.of(key2), Text.of(key3)))` replaces all lines; `builder.addLore(key2)` appends one; fixed components use `Text.literal(component)` |
-| `.glow()` | `builder.glint(true)`; no enchantment is added |
-| `.enchant(e, lvl)` | `builder.data(DataComponentTypes.ENCHANTMENTS, ItemEnchantments.itemEnchantments().add(e, lvl).build())` |
-| `.removeEnchant(e)` | `stack.removeEnchantment(e)` after rendering |
-| `.hideAttributes()` | `builder.hiddenInTooltip(Set.of(DataComponentTypes.ATTRIBUTE_MODIFIERS))` |
-| `.flags(flags)` | `stack.editMeta(meta -> meta.addItemFlags(flags))` after rendering |
-| `.hideAll()` | `stack.editMeta(meta -> meta.addItemFlags(ItemFlag.values()))`; like 6.x, the name and lore stay visible. `builder.tooltipHidden(true)` hides the whole tooltip, name and lore included |
-| `.unbreakable()` | `builder.data(DataComponentTypes.UNBREAKABLE)` |
-| `.customModelData(n)` | `builder.data(DataComponentTypes.CUSTOM_MODEL_DATA, CustomModelData.customModelData().addFloat(n).build())` |
-| `.leatherColor(c)` | `builder.data(DataComponentTypes.DYED_COLOR, DyedItemColor.dyedItemColor(c))` |
-| `.skullOwner(player)` | `builder.data(DataComponentTypes.PROFILE, ResolvableProfile.resolvableProfile(player.getPlayerProfile()))` |
-| `.meta(consumer)` / `.item(consumer)` | `stack.editMeta(consumer)` / `consumer.accept(stack)` after rendering |
-| `ItemStackBuilder.of(existingStack)` | `existingStack.clone()`, then Paper's `setData` and `unsetData` |
-| `.build()` / `.buildClone()` | `itemRenderer.render(spec, player)` creates a new stack on every call; `stack.clone()` copies an existing one |
-| `ItemStackBuilder.of(String)` | `Material m = Material.matchMaterial(name);` then `m != null && m.isItem() && !m.isAir() ? ItemSpec.builder(m) : null` |
-
-Stored items need no change in the module. `ItemStackUtils` keeps its five methods, reads strings saved by 6.x and writes a new format that 6.x cannot read; back up stored items before upgrading. See [Items and Item Storage](/guide/essentials/items).
+See [Item construction and storage](./upgrading-to-7#item-migration) for builder replacements, storage formats and what to back up before a rollback.
 
 ### Scheduling and declarative GUI in 7.0
 
-As of v7.0.0 (unreleased), two APIs change for module authors. Rebuild the module against 7.0 as described above.
-
-- **Scheduling.** Inject `com.ultikits.ultitools.scheduling.Scheduler` with `@Autowired`; each module instance owns one, and unloading the module cancels its tasks. `@Scheduled` runs on it. Async repeating tasks run at a fixed rate, and tasks bound to an entity end when the entity is removed (for a player, on disconnect). See [Scheduler API](/guide/advanced/scheduled-tasks#scheduler-api). The framework's own work moving onto its scheduler requires no change in module code; its visible effects are listed under [Framework-scheduled work](/guide/advanced/scheduled-tasks#framework-scheduled-work).
-- **Declarative GUI.** `DeclarativeGui` no longer inherits obliviate's `Gui`. The constructor takes the module's `UiService`, its `Scheduler` and a `Text` title with a fixed row count of 1 to 6; `InventoryType` constructors, `IconWrapper`, `RenderNodeDiffer`, `DiffResult` and `getPlayer()` (now `viewer()`) are gone; `ItemDisplay` takes an `ItemSpec`, and clicks use `onClick(GridAction)`. See [What changes in 7.0](/guide/advanced/declarative-gui#what-changes-in-7-0).
+See [Scheduling and declarative GUI](./upgrading-to-7#scheduler-and-screens) for the per-module scheduler and screen changes.
 
 ### Legacy chest pages and confirmation widgets in 7.0 {#legacy-chest-removal}
 
-::: warning Unreleased v7.0.0 removals
-As of v7.0.0, `abstracts.gui.BaseInventoryPage`, `abstracts.gui.BasePaginationPage`, `abstracts.gui.BaseConfirmationPage`, `widgets.Confirm`, `widgets.impl.ChatConfirm`, `widgets.impl.InventoryConfirm`, `entities.Buttons` and `entities.ViewType` (all under `com.ultikits.ultitools`) and `DependenceManagers#initInventoryAPI` are removed, with no deprecated bridge. A module that references one of them does not compile against 7.0, and a module built against 6.x fails to load on 7.0. Rebuild it against 7.0.
-:::
-
-The framework JAR no longer bundles obliviate-invs or UniversalScheduler. 6.x did not relocate them, so a module that used `mc.obliviate.*` or `com.github.Anon8281.*` directly was using the framework's copies; it must package those libraries itself or rewrite that code. `Colors` remains.
-
-| 6.x | 7.0 |
-|---|---|
-| `BaseInventoryPage` | `DeclarativeGui`, see [Declarative GUI](/guide/advanced/declarative-gui) |
-| `BasePaginationPage` | A `State` that holds the page number and a `GridView` that shows the slice, see [Declarative GUI](/guide/advanced/declarative-gui) |
-| `BaseConfirmationPage`, `Confirm.gui(...)` | `Confirm` of the UI service, see [UI: Intents and Sessions](/guide/advanced/ui-service#notice-and-confirm) |
-| `Confirm.chat(...)` | The module sends its own clickable chat prompt, see [UI: Intents and Sessions](/guide/advanced/ui-service#chat-confirmation) |
-| `Buttons`, `ViewType` | No replacement type; use a `TextButton` label or the framework label keys |
-
-The 6.x pages are still described, as 6.x material, in [GUI Interface](/guide/advanced/gui).
+See [Legacy chest pages and confirmation widgets](./upgrading-to-7#chest-and-confirmation) for replacements and which dependencies to package yourself.
 
 ### Toasts and holograms in 7.0
 
-::: warning Unreleased v7.0.0 removals
-As of v7.0.0, `com.ultikits.ultitools.widgets.Toast`, `NotificationService#sendToastNotification` and `com.ultikits.ultitools.widgets.Hologram` are removed.
-Migrate the callers as described below, then rebuild them against 7.0.
-:::
-
-**Toasts.** The advancement-based popup depended on deprecated, version-unstable server internals, and message text containing quotes could break its generated JSON. There is no replacement helper. `NotificationService` offers `sendTitleNotification`, `sendSubTitleNotification`, `sendActionBarNotification`, `sendBossBarNotification` and `sendMessageNotification` (a chat message); some overloads also take a `Sound`. Use one of these, or chat, instead. In 7.0 these methods take `Text` and Adventure types; see [Notification service in 7.0](#notification-service-7).
-
-**Holograms.** `Hologram` spawned an invisible armour stand for each text line. Use Paper's native `TextDisplay` entity instead; a single display can contain multiple lines. The following example disables entity persistence:
-
-```java
-World world = location.getWorld();
-if (world == null) {
-    throw new IllegalArgumentException("The display location must have a world");
-}
-TextDisplay display = world.spawn(location, TextDisplay.class, d -> {
-    d.text(messages.shared(Text.of(messages.key("hologram.welcome"))));
-    d.setBillboard(Display.Billboard.CENTER);
-    d.setPersistent(false);
-});
-// later: display.remove();
-```
-
-- Call `World#spawn` on the thread that owns the location. From another thread, switch first with the module's injected `Scheduler`, for example `scheduler.region(location).run(...)`; see [Scheduler API](/guide/advanced/scheduled-tasks#scheduler-api).
-- `Location#getWorld()` can return `null`, so check it before spawning, as the example does.
-- `messages` is the module's injected `com.ultikits.ultitools.text.Messages` service. Its `shared(Text)` method returns text for objects every player sees, such as a text display.
-
-The caller owns the display and removes it with `display.remove()` when it is no longer needed.
+See [Toasts and holograms](./upgrading-to-7#display-and-toast) for alternatives to the removed widgets.
 
 ### Notification service in 7.0 {#notification-service-7}
 
-::: warning Unreleased v7.0.0 notification API
-As of v7.0.0, `NotificationService` takes `Text`, `Duration` and Adventure types, and every method returns `void`.
-Modules compiled against 6.x are not binary compatible with it; migrate the calls and rebuild.
-:::
-
-The service renders each `Text` in the recipient's language. It has twelve sending methods: four abstract ones and eight default overloads. The signatures change as follows:
-
-| Before 7.0 | As of v7.0.0 |
-| --- | --- |
-| `String` message, title, subtitle and action-bar arguments | `com.ultikits.ultitools.text.Text` |
-| Boss-bar `int` seconds | A positive `java.time.Duration`; the default stays 25 seconds |
-| `org.bukkit.Sound` | Adventure `net.kyori.adventure.sound.Sound`, played with the caller's source, volume and pitch |
-| Title fade-in, stay and fade-out as `int` ticks | Adventure `Title.Times`; the defaults stay 500 ms, 2.5 s and 1 s |
-| `boolean` return values | `void`; a `null` required argument throws `NullPointerException` naming the parameter, a zero or negative duration throws `IllegalArgumentException` |
-| Two overloads taking a caller-owned Bukkit `BossBar` | One full overload taking Adventure `BossBar.Color` and `BossBar.Overlay` |
-| `new InMemoryNotificationService()` | `new InMemoryNotificationService(Messages, Scheduler)`, or preferably inject `NotificationService` |
-| Bean names `inMemoryNotificationService` and the interface's class-name string | Look up by type: `@Autowired NotificationService` or `getBean(NotificationService.class)` |
-
-A 6.x call such as
-
-```java
-notificationService.sendBossBarNotification(player, "Arena closes soon", 10);
-```
-
-becomes, with `messages` and `notifications` injected by `@Autowired`:
-
-```java
-notifications.sendBossBarNotification(player, Text.of(messages.key("arena.closing")), Duration.ofSeconds(10));
-```
-
-Move the text into the module's language file. Pass player or operator input as `Arg.string` with a `<name>` placeholder in the catalogue, never by joining it into the template; use `Text.plain(string)` for fixed text. A second boss-bar notification now replaces the bar's text, colour and overlay and restarts its single countdown; in 6.x the text stayed unchanged and overlapping countdowns made the bar disappear early. See [Notifications](/guide/essentials/notifications) for the threads each method uses and the known limitations.
+See [Notification service](./upgrading-to-7#notifications-migration) for the new signatures and an example.
 
 ### Text and languages in 7.0
 
-::: warning Unreleased v7.0.0 text engine
-As of v7.0.0, modules ship `messages/<locale>.yml` catalogues and send text through the injected `Messages` service.
-The legacy text system is removed. Migrate before upgrading.
-:::
-
-- **Language files.** Move translations you still need from `lang/` to `src/main/resources/messages/<locale>.yml`, with lowercase dotted keys and MiniMessage values. Only `.yml` is read. The new catalogues do not interpret `§` or `&` colour codes or import legacy files.
-- **Source language.** Declare `source-language` in the module's `plugin.yml` if the module's own texts are not English; it defaults to `en`.
-- **Sending text.** Inject `com.ultikits.ultitools.text.Messages` with `@Autowired`, build keys with `messages.key(path)` and send with `messages.send(...)`, so each player sees their own client language. Pass player or operator input as `Arg.string`, never as part of a template. Use `messages.shared(Text)` for entity names, text displays and shared boss bars.
-- **Defaults.** New installations ship `language: auto` and `fallback-language: auto`; on a host whose time zone is not a China zone, the console and the fallback are English. See [Language selection](/guide/essentials/messages#language-selection).
-- **Legacy text APIs.** Replace `i18n(...)` with `Messages`. If you need the server fallback language, inject `LocaleResolver` and call `fallback()` instead of using `getLanguageCode()` or `getConfiguredLanguage()`.
-- **Language declarations.** Remove `supported()` overrides and old language declarations. Ship the supported locales with the module instead.
-
-Check your code against the [complete list of removed legacy text types and entry points](/guide/essentials/i18n#removed-text-apis). The [migration table](/guide/essentials/i18n) also covers configuration comments and language files.
+See [Text and languages](./upgrading-to-7#messages-migration) for migration of message calls, bundled catalogues and operator overrides.
 
 ### Changed descriptors
 
