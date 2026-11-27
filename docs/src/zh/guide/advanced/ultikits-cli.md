@@ -324,7 +324,7 @@ class ModuleUiTest {
 
 #### 配置绑定的调度
 
-使用[配置绑定计时](./scheduled-tasks#config-bound-timing)中的两个类。检查方法是否指向预期的配置类和 YAML 键；任务的业务逻辑可另用测试依赖直接调用。两种测试都不验证配置登记、首次触发的 tick、重复间隔或 `/ul reload` 应用新值的行为；这些需在 Paper 上确认。
+使用[绑定到配置项的时间](./scheduled-tasks#绑定到配置项的时间)中的两个类。检查方法是否指向预期的配置类和 YAML 键；任务的业务逻辑可另用测试依赖直接调用。两种测试都不验证配置登记、首次触发的 tick、重复间隔或 `/ul reload` 应用新值的行为；这些需在 Paper 上确认。
 
 ```java
 package com.example.mymodule.scheduling;
