@@ -235,6 +235,12 @@ notifications.sendBossBarNotification(player, Text.of(messages.key("arena.closin
 
 把文字移到模块的语言文件中。玩家或服主输入的内容以 `Arg.string` 传入，并在语言文件中写 `<name>` 这样的占位符，不要拼进模板；固定文字用 `Text.plain(string)`。再次发送 Boss 栏通知现在会替换文字、颜色和样式，并重新开始唯一的倒计时；6.x 中文字保持不变，重叠的倒计时还会让 Boss 栏提前消失。各方法使用的线程和已知限制见[通知](/zh/guide/essentials/notifications)。
 
+## 配置保存与 JSON 落盘 {#config-save-and-flush}
+
+6.x 中，路径没有在模块里登记时，`UltiToolsPlugin#saveConfig(path, type)` 抛出 `NullPointerException`。自 v7.0.0 起改为抛出 `IllegalStateException`，异常消息会指出模块和路径，并且不写任何文件。请在保存前先登记配置实体。如果 6.x 代码靠捕获 `NullPointerException` 判断是否缺少登记，请改为确认 `getConfig(path, type)` 的返回值不是 `null`。不要为此捕获 `IllegalStateException`：不在服务器线程调用 `saveConfig` 时抛出的也是这个类型。已登记的实体不是请求类型的实例时仍抛出 `ClassCastException`。参见 [`save()`](../essentials/config-file#save)。
+
+6.x 中，`datasource.flushRate` 为负数时，JSON 存储只在后台落盘一次，之后不再落盘。自 v7.0.0 起，负数不启动周期落盘，并在启动时记录一条警告；正常停服时仍会写入数据。要恢复周期落盘，请设置为正数秒并重启服务器。参见 [JSON 存储的运维](../essentials/data-storage)。
+
 ## 重新构建并检查产物 {#rebuild-and-check}
 
 1. 使用前文的两个构建依赖重新构建迁移后的源码。如果提高了模块的 `api-version`，按[模块版本规范](./module-versioning#版本号的选择)提升模块自己的 MAJOR 版本号。
