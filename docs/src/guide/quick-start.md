@@ -10,16 +10,18 @@ footer: false
 
 As of v7.0.0, use JDK 25 and Maven to build the module. Test it on a server running UltiTools 7.0 in the [framework's target environment](/guide/introduction#runtime-requirements). Put the UltiTools framework JAR in the server's `plugins/` directory; the module JAR goes in a different directory, described below.
 
+Until 7.0.0 is released, get the framework JAR in one of two ways: build the framework from source with `mvn clean package`, or download the `com.ultikits:UltiTools-API` `7.0.0-SNAPSHOT` JAR from the snapshot repository that the `pom.xml` below uses. That JAR is the Paper plugin itself. A module built for 7.0 needs a 7.0 framework; the released 6.x builds do not load it.
+
 ## Project Setup
 
-As of v7.0.0, the [UltiKits CLI](/guide/advanced/ultikits-cli) has a 7.0 module template. When you have a CLI build that includes it, run:
+As of v7.0.0, the [UltiKits CLI](/guide/advanced/ultikits-cli) has a 7.0 module template. The template is not in the npm release yet, and the CLI currently on npm creates a 6.x project. If your CLI build includes the 7.0 template, run:
 
 ```bash
 ultikits create HelloModule
 cd HelloModule
 ```
 
-Enter `HelloModule` as the module name and `com.example.hellomodule` as the Java package. Enter a description and author, and accept `7.0.0-SNAPSHOT` for the preview API. The 7.0 template is not available in the npm release yet; if you do not have it, create the files below in a new `HelloModule` directory.
+Enter `HelloModule` as the module name and `com.example.hellomodule` as the Java package. Enter a description and author, and accept `7.0.0-SNAPSHOT` for the preview API. Without the 7.0 template, create the files below in a new `HelloModule` directory instead.
 
 ### Initial Project Layout
 

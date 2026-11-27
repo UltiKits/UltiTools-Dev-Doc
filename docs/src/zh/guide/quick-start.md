@@ -10,16 +10,18 @@ footer: false
 
 自 v7.0.0 起，使用 JDK 25 和 Maven 构建模块。在符合[框架目标环境](/zh/guide/introduction#运行环境)的服务器上运行 UltiTools 7.0 来测试模块。将 UltiTools 框架 JAR 放在服务器的 `plugins/` 目录；模块 JAR 的安装目录不同，见下文。
 
+在 7.0.0 发布之前，框架 JAR 有两种获取方式：从源码用 `mvn clean package` 构建框架，或从下文 `pom.xml` 使用的快照仓库下载 `com.ultikits:UltiTools-API` 的 `7.0.0-SNAPSHOT` JAR。这个 JAR 本身就是 Paper 插件。为 7.0 构建的模块需要 7.0 框架；已发布的 6.x 版本不会加载它。
+
 ## 项目创建
 
-自 v7.0.0 起，[UltiKits CLI](/zh/guide/advanced/ultikits-cli) 提供 7.0 模块模板。使用包含该模板的 CLI 构建时，执行：
+自 v7.0.0 起，[UltiKits CLI](/zh/guide/advanced/ultikits-cli) 提供 7.0 模块模板。npm 上发布的 CLI 还不包含这个模板，目前从 npm 安装的 CLI 创建的是 6.x 项目。如果你的 CLI 构建包含 7.0 模板，执行：
 
 ```bash
 ultikits create HelloModule
 cd HelloModule
 ```
 
-模块名填 `HelloModule`，Java 包名填 `com.example.hellomodule`，再填写简介和作者，预发布 API 版本保留默认的 `7.0.0-SNAPSHOT`。npm 上发布的 CLI 还不包含 7.0 模板；如果你没有这个模板，请新建 `HelloModule` 目录，再按下文手工创建文件。
+模块名填 `HelloModule`，Java 包名填 `com.example.hellomodule`，再填写简介和作者，预发布 API 版本保留默认的 `7.0.0-SNAPSHOT`。如果没有 7.0 模板，请新建 `HelloModule` 目录，再按下文手工创建文件。
 
 ### 初始目录结构
 
