@@ -14,6 +14,34 @@
 
 <<< @/../examples/src/main/java/com/ultikits/docs/config/SomeConfig.java
 
+下面是一个完整的 7.0 单文件配置类。`@ConfigEntry` 指定 YAML 键和注释，字段初始值就是默认值。示例直接声明访问方法，不需要 Lombok。
+
+```java
+package com.example.mymodule.config;
+
+import com.ultikits.ultitools.abstracts.AbstractConfigEntity;
+import com.ultikits.ultitools.annotations.ConfigEntity;
+import com.ultikits.ultitools.annotations.ConfigEntry;
+
+@ConfigEntity("config/config.yml")
+public class ExampleConfig extends AbstractConfigEntity {
+    @ConfigEntry(path = "features.chat", comment = "Enable chat features")
+    private boolean chatEnabled = true;
+
+    public ExampleConfig(String configFilePath) {
+        super(configFilePath);
+    }
+
+    public boolean isChatEnabled() {
+        return chatEnabled;
+    }
+
+    public void setChatEnabled(boolean chatEnabled) {
+        this.chatEnabled = chatEnabled;
+    }
+}
+```
+
 ::: warning 构造函数要求
 构造函数保持廉价、无副作用；验证和保存准备可能构造临时实例。
 :::
@@ -184,6 +212,8 @@ UltiTools 提供了校验注解来防止无效的配置值。详情请参阅[配
 :::
 
 ### `save()`
+
+`saveConfig(path, type)` 只保存当前模块中按该路径登记的配置实体。如果查找时路径从未登记，即使磁盘上已有同名文件，也会抛出 `NullPointerException`，不会创建、登记或写入文件。先登记配置实体再保存；若已持有登记过的实体，也可以直接调用它的 `save()`。
 
 `save()` 只写模块自上次加载或保存以来改过的设置，并且只在文件该处仍是读取时的值时才写。声明为 `Map` 的设置按条目写入；列表，以及 `Location`、`Vector` 这类 Bukkit 值，要么整体写入，要么不写。保存从不补入文件缺少的键，从不改写注释，也从不删除模块没有删除的映射条目。
 

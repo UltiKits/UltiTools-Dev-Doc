@@ -242,4 +242,6 @@ Do not wait from the body for a global or entity callback while unload waits on 
 
 ## Command tests
 
-To test registration and dispatch without a server, capture the `LifecycleEvents.COMMANDS` handler, pass it a test registrar, and run the received tree with a Brigadier dispatcher. Directly adding a tree to Brigadier tests parsing and callbacks, but does not verify Paper registration timing, client command-tree filtering, or Paper's syntax-event recovery. Verify those behaviors on Paper separately.
+UltiTools 7.0 does not provide a supported fixture for testing an UltiTools module's command registration without a server. In unit tests, call your mapped handler and completion-provider methods directly to check their results or side effects. You can also use reflection to check that the annotations declare the intended aliases, mappings and permissions. Direct calls bypass framework dispatch, so these tests do not show that the framework binds arguments or enforces those permissions.
+
+On Paper, verify that the module's commands register, that players with and without the required permissions see the expected commands and suggestions, and that dispatch and syntax-error feedback work through the actual command tree.

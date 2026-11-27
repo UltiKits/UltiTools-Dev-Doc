@@ -58,6 +58,41 @@
 
 <<< @/../examples/src/main/java/com/ultikits/docs/scheduled/BoundScheduleService.java
 
+针对 7.0，可以把下面两个类放到模块的同一个扫描包中，各自保存为同名 `.java` 文件。自动注册开启时由框架扫描配置类；关闭时在 `getAllConfigs()` 中只返回一个该类的实例。不要另建一个配置对象给任务读取。
+
+```java
+package com.example.mymodule.scheduling;
+
+import com.ultikits.ultitools.abstracts.AbstractConfigEntity;
+import com.ultikits.ultitools.annotations.ConfigEntity;
+import com.ultikits.ultitools.annotations.ConfigEntry;
+
+@ConfigEntity("config/economy.yml")
+public class BoundScheduleConfig extends AbstractConfigEntity {
+    @ConfigEntry(path = "interest.interval", comment = "Seconds between interest payouts")
+    private int interestInterval = 1800;
+
+    public BoundScheduleConfig(String configFilePath) {
+        super(configFilePath);
+    }
+}
+```
+
+```java
+package com.example.mymodule.scheduling;
+
+import com.ultikits.ultitools.annotations.Scheduled;
+import com.ultikits.ultitools.annotations.Service;
+
+@Service
+public class BoundScheduleService {
+    @Scheduled(config = BoundScheduleConfig.class, periodKey = "interest.interval", delayKey = "interest.interval")
+    public void distributeInterest() {
+        // Add the payout logic here.
+    }
+}
+```
+
 `delayKey` 可以与 `periodKey` 指向同一个键，这样首次执行会先等待一个完整的间隔。像发放利息这类不应在加载时立即执行的任务，通常就需要这样写。键按 `@ConfigEntry(path = ...)` 声明的路径匹配；`path` 为空时按字段名匹配。
 
 | 属性 | 类型 | 默认值 | 说明 |

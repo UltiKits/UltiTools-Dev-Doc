@@ -115,26 +115,50 @@ Choice<String> kit = Choice.<String>builder(Text.of(messages.key("kit.title")))
 
 没有密码（遮蔽）输入，因为 Paper 对话框的文本输入没有这个选项。
 
+调用方提供 `CreateHome` 回调来处理表单提交；关闭而未提交时不会调用它。示例用 `Text.plain`，不需要消息词典。
+
 ```java
-TextInput name = TextInput.builder("name", Text.of(messages.key("home.form.name"))).maxLength(24).build();
-ToggleInput shared = ToggleInput.of("shared", Text.of(messages.key("home.form.shared")), false);
-SliderInput radius = SliderInput.builder("radius", Text.of(messages.key("home.form.radius")), 1, 10)
-        .initial(3)
-        .build();
+package com.example.mymodule.ui;
 
-Form form = Form.builder(Text.of(messages.key("home.form.title")))
-        .input(name)
-        .input(shared)
-        .input(radius)
-        .build();
+import com.ultikits.ultitools.scheduling.Scheduler;
+import com.ultikits.ultitools.text.Text;
+import com.ultikits.ultitools.ui.Form;
+import com.ultikits.ultitools.ui.FormResponse;
+import com.ultikits.ultitools.ui.SliderInput;
+import com.ultikits.ultitools.ui.TextInput;
+import com.ultikits.ultitools.ui.ToggleInput;
+import com.ultikits.ultitools.ui.UiService;
+import java.util.concurrent.CompletionStage;
+import org.bukkit.entity.Player;
 
-ui.show(player, form).result().thenAcceptAsync(result -> {
-    if (!result.isCompleted()) {
-        return;
+public final class HomeFormExample {
+    @FunctionalInterface
+    public interface CreateHome {
+        void create(Player player, String name, boolean shared, double radius);
     }
-    FormResponse response = result.value();
-    createHome(player, response.get(name), response.get(shared), response.get(radius));
-}, scheduler.entity(player));
+
+    public static CompletionStage<Void> show(UiService ui, Scheduler scheduler, Player player,
+                                             CreateHome createHome) {
+        TextInput name = TextInput.builder("name", Text.plain("Name")).maxLength(24).build();
+        ToggleInput shared = ToggleInput.of("shared", Text.plain("Shared"), false);
+        SliderInput radius = SliderInput.builder("radius", Text.plain("Radius"), 1, 10)
+                .initial(3)
+                .build();
+        Form form = Form.builder(Text.plain("Create a home"))
+                .input(name)
+                .input(shared)
+                .input(radius)
+                .build();
+
+        return ui.show(player, form).result().thenAcceptAsync(result -> {
+            if (!result.isCompleted()) {
+                return;
+            }
+            FormResponse response = result.value();
+            createHome.create(player, response.get(name), response.get(shared), response.get(radius));
+        }, scheduler.entity(player));
+    }
+}
 ```
 
 读取值时使用所显示表单的输入句柄。`FormResponse.get` 按对象身份匹配句柄，另一个表单中相等的句柄会抛出 `IllegalArgumentException`。
@@ -248,15 +272,34 @@ session.result().thenAcceptAsync(result -> handle(player, result), scheduler.ent
 
 图标是 `GridItem`：一个 `ItemSpec` 加一个可选的 `GridAction`。玩家永远拿不走图标。
 
+调用方提供 `joinArena` 回调，接收点击图标的玩家。回调返回后，点击动作关闭会话。
+
 ```java
-Grid menu = Grid.builder(Text.of(messages.key("arena.menu.title")), 1)
-        .set(0, 4, ItemSpec.builder(Material.DIAMOND_SWORD).name(messages.key("arena.menu.join")).build(),
-                click -> {
-                    joinArena(click.viewer());
+package com.example.mymodule.ui;
+
+import com.ultikits.ultitools.item.ItemSpec;
+import com.ultikits.ultitools.text.Text;
+import com.ultikits.ultitools.ui.Grid;
+import com.ultikits.ultitools.ui.GridSession;
+import com.ultikits.ultitools.ui.UiService;
+import java.util.function.Consumer;
+import net.kyori.adventure.key.Key;
+import org.bukkit.entity.Player;
+
+public final class ArenaMenuExample {
+    public static GridSession show(UiService ui, Player player, Consumer<Player> joinArena) {
+        ItemSpec icon = ItemSpec.builder(Key.key("minecraft:diamond_sword"))
+                .name(Text.plain("Join arena"))
+                .build();
+        Grid menu = Grid.builder(Text.plain("Arena"), 1)
+                .set(0, 4, icon, click -> {
+                    joinArena.accept(click.viewer());
                     click.session().close();
                 })
-        .build();
-GridSession session = ui.show(player, menu);
+                .build();
+        return ui.show(player, menu);
+    }
+}
 ```
 
 `GridClick` 提供 `viewer()`、`slot()`、`kind()`（一个 `ClickKind`）与 `session()`。动作只在其任务运行时会话仍然打开才会执行。动作中可以调用 `update`、`close()`，或显示另一个意图。动作抛出的异常会带拥有者记录并被吞掉。

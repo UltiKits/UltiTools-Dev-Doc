@@ -15,6 +15,34 @@ the `AbstractConfigEntity` class.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/config/SomeConfig.java
 
+This complete 7.0 example declares one YAML file. `@ConfigEntry` names the key and its comment, and the field initializer supplies the default. The class declares its own accessors and does not need Lombok.
+
+```java
+package com.example.mymodule.config;
+
+import com.ultikits.ultitools.abstracts.AbstractConfigEntity;
+import com.ultikits.ultitools.annotations.ConfigEntity;
+import com.ultikits.ultitools.annotations.ConfigEntry;
+
+@ConfigEntity("config/config.yml")
+public class ExampleConfig extends AbstractConfigEntity {
+    @ConfigEntry(path = "features.chat", comment = "Enable chat features")
+    private boolean chatEnabled = true;
+
+    public ExampleConfig(String configFilePath) {
+        super(configFilePath);
+    }
+
+    public boolean isChatEnabled() {
+        return chatEnabled;
+    }
+
+    public void setChatEnabled(boolean chatEnabled) {
+        this.chatEnabled = chatEnabled;
+    }
+}
+```
+
 ::: warning Constructor requirements
 Keep constructors cheap and side-effect-free: validation and save preparation may construct temporary instances.
 :::
@@ -185,6 +213,8 @@ As of v7.0.0, texts in the new `messages/<locale>.yml` catalogues are not custom
 :::
 
 ### `save()`
+
+`saveConfig(path, type)` saves only a configuration entity registered for that path in the current module. If the path has never been registered, the lookup returns no entity and `saveConfig` throws `NullPointerException`, even if the file exists on disk. It does not create, register or write a file. Register the entity before saving, or call `save()` directly on the registered entity you already hold.
 
 `save()` writes only the settings the module changed since the last load or save, and only where the file still holds the value it was read with. A setting declared as a `Map` is written entry by entry; a list, or a Bukkit value such as a `Location` or `Vector`, is written whole or not at all. A save never inserts a key the file lacks, never rewrites a comment and never removes a map entry the module did not remove.
 

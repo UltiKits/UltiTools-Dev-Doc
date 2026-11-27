@@ -33,9 +33,31 @@ Create a class that extends `BaseDataEntity<String>`, and use the `@Table` and `
 
 <<< @/../examples/src/main/java/com/ultikits/docs/data/UserData.java
 
-The annotations define the mapping; the entity must also be [registered to the caller](#entity-registration).
+The `UserData` example uses Lombok to generate its accessors, constructors, builder, and equality methods. Here is a complete entity without Lombok. Save it as `PlayerNote.java`:
 
-`@Data`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor`, `@EqualsAndHashCode` are Lombok annotations, which are used to automatically generate `getter`, `setter`, `builder`, `equals`, `hashCode` methods.
+```java
+package com.example.mymodule.data;
+
+import com.ultikits.ultitools.abstracts.data.BaseDataEntity;
+import com.ultikits.ultitools.annotations.Column;
+import com.ultikits.ultitools.annotations.Table;
+
+@Table("my_module_player_notes")
+public class PlayerNote extends BaseDataEntity<String> {
+    @Column("note_text")
+    private String text;
+
+    public String getText() {
+        return text;
+    }
+
+    public void setText(String text) {
+        this.text = text;
+    }
+}
+```
+
+Package `PlayerNote` in the owning module's JAR. During enable, UltiTools [registers the entity in the module's data scope](#entity-registration) by scanning that JAR for `@Table`; this scan does not register the entity as an IoC bean and is independent of `scanBasePackages`. See the [entity scan](https://github.com/UltiKits/UltiTools-Reborn/blob/1953187e750e736e46ed09f980bd4d2e8e4b54d7/src/main/java/com/ultikits/ultitools/manager/PluginManager.java#L2208-L2221).
 
 `BaseDataEntity<String>` declares an `@Column("id")` field. On `insert`, a null ID is filled through `setId` with a UUID string before `onCreate()`. In SQL, `id` is the primary key and is written from `getId()`; JSON uses `getId()` to key the entry and name its file. Do not redeclare the `id` field. If you override its accessors, ensure they report the same ID on write and read.
 
@@ -136,7 +158,7 @@ if (entry != null && entry.wasModified()) {
 
 `@Column.value` specifies the column name, which can differ from the Java field name. Use the mapped column name in queries. `@Column.type` defaults to `VARCHAR(255)` and is used in the SQL table definition; it does not control JSON types. The SQL stores map annotated fields, including inherited fields, and store non-simple values as JSON text without querying inside them. JSON files use Gson's Java field names; the operator translates mapped column names to those fields. Ordinary JSON conditions can also query nested paths. For portable queries, use simple field types and mapped column names.
 
-On SQLite, the default `VARCHAR(255)` column has TEXT affinity, so a numeric field such as `int` or `long` is stored as text unless you declare a numeric column type. For tables you plan to query outside UltiTools, use a numeric type when defining new columns. For hand-written SQL against an existing default-typed column, use a numeric `CAST` when comparing or sorting values numerically; otherwise comparisons and sorting can use text order. The SQLite operator casts `WhereCondition` numeric comparisons according to the Java field type. The query DSL evaluates `gt`, `lt`, `gte`, `lte` and `orderBy` on Java values in memory; `count()` reports the size of the resulting list.
+On SQLite, the default `VARCHAR(255)` column has TEXT affinity, so a numeric field such as `int` or `long` is stored as text unless you declare a numeric column type. For tables you plan to query outside UltiTools, use a numeric type when defining new columns. For hand-written SQL against an existing default-typed column, use a numeric `CAST` when comparing or sorting values numerically; otherwise comparisons and sorting can use text order. The SQLite operator adds a numeric `CAST` based on the Java field type only for `WhereCondition` comparisons using `GREATER` or `LESS` on supported numeric fields; `EQUAL` does not get that cast. The query DSL evaluates `gt`, `lt`, `gte`, `lte` and `orderBy` on Java values in memory; `count()` reports the size of the resulting list.
 
 ## CRUD Operations
 
@@ -148,7 +170,35 @@ A module calls `getDataOperator(Class<T>)` on its loaded `UltiToolsPlugin` insta
 
 <<< @/../examples/src/main/java/com/ultikits/docs/data/UserDataService.java
 
-Request the operator after the framework has assigned the module's data scope, not in the module constructor. Use the operator within the owning plugin's lifetime; do not pass it from an old module instance to its replacement.
+The complete caller for `PlayerNote` goes in `PlayerNoteStore.java` in the same package:
+
+```java
+package com.example.mymodule.data;
+
+import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
+import com.ultikits.ultitools.interfaces.DataOperator;
+
+public class PlayerNoteStore {
+    private final DataOperator<PlayerNote> notes;
+
+    public PlayerNoteStore(UltiToolsPlugin plugin) {
+        this.notes = plugin.getDataOperator(PlayerNote.class);
+    }
+
+    public String addNote(String text) {
+        PlayerNote note = new PlayerNote();
+        note.setText(text);
+        notes.insert(note);
+        return note.getId();
+    }
+
+    public PlayerNote findNote(String id) {
+        return notes.getById(id);
+    }
+}
+```
+
+Create `new PlayerNoteStore(this)` from the owning module after the framework has assigned its data scope, not in the module constructor. Pass the ID returned by `addNote` to `findNote`; it returns `null` if no record has that ID. Use the operator within the owning plugin's lifetime; do not pass it from an old module instance to its replacement. See [`UltiToolsPlugin#getDataOperator`](https://github.com/UltiKits/UltiTools-Reborn/blob/1953187e750e736e46ed09f980bd4d2e8e4b54d7/src/main/java/com/ultikits/ultitools/abstracts/UltiToolsPlugin.java#L583-L598).
 
 ### Entity Registration {#entity-registration}
 
@@ -312,8 +362,8 @@ WhereCondition.builder().column("somecol").value(someval).build();
 `EQUAL` tests equality, and `GREATER` and `LESS` are strict comparisons.
 
 - `INCLUDE`, `STARTSWITH` and `ENDSWITH` match the value literally as text on every backend: `%`, `_`, `!` and `\` are ordinary characters, not wildcards or escapes. For `Query#like`, see the [Query DSL](./query-dsl).
-- `getLike(column, value, likeType)` is different: SQL adds `%` around the value and runs `LIKE` without escaping, so `%` and `_` in the value still act as wildcards there; JSON matches the value literally. Escape or reject `%` and `_` in user input, or use a `WhereCondition` with `INCLUDE`, `STARTSWITH` or `ENDSWITH` for literal matching on every backend.
-- Letter case and accents follow the backend: SQLite ignores the case of ASCII letters only; MySQL compares under the `utf8mb3_general_ci` collation of the tables the framework creates, which ignores case and accents (`é` matches `e`); JSON compares exactly.
+- [`getLike`](#getlike) is a separate method with different pattern and validation rules.
+- For the three literal `WhereCondition` comparisons, letter case and accents follow the backend: SQLite ignores the case of ASCII letters only; MySQL compares under the `utf8mb3_general_ci` collation of the tables the framework creates, which ignores case and accents (`é` matches `e`); JSON compares exactly.
 - `GREATER` and `LESS` on a `byte`, `short`, `int`, `long`, `float` or `double` field (or its wrapper) compare numbers of the field's type on SQLite and JSON. Pass the value as a number of that type (`10`, not `"10"`): on MySQL a string value compares as text, so `"10"` sorts below `"2"`. On SQLite the typed comparison holds also in a column left on the default `VARCHAR(255)` type, with 64-bit integer precision, and a stored value compares the way it reads back: a `float` `0.1f` is neither greater nor less than `0.1f`. That read-back comparison applies to a value that is a finite number; a number beyond `double` range and any text are compared as bound. An infinite or NaN value is refused (see "Null and non-finite condition values" below).
 - On MySQL a numeric field left in a default text column compares in double precision, exact up to ±9,007,199,254,740,992 (2^53) and approximate beyond. Declare a numeric column `type` such as `BIGINT` where exact results matter. On JSON the values are compared as `double`, also approximate beyond 2^53.
 - Known limitations: on SQLite a `double` in a default column is stored with 15 significant digits, so `1/3.0` reads back and compares as `0.333333333333333`; declare `type = "DOUBLE"` to keep every digit. Non-numeric text written by hand into a numeric field's column compares on SQLite as its leading number (`'abc'` as 0, `'12abc'` as 12), while JSON compares it as text. On SQLite a number that agrees with a stored `float` to 15 significant digits but differs after them (for example a whole number of 10^15 or more such as `(1L << 53) + 1`, or a decimal with 16 or more significant digits) compares as equal to it, in a default and in a `REAL` column; pass a `float` value for a `float` field.
@@ -321,6 +371,22 @@ WhereCondition.builder().column("somecol").value(someval).build();
 #### Null and non-finite condition values
 
 `getAll`, `exist`, `page`, `del` and `updateIf` refuse a condition whose value is `null` (under any comparison) or an infinite or NaN `Double` or `Float` on SQLite, MySQL and JSON alike: they throw `DataAccessException` with `DATA_ENTITY_INVALID` (`ULTI-3007`) before anything is read, deleted or written. The one exception is `updateIf` with a `null` value under `EQUAL`, which means `IS NULL`. `del(WhereCondition.empty())` is refused the same way on every backend ([#815](https://github.com/UltiKits/UltiTools-Reborn/issues/815), [#696](https://github.com/UltiKits/UltiTools-Reborn/issues/696)). Check a value with a null check or `Double.isFinite` before building the condition.
+
+#### getLike {#getlike}
+
+`getLike(column, value, likeType)` uses `DataOperator.LikeType.START` for a prefix, `END` for a suffix, and `CONTAINS` for a substring. The built-in backends interpret the same arguments differently:
+
+| Backend | Pattern and matching |
+|---|---|
+| MySQL | SQL `LIKE` uses `value%`, `%value`, or `%value%`, respectively. `%` in `value` matches zero or more characters and `_` matches one. The framework supplies no `ESCAPE` clause and does not escape the value; MySQL applies its own escape rules (including its default backslash escape) and collation. |
+| SQLite | The same SQL patterns and wildcards apply. Without an `ESCAPE` clause, backslash is literal. With SQLite's default `LIKE` behavior, ASCII letters match regardless of case; non-ASCII letters are case-sensitive. |
+| JSON | Uses Java's `startsWith`, `endsWith`, or `contains`, respectively. Matching is case-sensitive; `%`, `_`, and backslash are literal. The operator resolves a mapped column name or reads the supplied Java field path (dot-separated for nested fields), converts a non-null value to text with `toString()`, and skips missing or null values. Numeric fields are matched as text. For example, JSON matches the integer `15` as `15.0`, so a suffix of `5` does not match; it does match in SQL when the value is represented as `15`. |
+
+On MySQL and SQLite, the pattern is bound as a JDBC parameter, but the `column` argument goes into the SQL as supplied, without the `WhereCondition` check against the entity's `@Column` mappings. Pass only a column name fixed by your code or selected from a fixed allowlist; never pass user input as `column`. An unknown name that the database rejects causes `DataAccessException` with `DATA_OPERATION_FAILED` (`ULTI-3008`) and `getMessage()` equal to `Failed to query with LIKE`. A null `column` is not rejected: it becomes the SQL `NULL` operand, which matches no rows. JSON does not check the column against the mappings either: a missing path, or a `null` or empty path, gives no matches.
+
+Do not pass `null` for `value` or `likeType`. SQL converts a null `value` to the text `null` when building its pattern (for example, `%null%` for `CONTAINS`); it does not search for SQL `NULL`. A null `likeType` throws `NullPointerException` before executing SQL. On JSON, a null `value` or `likeType` throws `NullPointerException` only when a row has a non-null value at the requested path; otherwise the method returns an empty list. An empty string is not rejected: it becomes a match-all pattern for non-null values on SQL and matches any non-null resolved value on JSON.
+
+For literal prefix, suffix, or substring matching across backends, use `WhereCondition` with `STARTSWITH`, `ENDSWITH`, or `INCLUDE` instead; case and accent handling still depends on the backend. See the [shared SQL implementation](https://github.com/UltiKits/UltiTools-Reborn/blob/1953187e750e736e46ed09f980bd4d2e8e4b54d7/src/main/java/com/ultikits/ultitools/interfaces/impl/data/AbstractRelationalDataOperator.java#L842-L863) and the [JSON implementation](https://github.com/UltiKits/UltiTools-Reborn/blob/1953187e750e736e46ed09f980bd4d2e8e4b54d7/src/main/java/com/ultikits/ultitools/interfaces/impl/data/json/SimpleJsonDataOperator.java#L635-L670).
 
 ### Transactions
 

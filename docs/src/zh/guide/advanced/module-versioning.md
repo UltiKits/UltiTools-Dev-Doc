@@ -140,7 +140,7 @@ pin 不是模块的运行时下限。这是两个互相独立的数字，其中�
 
 ### 7.0 原生物品与音效 API
 
-材料与音效的替代方式见[原生物品与音效](./upgrading-to-7#items-and-sounds)。
+材质与音效的替代方式见[原生物品与音效](./upgrading-to-7#items-and-sounds)。
 
 ### 7.0 中的旧箱子页面与确认组件 {#legacy-chest-removal}
 

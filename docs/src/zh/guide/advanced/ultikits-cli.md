@@ -10,6 +10,10 @@
 UltiTools-API 7.0.0 也尚未发布；预发布脚手架默认使用 `7.0.0-SNAPSHOT`。
 :::
 
+在预发布阶段开发 7.0 模块时，请按快速开始手写 [`pom.xml`](/zh/guide/quick-start#maven-构建配置) 和[模块描述文件](/zh/guide/quick-start#模块描述文件)，然后继续编写主类。
+
+`ultikits create [directory]` 的可选参数只指定输出目录；`create` 始终通过交互提示收集输入，没有非交互选项。
+
 ::: tip 推荐：本地发布
 官方 UltiTools 模块由维护者在本地发布：把验收通过的 JAR 附加到 GitHub Release，再用 CLI 将同一个文件发布到 UltiCloud。第三方开发者也可以使用相同的路径。
 [GitHub Actions](#ci-cd-github-actions) 是可选的手动工作流，不是官方模块的发布路径。
@@ -79,7 +83,7 @@ ultikits logout     # 删除已保存的凭据
 
 在包含 7.0 模板的 CLI 版本中，`ultikits create` 只生成面向 UltiTools-API 7.0.0 及以上版本的模块工程。模板以 Paper 26.3 和 Java 25 为目标。
 
-要升级已有的 6.x 模块，见[6.x 模块升到 7.0](/zh/guide/advanced/upgrading-to-7)。
+要升级已有的 6.x 模块，见[从 6.x 升级到 7.0](/zh/guide/advanced/upgrading-to-7)。
 
 ```bash
 ultikits create
@@ -161,6 +165,326 @@ mvn package
 ```
 
 `mvn package` 会运行你在 `src/test/java` 中添加的测试，并将模块 JAR 写入 `target/`。要测试模块，把生成的 JAR 放入服务器的 `plugins/UltiTools/plugins/` 目录，然后重启服务器。服务器应运行 Paper 26.3、Java 25 和与模块匹配的 UltiTools-API 版本。
+
+### 不启动服务器的模块测试 {#serverless-module-tests}
+
+将 JUnit Jupiter 测试放在 `src/test/java` 下，与被测代码使用相同的 Java 包。预览脚手架已添加 Jupiter 和 Mockito 测试依赖；手写工程需要将两者添加为 `test` 依赖，并使用支持 Jupiter 的 Surefire 版本。运行 `mvn test`。下列示例使用 JUnit Jupiter 6.1.3（`org.junit.jupiter.api`，与 7.0 脚手架一致）和 UltiTools 公开 API。模拟对象只记录或提供测试值，不运行 Paper。
+
+#### 消息文件
+
+本例在两份文件的 `greeting:` 下各写一个缩进的 `named` 键：在 `src/main/resources/messages/en.yml` 写入 `named: "Hello, <name>!"`，在 `src/main/resources/messages/zh.yml` 中写入 `named: "你好，<name>！"`。比较两份文件中所有标量值的键，包括数字和布尔值，再给占位符传入可区分的测试值，分别渲染两种语言的消息。用 Paper API 提供的 SnakeYAML 读取标量原文，与框架加载消息时的处理一致。即使键集合相同，漏写、拼错或转义 `<name>` 也会导致结果与预期文本不符。为模块中每条带参数的消息添加这样的渲染断言。直接读取模块的资源目录，避免误读依赖 JAR 中的同名文件。这里不检查服务器的语言选择、覆盖文件或游戏内投递。
+
+```java
+package com.example.mymodule;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.junit.jupiter.api.Test;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.nodes.MappingNode;
+import org.yaml.snakeyaml.nodes.ScalarNode;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+class MessageCatalogueTest {
+    @Test
+    void bothLocalesProvideTheSameKeysAndRenderTheName() throws Exception {
+        var en = load("en");
+        var zh = load("zh");
+        assertEquals(en.keySet(), zh.keySet());
+        assertEquals("Hello, test-name!", renderGreeting(en));
+        assertEquals("你好，test-name！", renderGreeting(zh));
+    }
+
+    private static Map<String, String> load(String locale) throws Exception {
+        var module = Path.of(System.getProperty("basedir", "."));
+        var catalogue = module.resolve("src/main/resources/messages/" + locale + ".yml");
+        try (var reader = Files.newBufferedReader(catalogue, StandardCharsets.UTF_8)) {
+            var messages = new LinkedHashMap<String, String>();
+            collectScalars(assertInstanceOf(MappingNode.class, new Yaml().compose(reader)), "", messages);
+            return messages;
+        }
+    }
+
+    private static void collectScalars(MappingNode mapping, String prefix, Map<String, String> messages) {
+        for (var entry : mapping.getValue()) {
+            var key = assertInstanceOf(ScalarNode.class, entry.getKeyNode()).getValue();
+            var path = prefix + key;
+            if (entry.getValueNode() instanceof MappingNode nested) {
+                collectScalars(nested, path + ".", messages);
+            } else {
+                var scalar = assertInstanceOf(ScalarNode.class, entry.getValueNode(), path);
+                assertNull(messages.putIfAbsent(path, scalar.getValue()), "Duplicate message key: " + path);
+            }
+        }
+    }
+
+    private static String renderGreeting(Map<String, String> messages) {
+        String template = messages.get("greeting.named");
+        assertNotNull(template);
+        var rendered = MiniMessage.miniMessage().deserialize(template, Placeholder.unparsed("name", "test-name"));
+        return PlainTextComponentSerializer.plainText().serialize(rendered);
+    }
+}
+```
+
+#### 表单与箱子回调
+
+使用[界面意图与会话](./ui-service)中的两个类。构造 `FormResponse` 时使用捕获到的表单中的输入句柄，不要另建同名句柄。对箱子界面，从捕获到的 `Grid` 取出动作，传入模拟点击对象并调用它。测试执行器直接运行回调，只验证模块对此的处理；Paper 的调度、表单输入、布局和物品栏事件分发需在 Paper 服务器和客户端上确认。
+
+```java
+package com.example.mymodule.ui;
+
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
+import com.ultikits.ultitools.scheduling.Scheduler;
+import com.ultikits.ultitools.scheduling.TaskContext;
+import com.ultikits.ultitools.ui.Form;
+import com.ultikits.ultitools.ui.FormResponse;
+import com.ultikits.ultitools.ui.Grid;
+import com.ultikits.ultitools.ui.GridClick;
+import com.ultikits.ultitools.ui.GridSession;
+import com.ultikits.ultitools.ui.GridSlot;
+import com.ultikits.ultitools.ui.UiResult;
+import com.ultikits.ultitools.ui.UiService;
+import com.ultikits.ultitools.ui.UiSession;
+import org.bukkit.entity.Player;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+class ModuleUiTest {
+    @Test
+    @SuppressWarnings("unchecked")
+    void submittedValuesReachTheHomeCallback() {
+        var ui = mock(UiService.class);
+        var player = mock(Player.class);
+        var scheduler = mock(Scheduler.class);
+        var entity = mock(TaskContext.class);
+        var createHome = mock(HomeFormExample.CreateHome.class);
+        UiSession<FormResponse> session = mock(UiSession.class);
+        var result = new CompletableFuture<UiResult<FormResponse>>();
+        when(ui.show(eq(player), any(Form.class))).thenReturn(session);
+        when(session.result()).thenReturn(result);
+        when(scheduler.entity(player)).thenReturn(entity);
+        doAnswer(call -> {
+            call.getArgument(0, Runnable.class).run();
+            return null;
+        }).when(entity).execute(any(Runnable.class));
+
+        var completion = HomeFormExample.show(ui, scheduler, player, createHome);
+        var form = ArgumentCaptor.forClass(Form.class);
+        verify(ui).show(eq(player), form.capture());
+        var inputs = form.getValue().inputs();
+        var response = FormResponse.of(form.getValue(), Map.of(
+                inputs.get(0), "Cabin", inputs.get(1), true, inputs.get(2), 3.0));
+        result.complete(new UiResult.Completed<>(response));
+        completion.toCompletableFuture().join();
+
+        verify(createHome).create(player, "Cabin", true, 3.0);
+    }
+
+    @Test
+    void arenaIconPassesTheViewerAndClosesTheSession() {
+        var ui = mock(UiService.class);
+        var player = mock(Player.class);
+        var joined = new AtomicReference<Player>();
+        ArenaMenuExample.show(ui, player, joined::set);
+        var grid = ArgumentCaptor.forClass(Grid.class);
+        verify(ui).show(eq(player), grid.capture());
+        var session = mock(GridSession.class);
+        var click = mock(GridClick.class);
+        when(click.viewer()).thenReturn(player);
+        when(click.session()).thenReturn(session);
+
+        grid.getValue().item(new GridSlot(0, 4)).orElseThrow().action().orElseThrow().onClick(click);
+
+        assertSame(player, joined.get());
+        verify(session).close();
+    }
+}
+```
+
+#### 配置绑定的调度
+
+使用[绑定到配置项的时间](./scheduled-tasks#绑定到配置项的时间)中的两个类。检查方法是否指向预期的配置类和 YAML 键；任务的业务逻辑可另用测试依赖直接调用。两种测试都不验证配置登记、首次触发的 tick、重复间隔或 `/ul reload` 应用新值的行为；这些需在 Paper 上确认。
+
+```java
+package com.example.mymodule.scheduling;
+
+import com.ultikits.ultitools.annotations.ConfigEntry;
+import com.ultikits.ultitools.annotations.Scheduled;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class BoundScheduleTest {
+    @Test
+    void bothTimingsUseTheSameConfigKey() throws ReflectiveOperationException {
+        var method = BoundScheduleService.class.getMethod("distributeInterest");
+        var schedule = method.getAnnotation(Scheduled.class);
+        assertEquals(BoundScheduleConfig.class, schedule.config());
+        var field = BoundScheduleConfig.class.getDeclaredField("interestInterval");
+        String key = field.getAnnotation(ConfigEntry.class).path();
+        assertEquals("interest.interval", key);
+        assertEquals(key, schedule.delayKey());
+        assertEquals(key, schedule.periodKey());
+    }
+}
+```
+
+#### 配置校验
+
+把候选值交给 `validateProposedProperties`。它校验候选状态，失败时也会恢复原字段值。本例不读写 YAML，检查空值是否被拒绝。校验会尝试构造一个临时实例，所以测试中的嵌套配置类须声明为 `public static`，并提供可访问的 `(String)` 或无参构造器。要验证实际加载或重载的结果，请在 Paper 上使用真实 YAML 文件测试。
+
+```java
+package com.example.mymodule.config;
+
+import com.google.gson.JsonObject;
+import com.ultikits.ultitools.abstracts.AbstractConfigEntity;
+import com.ultikits.ultitools.annotations.ConfigEntity;
+import com.ultikits.ultitools.annotations.ConfigEntry;
+import com.ultikits.ultitools.annotations.config.NotEmpty;
+import com.ultikits.ultitools.exceptions.ConfigurationException;
+import com.ultikits.ultitools.exceptions.ErrorCode;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+public class ConfigValidationTest {
+    @ConfigEntity("config/profile.yml")
+    public static class ProfileConfig extends AbstractConfigEntity {
+        @ConfigEntry(path = "display-name")
+        @NotEmpty
+        private String name = "Explorer";
+
+        public ProfileConfig(String path) {
+            super(path);
+        }
+    }
+
+    @Test
+    void checksProposedValuesWithoutChangingTheLoadedValue() {
+        var config = new ProfileConfig("config/profile.yml");
+        var changes = new JsonObject();
+        changes.addProperty("display-name", "");
+        var failure = assertThrows(ConfigurationException.class,
+                () -> config.validateProposedProperties(changes));
+        assertEquals(ErrorCode.CONFIG_VALIDATION_FAILED, failure.getErrorCode());
+
+        changes.addProperty("display-name", "Ranger");
+        assertDoesNotThrow(() -> config.validateProposedProperties(changes));
+        assertEquals("Explorer", config.name);
+    }
+}
+```
+
+#### 数据实体
+
+使用[数据存储](../essentials/data-storage)中的 `PlayerNote` 和 `PlayerNoteStore`。检查实体的映射声明，以及模块是否调用了预期的数据操作。模拟操作器给记录赋一个 ID，测试只检查调用端是否返回该 ID，不验证作用域登记、ID 生成或持久化。请在 Paper 上验证登记，并用模块支持的存储后端验证写入和读回。
+
+```java
+package com.example.mymodule.data;
+
+import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
+import com.ultikits.ultitools.annotations.Table;
+import com.ultikits.ultitools.interfaces.DataOperator;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+class PlayerNoteStoreTest {
+    @Test
+    @SuppressWarnings("unchecked")
+    void addsTheNoteToTheExpectedEntityAndReturnsItsAssignedId() {
+        var module = mock(UltiToolsPlugin.class);
+        DataOperator<PlayerNote> operator = mock(DataOperator.class);
+        when(module.getDataOperator(PlayerNote.class)).thenReturn(operator);
+        doAnswer(call -> {
+            call.getArgument(0, PlayerNote.class).setId("test-id");
+            return null;
+        }).when(operator).insert(any(PlayerNote.class));
+
+        assertEquals("test-id", new PlayerNoteStore(module).addNote("Meet at spawn"));
+
+        var inserted = ArgumentCaptor.forClass(PlayerNote.class);
+        verify(operator).insert(inserted.capture());
+        assertEquals("Meet at spawn", inserted.getValue().getText());
+        assertEquals("my_module_player_notes", PlayerNote.class.getAnnotation(Table.class).value());
+    }
+}
+```
+
+#### 引导期内容
+
+使用[声明自定义内容](./startup-phases#bootstrap-content)中的 `MyModuleBootstrap`。模拟引导上下文即可验证钩子提交了哪些声明，无需初始化注册表。要验证 Paper 是否接受声明，请装入打包好的模块完整启动服务器，确认附魔、标签和内置数据包可用。
+
+```java
+package com.example.mymodule;
+
+import java.util.List;
+import com.ultikits.ultitools.bootstrap.DatapackChannel;
+import com.ultikits.ultitools.bootstrap.EnchantmentChannel;
+import com.ultikits.ultitools.bootstrap.EnchantmentDefinition;
+import com.ultikits.ultitools.bootstrap.ModuleBootstrapContext;
+import com.ultikits.ultitools.bootstrap.TagChannel;
+import io.papermc.paper.registry.RegistryKey;
+import net.kyori.adventure.key.Key;
+import org.junit.jupiter.api.Test;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+class MyModuleBootstrapTest {
+    @Test
+    void declaresTheEnchantmentTagsAndEmbeddedPack() {
+        var context = mock(ModuleBootstrapContext.class);
+        var enchantments = mock(EnchantmentChannel.class);
+        var packs = mock(DatapackChannel.class);
+        when(context.enchantments()).thenReturn(enchantments);
+        var tags = mock(TagChannel.class);
+        when(context.tags()).thenReturn(tags);
+        when(context.datapacks()).thenReturn(packs);
+
+        new MyModuleBootstrap().bootstrap(context);
+
+        verify(enchantments).register(eq(Key.key("mymodule:frost_edge")), any(EnchantmentDefinition.class));
+        verify(tags).addToTag(RegistryKey.ENCHANTMENT, Key.key("minecraft:in_enchanting_table"),
+                List.of(Key.key("mymodule:frost_edge")));
+        verify(tags).setTag(RegistryKey.ITEM, Key.key("mymodule:frost_weapons"),
+                List.of(Key.key("minecraft:diamond_sword")));
+        verify(packs).embedded("frost");
+    }
+}
+```
 
 ## 项目配置
 
