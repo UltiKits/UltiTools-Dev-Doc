@@ -58,6 +58,37 @@ Use `periodKey`, `delayKey`, or both to replace the corresponding literal with a
 
 <<< @/../examples/src/main/java/com/ultikits/docs/scheduled/BoundScheduleService.java
 
+For 7.0, put these two classes in the same scanned package in your module, in separate `.java` files named after the classes. With automatic config registration enabled, let the framework discover the config class. With it disabled, return one instance of that class from `getAllConfigs()`. Do not create a separate config object for the task to read.
+
+```java
+import com.ultikits.ultitools.abstracts.AbstractConfigEntity;
+import com.ultikits.ultitools.annotations.ConfigEntity;
+import com.ultikits.ultitools.annotations.ConfigEntry;
+
+@ConfigEntity("config/economy.yml")
+public class BoundScheduleConfig extends AbstractConfigEntity {
+    @ConfigEntry(path = "interest.interval", comment = "Seconds between interest payouts")
+    private int interestInterval = 1800;
+
+    public BoundScheduleConfig(String configFilePath) {
+        super(configFilePath);
+    }
+}
+```
+
+```java
+import com.ultikits.ultitools.annotations.Scheduled;
+import com.ultikits.ultitools.annotations.Service;
+
+@Service
+public class BoundScheduleService {
+    @Scheduled(config = BoundScheduleConfig.class, periodKey = "interest.interval", delayKey = "interest.interval")
+    public void distributeInterest() {
+        // Add the payout logic here.
+    }
+}
+```
+
 `delayKey` may name the same key as `periodKey`. The first run then waits one full interval, which is what a task such as a payout usually wants instead of running at load. A key is matched against `@ConfigEntry(path = ...)` as declared, or against the field name when `path` is empty.
 
 | Attribute | Type | Default | Description |

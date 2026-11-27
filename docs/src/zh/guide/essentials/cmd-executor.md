@@ -128,7 +128,7 @@ Cannot load module <module>: executor <class>: <class>#<method> [<format>]: <rea
 
 ## 权限与回复
 
-类和映射分别声明权限时，两者都须满足；任一层设置 `requireOp = true`，发送者还必须是 OP。方法的 `@CmdTarget` 可以重复或收窄类级目标，但不能放宽，也不能在 `PLAYER` 与 `CONSOLE` 之间切换。这同样适用于继承来的映射。扫描到违反此规则的执行器时，UltiTools 不会将整个执行器类登记为 Bean，并为每处违规记录一条 `SEVERE` 日志，开头为 `Refused to register command class due to ambiguous @CmdTarget composition:`。
+类和映射分别声明权限时，两者都须满足；任一层设置 `requireOp = true`，发送者还必须是 OP。方法的 `@CmdTarget` 可以重复或收窄类级目标，但不能放宽，也不能在 `PLAYER` 与 `CONSOLE` 之间切换。这同样适用于继承来的映射。扫描到违反此规则的执行器时，UltiTools 拒绝该类，不为它注册 Bean，并为每处违规记录一条 `SEVERE` 日志，开头为 `Refused to register command class due to ambiguous @CmdTarget composition:`。
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerOnlyCommand.java
 
@@ -242,4 +242,6 @@ Async command unload wait expired for <executor class>: <n> invocation(s); work 
 
 ## 命令测试
 
-不启动服务器也可以测试注册与分派：捕获 `LifecycleEvents.COMMANDS` 的处理器，传入测试注册器，再通过 Brigadier 分派器运行所收到的命令树。直接将树加入 Brigadier 能测试解析和回调，但不能证明 Paper 的注册时机、客户端命令树过滤或 Paper 语法事件的恢复行为。这些行为应另在 Paper 上验证。
+UltiTools 7.0 没有为 UltiTools 模块提供受支持的无服务器命令注册测试夹具。在单元测试中，可以直接调用映射的处理方法和补全提供方法，检查其结果或副作用；也可以通过反射检查注解是否声明了预期的别名、映射和权限。直接调用会绕过框架分派，因此这些测试不能证明框架会绑定参数或执行权限检查。
+
+在 Paper 服务器上验证模块命令是否注册、有权限和无权限的玩家是否看到预期的命令和补全建议，以及实际命令树能否正确分派命令并给出语法错误提示。

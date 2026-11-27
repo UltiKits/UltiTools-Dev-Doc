@@ -10,6 +10,18 @@ Until then, `npm install -g @ultikits/cli` installs `2.0.1`, which still generat
 UltiTools-API 7.0.0 is also unreleased; the preview scaffold defaults to `7.0.0-SNAPSHOT`.
 :::
 
+To use the preview template before the CLI release, run it from the repository source instead of using the globally installed command:
+
+```bash
+git clone https://github.com/UltiKits/ultikits-cli.git
+cd ultikits-cli
+npm ci
+npm run build
+node dist/bin/ultikits.js create
+```
+
+Run `node dist/bin/ultikits.js create [directory]` from the CLI checkout, replacing `[directory]` with a target directory name or omitting it as above. The only optional argument selects the output directory; `create` always prompts and has no non-interactive options.
+
 ::: tip Recommended: local publishing
 Official UltiTools modules are published locally by their maintainers: the accepted JAR is attached to a GitHub release and that same file is published to UltiCloud with the CLI. Third-party developers can use the same path.
 [GitHub Actions](#ci-cd-with-github-actions) is an optional manual workflow, not the official modules' release path.
@@ -79,7 +91,7 @@ ultikits logout     # Remove stored credentials
 
 In the CLI release that includes the 7.0 template, `ultikits create` generates modules only for UltiTools-API 7.0.0 or later. The template targets Paper 26.3 and Java 25.
 
-To upgrade an existing 6.x module, see [Modules from 6.x to 7.0](/guide/advanced/upgrading-to-7).
+To upgrade an existing 6.x module, see [Upgrading from 6.x to 7.0](/guide/advanced/upgrading-to-7).
 
 ```bash
 ultikits create
@@ -161,6 +173,305 @@ mvn package
 ```
 
 `mvn package` runs any tests you add under `src/test/java` and writes the module JAR to `target/`. To test the built module on a Paper 26.3 server running Java 25 and the matching UltiTools-API version, place the JAR in `plugins/UltiTools/plugins/` and restart the server.
+
+### Module tests without a server {#serverless-module-tests}
+
+Put JUnit Jupiter tests in `src/test/java`, in the same Java package as the code they exercise. The preview scaffold includes Jupiter and Mockito as test dependencies; for a hand-written project, add them with test scope and use a Surefire version that runs Jupiter tests. Run `mvn test`. These examples use the JUnit 5 Jupiter API (`org.junit.jupiter.api`) and public UltiTools APIs. A mock records or supplies values; it does not run Paper.
+
+#### Message catalogues
+
+In both files, nest `named` under `greeting:`: put `named: "Hello, <name>!"` in `src/main/resources/messages/en.yml` and put `named: "你好，<name>！"` in `src/main/resources/messages/zh.yml`. Compare the sets of string keys and render each parameterized message in both locales with distinct test values. A missing, misspelled or escaped `<name>` makes the expected text fail even if the key sets match. Add a rendering assertion for each parameterized key in your module. Read from the module's resources directory so a dependency JAR cannot supply a file with the same name. This does not check the server's locale selection, overrides or in-game delivery.
+
+```java
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.util.Set;
+import java.util.stream.Collectors;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+class MessageCatalogueTest {
+    @Test
+    void bothLocalesProvideTheSameKeysAndRenderTheName() throws Exception {
+        var en = load("en");
+        var zh = load("zh");
+        assertEquals(keys(en), keys(zh));
+        assertEquals("Hello, test-name!", renderGreeting(en));
+        assertEquals("你好，test-name！", renderGreeting(zh));
+    }
+
+    private static YamlConfiguration load(String locale) throws Exception {
+        var module = Path.of(System.getProperty("basedir", "."));
+        var catalogue = module.resolve("src/main/resources/messages/" + locale + ".yml");
+        try (var reader = Files.newBufferedReader(catalogue, StandardCharsets.UTF_8)) {
+            var yaml = new YamlConfiguration();
+            yaml.load(reader);
+            return yaml;
+        }
+    }
+
+    private static Set<String> keys(YamlConfiguration yaml) {
+        return yaml.getKeys(true).stream().filter(yaml::isString).collect(Collectors.toSet());
+    }
+
+    private static String renderGreeting(YamlConfiguration yaml) {
+        String template = yaml.getString("greeting.named");
+        assertNotNull(template);
+        var rendered = MiniMessage.miniMessage().deserialize(template, Placeholder.unparsed("name", "test-name"));
+        return PlainTextComponentSerializer.plainText().serialize(rendered);
+    }
+}
+```
+
+#### Form and chest callbacks
+
+Use the classes from [UI: Intents and Sessions](./ui-service). For a form, build a `FormResponse` with the input handles from the captured form, not new handles with the same keys. For a chest, call the action from the captured grid with a mock click. The test executor runs inline so you can assert your callback's effects, not Paper's scheduling, dialog input, layout, or inventory event routing. Check those on Paper with a client.
+
+```java
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
+import com.ultikits.ultitools.scheduling.Scheduler;
+import com.ultikits.ultitools.scheduling.TaskContext;
+import com.ultikits.ultitools.ui.Form;
+import com.ultikits.ultitools.ui.FormResponse;
+import com.ultikits.ultitools.ui.Grid;
+import com.ultikits.ultitools.ui.GridClick;
+import com.ultikits.ultitools.ui.GridSession;
+import com.ultikits.ultitools.ui.GridSlot;
+import com.ultikits.ultitools.ui.UiResult;
+import com.ultikits.ultitools.ui.UiService;
+import com.ultikits.ultitools.ui.UiSession;
+import org.bukkit.entity.Player;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+class ModuleUiTest {
+    @Test
+    @SuppressWarnings("unchecked")
+    void submittedValuesReachTheHomeCallback() {
+        var ui = mock(UiService.class);
+        var player = mock(Player.class);
+        var scheduler = mock(Scheduler.class);
+        var entity = mock(TaskContext.class);
+        var createHome = mock(HomeFormExample.CreateHome.class);
+        UiSession<FormResponse> session = mock(UiSession.class);
+        var result = new CompletableFuture<UiResult<FormResponse>>();
+        when(ui.show(eq(player), any(Form.class))).thenReturn(session);
+        when(session.result()).thenReturn(result);
+        when(scheduler.entity(player)).thenReturn(entity);
+        doAnswer(call -> {
+            call.getArgument(0, Runnable.class).run();
+            return null;
+        }).when(entity).execute(any(Runnable.class));
+
+        var completion = HomeFormExample.show(ui, scheduler, player, createHome);
+        var form = ArgumentCaptor.forClass(Form.class);
+        verify(ui).show(eq(player), form.capture());
+        var inputs = form.getValue().inputs();
+        var response = FormResponse.of(form.getValue(), Map.of(
+                inputs.get(0), "Cabin", inputs.get(1), true, inputs.get(2), 3.0));
+        result.complete(new UiResult.Completed<>(response));
+        completion.toCompletableFuture().join();
+
+        verify(createHome).create(player, "Cabin", true, 3.0);
+    }
+
+    @Test
+    void arenaIconPassesTheViewerAndClosesTheSession() {
+        var ui = mock(UiService.class);
+        var player = mock(Player.class);
+        var joined = new AtomicReference<Player>();
+        ArenaMenuExample.show(ui, player, joined::set);
+        var grid = ArgumentCaptor.forClass(Grid.class);
+        verify(ui).show(eq(player), grid.capture());
+        var session = mock(GridSession.class);
+        var click = mock(GridClick.class);
+        when(click.viewer()).thenReturn(player);
+        when(click.session()).thenReturn(session);
+
+        grid.getValue().item(new GridSlot(0, 4)).orElseThrow().action().orElseThrow().onClick(click);
+
+        assertSame(player, joined.get());
+        verify(session).close();
+    }
+}
+```
+
+#### Config-bound scheduling
+
+Use the two classes from [Config-Bound Timing](./scheduled-tasks#config-bound-timing). Check that the method points to the intended config class and YAML key; test the method's own work separately by calling it with test dependencies. Neither check exercises config registration, the first tick or repeat interval, or how `/ul reload` applies a new value. Check those on Paper.
+
+```java
+import com.ultikits.ultitools.annotations.ConfigEntry;
+import com.ultikits.ultitools.annotations.Scheduled;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class BoundScheduleTest {
+    @Test
+    void bothTimingsUseTheSameConfigKey() throws ReflectiveOperationException {
+        var method = BoundScheduleService.class.getMethod("distributeInterest");
+        var schedule = method.getAnnotation(Scheduled.class);
+        assertEquals(BoundScheduleConfig.class, schedule.config());
+        var field = BoundScheduleConfig.class.getDeclaredField("interestInterval");
+        String key = field.getAnnotation(ConfigEntry.class).path();
+        assertEquals("interest.interval", key);
+        assertEquals(key, schedule.delayKey());
+        assertEquals(key, schedule.periodKey());
+    }
+}
+```
+
+#### Config validation
+
+Pass candidate values to `validateProposedProperties`; it checks the proposed state and restores the original fields even on failure. This example checks rejection of an empty value without reading or writing a YAML file. Test the loading and reload path with an actual YAML file on Paper if you need to verify live behavior.
+
+```java
+import com.google.gson.JsonObject;
+import com.ultikits.ultitools.abstracts.AbstractConfigEntity;
+import com.ultikits.ultitools.annotations.ConfigEntity;
+import com.ultikits.ultitools.annotations.ConfigEntry;
+import com.ultikits.ultitools.annotations.config.NotEmpty;
+import com.ultikits.ultitools.exceptions.ConfigurationException;
+import com.ultikits.ultitools.exceptions.ErrorCode;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+public class ConfigValidationTest {
+    @ConfigEntity("config/profile.yml")
+    public static class ProfileConfig extends AbstractConfigEntity {
+        @ConfigEntry(path = "display-name")
+        @NotEmpty
+        private String name = "Explorer";
+
+        public ProfileConfig(String path) {
+            super(path);
+        }
+    }
+
+    @Test
+    void checksProposedValuesWithoutChangingTheLoadedValue() {
+        var config = new ProfileConfig("config/profile.yml");
+        var changes = new JsonObject();
+        changes.addProperty("display-name", "");
+        var failure = assertThrows(ConfigurationException.class,
+                () -> config.validateProposedProperties(changes));
+        assertEquals(ErrorCode.CONFIG_VALIDATION_FAILED, failure.getErrorCode());
+
+        changes.addProperty("display-name", "Ranger");
+        assertDoesNotThrow(() -> config.validateProposedProperties(changes));
+        assertEquals("Explorer", config.name);
+    }
+}
+```
+
+#### Data entities
+
+Use `PlayerNote` and `PlayerNoteStore` from [Data Storage](../essentials/data-storage). Check the entity mapping you declared and the store operations your code requests. The fake operator assigns an ID so the test can check that the calling code returns it. It does not check scope registration, ID generation or persistence. Verify registration on Paper and round trips with the storage backends you support.
+
+```java
+package com.example.mymodule.data;
+
+import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
+import com.ultikits.ultitools.annotations.Table;
+import com.ultikits.ultitools.interfaces.DataOperator;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+class PlayerNoteStoreTest {
+    @Test
+    @SuppressWarnings("unchecked")
+    void addsTheNoteToTheExpectedEntityAndReturnsItsAssignedId() {
+        var module = mock(UltiToolsPlugin.class);
+        DataOperator<PlayerNote> operator = mock(DataOperator.class);
+        when(module.getDataOperator(PlayerNote.class)).thenReturn(operator);
+        doAnswer(call -> {
+            call.getArgument(0, PlayerNote.class).setId("test-id");
+            return null;
+        }).when(operator).insert(any(PlayerNote.class));
+
+        assertEquals("test-id", new PlayerNoteStore(module).addNote("Meet at spawn"));
+
+        var inserted = ArgumentCaptor.forClass(PlayerNote.class);
+        verify(operator).insert(inserted.capture());
+        assertEquals("Meet at spawn", inserted.getValue().getText());
+        assertEquals("my_module_player_notes", PlayerNote.class.getAnnotation(Table.class).value());
+    }
+}
+```
+
+#### Bootstrap content
+
+Use `MyModuleBootstrap` from [Declaring custom content](./startup-phases#bootstrap-content). A mock bootstrap context lets you verify the declarations your hook submits without initializing a registry. To check whether Paper accepts them, run a full start with the packaged module and verify that the enchantment, tags and embedded pack are available.
+
+```java
+package com.example.mymodule;
+
+import java.util.List;
+import com.ultikits.ultitools.bootstrap.DatapackChannel;
+import com.ultikits.ultitools.bootstrap.EnchantmentChannel;
+import com.ultikits.ultitools.bootstrap.EnchantmentDefinition;
+import com.ultikits.ultitools.bootstrap.ModuleBootstrapContext;
+import com.ultikits.ultitools.bootstrap.TagChannel;
+import io.papermc.paper.registry.RegistryKey;
+import net.kyori.adventure.key.Key;
+import org.junit.jupiter.api.Test;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+class MyModuleBootstrapTest {
+    @Test
+    void declaresTheEnchantmentTagsAndEmbeddedPack() {
+        var context = mock(ModuleBootstrapContext.class);
+        var enchantments = mock(EnchantmentChannel.class);
+        var packs = mock(DatapackChannel.class);
+        when(context.enchantments()).thenReturn(enchantments);
+        var tags = mock(TagChannel.class);
+        when(context.tags()).thenReturn(tags);
+        when(context.datapacks()).thenReturn(packs);
+
+        new MyModuleBootstrap().bootstrap(context);
+
+        verify(enchantments).register(eq(Key.key("mymodule:frost_edge")), any(EnchantmentDefinition.class));
+        verify(tags).addToTag(RegistryKey.ENCHANTMENT, Key.key("minecraft:in_enchanting_table"),
+                List.of(Key.key("mymodule:frost_edge")));
+        verify(tags).setTag(RegistryKey.ITEM, Key.key("mymodule:frost_weapons"),
+                List.of(Key.key("minecraft:diamond_sword")));
+        verify(packs).embedded("frost");
+    }
+}
+```
 
 ## Project Setup
 

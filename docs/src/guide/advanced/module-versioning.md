@@ -140,7 +140,7 @@ For migration and rebuild steps, see [Upgrading from 6.x to 7.0](./upgrading-to-
 
 ### Native item and sound APIs in 7.0
 
-For material and sound replacements, see [Native items and sounds](./upgrading-to-7#items-and-sounds).
+See [Native items and sounds](./upgrading-to-7#items-and-sounds) for alternatives to the old item material and sound APIs.
 
 ### Legacy chest pages and confirmation widgets in 7.0 {#legacy-chest-removal}
 

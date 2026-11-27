@@ -86,9 +86,24 @@ As of v7.0.0, use the three content channels inside `ModuleBootstrap#bootstrap(M
 
 Use the namespace derived from your module name by `MessageKey.namespaceFor(...)` for new enchantment keys and for tags you create or replace with `setTag`. `addToTag` can extend a tag in another namespace. Paper runs the `EnchantmentDefinition` callback later, when it builds the enchantment registry. On a native data reload (`/minecraft:reload`), the framework replays tag declarations and data pack discovery without calling the module hook or the enchantment definition again.
 
-This example uses the `MyModule` descriptor above. Bundle `datapacks/frost/pack.mcmeta` and the pack resources in the module JAR. Pack names match `[a-z0-9_-]{1,32}`; shipping the directory alone does not activate it. Once discovered, the pack appears as `UltiTools/mymodule.frost` in `datapack list`.
+This example uses the `MyModule` descriptor above. Save it as `src/main/java/com/example/mymodule/MyModuleBootstrap.java` in place of the logging-only example. Bundle `datapacks/frost/pack.mcmeta` and the pack resources in the module JAR. Pack names match `[a-z0-9_-]{1,32}`; shipping the directory alone does not activate it. Once discovered, the pack appears as `UltiTools/mymodule.frost` in `datapack list`.
+
+See the Paper 26.3 Javadoc for [`EnchantmentRegistryEntry.Builder`](https://jd.papermc.io/paper/26.3/io/papermc/paper/registry/data/EnchantmentRegistryEntry.Builder.html) for the fields available in an enchantment definition.
 
 ```java
+package com.example.mymodule;
+
+import java.util.List;
+
+import com.ultikits.ultitools.bootstrap.ModuleBootstrap;
+import com.ultikits.ultitools.bootstrap.ModuleBootstrapContext;
+import io.papermc.paper.registry.RegistryKey;
+import io.papermc.paper.registry.data.EnchantmentRegistryEntry;
+import io.papermc.paper.registry.set.RegistrySet;
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.Component;
+import org.bukkit.inventory.EquipmentSlotGroup;
+
 public final class MyModuleBootstrap implements ModuleBootstrap {
     @Override
     public void bootstrap(ModuleBootstrapContext context) {

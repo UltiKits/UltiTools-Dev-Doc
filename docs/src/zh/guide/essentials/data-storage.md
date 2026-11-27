@@ -33,9 +33,31 @@ MySQL 连接池创建失败时还会记录 `Mysql数据库连接失败：<error>
 
 <<< @/../examples/src/main/java/com/ultikits/docs/data/UserData.java
 
-注解定义数据映射；实体还须[登记给调用方](#entity-registration)。
+`UserData` 示例用 Lombok 生成访问器、构造器、构建器以及 `equals` 和 `hashCode` 方法。下面是不依赖 Lombok 的完整实体，保存为 `PlayerNote.java`：
 
-`@Data`、`@Builder`、`@NoArgsConstructor`、`@AllArgsConstructor`、`@EqualsAndHashCode` 则为 Lombok 注解，用于自动生成 `getter`、`setter`、`builder`、`equals`、`hashCode` 方法。
+```java
+package com.example.mymodule.data;
+
+import com.ultikits.ultitools.abstracts.data.BaseDataEntity;
+import com.ultikits.ultitools.annotations.Column;
+import com.ultikits.ultitools.annotations.Table;
+
+@Table("my_module_player_notes")
+public class PlayerNote extends BaseDataEntity<String> {
+    @Column("note_text")
+    private String text;
+
+    public String getText() {
+        return text;
+    }
+
+    public void setText(String text) {
+        this.text = text;
+    }
+}
+```
+
+将 `PlayerNote` 随所属模块打包。模块启用时，UltiTools 扫描该 JAR 中带 `@Table` 的类，将实体[登记到模块的数据作用域](#entity-registration)；这不是 IoC Bean 注册，也不受 `scanBasePackages` 限制。参见[实体扫描源码](https://github.com/UltiKits/UltiTools-Reborn/blob/1953187e750e736e46ed09f980bd4d2e8e4b54d7/src/main/java/com/ultikits/ultitools/manager/PluginManager.java#L2208-L2221)。
 
 `BaseDataEntity<String>` 自带 `@Column("id")` 字段。`insert` 遇到空 ID 时，在 `onCreate()` 之前用 `setId` 填入 UUID 字符串；SQL 的 `id` 是主键，写入时从 `getId()` 取值，JSON 用 `getId()` 定位记录并命名文件。不要重新声明 `id` 字段；如果覆写其访问器，确保写入和读取使用同一个 ID。
 
@@ -136,7 +158,7 @@ if (entry != null && entry.wasModified()) {
 
 `@Column.value` 指定列名，可与 Java 字段名不同；查询时请使用映射列名。`@Column.type` 默认是 `VARCHAR(255)`，用于 SQL 建表，在 JSON 后端不控制字段类型。SQL 后端映射标注过的字段（包括继承字段），把非简单值写成 JSON 文本，不支持按内部字段查询。JSON 文件则由 Gson 序列化，以 Java 字段名为键；操作器把映射列名转回字段名，普通条件也能查询嵌套路径。为了跨后端可用，查询字段应使用简单类型与映射列名。
 
-在 SQLite 中，默认的 `VARCHAR(255)` 列具有 TEXT 亲和性，因此 `int`、`long` 等数值字段会按文本储存，除非显式声明数值列类型。如果需要在 UltiTools 之外查询数据，请为新列声明数值类型。对已有的默认类型列手写 SQL 时，按数值比较或排序须用 `CAST` 转成数值，否则可能按文本顺序处理。SQLite 操作器会按 Java 字段类型转换 `WhereCondition` 的数值比较；查询 DSL 则在内存中对 Java 值执行 `gt`、`lt`、`gte`、`lte` 和 `orderBy`，`count()` 返回结果列表的大小。
+在 SQLite 中，默认的 `VARCHAR(255)` 列具有 TEXT 亲和性，因此 `int`、`long` 等数值字段会按文本储存，除非显式声明数值列类型。如果需要在 UltiTools 之外查询数据，请为新列声明数值类型。对已有的默认类型列手写 SQL 时，按数值比较或排序须用 `CAST` 转成数值，否则可能按文本顺序处理。SQLite 操作器仅在受支持的数值字段使用 `WhereCondition` 的 `GREATER` 或 `LESS` 时，才按 Java 字段类型添加数值 `CAST`；`EQUAL` 不做这项转换。查询 DSL 则在内存中对 Java 值执行 `gt`、`lt`、`gte`、`lte` 和 `orderBy`，`count()` 返回结果列表的大小。
 
 ## CRUD 操作
 
@@ -148,7 +170,35 @@ UltiTools 封装了一套语义化的 CRUD 操作 API，你只需要调用相应
 
 <<< @/../examples/src/main/java/com/ultikits/docs/data/UserDataService.java
 
-请在模块已获得数据作用域后调用该方法，不要在构造函数中取操作器。取到的操作器可在所属插件生命周期内使用，不要把旧模块实例的操作器交给替换后的实例。
+下面是 `PlayerNote` 的完整调用端，保存为同一包下的 `PlayerNoteStore.java`：
+
+```java
+package com.example.mymodule.data;
+
+import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
+import com.ultikits.ultitools.interfaces.DataOperator;
+
+public class PlayerNoteStore {
+    private final DataOperator<PlayerNote> notes;
+
+    public PlayerNoteStore(UltiToolsPlugin plugin) {
+        this.notes = plugin.getDataOperator(PlayerNote.class);
+    }
+
+    public String addNote(String text) {
+        PlayerNote note = new PlayerNote();
+        note.setText(text);
+        notes.insert(note);
+        return note.getId();
+    }
+
+    public PlayerNote findNote(String id) {
+        return notes.getById(id);
+    }
+}
+```
+
+请在框架为所属模块分配数据作用域后，从模块中调用 `new PlayerNoteStore(this)`，不要在模块构造函数中调用。把 `addNote` 返回的 ID 传给 `findNote`；找不到该 ID 的记录时返回 `null`。请在所属插件的生命周期内使用操作器，不要把旧模块实例的操作器交给替换后的实例。参见 [`UltiToolsPlugin#getDataOperator` 源码](https://github.com/UltiKits/UltiTools-Reborn/blob/1953187e750e736e46ed09f980bd4d2e8e4b54d7/src/main/java/com/ultikits/ultitools/abstracts/UltiToolsPlugin.java#L583-L598)。
 
 ### 实体登记 {#entity-registration}
 
@@ -312,8 +362,8 @@ WhereCondition.builder().column("somecol").value(someval).build();
 `EQUAL` 匹配相等的值，`GREATER` 和 `LESS` 为严格大于和小于。
 
 - `INCLUDE`、`STARTSWITH` 和 `ENDSWITH` 在所有后端都把值作为文本字面匹配：`%`、`_`、`!` 和 `\` 都是普通字符，不是通配符或转义符。`Query#like` 见[查询 DSL](./query-dsl)。
-- `getLike(column, value, likeType)` 不同：SQL 在值两侧补 `%` 后执行不转义的 `LIKE`，值里的 `%` 和 `_` 仍是通配符；JSON 按原样匹配。用户输入中的 `%`、`_` 要先转义或拒绝；需要在所有后端都字面匹配时，改用带 `INCLUDE`、`STARTSWITH` 或 `ENDSWITH` 的 `WhereCondition`。
-- 字母大小写和重音取决于后端：SQLite 只忽略 ASCII 字母的大小写；MySQL 按框架建表时使用的 `utf8mb3_general_ci` 排序规则比较，同时忽略大小写和重音（`é` 能匹配 `e`）；JSON 精确比较。
+- [`getLike`](#getlike) 是独立的方法，匹配模式和参数检查与上述比较不同。
+- 上述三种 `WhereCondition` 字面比较对字母大小写和重音的处理取决于后端：SQLite 只忽略 ASCII 字母的大小写；MySQL 按框架建表时使用的 `utf8mb3_general_ci` 排序规则比较，同时忽略大小写和重音（`é` 能匹配 `e`）；JSON 精确比较。
 - `GREATER` 和 `LESS` 用于 `byte`、`short`、`int`、`long`、`float` 或 `double` 字段（或其包装类型）时，在 SQLite 和 JSON 上按该字段类型的数值比较。请以该类型的数字传值（`10`，而不是 `"10"`）：在 MySQL 上字符串值按文本比较，于是 `"10"` 排在 `"2"` 之前。在 SQLite 上，列保持默认 `VARCHAR(255)` 类型时同样按类型比较，整数保持 64 位精度，所存的值按读回时的值比较：`0.1f` 这样的 `float` 既不大于也不小于 `0.1f`。这种按读回值的比较只适用于有限数字的值；超出 `double` 范围的数字以及任何文本都按绑定时的值比较。无穷大或 NaN 值会被拒绝（见下文“null 与非有限条件值”）。
 - 在 MySQL 上，留在默认文本列中的数值字段按双精度比较，在 ±9,007,199,254,740,992（2^53）以内精确，超出则只是近似。需要精确结果时，请为该列声明数值 `type`，例如 `BIGINT`。在 JSON 上按 `double` 比较，超出 2^53 时同样是近似的。
 - 已知限制：在 SQLite 上，默认列中的 `double` 只保存 15 位有效数字，因此 `1/3.0` 读回和比较都按 `0.333333333333333`；要保留全部数字，请声明 `type = "DOUBLE"`。手工写入数值字段列的非数字文本，在 SQLite 上按其开头的数字比较（`'abc'` 为 0，`'12abc'` 为 12），JSON 则按文本比较。在 SQLite 上，与所存 `float` 前 15 位有效数字相同、之后才不同的任何数值（例如 10^15 及以上的整数如 `(1L << 53) + 1`，或有 16 位及以上有效数字的小数）会被视为与它相等，默认列和 `REAL` 列都如此；对 `float` 字段请传 `float` 值。
@@ -321,6 +371,22 @@ WhereCondition.builder().column("somecol").value(someval).build();
 #### null 与非有限条件值
 
 `getAll`、`exist`、`page`、`del` 与 `updateIf` 在 SQLite、MySQL 和 JSON 上一致地拒绝值为 `null`（任何比较方式）或为无穷大、NaN 的 `Double`/`Float` 的条件：在读取、删除或写入之前抛出带 `DATA_ENTITY_INVALID`（`ULTI-3007`） 的 `DataAccessException`。唯一例外是 `updateIf` 中 `EQUAL` 下的 `null` 值，它表示 `IS NULL`。`del(WhereCondition.empty())` 在所有后端同样被拒绝（[#815](https://github.com/UltiKits/UltiTools-Reborn/issues/815)、[#696](https://github.com/UltiKits/UltiTools-Reborn/issues/696)）。构造条件前请判空或用 `Double.isFinite` 检查。
+
+#### getLike {#getlike}
+
+`getLike(column, value, likeType)` 使用 `DataOperator.LikeType.START` 匹配前缀、`END` 匹配后缀、`CONTAINS` 匹配子串。内置后端对同一组参数的处理不同：
+
+| 后端 | 匹配模式与规则 |
+|---|---|
+| MySQL | SQL `LIKE` 分别使用 `value%`、`%value`、`%value%`。`value` 中的 `%` 匹配零个或多个字符，`_` 匹配一个字符。框架不添加 `ESCAPE` 子句，也不转义传入的值；MySQL 按其转义规则（默认用反斜杠转义）和排序规则匹配。 |
+| SQLite | SQL 模式和通配符与 MySQL 相同。没有 `ESCAPE` 子句时，反斜杠是普通字符。SQLite 默认的 `LIKE` 只忽略 ASCII 字母的大小写，区分非 ASCII 字母的大小写。 |
+| JSON | 分别使用 Java 的 `startsWith`、`endsWith`、`contains`，区分大小写；`%`、`_` 和反斜杠都是普通字符。操作器会解析映射列名，或读取传入的 Java 字段路径（嵌套路径以点分隔），用 `toString()` 将非空值转为文本，跳过缺失或值为 `null` 的字段。 |
+
+在 MySQL 和 SQLite 上，匹配模式通过 JDBC 参数绑定，但 `column` 原样进入 SQL，不像 `WhereCondition` 那样检查它是否在实体的 `@Column` 映射中。只传入代码中固定的列名，或从固定的允许列表中选择列名；不要把用户输入直接作为 `column`。若数据库拒绝未知列名，会抛出带 `DATA_OPERATION_FAILED`（`ULTI-3008`）的 `DataAccessException`，其 `getMessage()` 原文为 `Failed to query with LIKE`。`column` 为 `null` 不会被拒绝，而是成了 SQL 的 `NULL` 操作数，不匹配任何记录。JSON 同样不检查列名是否在映射中，找不到路径或路径为 `null`、空字符串时无匹配结果。
+
+不要给 `value` 或 `likeType` 传入 `null`。SQL 后端会把 `null` 值拼成文本 `null`（例如 `CONTAINS` 得到 `%null%`），而不是查找 SQL `NULL`；若 `likeType` 为 `null`，则在执行 SQL 前抛出 `NullPointerException`。在 JSON 上，只有遇到指定路径上有非 `null` 值的记录时，`value` 或 `likeType` 为 `null` 才会抛出 `NullPointerException`；否则返回空列表。空字符串不会被拒绝：在 SQL 上会生成匹配任意非 `NULL` 值的模式，在 JSON 上匹配指定路径下所有非 `null` 的值。
+
+需要在各后端按字面匹配前缀、后缀或子串时，请改用 `WhereCondition` 的 `STARTSWITH`、`ENDSWITH` 或 `INCLUDE`；大小写与重音处理仍取决于后端。参见 [SQL 共用实现](https://github.com/UltiKits/UltiTools-Reborn/blob/1953187e750e736e46ed09f980bd4d2e8e4b54d7/src/main/java/com/ultikits/ultitools/interfaces/impl/data/AbstractRelationalDataOperator.java#L842-L863)和 [JSON 实现](https://github.com/UltiKits/UltiTools-Reborn/blob/1953187e750e736e46ed09f980bd4d2e8e4b54d7/src/main/java/com/ultikits/ultitools/interfaces/impl/data/json/SimpleJsonDataOperator.java#L635-L670)。
 
 ### 事务
 

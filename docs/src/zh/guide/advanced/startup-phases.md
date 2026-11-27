@@ -86,9 +86,24 @@ public final class MyModuleBootstrap implements ModuleBootstrap {
 
 新附魔的键以及用 `setTag` 创建或替换的标签键，必须使用 `MessageKey.namespaceFor(...)` 从模块名得出的命名空间。`addToTag` 可以增补其他命名空间的标签。Paper 稍后在组装附魔注册表时调用 `EnchantmentDefinition`。原版数据重载（`/minecraft:reload`）时，框架重新应用标签声明、重新发现数据包，不会再次调用模块钩子或附魔定义。
 
-以下示例沿用上面的 `MyModule` 描述文件。将 `datapacks/frost/pack.mcmeta` 和包内资源一同打入模块 JAR。包名须符合 `[a-z0-9_-]{1,32}`；只打包目录不会激活数据包。包被发现后，在 `datapack list` 中显示为 `UltiTools/mymodule.frost`。
+以下示例沿用上面的 `MyModule` 描述文件。将它保存为 `src/main/java/com/example/mymodule/MyModuleBootstrap.java`，替换前面只输出日志的示例。将 `datapacks/frost/pack.mcmeta` 和包内资源一同打入模块 JAR。包名须符合 `[a-z0-9_-]{1,32}`；只打包目录不会激活数据包。包被发现后，在 `datapack list` 中显示为 `UltiTools/mymodule.frost`。
+
+附魔定义可设置的字段见 Paper 26.3 Javadoc 的 [`EnchantmentRegistryEntry.Builder`](https://jd.papermc.io/paper/26.3/io/papermc/paper/registry/data/EnchantmentRegistryEntry.Builder.html)。
 
 ```java
+package com.example.mymodule;
+
+import java.util.List;
+
+import com.ultikits.ultitools.bootstrap.ModuleBootstrap;
+import com.ultikits.ultitools.bootstrap.ModuleBootstrapContext;
+import io.papermc.paper.registry.RegistryKey;
+import io.papermc.paper.registry.data.EnchantmentRegistryEntry;
+import io.papermc.paper.registry.set.RegistrySet;
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.Component;
+import org.bukkit.inventory.EquipmentSlotGroup;
+
 public final class MyModuleBootstrap implements ModuleBootstrap {
     @Override
     public void bootstrap(ModuleBootstrapContext context) {

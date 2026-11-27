@@ -115,26 +115,48 @@ A `Form` collects several inputs and submits them at once. It needs at least one
 
 There is no password (masked) input, because Paper's dialog text input has no such option.
 
+Supply a `CreateHome` callback to handle a submission; it is not called if the form closes without a submission. The example uses `Text.plain`, so it does not need a message catalogue.
+
 ```java
-TextInput name = TextInput.builder("name", Text.of(messages.key("home.form.name"))).maxLength(24).build();
-ToggleInput shared = ToggleInput.of("shared", Text.of(messages.key("home.form.shared")), false);
-SliderInput radius = SliderInput.builder("radius", Text.of(messages.key("home.form.radius")), 1, 10)
-        .initial(3)
-        .build();
+import com.ultikits.ultitools.scheduling.Scheduler;
+import com.ultikits.ultitools.text.Text;
+import com.ultikits.ultitools.ui.Form;
+import com.ultikits.ultitools.ui.FormResponse;
+import com.ultikits.ultitools.ui.SliderInput;
+import com.ultikits.ultitools.ui.TextInput;
+import com.ultikits.ultitools.ui.ToggleInput;
+import com.ultikits.ultitools.ui.UiService;
+import java.util.concurrent.CompletionStage;
+import org.bukkit.entity.Player;
 
-Form form = Form.builder(Text.of(messages.key("home.form.title")))
-        .input(name)
-        .input(shared)
-        .input(radius)
-        .build();
-
-ui.show(player, form).result().thenAcceptAsync(result -> {
-    if (!result.isCompleted()) {
-        return;
+public final class HomeFormExample {
+    @FunctionalInterface
+    public interface CreateHome {
+        void create(Player player, String name, boolean shared, double radius);
     }
-    FormResponse response = result.value();
-    createHome(player, response.get(name), response.get(shared), response.get(radius));
-}, scheduler.entity(player));
+
+    public static CompletionStage<Void> show(UiService ui, Scheduler scheduler, Player player,
+                                             CreateHome createHome) {
+        TextInput name = TextInput.builder("name", Text.plain("Name")).maxLength(24).build();
+        ToggleInput shared = ToggleInput.of("shared", Text.plain("Shared"), false);
+        SliderInput radius = SliderInput.builder("radius", Text.plain("Radius"), 1, 10)
+                .initial(3)
+                .build();
+        Form form = Form.builder(Text.plain("Create a home"))
+                .input(name)
+                .input(shared)
+                .input(radius)
+                .build();
+
+        return ui.show(player, form).result().thenAcceptAsync(result -> {
+            if (!result.isCompleted()) {
+                return;
+            }
+            FormResponse response = result.value();
+            createHome.create(player, response.get(name), response.get(shared), response.get(radius));
+        }, scheduler.entity(player));
+    }
+}
 ```
 
 Read values with the input handles of the form you showed. `FormResponse.get` matches handles by identity, so an equal handle from another form throws `IllegalArgumentException`.
@@ -248,15 +270,32 @@ A `Grid` is a snapshot of a chest screen: 1 to 6 rows of 9 columns (`Grid.COLUMN
 
 An icon is a `GridItem`: an `ItemSpec` and an optional `GridAction`. The player can never take an icon.
 
+Supply a `joinArena` callback that takes the player who clicked the icon. After the callback returns, the click action closes the session.
+
 ```java
-Grid menu = Grid.builder(Text.of(messages.key("arena.menu.title")), 1)
-        .set(0, 4, ItemSpec.builder(Material.DIAMOND_SWORD).name(messages.key("arena.menu.join")).build(),
-                click -> {
-                    joinArena(click.viewer());
+import com.ultikits.ultitools.item.ItemSpec;
+import com.ultikits.ultitools.text.Text;
+import com.ultikits.ultitools.ui.Grid;
+import com.ultikits.ultitools.ui.GridSession;
+import com.ultikits.ultitools.ui.UiService;
+import java.util.function.Consumer;
+import net.kyori.adventure.key.Key;
+import org.bukkit.entity.Player;
+
+public final class ArenaMenuExample {
+    public static GridSession show(UiService ui, Player player, Consumer<Player> joinArena) {
+        ItemSpec icon = ItemSpec.builder(Key.key("minecraft:diamond_sword"))
+                .name(Text.plain("Join arena"))
+                .build();
+        Grid menu = Grid.builder(Text.plain("Arena"), 1)
+                .set(0, 4, icon, click -> {
+                    joinArena.accept(click.viewer());
                     click.session().close();
                 })
-        .build();
-GridSession session = ui.show(player, menu);
+                .build();
+        return ui.show(player, menu);
+    }
+}
 ```
 
 A `GridClick` carries `viewer()`, `slot()`, `kind()` (a `ClickKind`) and `session()`. The action runs only if the session is still open when its task runs. It may call `update`, `close()` or show another intent. An exception from the action is logged with the owner and swallowed.
