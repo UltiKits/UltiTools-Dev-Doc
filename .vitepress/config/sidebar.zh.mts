@@ -191,6 +191,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
             {
                 text: '模块版本规范',
                 link: 'advanced/module-versioning'
+            },
+            {
+                text: '从 6.x 升级到 7.0',
+                link: 'advanced/upgrading-to-7'
             }
         ]
     },
@@ -244,6 +248,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
         base: '/guide/',
         text: '更新说明',
         items: [
+            {
+                text: '7.0.0（未发布）',
+                link: 'release-notes/7.0.0'
+            },
             {
                 text: '6.5.0',
                 link: 'release-notes/6.5.0'
