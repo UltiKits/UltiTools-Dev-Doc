@@ -1,18 +1,16 @@
 # 玩家缓存
 
-::: info 自 v6.2.0 起
-`@PlayerCache` 注解自 UltiTools-API v6.2.0 起可用。
-:::
+7.0.0 尚未发布。本页介绍自 v7.0.0 起适用的玩家缓存 API，概览见 [7.0.0 更新说明](../release-notes/7.0.0)。
 
-插件经常在 `Map<UUID, ?>` 字段中存储玩家相关数据（冷却时间、设置、打开的 GUI 等）。如果在玩家退出时忘记清理这些 Map，就会导致内存泄漏。UltiTools 提供了 `@PlayerCache` 注解，在玩家断开连接时自动移除对应条目。
+`@PlayerCache` 在玩家退出时清理托管集合中的对应条目。它不负责载入数据，也不保证持久化。
 
 ## 基本用法
 
-在托管 Bean 中的任何 `Map<UUID, ?>` 字段上添加 `@PlayerCache` 注解：
+在托管的单例 Bean 中声明一个可变的 `Map<UUID, ?>` 字段，并添加 `@PlayerCache` 注解：
 
 <<< @/../examples/src/main/java/com/ultikits/docs/cache/CooldownService.java
 
-当玩家退出时，框架会自动调用 `cooldowns.remove(playerUuid)`，无需手动清理。
+收到 `PlayerQuitEvent` 时，框架调用 `cooldowns.remove(playerUuid)`。框架不会在玩家加入时填充 Map，也不会从存储中载入数据；添加或读取条目的时机由 Bean 决定。
 
 ## 缓存已存储的数据
 
@@ -20,23 +18,30 @@
 
 <<< @/../examples/src/main/java/com/ultikits/docs/cache/PlayerSettingsService.java
 
-`setShowScoreboard` 读取已存储的行，只写入发生变化的那一列，然后移除缓存条目，让下一次读取载入已存储的值。玩家退出时不会写入任何内容，因为 Map 里没有尚未写入的修改。不要把缓存中的副本写回已存储的行，见[在共享 MySQL 数据库上使用缓存](#在共享-mysql-数据库上使用缓存)。
+`setShowScoreboard` 读取已存储的行，只更新发生变化的一列（没有该行时则插入），再使缓存失效，让下次读取从存储载入。退出时不会写回缓存副本。见[在共享 MySQL 数据库上使用缓存](#在共享-mysql-数据库上使用缓存)。
+
+请将带 `@Table` 的实体随所属模块打包。下文的 `PlaySessionEntity` 和 `TeleportPrefsEntity` 也一样。实体所有权与独立 Paper 插件的 API 见[实体登记](../essentials/data-storage#entity-registration)。
 
 ## 移除前保存
 
-设置 `saveBeforeRemove = true` 并实现 `PlayerCacheSaver` 接口，框架会在移除条目之前调用 `savePlayerData(playerUuid)`。它适用于只存在于本服务器内存中、需要在玩家离开时写入的状态。它不适用于已存储的行的缓存副本，因为副本可能比数据库里的行更旧。
+设置 `saveBeforeRemove = true` 并实现 `PlayerCacheSaver`，即可在移除前运行 `savePlayerData(playerUuid)`。它适用于仅存于内存、需要在退出时写入的状态，不适用于已存储行的缓存副本。
 
 玩家加入本服务器的时间就是这类状态：没有任何已存储的行保存它。下面的服务在玩家退出时为已结束的会话追加一行新记录，不读取也不覆盖任何已存储的行：
 
 <<< @/../examples/src/main/java/com/ultikits/docs/cache/PlaySessionService.java
 
-服务器停止时仍在线的玩家不会触发 `savePlayerData`，因此由 `@PreDestroy` 方法写入尚未结束的会话。
+卸载模块或停服时，框架先注销跟踪的 Bean，再关闭容器。注销不会清空集合，也不会调用 `savePlayerData`。示例使用独立的 `@PreDestroy` 方法，在容器关闭时写入仍在内存中的会话。不要依赖退出事件来保存这些会话。
 
-当玩家退出时，框架会：
-1. 调用 `savePlayerData(playerUuid)`（因为 `saveBeforeRemove = true`）
-2. 从 Map 中移除该条目
+退出处理器对每个已登记字段执行以下操作：
+1. 若 `saveBeforeRemove = true`，调用 `savePlayerData(playerUuid)`，即使该字段为 `null` 或没有该玩家的条目。
+2. 读取集合；集合不是 `null` 时，尝试移除该玩家的条目。
 
-自 v6.3.0 起，每个 `@PlayerCache` 字段单独处理。如果 `savePlayerData` 抛出异常（例如数据库不可用），框架会记录一条警告，写明 bean 类、字段和玩家，照样移除该条目，并继续处理所有 bean 的其他字段。v6.3.0 之前，第一个失败会中断清理：该字段及其后所有字段的条目都会留在内存中（[#643](https://github.com/UltiKits/UltiTools-Reborn/issues/643)）。框架不会重试失败的保存；不能丢失数据的模块需要在 `savePlayerData` 内自行重试或存储。
+保存失败不影响随后的移除尝试。移除失败时，条目可能留在集合中。每个失败的操作都会记录一条带有异常或 `Error` 的 `WARNING`，其余字段和 Bean 继续处理。框架不会自动重试。以下日志在两种语言下均直接输出英文，尖括号表示运行时填入的值。
+
+```text
+Failed to save @PlayerCache field '<field>' on <bean class> for player <UUID> on quit; continuing with the remaining entries
+Failed to remove the entry of @PlayerCache field '<field>' on <bean class> for player <UUID> on quit; continuing with the remaining entries
+```
 
 ## 在共享 MySQL 数据库上使用缓存
 
@@ -44,16 +49,15 @@
 
 对存储在数据库中的数据，遵循下面的规则：
 
-1. 缓存只在玩家处于本服务器期间有效。玩家加入时或第一次读取时载入条目，玩家退出时由 `@PlayerCache` 移除。
+1. 只在玩家处于本服务器期间保留缓存。你可以在加入处理器中或首次读取时载入，退出时由 `@PlayerCache` 移除；其他服务器写入不会使本地缓存失效。
 2. 永远不要把缓存中的副本写回：数值变化时不写，退出时不写（`saveBeforeRemove`），关服时也不写。
-3. 每次修改都重新读取已存储的行，把修改应用到这一行上再写入。
-4. 新值取决于读到的旧值时（例如计数器或开关），用 `updateIf` 写入，条件为你读到的各列的值。返回 `false` 说明其他写入方先修改了这一行：重新读取并重新判断。尝试几次后仍然失败就放弃（UltiEconomy 最多尝试三次）。
+3. 不依赖旧值的修改可按 ID 只写一列；依赖旧值的修改先读取当前存储的行，再计算新值。
+4. 修改依赖旧值时，把读到的值作为 `updateIf` 的预期条件。返回 `false` 表示没有行同时匹配 ID 和全部条件。重新读取并判断是否重试，同时限制尝试次数。
 5. 增量也按这种比较并设置的循环来写，不要写成缓存值加增量。
 
-自 v6.3.0 起，`DataOperator#updateIf` 只在已存储的行仍然满足所有条件时才写入实体，详见[条件更新](/zh/guide/essentials/data-storage#条件更新)。它会写入实体的每个已映射字段，所以条件必须覆盖实体映射的每一列，而不只是你的代码读取或修改的那几列：漏掉的列如果在此期间被其他服务器修改，会被你读到的旧值覆盖。下面的示意假定 `PlayerStats` 除 id 外只映射 `coins` 和 `kills` 两列。下面的示意给一行数据增加金币。它需要 UltiTools-API v6.3.0 或更高版本，不属于编译检查的示例：
+`DataOperator#updateIf` 在同一次操作中检查存储值并写入。它会写入每个映射字段；若要避免覆盖并发修改，条件应检查每个写入字段的旧值。见[条件更新](/zh/guide/essentials/data-storage#条件更新)。本例假定 `PlayerStats` 使用玩家 UUID 字符串作为 ID，除 ID 外只映射 `coins` 和 `kills`：
 
 ```java
-// 需要 UltiTools-API v6.3.0 或更高版本（DataOperator#updateIf）。
 private static final int MAX_ATTEMPTS = 3;
 
 public boolean addCoins(UUID playerId, int amount) {
@@ -72,21 +76,21 @@ public boolean addCoins(UUID playerId, int amount) {
         if (written) {
             return true;
         }
-        // 其他写入方先修改了这一行：重新读取并重新判断。
+        // 该行已不存在或不再满足预期条件；重新读取。
     }
     return false; // 争用过多：提示玩家重试，而不是写入
 }
 ```
 
-不依赖读到的值的修改，例如把设置切换为玩家选择的值，可以用 `update(column, value, id)` 只写那一列，`PlayerSettingsService` 就是这样做的。在 JSON 和 SQLite 后端上，数据属于一台服务器，同样的代码无需改动。
+不依赖旧值的修改，可用 `update(column, value, id)` 只写现有行的一列，`PlayerSettingsService` 即采用此做法。SQLite 与 JSON 后端也支持该调用。
 
-本页的示例在玩家第一次修改设置时为该玩家插入一行。请给表的玩家列（`player_id`）建立唯一索引，这样两台服务器在同一时刻为同一玩家做首次修改时，不会各存一行：第二次插入会失败而不是再存一行，调用方可以读取已存储的行，把修改写到那一行上。
+设置示例先读后插入缺失的行，不是原子操作。多服共用 MySQL 时，应为 `player_id` 加唯一约束；遇到重复键错误时，重读已有行再应用修改。示例未实现这一处理。
 
 ## 注解属性
 
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `saveBeforeRemove` | `boolean` | `false` | 如果为 `true`，在移除条目前调用 Bean 的 `savePlayerData(UUID)` 方法。Bean 必须实现 `PlayerCacheSaver` 接口；自 v6.5.0 起，注册未实现该接口的 Bean 会被拒绝并抛出 `PluginModuleException`。v6.5.0 之前框架会直接移除条目，不保存，也不记录日志。 |
+| `saveBeforeRemove` | `boolean` | `false` | 为 `true` 时，退出处理会在尝试移除前，为该字段调用一次 `savePlayerData(UUID)`。Bean 必须实现 `PlayerCacheSaver`。 |
 
 ## PlayerCacheSaver 接口
 
@@ -96,33 +100,35 @@ public interface PlayerCacheSaver {
 }
 ```
 
-该接口是可选的，仅在使用 `saveBeforeRemove = true` 时才需要实现；使用该设置时则必须实现。
+该接口位于 `com.ultikits.ultitools.annotations`。仅当 Bean 的字段设置了 `saveBeforeRemove = true` 时才必须实现。
 
-::: warning 自 v6.5.0 起
-带有 `saveBeforeRemove = true` 字段、却没有实现 `PlayerCacheSaver` 的 Bean 会在注册时被拒绝。`PluginModuleException` 会写明 Bean 类、声明该字段的类和字段名，模块无法加载。请实现 `savePlayerData(UUID)`，或保持 `saveBeforeRemove` 为 `false`。
+::: warning 缓存注册被拒绝
+缺少保存接口会抛出 `PluginModuleException`（`ULTI-1001`），导致模块加载或外部插件接入失败。请让该 Bean 实现 `PlayerCacheSaver`，或保持 `saveBeforeRemove` 为 `false`。
 :::
+
+异常原文为 `@PlayerCache field '<field>' declared on <declaring class> requests saveBeforeRemove = true, but bean <bean class> does not implement PlayerCacheSaver`。模块加载失败时还会记录 `[UltiTools-API] <module> load failed!`。外部插件的 `connect(...)` 则抛出 `IllegalStateException`，原文为 `Failed to connect plugin <plugin> to UltiTools`，并保留原异常作为原因。
 
 ## 多个 Map
 
-v6.3.2 文档记录的已知限制（保持 v6.3.0 行为）：`savePlayerData(UUID)` 按每个标有 `saveBeforeRemove = true` 的字段调用，而不是每个 Bean 只调用一次。同一 Bean 有多个这样的字段时，一次退出会调用多次，前一次调用失败也不例外；每个字段在自己的回调之后移除，因此后续回调可能看到前面的字段已清空。一次逻辑保存的回调应能接受重复调用，或者只为一个字段开启保存。后续字段的回调不保证重试前一次保存（[#647](https://github.com/UltiKits/UltiTools-Reborn/issues/647)）。
+同一 Bean 有多个启用保存的字段时，每个字段调用一次，前一次调用失败也不例外。后续回调可能看到前面的字段已清理。如果一次回调会保存该 Bean 的全部状态，只为一个字段启用保存，或让保存可安全地重复执行。不同字段的回调并不是重试。
 
-一个 Bean 可以有多个 `@PlayerCache` 字段，每个都会独立清理：
+本例中只有 `openInventories` 触发回调。回调体只是保存逻辑的占位，不应假定执行时其他 Map 仍有该玩家的条目。每个字段独立清理。
 
 <<< @/../examples/src/main/java/com/ultikits/docs/cache/GameService.java
 
 ## 使用要求
 
-- 字段必须是以 `UUID` 为键的 `Map`（自 v6.3.0 起也可以是 `Set<UUID>`，或值为 `UUID` 的 `Map`）
-- `Map<UUID, UUID>` 按键处理：只移除退出玩家自己的键，不移除值为该玩家的条目
-- 自 v6.3.0 起，其他形状的 `@PlayerCache` 字段会在注册 Bean 时被拒绝（`PluginModuleException`），不再被忽略
-- 字段必须在模块容器中的单例 Bean 里（例如 `@Service`、`@CmdExecutor`、`@EventListener`，或通过 `registerSingleton(...)` 添加的对象），且在 `registerSelf()` 返回 `true` 时已存在；通过 `registerType(...)` 添加的对象不会被扫描
-- 自 v6.5.0 起，使用 `saveBeforeRemove = true` 时，Bean 必须实现 `PlayerCacheSaver`，否则注册会被拒绝并抛出 `PluginModuleException`（v6.5.0 之前条目会被直接移除而不保存）。从父类继承的字段按具体的 Bean 检查，因此实现了该接口的子类可以通过
-- 如果 Map 会被异步线程访问，请使用 `ConcurrentHashMap`
+- 声明可变的 `Map<UUID, ?>`、`Map<?, UUID>` 或 `Set<UUID>`，在对应位置明确写 `UUID`。不支持原始集合类型或以通配符代替 `UUID`。
+- 以 UUID 为键的 Map 移除该玩家的键，`Map<UUID, UUID>` 也如此。仅值为 UUID 的 Map 移除所有值等于该玩家 UUID 的条目。Set 移除 UUID 本身。
+- 不支持的字段类型会抛出 `PluginModuleException`（`ULTI-1001`），异常原文为 `@PlayerCache field '<field>' on <declaring class> has an unsupported shape; PlayerCacheManager can only sweep Map<UUID, ?> (key-side), Map<?, UUID> (value-side), and Set<UUID>`。
+- 模块的 `registerSelf()` 成功后，或独立 Paper 插件接入注册时，框架扫描容器中已有的单例。托管的 `@Service` 或扫描前通过 `registerSingleton(...)` 添加的对象可以被跟踪。只有 `registerType(...)` 不会把对象加入被跟踪的单例。外部插件断开接入时，也会先注销跟踪的 Bean，再关闭容器。
+- 保存接口按实际 Bean 实例校验，而不是按声明字段的类校验。因此，实现了 `PlayerCacheSaver` 的子类可以继承启用保存的字段。
+- 异步代码访问 Map 时，使用 `ConcurrentHashMap` 等线程安全集合。这不会使一连串缓存与数据库操作变成原子操作。
 
 ## 完整示例
 
 <<< @/../examples/src/main/java/com/ultikits/docs/cache/TeleportRequestService.java
 
-::: tip 每个按玩家存储的 Map 都应使用 @PlayerCache
-`@PlayerCache` 可以消除 Minecraft 插件中最常见的内存泄漏来源。建议在每个存储玩家状态的 `Map<UUID, ?>` 字段上使用它。
+::: tip 退出清理
+以 UUID 为键的 Map 按键清理。传送示例会移除退出玩家发出的请求，但如果该玩家只是其他请求的目标，注解不会移除那些请求。
 :::
