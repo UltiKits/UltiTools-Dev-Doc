@@ -1,14 +1,8 @@
 # Config Validation
 
-::: info Since v6.2.0
-Config validation annotations are available starting from UltiTools-API v6.2.0.
-:::
+7.0.0 has not been released. This guide targets UltiTools-API 7.0. For 6.x, see the [archived v6.4.0 guide](/v6.4.0/guide/advanced/config-validation.html).
 
 UltiTools provides declarative validation annotations for configuration fields.
-
-::: info Refusal semantics as of v6.3.0
-A config value that fails validation refuses the owning module at load, instead of being reset. The one exception is an empty list, set or map under `@NotEmpty`, which runs its declared default. See [Behavior](#behavior) below.
-:::
 
 ## Available Annotations
 
@@ -18,14 +12,18 @@ Validates that a numeric value falls within a specified range (inclusive).
 
 <<< @/../examples/src/main/java/com/ultikits/docs/validation/MyConfig.java
 
-If a server admin sets `maxHomes: 999`, the module is refused at load. The console error names the module, the config file and the field, for example `field 'maxHomes' value 999 is out of range [1.0, 10.0]`; the file itself is left untouched.
+If the module is named `MyModule` and an operator sets `maxHomes: 999`, the framework refuses the module and leaves the file intact. The validation reason appears as follows; this text is not translated:
+
+```text
+Module 'MyModule' refused to load: configuration file 'config/config.yml' violates its validation constraints (1): field 'maxHomes' value 999 is out of range [1.0, 10.0]. The file was not modified - fix the value(s) and restart.
+```
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `min` | `double` | `-Double.MAX_VALUE` | Minimum allowed value (inclusive) |
 | `max` | `double` | `Double.MAX_VALUE` | Maximum allowed value (inclusive) |
 
-As of v6.3.0 a value must satisfy `min <= value <= max`. NaN (`.nan` in YAML) is out of every range, and an infinity (`.inf`, `-.inf`) is out of range unless that bound is itself infinite, for example `max = Double.POSITIVE_INFINITY`. `@Range` checks numbers only.
+A value must satisfy `min <= value <= max`. NaN (`.nan` in YAML) is out of every range, and an infinity (`.inf`, `-.inf`) is out of range unless that bound is itself infinite, for example `max = Double.POSITIVE_INFINITY`. `@Range` checks numbers only.
 
 ### @NotEmpty
 
@@ -39,9 +37,9 @@ import com.ultikits.ultitools.annotations.config.NotEmpty;
 private String serverName = "My Server";
 ```
 
-A blank or missing value refuses the owning module at load; see [Behavior](#behavior) below.
+An absent key is not an explicit empty value. An absent key uses the declared default on startup; reload also takes live changes into account. A blank string or an explicit null `String` value fails `@NotEmpty`.
 
-As of v6.3.0, `@NotEmpty` also applies to lists, sets, maps and arrays, with a different outcome. When a load or reload finds the value empty (empty or `null` in the file, or a list whose every entry failed to bind), the module runs on the field's declared default in memory and logs one warning naming the file, the key, the value kind, the value as written and the default. Both values are redacted when the field name, a key segment, or a map key inside the value or the default looks like a secret. The module loads, and the file is not written.
+`@NotEmpty` also applies to collections, maps and arrays, with a different outcome. When a load or reload finds the value empty (empty or `null` in the file, or a list whose every entry failed to bind), the module runs on the field's declared default in memory and logs one warning naming the file, the key, the value kind, the value as written and the default. Both values are redacted when the field name, a key segment, or a map key inside the value or the default looks like a secret. The module loads, and the file is not written.
 
 ```java
 @NotEmpty
@@ -62,7 +60,7 @@ While the default runs, the panel still shows the file's value (`[]`). An operat
 
 ### @Size
 
-Validates that text, a collection, a map or an array has a size within the specified bounds. The size is a text's length, a list's or set's size, a map's number of entries and an array's length (maps and arrays as of v6.3.0).
+Validates that text, a collection, a map or an array has a size within the specified bounds. The size is a text's length, a list's or set's size, a map's number of entries and an array's length.
 
 ```java
 import com.ultikits.ultitools.annotations.config.Size;
@@ -83,7 +81,7 @@ private List<String> allowedWorlds = Arrays.asList("world", "world_nether");
 
 ### @Pattern
 
-Validates that a text value matches a regular expression. Text is a `String`, or a `char` matched as a one-character string (as of v6.3.0).
+Validates that a text value matches a regular expression. Text is a `String`, or a `char` matched as a one-character string.
 
 ```java
 import com.ultikits.ultitools.annotations.config.Pattern;
@@ -103,16 +101,16 @@ private String prefix = "Server";
 
 ## Supported Value Kinds
 
-Each annotation checks the value kinds it can measure. As of v6.3.0 the outcome per kind is:
+Each annotation checks the value kinds it can measure. The collection column also applies to other supported `Collection` types, such as queues:
 
-| Annotation | Text (`String`, `char`) | Number | List, set, array | Map | Anything else |
+| Annotation | Text (`String`, `char`) | Number | Collection, array | Map | Anything else |
 |---|---|---|---|---|---|
 | `@Range` | declaration error | refused on violation | declaration error | declaration error | declaration error |
 | `@Pattern` | refused on violation | declaration error | declaration error | declaration error | declaration error |
 | `@Size` | refused on violation | declaration error | refused on violation | refused on violation (entries) | declaration error |
 | `@NotEmpty` | refused on violation | declaration error | declared default with a warning | declared default with a warning | declaration error |
 
-"Anything else" covers booleans, enums, UUIDs, Bukkit values such as `Location`, and your own value types. A number is a primitive number or a `Number` such as `Integer` or `BigDecimal`.
+"Anything else" includes booleans, enums, UUIDs, Bukkit values such as `Location`, and custom types that cannot hold a supported value. A number is a numeric primitive or a subtype of `Number`, such as `Integer` or `BigDecimal`; the field type also needs to be convertible.
 
 ### Unsupported Declarations
 
@@ -130,11 +128,11 @@ public static class OutputItem {
 private Map<String, OutputItem> recipes = new HashMap<>();
 ```
 
-A converter builds `OutputItem` from the file, and the framework validates only the setting `recipes` itself, never the fields of the values inside it. Validate such fields in your module's converter, where you can skip or refuse the one entry. UltiRecipe's `RecipeConfig.OutputItem` has this shape: the module checks those fields itself, and its 6.3.0 build keeps the two annotations; they have no effect there.
+A converter builds `OutputItem` from the file, and the framework validates only the setting `recipes` itself, never the fields of the values inside it. Validate such fields in your module's converter, where you can skip or refuse the one entry.
 
 ## Combining Annotations
 
-Known limitation documented for v6.3.2, with behavior unchanged: constraints on an `Object` setting are checked together, not as alternatives selected by its runtime type. `@Range` with `@Pattern`, `@Size` or `@NotEmpty` refuses ordinary non-null built-in values whose kind cannot satisfy every annotation. Null still loads with `@Range + @Pattern` or `@Range + @Size`; `@NotEmpty` refuses null. An empty container held in an `Object` field under `@NotEmpty` is refused rather than replaced by its declared default: container-default substitution uses the declared container type, not the runtime value. Declare a list, set, map or array field when you need that substitution, and choose constraints appropriate to its value kind ([#635](https://github.com/UltiKits/UltiTools-Reborn/issues/635)).
+Constraints on an `Object` setting are checked together, not as alternatives selected by its runtime type. `@Range` with `@Pattern`, `@Size` or `@NotEmpty` refuses ordinary non-null built-in values whose kind cannot satisfy every annotation. Null still loads with `@Range + @Pattern` or `@Range + @Size`; `@NotEmpty` refuses null. An empty container held in an `Object` field under `@NotEmpty` is refused rather than replaced by its declared default: container-default substitution uses the declared container type, not the runtime value. Declare a list, set, map or array field when you need that substitution, and choose constraints appropriate to its value kind ([#635](https://github.com/UltiKits/UltiTools-Reborn/issues/635)).
 
 You can use multiple validation annotations on the same field:
 
@@ -152,16 +150,10 @@ private String displayName = "Default Name";
 
 ## Behavior
 
-::: info Constructor resolution, as of v6.3.0
-`validateFields()` obtains its default instance through the same two-step fallback `ConfigManager` uses elsewhere: a `(String)` constructor first, then a no-arg constructor calling `super("config/path.yml")`. Validation now fires on both shapes; only a class with neither constructor fails to register (see [#314](https://github.com/UltiKits/UltiTools-Reborn/issues/314)).
-:::
+A single-file config entity supports either a public `(String)` constructor or a public no-argument constructor. The framework tries the former first, passing the path to `super(configFilePath)`. If it is absent, the no-argument constructor should call `super("config/config.yml")` or another fixed path. Validation uses the same order to construct a temporary default instance, so keep the constructors side-effect-free. Directory entries need the `(String)` constructor for each file; see [Configuration](/guide/essentials/config-file).
 
-A config class registers successfully as soon as either constructor shape resolves — `public MyConfig(String configFilePath)` calling `super(configFilePath)`, or a no-arg constructor calling `super("config/path.yml")` directly. Both are supported; declaring one is enough.
+- **Startup refusal:** only the owning module is refused, and the file is unchanged. Fix the value and restart; `/ul reload` cannot load a module that was refused at startup.
+- **Reload refusal:** the failing config entity keeps its pre-reload values and its file is unchanged. Correct the value and reload again. Earlier files that already reloaded are not rolled back; see [Configuration file reload](/guide/essentials/config-file#configuration-file-reload).
+- **Edit refusal:** `validateProposedProperties` and `updateProperties` report the declared key (such as `allowed-commands`), not the Java field name. Correct the proposed value and retry without restarting. An ordinary refusal changes neither the file nor the running values.
 
-When a field's live value violates its constraint:
-
-1. The module is refused at load. The value is not reset, and the file is not rewritten. Other modules continue loading normally. An empty list, set or map under `@NotEmpty` is the exception: it runs its declared default, as described under [@NotEmpty](#notempty).
-2. The console error names the module, the config file, the field and the violated bound (with the actual value for `@Range`, `@Size` and `@Pattern`), so the operator can fix the file without guessing.
-3. Nothing about the file itself changes. The value the operator wrote stays exactly as they wrote it until they edit it themselves.
-
-This is different from a typo silently working around itself: a config file belongs to the server operator, and only the operator's own edit changes it. After correcting the value, restart the server: a module refused at load is not loaded, so it cannot be reloaded. A value refused by `/ul reload` leaves the running values in place; correct it and reload again.
+Startup and reload details name the Java field. `@Range` reports the actual number, `@Size` the actual length or count, and `@Pattern` the actual value (redacted for a secret-shaped setting). Validation never silently repairs the file: the `@NotEmpty` container fallback described above happens during binding and changes only memory.

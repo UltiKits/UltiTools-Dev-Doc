@@ -1,13 +1,10 @@
 # Configuration
 
-UltiTools provides an elegant singleton pattern encapsulation API that allows you to operate configuration files like
-objects.
+7.0.0 has not been released. This guide targets UltiTools-API 7.0. For 6.x, see the [archived v6.4.0 configuration guide](/v6.4.0/guide/essentials/config-file.html); to move a module forward, see [Upgrading from 6.x to 7.0](/guide/advanced/upgrading-to-7).
 
 ## Create a YAML configuration file
 
-Firstly, you need to create a `config` folder in the `resources` folder. Put your plugin configuration files in it
-according to your needs. These configuration files will be put into the collective configuration folder of UltiTools
-plugin and displayed to users.
+Declare the keys, defaults and comments in a Java configuration class. UltiTools reads module configuration under `plugins/UltiTools/pluginConfig/<module>/`, where `<module>` is the `name` in the module's root `plugin.yml`. For example, `@ConfigEntity("config/config.yml")` with a constructor that accepts that path uses `plugins/UltiTools/pluginConfig/<module>/config/config.yml`. On first initialization, the framework generates a missing file from the declared defaults and comments; for an existing file it adds only missing settings when it can do so safely. You do not need a matching YAML resource in the JAR. If the JAR does ship one under `config/` (for example `src/main/resources/config/config.yml`), the framework copies it into the module's configuration directory before configuration entities are initialized, whenever that file does not exist yet. The entity then starts from the shipped file and adds only the settings missing from it, instead of generating the file from the Java defaults and comments.
 
 ## Operate configuration files
 
@@ -18,69 +15,57 @@ the `AbstractConfigEntity` class.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/config/SomeConfig.java
 
-::: warning Constructor requirements, as of v6.3.0
+::: warning Constructor requirements
 Keep constructors cheap and side-effect-free: validation and save preparation may construct temporary instances.
 :::
 
 #### @ConfigEntity
 
-The `@ConfigEntity` annotation is used to mark the location of a configuration file, which requires a string parameter
-to specify the path of the configuration file in the plugin configuration folder. Usually this path is the same as the
-path in the resource folder directory during your development.
+`value` specifies a path relative to the module's configuration directory. For a single file, scan registration tries `public MyConfig(String configFilePath)` first. If that constructor is absent, it tries a public no-argument constructor; keep its `super("config/config.yml")` path consistent with the annotation. `SomeConfig` above uses a single-file path with no extension; prefer a `.yml` name such as `config/config.yml`.
 
-The parameter here can also point to a folder. If you specify a folder, only `.yml` files in the folder are loaded as
-the current configuration class; other file types are silently skipped.
+A directory path must already be a directory when registration runs. A missing path is treated as a single file, not created as a directory. Only immediate `.yml` files are loaded, without recursion, each using the same class's `(String)` constructor. To have the directory on a fresh server, ship its files in the JAR under `config/`, for example `src/main/resources/config/warps/spawn.yml`: bundled files under `config/` are copied out before registration, so the directory exists when the entity registers:
 
 ```java
-@Getter
-@Setter
-@ConfigEntity("test")  // This is a folder
-public class TestConfig extends AbstractConfigEntity {
-    @ConfigEntry(path = "testString")
-    private String testString = "test";
-    ...
+@ConfigEntity("config/warps")
+public class WarpConfig extends AbstractConfigEntity {
+    @ConfigEntry(path = "enabled")
+    private boolean enabled = true;
+
+    public WarpConfig(String path) {
+        super(path);
+    }
 }
 ```
 
-::: warning Note
-
-If you specify a folder, you need to make sure that all configuration files in the folder can be read by the same
-configuration class. Sub-folders are not included.
-
-:::
-
-You can use the `UltiToolsPlugin#getConfigs` method to get all loaded configurations.
-
 ```java
-List<TestConfig> configs = BasicFunctions.getInstance().getConfigs(TestConfig.class);
+List<WarpConfig> warps = module.getConfigs(WarpConfig.class);
+WarpConfig spawn = module.getConfig("config/warps/spawn.yml", WarpConfig.class);
 ```
 
-Or you can directly specify the path of the configuration file in a folder to get the configuration.
-
-```java
-TestConfig config = BasicFunctions.getInstance().getConfig("test/test1.yml", TestConfig.class);
-```
-
+Here `module` is your `UltiToolsPlugin` instance. `getConfig` returns `null` when no entity is registered at that path.
 
 #### @ConfigEntry
 
-`@ConfigEntry` is used to mark a configuration item. 
+`@ConfigEntry` binds a field to YAML. `path` and `comment` default to the empty string, and `previousComments` defaults to an empty array. With no `path`, the field name is used.
 
-As of v6.3.0, `path` still splits at every dot: `chat.aliases` is a nested entry path. Keys inside a bound map are whole keys, so `g.m`, `o.O` and `wave.` are supported. Files already split by 6.2 are read as written, without automatic recombination; a nested value in a `Map<String, String>` is skipped with a warning.
+`path = "features.chat"` matches nested YAML or a flat `features.chat: false` entry. You can also mix forms, such as `a.b:` with a child `c: 1` for `a.b.c`. `@ConditionalOnConfig` and `isPresentInFile` use the same lookup. Initialization and writes do not create a second form of an existing setting. If two forms define one setting, even with equal values, load or reload is refused. Inside a bound map, a key such as `g.m` is one whole key, not a path.
 
-As of v6.3.0, a setting the operator writes as a flat dotted key is that setting: for `path = "features.chat"`, the line `features.chat: false` binds `false`, as it did through Bukkit in 6.2, and so does any split of the dots (`a.b:` / `c: 1` for `a.b.c`). The framework never adds a nested copy of it: a start-up insert, `save()`, `saveOperatorChange`, `saveOperatorMapEntry` and a panel edit write that one line. `@ConditionalOnConfig` and `isPresentInFile` read the path the same way. A setting written in both forms in one file (`features.chat: false` and `features:` / `chat: true`), even with equal values, refuses the module before its code runs; the message names the file and the setting, never a value. This applies to setting paths only; keys inside a bound map stay whole.
+After an existing file passes parsing and initialization validation, the framework lists up to ten undeclared key subtrees and reports how many more there are, if any. Inherited declarations count; a declared map, collection, array or converter-owned value owns its subtree. Normal reloads and saves do not repeat the warning. A module might read an undeclared key manually, so don't delete one just because of the warning. These lines are not translated and contain no values:
 
-As of v6.3.2, a successfully parsed and validated initialization reports one nonfatal WARNING per minimal key subtree without an `@ConfigEntry` declaration. It names the module, relative file and safely displayed key, never a value, and does not change the file. Inherited declarations and nested, flat or mixed dotted setting paths count; a declared map, list, array or converter-owned value owns its entire subtree. Normal reloads and saves do not repeat this diagnostic, but a new initialization does. An undeclared key may still be used by a manual reader: the warning does not mean it is unused or safe to delete.
+```text
+Module 'MyModule', file 'config/config.yml', key 'obsolete': no @ConfigEntry declaration for this key/subtree; left unchanged
+Module 'MyModule', file 'config/config.yml': 2 more keys have no @ConfigEntry declaration (not listed); left unchanged
+```
 
 ::: info Configuration comment tokens as of v7.0.0
 A comment such as `{config.lock.timeout}` is resolved through the module's `messages/` catalogue using the server fallback language.
 :::
 
-A literal `comment` is written when its key is inserted. A comment that is exactly one token after trimming is rendered as plain text under the [annotation text rules](/guide/essentials/messages#module-annotation-text). If it cannot be resolved, the token stays and the framework warns at most once per field per load. Line breaks and control characters are sanitized before writing YAML comments.
+A literal `comment` is written when its key is inserted. A comment that is exactly one token after trimming is rendered as plain text under the [annotation text rules](/guide/essentials/messages#module-annotation-text), with fallback to the module's source language. If the key cannot be resolved, the token stays and the framework warns at most once per field per configuration load, for example `Module MyModule, file config/config.yml, path 'lock.timeout': missing comment catalogue key 'config.lock.timeout'`. Line breaks and control characters are sanitized before writing YAML comments.
 
-Startup and `/ul reload` refresh only framework-owned comments. The comment or its trailing lines must match, byte for byte, a shipped rendering, the current rendering, the bare token or a text listed in `previousComments`. Operator notes, framework comments an operator edited and literal comments are preserved. Saves, operator writes and panel edits do not rewrite comments.
+Startup and `/ul reload` refresh only token comments that the framework recognizes as its own. The entire comment or its trailing lines must match a shipped rendering, the current rendering, the bare token or a rendering listed in `previousComments`. Other comments stay as written. A hand-written comment that happens to match is treated as framework-owned. Saves, operator writes and panel edits do not refresh comments.
 
-When changing a translation, list older shipped text already on disk in `previousComments`:
+As of v7.0.0, translations are no longer read from `lang/`. Move old comment keys to `messages/<locale>.yml`. If the shipped wording already on disk differs from the new wording, list the old text in `previousComments`:
 
 ```java
 @ConfigEntry(path = "lock.timeout", comment = "{config.lock.timeout}",
@@ -94,19 +79,25 @@ Define the key in the module’s `src/main/resources/messages/en.yml`:
 config.lock.timeout: "Maximum time to wait for the lock"
 ```
 
-The legacy `parser` attribute and its parser classes were removed in v6.4.0. Fields use the declared-type converter registry; for a custom type, register a `ConfigConverter` as described in [Config Converters](/guide/advanced/config-converters).
+Changing an override or the fallback language can leave behind an old comment that no longer matches a known rendering. The framework preserves it as operator text. To restore the generated comment, delete just the old comment attached to the setting, not the key, and do not leave a bare `#`. If no attached comment remains, the next successful startup or reload that can write the file inserts the current text. For custom field types, see [Config Converters](/guide/advanced/config-converters).
 
 #### Numeric fields
 
-As of v6.3.0, primitives and boxed numeric fields use the same conversion rules. Panel JSON integers within the long range use `Long`; integers beyond the long range are kept exactly as `BigInteger`. Fractional panel numbers keep the existing `Double` route. Integral narrowing must be exact and within range; numeric text such as `'30'` can bind to an integer. A decimal binds to `float`/`Float` only when the parsed float's shortest printable decimal has the same numeric value: `0.03` and `1.50` pass, `0.100000001` does not. Invalid fields keep their declared defaults with a located warning. Use `double` when more decimal precision is required; float acceptance is not exact binary representation.
+Primitives and boxed numeric fields use the same conversion rules. Panel JSON integers within the long range use `Long`; integers beyond the long range are kept exactly as `BigInteger`. Fractional panel numbers keep the existing `Double` route. Integral narrowing must be exact and within range; numeric text such as `'30'` can bind to an integer. A decimal binds to `float`/`Float` only when the parsed float's shortest printable decimal has the same numeric value: `0.03` and `1.50` pass, `0.100000001` does not. Invalid fields keep their declared defaults with a located warning. Use `double` when more decimal precision is required; float acceptance is not exact binary representation.
 
 An `int`, `long`, `Integer` or `Long` field can also drive a task interval or command cooldown: see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing) and [Config-bound cooldowns](/guide/essentials/cmd-executor#binding-the-cooldown-to-a-config-key). The configuration must be registered exactly once; directory entities cannot be bound. Avoid combining a bound field with [`@Range`](/guide/advanced/config-validation), because binding has its own range check.
 
 #### Collections and null
 
-As of v6.3.0, full inherited generic types drive lists, sets, queues, maps, arrays and enums. Invalid collection/map elements are skipped with a warning; a wrongly shaped whole field uses its initially declared default. Warnings identify the file, key, position and type and redact secret-shaped values. As of v6.3.2, skipped-value warnings render the raw value and reason on one log line; secret-shaped values remain redacted and configuration values and file content are unchanged. An unknown declared type refuses module load before any config file is read or created; register a converter rather than accepting raw maps into a custom class.
+Full inherited generic types drive lists, sets, queues, maps, arrays and enums. Invalid collection/map elements are skipped with a warning; a wrongly shaped whole field uses its initially declared default. Warnings identify the file, key, position and type and redact secret-shaped values. As of v6.3.2, skipped-value warnings render the raw value and reason on one log line; secret-shaped values remain redacted and configuration binding does not repair those values on disk. An unknown declared type refuses module load before any config file is read or created; register a converter rather than accepting raw maps into a custom class.
 
-Explicit null whole fields and null map values still round-trip; primitive null is invalid. Typed collections (including `List<Object>`) and reference arrays (including `Object[]`) omit null elements on write with one located warning per field. A null element of a typed collection read from the file is likewise skipped with a located warning, as in 6.2; plain data in a declared `Object` slot remains plain. UUIDs and enums use plain text, and registered Bukkit `ConfigurationSerializable` values use alias-tagged maps. A Bukkit value read into an `Object` slot stays a plain map. Unknown runtime Java objects refuse a save without touching the file.
+Explicit null whole fields and null map values still round-trip; primitive null is invalid. Typed collections (including `List<Object>`) and reference arrays (including `Object[]`) omit null elements on write with one located warning per field. A null element of a typed collection read from the file is likewise skipped with a located warning; plain data in a declared `Object` slot remains plain. UUIDs and enums use plain text, and registered Bukkit `ConfigurationSerializable` values use alias-tagged maps. A Bukkit value read into an `Object` slot stays a plain map. Unknown runtime Java objects refuse a save without touching the file.
+
+#### Saved locations (`Location`) {#saved-locations}
+
+As of v7.0.0, Paper 26.3 saves a `Location` with `world_key` in `namespace:path` form, not a world name. A 6.x value containing only `world` (a world name) is still readable; no bulk rewrite is needed. If both fields exist, `world_key` wins. When changing worlds by hand, copy `world_key` from a location already saved in the target world instead of guessing it from the name. If you keep `world`, update it to the same world's name. Changing only `world` has no effect.
+
+An invalid key or a missing or unloaded world does not fall back to `world`. Paper logs `unknown world` and its serialization layer returns `null`; UltiTools treats this as a conversion failure (for example, reason `Alias <alias> did not produce org.bukkit.Location`), not a successfully read null value. Binding falls back to the declared default for an invalid whole field and skips invalid elements of typed collections or maps. Reload still applies the three-way comparison and validation described below; the bad value on disk is not repaired. A standalone Bukkit `World` field still uses a world name, not `world_key`.
 
 #### @Getter and @Setter
 
@@ -119,20 +110,20 @@ Your main class which extends `UltiToolsPlugin` has a `getConfig` method to get 
 You need to get the instance of the plugin main class, and then call the `getConfig` method.
 
 ```java
-SomeConfig someConfig = SomePlugin.getInstance().getConfig(SomeConfig.class);
+SomeConfig someConfig = module.getConfig(SomeConfig.class);
 ```
 
 Now you can use the `getter` and `setter` methods to operate the configuration file.
 
 ::: tip Set and Save
-As of v6.3.0 nothing is saved when the server stops. Call `save()` when your code makes a change that should reach the file.
+Nothing is saved when the server stops. Call `save()` when your code makes a change that should reach the file.
 :::
 
-As of v6.3.0, nothing writes configuration at server stop, module unload or module replacement. A module change that was never saved is named in one WARNING, listing the file and the keys but never values, and is dropped; `ConfigManager#saveAll()` writes nothing and is deprecated. An edit an operator makes to the file while the server runs is never touched by a stop. A file that could not be read or parsed at its last load is named once instead. Panel edits acknowledge only touched fields, so unrelated unsaved fields stay unsaved.
+Nothing writes configuration at server stop, module unload or module replacement. A module change that was never saved is named in one WARNING, listing the file and the keys but never values, and is dropped; `ConfigManager#saveAll()` writes nothing and is deprecated. An edit an operator makes to the file while the server runs is never touched by a stop. A file that could not be read or parsed at its last load is named once instead. Panel edits acknowledge only touched fields, so unrelated unsaved fields stay unsaved.
 
 Initialization, reload and ConfigManager registry operations are server-thread confined while a server runs. Off-thread void operations warn and do nothing; registry getters, JSON readers/writers warn and throw `IllegalStateException`. Panel update/upload/reconnect callbacks queue their complete operation on the server thread and reply after it runs. Entity monitors serialize persistence, but your own asynchronous field mutation is not protected by those monitors. Schedule module mutations/reloads on the server thread.
 
-The module's `getConfig(Class)` returns an entity and remains available. The entity's old mutable Bukkit `getConfig()` accessor is removed as of v6.3.0 by the maintainer's one-time compatibility carve-out; it worked in 6.2.5, and third-party usage is unknown. Use `isPresentInFile("entry.path")` for presence in the last successful load (null and undeclared keys count); the path is read the way a declared setting path is ([#612](https://github.com/UltiKits/UltiTools-Reborn/issues/612)): nested keys, one flat dotted key, or any mix, and the key counts as present in any of these forms, so a whole map key containing a dot is found too. Change declared fields, then `save()`.
+`UltiToolsPlugin#getConfig(Class<T>)` returns the entity, not a mutable Bukkit YAML object. `isPresentInFile("entry.path")` checks the key in the last load, not the current field value; explicit null and undeclared keys count. It does not establish presence if the file could not be read or parsed. Change the declared field and use the entity’s `save()` or the module’s `saveConfig(String path, Class<T> type)` to persist it; both declare `throws IOException`.
 
 ```java
 boolean something = someConfig.getSomething();
@@ -147,49 +138,47 @@ For data your own plugin needs to persist, use [Data Storage](/guide/essentials/
 
 ### Automatically register
 
-Since UltiTools provides automatic registration function, you don't need to register configuration files manually, just
-add the `@ConfigEntity` annotation to your configuration file class.
-
-Please refer to [this article](/guide/advanced/auto-register) for more information about automatic registration.
+Use `@UltiToolsModule` on the module class and put the `@ConfigEntity` class in a scanned package. The `config` flag defaults to `true`, including when `@EnableAutoRegister` is used directly. See [Auto Registration](/guide/advanced/auto-register).
 
 ### Manually register
 
-You can register the config file by override the `getAllConfigs` method in your plugin main class.
-This path only applies when the plugin class does not enable automatic config registration (`@EnableAutoRegister` or `@UltiToolsModule`, whose `config` attribute defaults to `true`): when it is enabled, `getAllConfigs` is never called even if you override it. `@ConfigEntity` on the config class is required either way; it does not by itself decide which path runs.
+With automatic config registration off, the framework takes the entities from `getAllConfigs()`. The config class still needs `@ConfigEntity`.
 
 ```java
 @Override
 public List<AbstractConfigEntity> getAllConfigs() {
-    return Collections.singletonList(new SomeConfig("some/path/to/config"));
+    return List.of(new SomeConfig("some/path/to/config"));
 }
 ```
 
-## Config Validation <Badge type="tip" text="v6.2.0+" />
+Do not mix the two modes. When auto-registration is on, the framework still calls `getAllConfigs()` to check the override, not to register entities a second time. Redundant entries are not registered twice. An entry the override asks for but the scan did not find causes the module to be refused.
 
-Starting from v6.2.0, UltiTools provides validation annotations to protect against invalid configuration values. See the [Config Validation](/guide/advanced/config-validation) guide for full details.
+## Config Validation
+
+UltiTools provides validation annotations to protect against invalid configuration values. See the [Config Validation](/guide/advanced/config-validation) guide for full details.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/config/MyConfig.java
 
 Available validation annotations: `@Range`, `@NotEmpty`, `@Size`, `@Pattern` (from `com.ultikits.ultitools.annotations.config`).
 
-As of v6.3.2, a validation refusal from `validateProposedProperties` or `updateProperties` identifies the declared configuration key (for example `allowed-commands`, not Java field `allowedCommands`) and says that the edit was not applied. The file and running values are unchanged; correct the proposed values and retry the edit, without restarting. Load-time and reload-time validation retain their own diagnostics.
+A validation refusal from `validateProposedProperties` or `updateProperties` identifies the declared configuration key (for example `allowed-commands`, not Java field `allowedCommands`) and says that the edit was not applied. The file and running values are unchanged; correct the proposed values and retry the edit, without restarting. Load-time and reload-time validation retain their own diagnostics.
 
 ## Saving configuration files
 
 ### Write contract
 
-As of v6.3.0 the framework never overwrites configuration an operator wrote, unless the operator asked for that change. What code may write depends on who owns the file:
+The framework never overwrites configuration an operator wrote, unless the operator asked for that change. What code may write depends on who owns the file:
 
 | File | Code may write |
 |---|---|
-| A configuration file the module ships (`config.yml`, `spawn.yml`) | the file, the first time, when it does not exist; a declared key the file lacks and the framework's own comments, inserted only; exactly the setting an operator asked to change through a command, the panel or a GUI; a value that still equals the shipped text, re-rendered after a language switch |
+| A configuration file the module ships (`config.yml`, `spawn.yml`) | the file, the first time, when it does not exist; a declared key the file lacks and the framework's own comments, inserted only; exactly the setting an operator asked to change through a command, the panel or a GUI |
 | A file the operator creates (a kit, a menu) | the file, on the operator's create action; on an edit, only the edited part |
 
 Nothing else is written: no save at stop, unload or replacement, no repair of an invalid value, no layout normalization and no cleanup of map keys that 6.2 split at their dots.
 
 Every write goes through one write gate. A write declares the keys it owns; after rendering, every byte outside them must equal the file as read, and the file must still hold the bytes it was read from. Otherwise nothing is written: one WARNING names the file, the keys and the reason, never a value, and the values in memory are used.
 
-For an explicit write, an `IOException` always means the file kept its bytes. A refusal is a `ConfigWriteRefusedException`. A failure to publish the file is a plain `IOException`; as of v6.3.0 the framework puts the file back before throwing it (see [Atomic replacement](#atomic-replacement)). A module that rolls its in-memory change back on the `IOException` therefore stays in step with the file.
+A refused explicit write throws `ConfigWriteRefusedException` and leaves the file unchanged. An I/O failure during publication throws `IOException`. If an in-place write fails, the framework tries to restore the previous file. If restoration also fails, it reports the failure, retains the backup and blocks further writes until a successful reload. See [Atomic replacement](#atomic-replacement).
 
 ::: tip 7.0 message catalogues
 As of v7.0.0, texts in the new `messages/<locale>.yml` catalogues are not customised by copying a file. Operators put only the changed keys into an override file; see [Operator overrides](/guide/essentials/messages#operator-overrides).
@@ -197,19 +186,18 @@ As of v7.0.0, texts in the new `messages/<locale>.yml` catalogues are not custom
 
 ### `save()`
 
-As of v6.3.0, `save()` writes only the settings the module changed since the last load or save, and only where the file still holds the value it was read with. A setting declared as a `Map` is written entry by entry; a list, or a Bukkit value such as a `Location` or `Vector`, is written whole or not at all. A save never inserts a key the file lacks, never rewrites a comment and never removes a map entry the module did not remove.
+`save()` writes only the settings the module changed since the last load or save, and only where the file still holds the value it was read with. A setting declared as a `Map` is written entry by entry; a list, or a Bukkit value such as a `Location` or `Vector`, is written whole or not at all. A save never inserts a key the file lacks, never rewrites a comment and never removes a map entry the module did not remove.
 
 A value the operator edited on disk, a key the operator deleted and a value the framework could not use (`interval: 3O0`) are therefore never written over. The module's change stays in memory and one WARNING names the key. The comparison uses the text last read: after an operator edits a setting on disk without `/ul reload`, even one that keeps its value such as `64` to `64.0`, the module's next change of that setting is not written until a reload reads the file again. A save with nothing to write leaves the bytes and the modification time unchanged.
 
 ### Operator commands
 
-A command that changes exactly one thing at the operator's request uses one of two methods added in v6.3.0. The operator's request is the consent: the module's value replaces what the file holds at the named keys, and nothing else is written.
+Use `saveOperatorChange` for a declared setting the operator asked to change, and `saveOperatorMapEntry` for one map entry. This example assumes `spawn.location` is declared as one `Location` field, not as separate child fields:
 
 ```java
-// /setspawn: write exactly the six location settings
+// /setspawn: write the declared Location setting as one value
 config.setSpawn(player.getLocation());
-config.saveOperatorChange("spawn.location.world", "spawn.location.x", "spawn.location.y",
-        "spawn.location.z", "spawn.location.yaw", "spawn.location.pitch");
+config.saveOperatorChange("spawn.location");
 
 // /autoreply add <name>: write exactly one map entry; entries the operator added by hand stay
 config.getRules().put(name, rule);
@@ -225,7 +213,7 @@ Naming a map setting in `saveOperatorChange` writes the whole map and drops entr
 
 ### Presence conditions
 
-As of v6.3.0, a map-entry write can also depend on whether the entry is already in the file. Pass an `EntryPresence` as the first argument of `saveOperatorMapEntry`. Use `MUST_BE_ABSENT` for a command that creates an entry, so it never replaces one the operator added by hand since the last reload. Use `MUST_BE_PRESENT` for a command that changes an existing entry, so it never writes back one the operator deleted. The module does not need to read the file itself:
+A map-entry write can also depend on whether the entry is already in the file. Pass an `EntryPresence` as the first argument of `saveOperatorMapEntry`. Use `MUST_BE_ABSENT` for a command that creates an entry, so it never replaces one the operator added by hand since the last reload. Use `MUST_BE_PRESENT` for a command that changes an existing entry, so it never writes back one the operator deleted. The module does not need to read the file itself:
 
 ```java
 // /autoreply add <name>: create the rule only if the file does not hold one of that name
@@ -249,36 +237,33 @@ When the condition does not hold, nothing is written and the call throws `com.ul
 
 A write is refused when the file cannot be read or parsed, uses YAML anchors, aliases or merge keys, changed since it was read, or has a layout the renderer cannot write back byte for byte. A layout refusal names the line to fix, for example `the file's layout outside the keys this write owns would change (line 16)`.
 
-As of v6.3.0, a runtime failure of the YAML library while a write is applied, rendered or checked is a refusal too. Writing a map into an entry that holds `null` with an inline comment (`foo: ~  # placeholder`) is one such layout. The reason names the keys, the step that failed and the failure's class, for example `the file cannot be written at autoreply.rules.foo: rendering the document failed (EmitterException)`. Before this change the library's exception reached the caller, so a module that rolled back only on `IOException` kept its in-memory change.
+A runtime failure of the YAML library while a write is applied, rendered or checked is a refusal too. Writing a map into an entry that holds `null` with an inline comment (`foo: ~  # placeholder`) is one such layout. The reason names the keys, the step that failed and the failure's class, for example `the file cannot be written at autoreply.rules.foo: rendering the document failed (EmitterException)`. Before this change the library's exception reached the caller, so a module that rolled back only on `IOException` kept its in-memory change.
 
 Layouts that refuse every write to the file include a line of only spaces, a trailing space after a value, an inline comment aligned with several spaces, more than one space after a colon, spaces inside flow brackets (`[ a ]`), a `---` or `...` marker, a comment indented deeper than the key below it, two indentation widths in one file and mixed line endings. None of the files the framework and its modules ship has such a layout. The operator fixes the named line, or runs `/ul reload` after "the file changed since it was read", and repeats the change.
 
-As of v6.5.0, a block scalar (`|` or `>`) followed by blank lines no longer refuses the write ([#883](https://github.com/UltiKits/UltiTools-Reborn/issues/883)). When the framework appends missing default keys, an unchanged block scalar keeps its spelling, chomping indicator, indicator-line comment and trailing blank lines byte for byte, as does every other operator byte. The write is still refused, with a warning and the file untouched, when the block scalar's value was changed or deleted, the YAML is invalid, an anchor or alias is present, or another layout above cannot be proven safe. Add the key by hand in those cases.
+When appending missing keys, the framework can keep an unchanged block scalar (`|` or `>`) with its spelling, chomping indicator, inline comment and trailing blank lines intact. If it cannot prove the write preserves the original text, it refuses; add the key by hand in that case.
 
 A 0-byte file, a file of blank lines and a file of comments at the start of their lines count as empty: start-up inserts the declared keys. A file of spaces, a comment-only file with an indented comment and a file holding only a byte-order mark are refused as layouts.
 
-As of v6.3.0 an insert directly after a key left with no value (`c:` with nothing after the colon) is also refused, at every start, with `a key this write owns shares line N with a key it does not own` ([#628](https://github.com/UltiKits/UltiTools-Reborn/issues/628), open). To leave a text setting blank, write `key: ''`; that shape is kept and does not refuse.
+An insert directly after a key left with no value (`c:` with nothing after the colon) is also refused, at every start, with `a key this write owns shares line N with a key it does not own` ([#628](https://github.com/UltiKits/UltiTools-Reborn/issues/628), open). To leave a text setting blank, write `key: ''`; that shape is kept and does not refuse.
 
 ### Layouts the reader cannot read
 
-As clarified for v6.3.2, the following two valid YAML layouts were observed to fail with the framework's comment-preserving reader on SnakeYAML 2.2; this is not a claim about every SnakeYAML version or Paper build. When parsing fails, the file is treated as unparseable: it is never written, the module runs on its declared defaults at start-up (a reload keeps the running values), and the SEVERE line `Cannot load <file>: <parser location>; file will not be overwritten` names it. The file keeps every byte; its values are used once the layout is changed.
-
-- A block anchor with a comment before its first child, such as `defaults: &defaults` followed by `# note` and `setting: inherited`, both indented two spaces ([#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580)). Move the comment above the anchored key, or below the first child.
-- A block scalar (`content: |-` or `>`) followed by a comment indented above column 0, a blank line and another comment ([#617](https://github.com/UltiKits/UltiTools-Reborn/issues/617)). Remove the blank line between the two comments, or one of the comments.
+If a file is unreadable, is not valid UTF-8, or cannot be parsed, startup uses the declared defaults if they pass validation and does not overwrite the file. Reload refuses the update and keeps the running values. The startup SEVERE message is `Cannot load <file>: <cause>; file will not be overwritten`. On reload the failure reason is `Cannot reload <file>: <cause>; the file and the running values are unchanged`. The cause is safe information such as the parse line and column or the exception class, not a source snippet. Correct the file and reload it successfully before trying to write it again.
 
 ### Deleted keys, emptied sections and blank settings
 
 Deleting a key is how an operator resets a setting: the next start inserts the declared key the file lacks, with its default and comment. To leave a text setting blank, an operator writes an empty string (`key: ''`); for a text setting an empty string is read as blank and is never rewritten by a start, a reload or a save of another setting. A number, true/false or other non-text setting has no blank value: `''` there is reported in one WARNING, the declared default runs in memory, and the file keeps `''`. If your module documents how to reset or clear a setting, say exactly that.
 
-As of v6.3.0, a key whose section the operator emptied is put back too ([#620](https://github.com/UltiKits/UltiTools-Reborn/issues/620)). When the deleted key was the last one of its section, the section key is left alone with nothing after the colon (`messages:`), which reads as no value at all; deleting every child is most likely accidental, so the insert expands that line instead of being refused at every start. That one line is the only line outside the inserted keys the write may touch: it keeps the key as written, the comment text and its line ending, and only its whitespace may be normalized (a space before the colon, the spaces before the comment, trailing spaces), so `messages :   # reset  ` comes back as `messages: # reset`. The section's value becomes exactly the inserted keys. A child the operator commented out under the line stays where it is, below the restored keys, when its comment lines follow the section line directly as one run at the file's indentation; a blank line before them, two runs split by a blank line, or a comment deeper than the file's indentation is refused instead, at every start, with the file unchanged. The same holds for `saveOperatorChange`, `saveOperatorMapEntry` and a panel edit, so a command that adds the first rule to an emptied `rules:` is written, not refused.
+A key whose section the operator emptied is put back too ([#620](https://github.com/UltiKits/UltiTools-Reborn/issues/620)). When the deleted key was the last one of its section, the section key is left alone with nothing after the colon (`messages:`), which reads as no value at all; deleting every child is most likely accidental, so the insert expands that line instead of being refused at every start. That one line is the only line outside the inserted keys the write may touch: it keeps the key as written, the comment text and its line ending, and only its whitespace may be normalized (a space before the colon, the spaces before the comment, trailing spaces), so `messages :   # reset  ` comes back as `messages: # reset`. The section's value becomes exactly the inserted keys. A child the operator commented out under the line stays where it is, below the restored keys, when its comment lines follow the section line directly as one run at the file's indentation; a blank line before them, two runs split by a blank line, or a comment deeper than the file's indentation is refused instead, at every start, with the file unchanged. The same holds for `saveOperatorChange`, `saveOperatorMapEntry` and a panel edit, so a command that adds the first rule to an emptied `rules:` is written, not refused.
 
 A section written with an explicit empty value, `messages: {}`, `messages: ~` or `messages: null`, is the operator's own value and is never changed. An insert below it is refused with `the section messages (line 3) is written as an explicit empty value, which the framework does not change; to have keys added below it, delete that value so the line ends after the colon, or add the keys by hand` ([#610](https://github.com/UltiKits/UltiTools-Reborn/issues/610)); `saveOperatorMapEntry` throws `ConfigWriteRefusedException` with that reason.
 
-As of v6.3.0, a missing setting is inserted below the section the file already holds it in, never into a second form of that section ([#614](https://github.com/UltiKits/UltiTools-Reborn/issues/614)). With `a.b:` holding `c: 3` and a declared `a.b.d`, the start writes `d:` under `a.b:`, not a nested `a:` / `b:` copy that Bukkit's `YamlConfiguration` would read as replacing the flat section. When another setting of the section is written with the rest of its path as one dotted key (`a:` / `  b.c: 3`), the missing setting takes the same form beside it (`  b.d: 2`); siblings written in different splits leave it undecided, and the insert is refused. When the file holds that section in several forms, the setting goes below the one form holding another declared setting of the section; when none or more than one does, the insert is refused, naming the file and the setting, and the declared default runs in memory.
+A missing setting is inserted below the section the file already holds it in, never into a second form of that section ([#614](https://github.com/UltiKits/UltiTools-Reborn/issues/614)). With `a.b:` holding `c: 3` and a declared `a.b.d`, the start writes `d:` under `a.b:`, not a nested `a:` / `b:` copy that Bukkit's `YamlConfiguration` would read as replacing the flat section. When another setting of the section is written with the rest of its path as one dotted key (`a:` / `  b.c: 3`), the missing setting takes the same form beside it (`  b.d: 2`); siblings written in different splits leave it undecided, and the insert is refused. When the file holds that section in several forms, the setting goes below the one form holding another declared setting of the section; when none or more than one does, the insert is refused, naming the file and the setting, and the declared default runs in memory.
 
 ### Operator files a module manages
 
-As of v6.3.0, `com.ultikits.ultitools.config.OperatorFiles` writes a YAML file a module manages for the operator, such as a kit file, on an explicit operator edit. It writes only the named keys, through the same gate, and only while the file still holds the bytes it was read with:
+`com.ultikits.ultitools.config.OperatorFiles` writes a YAML file a module manages for the operator, such as a kit file, on an explicit operator edit. It writes only the named keys, through the same gate, and only while the file still holds the bytes it was read with:
 
 ```java
 OperatorFiles.Snapshot snapshot = OperatorFiles.read(kitFile);
@@ -291,7 +276,7 @@ The result is `WRITTEN`, `UNCHANGED`, `FILE_CHANGED` (the file changed since `re
 
 ### Opt-in crash-safe YAML writes
 
-As of v6.4.0, `com.ultikits.ultitools.config.CrashSafeYamlFiles` provides strict single-file publication for a module's explicit operator create or edit action. It is opt-in: existing modules, `OperatorFiles.write`, `@ConfigEntity` saves and panel writes do not switch to it. It is not for automatic saves, credentials, framework state, arbitrary bytes, file repair, deletion or renaming, and it is not a multi-file transaction.
+`com.ultikits.ultitools.config.CrashSafeYamlFiles` provides strict single-file publication for a module's explicit operator create or edit action. It is opt-in: existing modules, `OperatorFiles.write`, `@ConfigEntity` saves and panel writes do not switch to it. It is not for automatic saves, credentials, framework state, arbitrary bytes, file repair, deletion or renaming, and it is not a multi-file transaction.
 
 | Method | Use and result |
 |---|---|
@@ -332,7 +317,7 @@ After interruption, stop the server and competing writers, then inspect the targ
 
 ### Atomic replacement
 
-The existing configuration and `OperatorFiles.write` paths below retain their backed in-place fallback; the opt-in v6.4.0 helper above never uses it.
+The existing configuration and `OperatorFiles.write` paths below retain their backed in-place fallback; the opt-in helper above never uses it.
 
 Comments on individual list items are kept only while the list keeps its length — the same as Bukkit, which keeps none.
 
@@ -340,30 +325,34 @@ Writes first force a same-directory temporary, then replace atomically. Only uns
 
 If putting the file back fails too, one SEVERE names the file and the backup, never content, and the backup is kept. The configuration then treats the file as changed since it was read until a reload: an operator change or a panel edit is refused with "the file changed since it was read", and `save()` writes nothing. The operator compares the file with the backup, copies the backup over it if needed, and reloads. A backup that served a successful in-place write is removed by the next successful strict load of the file, and only while its bytes still match what was written.
 
-Unreadable, malformed or non-UTF-8 files are protected on every entity write route. Initial failure uses defaults and logs one SEVERE naming the file and safe cause, without source snippets. As of v6.3.0, a reload of such a file keeps running fields and the file unchanged and throws `ConfigurationException` naming the file and the same safe cause; `/ul reload <module>` then replies that the module failed to reload with that cause. Only a later successful load clears protection. Validation precedes default/comment and panel persistence.
+An unreadable, malformed or non-UTF-8 file is protected on every entity write route until a successful load clears that protection.
 
 Registration batches buffer initialization writes until every selected entity binds and validates; refused batches change no files. Accepted files then persist independently, through the write gate and only while each file still holds the bytes read at registration. Multi-file panel updates instead validate and stage all touched files, then commit and acknowledge together, with in-process rollback on ordinary refusal. Persistent storage failure can prevent restoration; crashes between moves are not a crash-safe multi-file transaction.
 
-A panel edit is all-or-nothing too. If validation rejects a value or the file write fails, the touched fields return to their previous values, the file keeps its bytes, the panel receives the failure, and a retry persists the edit.
+A panel update validates and stages the touched files before committing them together. On ordinary refusal it restores any files it wrote, does not commit the live changes, and reports failure. A storage failure can also prevent restoration; this is not a crash-safe multi-file transaction.
 
 Panel map leaf edits use actual whole file keys and the full declared field converter. A unique changed leaf persists; ambiguous or missing changed paths refuse the whole payload by name. Unchanged displayed leaves are not edits. Untargeted pending memory values and independently edited disk siblings are preserved. The existing reply format is unchanged.
 
-As of v6.3.0 a panel edit writes only the keys it names, through the write gate: it replaces an operator-edited value at exactly those keys, which is the operator's consent, and every other byte of the file stays. A file the gate refuses gets an error reply naming the reason. An edit of one field of a Bukkit value such as a `Location` writes that value as the file holds it with the one field changed, so the other fields keep the operator's text (`y: 64` stays), and only while the file still holds the value it was read with; otherwise the reply asks for a reload first.
+A panel edit writes only the keys it names, through the write gate: it replaces an operator-edited value at exactly those keys, which is the operator's consent, and every other byte of the file stays. A file the gate refuses gets an error reply naming the reason. An edit of one field of a Bukkit value such as a `Location` writes that value as the file holds it with the one field changed, so the other fields keep the operator's text (`y: 64` stays), and only while the file still holds the value it was read with; otherwise the reply asks for a reload first.
 
 ## Configuration file reload
 
 ```java
-SomePlugin.getConfigManager().reloadConfigs(SomePlugin.getInstance());
+UltiToolsPlugin.getConfigManager().reloadConfigs(module);
 ```
 
-As of v6.3.0, reload performs a three-way comparison of the last effective baseline, live fields and incoming file. Memory-only edits survive and stay dirty; disk-only edits are adopted; conflicts take disk with a located, redacted warning. Maps merge recursively by whole keys and lists/scalars are atomic. A whole field the operator deleted from the file binds its declared default, with one warning naming the key, unless the module changed it since the last load or save; the file is not written either way. A failed reload of one configuration entity is all-or-nothing: if it fails, for example because validation rejects a value, memory is exactly as it was before the call and the exception is rethrown. A rejected value therefore cannot stay in a field and be kept by the next reload as an unsaved edit over the corrected file; fix the file and reload again. The same applies to a file that cannot be read or parsed: the reload throws `ConfigurationException` naming the file, and a module that calls `reload()` itself and catches only `IOException` should also catch `ConfigurationException` to report it. Memory-only map order is preserved when that disk map is unchanged; reload does not write it. This is not a concurrent map-insertion ordering policy.
+This call reloads the files only. Configuration bindings, module message overrides, the comment refresh and `onReload()` run only through `/ul reload`.
 
-As documented for v6.3.2, a module reload is not a transaction across all its configuration files. The first failing file stops the remaining steps: earlier files retain their reloaded values, while the failed file keeps its running values. Module message override loading, token-comment refresh and the module reload hook are not reached, so earlier files can retain old-language framework comments. Correct the failing file and finish a successful reload; use a full `/ul reload` to apply a changed server-wide language.
+Reload performs a three-way comparison of the last effective baseline, live fields and incoming file. Memory-only edits survive and stay dirty; disk-only edits are adopted; conflicts take disk with a located, redacted warning. Maps merge recursively by whole keys and lists/scalars are atomic. A whole field the operator deleted from the file binds its declared default, with one warning naming the key, unless the module changed it since the last load or save; the file is not written either way. A failed reload of one configuration entity is all-or-nothing: if it fails, for example because validation rejects a value, memory is exactly as it was before the call and the exception is rethrown. A rejected value therefore cannot stay in a field and be kept by the next reload as an unsaved edit over the corrected file; fix the file and reload again. The same applies to a file that cannot be read or parsed: the reload throws `ConfigurationException` naming the file, and a module that calls `reload()` itself and catches only `IOException` should also catch `ConfigurationException` to report it. Memory-only map order is preserved when that disk map is unchanged; reload does not write it. This is not a concurrent map-insertion ordering policy.
 
-As of v7.0.0, a module reload rereads its message catalogue overrides, then refreshes framework-owned token comments using the current server fallback language before calling the module's reload hook. The refresh rereads each file before writing and changes no values, keys or other comment lines.
+A module reload is not a transaction across files. The first failing file stops the remaining steps for that module. Earlier files keep their reloaded values; the failing file keeps its running values. The module override reload, final token-comment refresh and `onReload()` hook are not reached. A full reload still processes other modules.
 
-As of v6.3.0 no configuration of an older module copy is saved when a newer copy replaces it. The newer copy reads the files as they are; once it is active, one warning names the old copy's dropped file and keys. Unload releases its registry owners and writes nothing.
+As of v7.0.0, a full `/ul reload` first rereads framework config, the fallback language and framework message overrides, then reloads modules. `/ul reload <module>` does not reread those global settings. After the module’s config files reload, the framework applies config bindings, rereads that module’s message overrides, refreshes framework-owned token comments in the current fallback language, and calls `onReload()`. Replacing a JAR requires a restart; reload does not re-register commands. See [Reloading messages](/guide/essentials/messages#reloading).
+
+No configuration of an older module copy is saved when a newer copy replaces it. The newer copy reads the files as they are; once it is active, one warning names the old copy's dropped file and keys. Unload releases its registry owners and writes nothing.
+
+On a module reload failure, the shipped console messages are `Module '<module>' failed to reload: <error>` in English and `模块 '<module>' 重载失败：<error>` in Chinese. The underlying reason can still be in English.
 
 ## Known limits
 
-As of v6.3.0, [#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578) records out-of-threat-model storage findings, and two still apply: temporary-file identity through a symlink followed by `..`, and quadratic style detection in Unicode-heavy files. Its anchored-container and alias-comment items cannot occur, because no write path writes a file that uses anchors, aliases or merge keys. [#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580) and [#617](https://github.com/UltiKits/UltiTools-Reborn/issues/617) are the two layouts the reader cannot read (see [Layouts the reader cannot read](#layouts-the-reader-cannot-read)). Protection preserves those file bytes; it does not make their values readable. Crash-safe multi-file persistence remains unsupported; the v6.4.0 opt-in [single-file helper](#opt-in-crash-safe-yaml-writes) for [#545](https://github.com/UltiKits/UltiTools-Reborn/issues/545) does not change that limit.
+Neither ordinary config writes nor the opt-in crash-safe helper provides a crash-safe multi-file transaction. Do not edit the same files through uncoordinated writers at the same time. For historical YAML parser limitations on 6.x, see the archived guide linked at the top.

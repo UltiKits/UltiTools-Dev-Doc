@@ -1,14 +1,8 @@
 # 配置校验
 
-::: info 自 v6.2.0 起
-配置校验注解自 UltiTools-API v6.2.0 起可用。
-:::
+7.0.0 尚未发布。本页以 UltiTools-API 7.0 为准；使用 6.x 时，请参阅[归档的 v6.4.0 指南](/zh/v6.4.0/guide/advanced/config-validation.html)。
 
 UltiTools 为配置字段提供了声明式的校验注解。
-
-::: info 拒绝语义（v6.3.0 起）
-校验失败的配置值会在加载时拒绝所属模块，不再重置。唯一的例外是 `@NotEmpty` 下为空的列表、集合或映射，它会改用声明的默认值。见下方[行为说明](#行为说明)。
-:::
 
 ## 可用注解
 
@@ -18,14 +12,18 @@ UltiTools 为配置字段提供了声明式的校验注解。
 
 <<< @/../examples/src/main/java/com/ultikits/docs/validation/MyConfig.java
 
-如果服主设置了 `maxHomes: 999`，该模块会在加载时被拒绝。控制台错误会指出模块、配置文件和字段，例如 `field 'maxHomes' value 999 is out of range [1.0, 10.0]`；文件本身不会被改动。
+如果模块名是 `MyModule`，而服主设置 `maxHomes: 999`，框架会拒绝加载模块并保留文件。以下是错误中的配置校验原文；它不随语言设置翻译：
+
+```text
+Module 'MyModule' refused to load: configuration file 'config/config.yml' violates its validation constraints (1): field 'maxHomes' value 999 is out of range [1.0, 10.0]. The file was not modified - fix the value(s) and restart.
+```
 
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `min` | `double` | `-Double.MAX_VALUE` | 允许的最小值（包含） |
 | `max` | `double` | `Double.MAX_VALUE` | 允许的最大值（包含） |
 
-自 v6.3.0 起，值必须满足 `min <= 值 <= max`。NaN（YAML 中的 `.nan`）超出任何范围；无穷大（`.inf`、`-.inf`）也超出范围，除非对应的边界本身就是无穷大，例如 `max = Double.POSITIVE_INFINITY`。`@Range` 只检查数字。
+值必须满足 `min <= 值 <= max`。NaN（YAML 中的 `.nan`）超出任何范围；无穷大（`.inf`、`-.inf`）也超出范围，除非对应的边界本身就是无穷大，例如 `max = Double.POSITIVE_INFINITY`。`@Range` 只检查数字。
 
 ### @NotEmpty
 
@@ -39,9 +37,9 @@ import com.ultikits.ultitools.annotations.config.NotEmpty;
 private String serverName = "My Server";
 ```
 
-值为空白或缺失时，所属模块会在加载时被拒绝，见下方[行为说明](#行为说明)。
+缺少键与写入空值不同：缺少键时使用声明默认值（重载还会比较内存修改）；空白字符串或显式 `null` 的 `String` 值通不过 `@NotEmpty`。
 
-自 v6.3.0 起，`@NotEmpty` 也适用于列表、集合、映射和数组，但结果不同。加载或重载时如果值为空（文件中为空或为 `null`，或列表中每一项都无法绑定），模块会在内存中改用字段声明的默认值，并输出一条警告，写明文件、键、值的种类、文件中写的值和默认值。字段名、某一级键名，或值与默认值中的映射键看起来像机密时，两个值都会隐去。模块照常加载，文件不会被写入。
+`@NotEmpty` 也适用于集合、映射和数组，但结果不同。加载或重载时如果值为空（文件中为空或为 `null`，或列表中每一项都无法绑定），模块会在内存中改用字段声明的默认值，并输出一条警告，写明文件、键、值的种类、文件中写的值和默认值。字段名、某一级键名，或值与默认值中的映射键看起来像机密时，两个值都会隐去。模块照常加载，文件不会被写入。
 
 ```java
 @NotEmpty
@@ -62,7 +60,7 @@ File config/sidebar.yml, key 'lines': the list is empty (found []) but the setti
 
 ### @Size
 
-校验文本、集合、映射或数组的大小在指定范围内。大小指文本的长度、列表或集合的元素个数、映射的条目数和数组的长度（映射与数组自 v6.3.0 起）。
+校验文本、集合、映射或数组的大小在指定范围内。大小指文本的长度、列表或集合的元素个数、映射的条目数和数组的长度。
 
 ```java
 import com.ultikits.ultitools.annotations.config.Size;
@@ -83,7 +81,7 @@ private List<String> allowedWorlds = Arrays.asList("world", "world_nether");
 
 ### @Pattern
 
-校验文本值是否匹配指定的正则表达式。文本指 `String`，或按单字符字符串匹配的 `char`（自 v6.3.0 起）。
+校验文本值是否匹配指定的正则表达式。文本指 `String`，或按单字符字符串匹配的 `char`。
 
 ```java
 import com.ultikits.ultitools.annotations.config.Pattern;
@@ -103,16 +101,16 @@ private String prefix = "Server";
 
 ## 支持的值类型
 
-每个注解只检查它能度量的值类型。自 v6.3.0 起，各类型的结果如下：
+各注解支持的值类型如下。对于声明为其他 `Collection` 类型的字段，例如队列，也适用集合列的规则：
 
-| 注解 | 文本（`String`、`char`） | 数字 | 列表、集合、数组 | 映射 | 其他类型 |
+| 注解 | 文本（`String`、`char`） | 数字 | 集合、数组 | 映射 | 其他类型 |
 |---|---|---|---|---|---|
 | `@Range` | 声明错误 | 违规时拒绝 | 声明错误 | 声明错误 | 声明错误 |
 | `@Pattern` | 违规时拒绝 | 声明错误 | 声明错误 | 声明错误 | 声明错误 |
 | `@Size` | 违规时拒绝 | 声明错误 | 违规时拒绝 | 违规时拒绝（按条目数） | 声明错误 |
 | `@NotEmpty` | 违规时拒绝 | 声明错误 | 改用声明默认值并警告 | 改用声明默认值并警告 | 声明错误 |
 
-「其他类型」包括布尔值、枚举、UUID、`Location` 等 Bukkit 值，以及你自己的值类型。数字指基本数值类型，或 `Integer`、`BigDecimal` 等 `Number`。
+「其他类型」包括布尔值、枚举、UUID、`Location` 等 Bukkit 类型，以及不能容纳任何受支持值的自定义类型。数字指基本数值类型或 `Number` 的子类型，例如 `Integer` 或 `BigDecimal`；字段类型还必须能由转换器绑定。
 
 ### 无法检查的声明
 
@@ -130,11 +128,11 @@ public static class OutputItem {
 private Map<String, OutputItem> recipes = new HashMap<>();
 ```
 
-`OutputItem` 由转换器从文件构造，框架只校验设置 `recipes` 本身，从不校验其中各个值的字段。请在模块的转换器中校验这些字段，在那里可以跳过或拒绝单个条目。UltiRecipe 的 `RecipeConfig.OutputItem` 就是这种形态：模块自行检查这些字段，它面向 6.3.0 的构建保留了这两个注解，但它们在那里不起作用。
+`OutputItem` 由转换器从文件构造，框架只校验设置 `recipes` 本身，从不校验其中各个值的字段。请在模块的转换器中校验这些字段，在那里可以跳过或拒绝单个条目。
 
 ## 组合使用
 
-v6.3.2 文档记录的已知限制，行为不变：`Object` 设置上的约束必须同时满足，不是按运行时类型择一使用。`@Range` 与 `@Pattern`、`@Size` 或 `@NotEmpty` 组合时，种类不能满足全部注解的普通非空内置值会被拒绝。`@Range + @Pattern` 和 `@Range + @Size` 仍允许 null 加载；`@NotEmpty` 拒绝 null。`Object` 字段中的空容器在 `@NotEmpty` 下会被拒绝，不会改用声明默认值：容器默认值替代依据声明的容器类型，而不是运行时值。需要这种替代时应将字段声明为列表、集合、映射或数组，并选择适用于该值类型的约束（[#635](https://github.com/UltiKits/UltiTools-Reborn/issues/635)）。
+`Object` 设置上的约束必须同时满足，不是按运行时类型择一使用。`@Range` 与 `@Pattern`、`@Size` 或 `@NotEmpty` 组合时，种类不能满足全部注解的普通非空内置值会被拒绝。`@Range + @Pattern` 和 `@Range + @Size` 仍允许 null 加载；`@NotEmpty` 拒绝 null。`Object` 字段中的空容器在 `@NotEmpty` 下会被拒绝，不会改用声明默认值：容器默认值替代依据声明的容器类型，而不是运行时值。需要这种替代时应将字段声明为列表、集合、映射或数组，并选择适用于该值类型的约束（[#635](https://github.com/UltiKits/UltiTools-Reborn/issues/635)）。
 
 可以在同一字段上使用多个校验注解：
 
@@ -152,16 +150,10 @@ private String displayName = "Default Name";
 
 ## 行为说明
 
-::: info 构造器解析（v6.3.0 起）
-`validateFields()` 通过与 `ConfigManager` 其它位置一致的两步回退取得默认实例：先尝试 `(String)` 构造器，再尝试调用 `super("config/path.yml")` 的无参构造器。两种写法校验都会生效，只有两种构造器都不存在的类才会注册失败（见 [#314](https://github.com/UltiKits/UltiTools-Reborn/issues/314)）。
-:::
+单文件配置实体支持公开的 `(String)` 构造器，或者公开的无参构造器。框架先尝试前者，将配置路径传给 `super(configFilePath)`；不存在才尝试后者，后者应调用 `super("config/config.yml")` 等固定路径。校验声明默认值也会按该顺序创建临时实例，所以构造器应无副作用。目录配置的每个文件要用 `(String)` 构造器，见[配置文件](/zh/guide/essentials/config-file)。
 
-只要具备两种构造器中的任意一种，配置类就能正常注册：`public MyConfig(String configFilePath)` 内部调用 `super(configFilePath)`，或是无参构造器直接调用 `super("config/path.yml")`。两种写法都受支持，声明其中一种即可。
+- **启动失败**：只拒绝所属模块，文件不变。改正配置后重启；模块未加载，不能用 `/ul reload` 把它加载回来。
+- **重载失败**：失败的配置实体保留调用前的运行值，文件不变。改正后再次重载。此前已成功重载的其他文件不回滚；见[配置文件重载](/zh/guide/essentials/config-file#重载配置文件)。
+- **编辑被拒绝**：`validateProposedProperties` 和 `updateProperties` 的校验错误报告声明键（如 `allowed-commands`），不是 Java 字段名。修正拟写入的值后重试，不用重启。普通拒绝不会改变文件或运行值。
 
-当某个字段的实际值违反约束时：
-
-1. 模块会在加载时被拒绝，值不会被重置，文件也不会被改写。其余模块照常加载。`@NotEmpty` 下为空的列表、集合或映射是例外：它会改用声明的默认值，见 [@NotEmpty](#notempty)。
-2. 控制台错误会指出模块、配置文件、字段和被违反的边界（`@Range`、`@Size` 与 `@Pattern` 还会给出实际值），服主据此即可修复，无需猜测。
-3. 文件本身不会有任何变化，服主写下的值会原样保留，直到他们自己编辑它为止。
-
-这与「输错了自动帮你改对」不同：配置文件归服主所有，只有服主自己的修改才会改变它。修正数值后重启服务器：加载时被拒绝的模块并未加载，无法重载。被 `/ul reload` 拒绝的值会保留运行中的旧值，修正后再次重载即可。
+启动和重载的详情使用 Java 字段名。`@Range` 报告实际数值，`@Size` 报告实际长度或条目数，`@Pattern` 报告实际值（疑似秘密时隐藏）。校验失败不会用默认值静默修复文件；上文的 `@NotEmpty` 容器回退只发生于绑定，且只改内存。
