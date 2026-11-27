@@ -19,7 +19,7 @@
 | `BaseConfirmationPage`、`Confirm.gui(...)` | 界面服务的 `Confirm`（`com.ultikits.ultitools.ui.Confirm`），通过 `UiService#show` 显示 | [UI：意图与会话](/zh/guide/advanced/ui-service#notice-and-confirm) |
 | `Confirm.chat(...)`（`ChatConfirm`） | 框架不再提供；由模块自行发送可点击的聊天提示 | [UI：意图与会话](/zh/guide/advanced/ui-service#chat-confirmation) |
 | `Buttons`、`ViewType` | 没有替代类型；使用 `TextButton` 的标签或框架标签键 | [对话框按钮](/zh/guide/advanced/ui-service#dialog-buttons) |
-| obliviate-invs、UniversalScheduler | 不再随框架打包；见[模块版本管理](/zh/guide/advanced/module-versioning#legacy-chest-removal) | |
+| obliviate-invs、UniversalScheduler | 不再随框架打包；见[旧箱子页面与确认组件](/zh/guide/advanced/upgrading-to-7#chest-and-confirmation) | |
 
 `Colors` 在 7.0 中仍然保留。
 
@@ -292,7 +292,7 @@ public enum Colors {
 下面的 `XVersionUtils` 调用仅适用于 6.x；`new ItemStack(Material.CYAN_STAINED_GLASS_PANE)` 在 6.x 和 7.0 上都能使用，而 `new ItemStack(Colors.CYAN.getGlassPaneMaterial())` 需要 7.0。
 :::
 
-自 v7.0.0 起，框架内置 GUI 的玻璃颜色和按钮材质保持不变。完整迁移说明见 [7.0 原生物品与音效 API](/zh/guide/advanced/module-versioning#_7-0-原生物品与音效-api)。
+自 v7.0.0 起，框架内置 GUI 的玻璃颜色和按钮材质保持不变。完整迁移说明见 [7.0 原生物品与音效 API](/zh/guide/advanced/upgrading-to-7#items-and-sounds)。
 
 用法：
 

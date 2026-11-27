@@ -8,7 +8,7 @@ footer: false
 
 ## Prerequisites
 
-As of v7.0.0, use JDK 25 and Maven to build the module. Test it on a server running UltiTools 7.0 in the [framework's target environment](/guide/introduction#runtime-requirements). Put the UltiTools framework JAR in the server's `plugins/` directory; the module JAR goes in a different directory, described below.
+As of v7.0.0, use JDK 25 and Maven to build the module. Test it on a server running UltiTools 7.0 in the [framework's target environment](/guide/introduction#runtime-requirements). Put the UltiTools framework JAR in the server's `plugins/` directory; the module JAR goes in a different directory, described below. Download Paper 26.3 build 258 from the [official Paper downloads page](https://papermc.io/downloads/paper). Starting the framework requires network access to resolve its runtime libraries unless they are already cached.
 
 Until 7.0.0 is released, get the framework JAR in one of two ways: build the framework from source with `mvn clean package`, or download the `com.ultikits:UltiTools-API` `7.0.0-SNAPSHOT` JAR from the snapshot repository that the `pom.xml` below uses. That JAR is the Paper plugin itself. A module built for 7.0 needs a 7.0 framework; the released 6.x builds do not load it.
 
@@ -21,7 +21,7 @@ ultikits create HelloModule
 cd HelloModule
 ```
 
-Enter `HelloModule` as the module name and `com.example.hellomodule` as the Java package. Enter a description and author, and accept `7.0.0-SNAPSHOT` for the preview API. Without the 7.0 template, create the files below in a new `HelloModule` directory instead.
+The `HelloModule` argument names the target directory. At the prompts, enter `HelloModule` separately as the module name and `com.example.hellomodule` as the Java package. Enter a description and author, and accept `7.0.0-SNAPSHOT` for the preview API. Without the 7.0 template, create the files below in a new `HelloModule` directory instead.
 
 ### Initial Project Layout
 
@@ -46,7 +46,7 @@ For manual setup, use this `pom.xml`. It uses the same API coordinates, `provide
 ```xml
 <project xmlns="http://maven.apache.org/POM/4.0.0">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.ultikits.plugins</groupId>
+  <groupId>com.example.hellomodule</groupId>
   <artifactId>HelloModule</artifactId>
   <version>1.0.0</version>
   <properties>
@@ -168,7 +168,7 @@ public class HelloCommand extends BaseCommandExecutor {
 
 ## Player-Facing Text
 
-As of v7.0.0, `Messages` and `messages/<locale>.yml` are the only text system. Put these UTF-8 catalogues under `src/main/resources/`. If you used the CLI, add the `command` entries to the generated files. `messages.key("command.hello")` refers to the module's own key; the catalogue value uses MiniMessage to colour the greeting. See [Messages and Languages](/guide/essentials/messages) and [Legacy Text Migration](/guide/essentials/i18n).
+As of v7.0.0, `Messages` and `messages/<locale>.yml` are the only text system. Put these UTF-8 catalogues under `src/main/resources/`. If you used the CLI, add the `command` entries to the generated files. `messages.key("command.hello")` refers to the module's own key; the catalogue value uses MiniMessage to colour the greeting. By default (`language: auto`), a player sees the greeting in their client language if the module has a matching catalogue; otherwise UltiTools tries the fallback language. See [Messages and Languages](/guide/essentials/messages) and [Legacy Text Migration](/guide/essentials/i18n).
 
 ```yaml
 # src/main/resources/messages/en.yml

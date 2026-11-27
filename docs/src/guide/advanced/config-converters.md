@@ -34,7 +34,7 @@ A converter may accept noncanonical input `q`. Its canonical form is `toPlain(fr
 fromPlain(toPlain(fromPlain(q))) equals fromPlain(q)
 ```
 
-Built-in coercions include number to String, numeric text to int/float, `"false"` to boolean and duplicate elements to a Set. They need not preserve the original noncanonical representation. Equality is semantic, not object identity; numeric plain values compare by value. Adding ten on read without subtracting ten on write violates forward equality. Panel map leaf edits and three-way reload depend on that equality to preserve unchanged siblings. Test null, nested values, converter-emitted plain values and accepted noncanonical inputs.
+Built-in coercions include number to String, numeric text to `int` or `float`, `"false"` to boolean and duplicate elements to a Set. They need not preserve the original noncanonical representation. Equality is semantic, not object identity; numeric plain values compare by value. Adding ten on read without subtracting ten on write violates forward equality. Panel map leaf edits and three-way reload depend on that equality to preserve unchanged siblings. Test null, nested values, converter-emitted plain values and accepted noncanonical inputs.
 
 ## Registration and lookup
 

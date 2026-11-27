@@ -31,7 +31,7 @@ depend: [UltiTools]
 
 As of v7.0.0 UltiTools itself is a Paper plugin, but on Paper 26.3 a regular `plugin.yml` plugin can still declare `depend: [UltiTools]`. Use it when enable always calls `connect`: Paper must load and enable UltiTools before your plugin. `softdepend: [UltiTools]` is for an optional integration: Paper can enable your plugin without UltiTools. In that case, check that UltiTools is enabled before entering code that uses its types; do not call `connect` unconditionally.
 
-In this `plugin.yml`, `api-version: '26.3'` is the Paper API version, not the UltiTools module level `700`. Do not declare a `commands` entry for commands registered by UltiTools.
+In this `plugin.yml`, `api-version: '26.3'` is the Paper API version, not the UltiTools module level `700`. Commands registered by UltiTools do not need a `commands:` entry.
 
 ### 3. Connection and disconnection
 
@@ -41,11 +41,11 @@ Call `connect` in `onEnable()`, after any plugin state needed by scanned bean in
 
 On success, the console includes `[UltiTools-API] External plugin connected: <name> v<version>`. Repeating `connect` on the same connected instance is ignored and logs `[UltiTools-API] Plugin <name> is already connected. Ignoring duplicate connect().` It does not rescan or add entities to that connection.
 
-If UltiTools has not loaded, `connect` throws `IllegalStateException`. If registration throws an exception, the API wraps it in `IllegalStateException` with `Failed to connect plugin <name> to UltiTools`; inspect the cause. The framework unwinds resources already registered, including the stage that failed, then releases the container and data scope for failures during registration. Inspect suppressed cleanup failures before retrying; plugin code's own side effects are not rolled back. Treat `isConnected` as a status check outside the connection call, not as a readiness signal from a bean initializer.
+If UltiTools has not loaded, `connect` throws `IllegalStateException`. If registration throws an `Exception`, the API wraps it in `IllegalStateException` with `Failed to connect plugin <name> to UltiTools`; inspect the cause. An `Error` that escapes registration, such as `NoClassDefFoundError`, propagates without being wrapped by `connect`. The framework unwinds resources already registered, including the stage that failed, then releases the container and data scope for failures during registration. Inspect suppressed cleanup failures before retrying; plugin code's own side effects are not rolled back. Treat `isConnected` as a status check outside the connection call, not as a readiness signal from a bean initializer.
 
 ## Component scanning
 
-The default scan starts at the package of `main` and includes its subpackages. It does not start at the JAR root or include sibling packages. If you move the example main class, put the example components in the same package or below it. The separate `@Table` scan looks in the plugin's own JAR, not just that component package.
+The default scan starts at the package of `main` and includes its subpackages. It does not start at the JAR root or include sibling packages. If `main` is in the default package, UltiTools skips component scanning. If you move the example main class, put the example components in the same package or below it. The separate `@Table` scan looks in the plugin's own JAR, not just that component package.
 
 | Component | Registration |
 |---|---|
@@ -67,6 +67,8 @@ As of v7.0.0, `connect` discovers and compiles commands; UltiTools hands the tre
 <<< @/../examples/src/main/java/com/ultikits/docs/external/GreetCommand.java
 
 An external plugin's `description` is literal even when it has its own message catalogue. Use `Messages` explicitly for replies written by your plugin. See [Command Executor](/guide/essentials/cmd-executor) for parsing and completion.
+
+Leave `manualRegister` at its default of `false` for external annotation executors. `connect` skips executors with `manualRegister = true`, and the external plugin API has no method to register them later. If an executor uses a custom `TypeParser`, register it with `TypeParserRegistry.getInstance().register(...)` before calling `connect`, which compiles the command tree. Custom parsers do not replace built-in argument mappings.
 
 | Situation | Console diagnostic |
 |---|---|

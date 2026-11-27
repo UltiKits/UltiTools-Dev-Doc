@@ -329,4 +329,4 @@ ui.show(player, Grid.builder(Text.of(messages.key("bag.title")), 3)
 - 不要为同一个存储键同时打开两个界面。某个键的界面仍开着、还有未保存的改动时，再为同一个键打开另一个界面，新界面读到的是旧数据；框架不会合并两份副本。请先结束旧界面、等它提交完成，再读取该键并重新显示。
 - 框架拒绝某次点击时，客户端会先画出自己的预测，随后被服务器纠正，画面可能闪一下。这是游戏协议本身的特性。同一个容器的其他观看者比操作的玩家晚一个 tick 看到变化。
 - 在运行中的服务器上实际卸载或重载模块时，框架在服务器线程上等待未保存的存储界面，最多约 10 秒。这与 Paper 默认的 `watchdog.early-warning-delay`（10000 毫秒）相同，等满时 Paper 可能打印 `The server has not responded for 10 seconds! Creating thread dump` 和一段线程转储。服务器并没有崩溃，该排查的是没有答复的存储。停服过程中 Paper 不打印这种预警。
-- 声明式引擎现在向 `UiService` 提交 `Grid` 快照，不再继承 obliviate 的 `Gui`。使用 6.x 界面的模块需要迁移并针对 7.0 重新构建；参见[声明式 GUI](/zh/guide/advanced/declarative-gui)。旧箱子页面和两个旧确认组件（箱子式与聊天式）也已删除，见[聊天确认](#chat-confirmation)和[7.0 中的旧箱子页面与确认组件](/zh/guide/advanced/module-versioning#legacy-chest-removal)。
+- 声明式引擎现在向 `UiService` 提交 `Grid` 快照，不再继承 obliviate 的 `Gui`。使用 6.x 界面的模块需要迁移并针对 7.0 重新构建；参见[声明式 GUI](/zh/guide/advanced/declarative-gui)。旧箱子页面和两个旧确认组件（箱子式与聊天式）也已删除，见[聊天确认](#chat-confirmation)和[7.0 中的旧箱子页面与确认组件](/zh/guide/advanced/upgrading-to-7#chest-and-confirmation)。

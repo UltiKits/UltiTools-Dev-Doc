@@ -39,8 +39,8 @@ public void addPoint(@CmdSender Player player, @CmdParam("name") String name) {
 
 框架把注解编译成字面量节点和类型化参数节点，在 `LifecycleEvents.COMMANDS` 事件中把命令树交给 Paper。框架不再通过反射构造 `PluginCommand`，也不修改 Bukkit 的私有命令表。
 
-- 模块扫描得到的执行器 Bean 会自动注册，除非设了 `manualRegister = true`。手动注册时，将执行器保留在模块容器中并设 `manualRegister = true`，在模块的 `registerSelf()` 中调用 `getCommandManager().register(this, ExampleCommand.class)`。管理器从容器中取 Bean；未标注 `@CmdExecutor` 的执行器不会注册。
-- [外部 Paper 插件](/zh/guide/advanced/external-plugin-api)应声明依赖，让 UltiTools 先启用，再在 `JavaPlugin.onEnable()` 中调用 `UltiToolsAPI.connect(this)`。连接时的注册会将合格的 Bean 交给同一个 Paper 事件处理，正常启动时可赶上首次事件。不必在外部插件的 `plugin.yml` 中为这些注解命令声明 `commands`，也不要调用模块专用的手动注册方法。
+- 模块扫描得到的执行器 Bean 会自动注册，除非模块通过 `@UltiToolsModule(cmdExecutor = false)` 关闭[自动注册](/zh/guide/advanced/auto-register)，或执行器设置 `manualRegister = true`。手动注册时，将执行器保留在模块容器中并设 `manualRegister = true`，在模块的 `registerSelf()` 中调用 `getCommandManager().register(this, ExampleCommand.class)`。管理器从容器中取 Bean；未标注 `@CmdExecutor` 的执行器不会注册。
+- [外部 Paper 插件](/zh/guide/advanced/external-plugin-api)应声明依赖，让 UltiTools 先启用，再在 `JavaPlugin.onEnable()` 中调用 `UltiToolsAPI.connect(this)`。连接时的注册会将合格的 Bean 交给同一个 Paper 事件处理，正常启动时可赶上首次事件。这些注解命令无需在外部插件的 `plugin.yml` 中声明 `commands:`。手动注册方法仅适用于模块。
 - 两种所有者都可以提供实现 `com.ultikits.ultitools.command.BrigadierCommand` 的容器 Bean。`node()` 返回 `LiteralCommandNode<CommandSourceStack>`，每次注册调用一次；`aliases()` 和可返回 `null` 的 `description()` 可选。Bean 按实例去重。手写树需要自行检查权限和提供补全，不使用注解校验器、冷却或 `@CmdParam` 补全。指向所提供命令树以外的重定向目标不受卸载控制，也不会随实例替换而重新绑定；请通过下次命令事件或重启刷新。
 
 注册时可将模块描述作为消息目录中的路径解析；未解析时使用原文。外部执行器的描述直接使用原文。[外部插件消息 API](/zh/guide/advanced/external-plugin-api)不会让外部命令的描述或自动补全提示从外部目录解析。
@@ -121,14 +121,14 @@ Cannot load module <module>: executor <class>: <class>#<method> [<format>]: <rea
 
 字面量由 Brigadier 补全。框架合并使用该参数节点的可用映射所指定的补全提供者（`@CmdParam(suggest = ...)`）。只有这些映射都未指定提供者时，`protected List<String> suggest(CommandSender sender, String label, String[] args)` 接收实际输入的标签和参数（包括当前未输完的部分）。返回 `null` 保留原生补全，返回列表则替换原生补全，空列表表示没有候选。
 
-- `@players`、`@worlds`、`@materials`（也可写成 `@blocks` 或 `@items`）、`@boolean`（也可写成 `@toggle`）是内置键。自定义键用 `TabCompletionManager.register(String, TabCompleter)` 在校验命令声明前注册。未知 `@key` 会导致加载失败。`TabCompletionContext.getSender()` 返回请求者；对非玩家，`getPlayer()` 返回 `null`。
+- `@players`、`@worlds`、`@materials`（也可写成 `@blocks` 或 `@items`）、`@boolean`（也可写成 `@toggle`）是内置键。自定义键用 `TabCompletionManager.getInstance().register(key, completer)` 在校验命令声明前注册。未知 `@key` 会导致加载失败。`TabCompletionContext.getSender()` 返回请求者；对非玩家，`getPlayer()` 返回 `null`。
 - 使用方法提供者时，将方法名填入 `suggest`。返回 `List<String>`，参数列表只能为 `()`、`(String)`、`(Player)`、`(Player, String)`、`(Player, Command, String[])`、`(CommandSender)`、`(CommandSender, String)` 或 `(CommandSender, Command, String[])`。`String` 是未输完的参数，`Command` 按标签从公开命令表查找，`String[]` 包含命令参数。非玩家请求会跳过只接受玩家的方法。不支持的参数签名会在加载时被拒绝。
 - 方法优先在执行器中查找。模块可以用类级 `@CmdSuggest({PointSuggest.class})` 指定容器中的 Bean 来共享提供者。外部执行器应把方法写在执行器本身；共享提供者的 Bean 查找只支持模块。
 - 如果没有匹配的方法，模块可用[模块消息路径](/zh/guide/essentials/messages#module-annotation-text)作为补全提示；路径无效或键不存在时使用原文。外部执行器在此分支不提供提示，即使外部插件有自己的消息目录。
 
 ## 权限与回复
 
-类和映射分别声明权限时，两者都须满足；任一层设置 `requireOp = true`，发送者还必须是 OP。方法的 `@CmdTarget` 可以重复或收窄类级目标，但不能放宽，也不能在 `PLAYER` 与 `CONSOLE` 之间切换。这同样适用于继承来的映射。
+类和映射分别声明权限时，两者都须满足；任一层设置 `requireOp = true`，发送者还必须是 OP。方法的 `@CmdTarget` 可以重复或收窄类级目标，但不能放宽，也不能在 `PLAYER` 与 `CONSOLE` 之间切换。这同样适用于继承来的映射。扫描到违反此规则的执行器时，UltiTools 不会将整个执行器类登记为 Bean，并为每处违规记录一条 `SEVERE` 日志，开头为 `Refused to register command class due to ambiguous @CmdTarget composition:`。
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerOnlyCommand.java
 
@@ -172,7 +172,7 @@ Cannot load module <module>: executor <class>: <class>#<method> [<format>]: <rea
 
 ## 校验、冷却与执行锁
 
-`CommandContext` 提供发送者、主命令名（`getCommandName()`）、实际输入的标签（`getAlias()`）、原始参数（`getRawArgs()`）以及匹配的方法与格式。用 `getParsedParams()` 或 `getParam(name)` 读取类型化参数；参数为数组时，`getParamValue(name)` 返回首个元素。读取解析结果，不要重新解析 `getRawArgs()`。
+`CommandContext` 提供发送者、主命令名（`getCommandName()`）、实际输入的标签（`getAlias()`）、原始参数（`getRawArgs()`）以及匹配的方法与格式。`getArgCount()` 返回原始参数的数量；`getArg(index)` 从下标 0 开始读取原始参数，越界时返回 `null`。用 `getParsedParams()` 或 `getParam(name)` 读取类型化参数；参数为数组时，`getParamValue(name)` 返回首个元素。读取解析结果，不要重新解析 `getRawArgs()`。
 
 参数解析后，框架按 `getOrder()` 从小到大执行校验器。默认有 `SenderTypeValidator`（100）、`PermissionValidator`（200）、`UsageLockValidator`（250）和 `CooldownValidator`（300）。自定义校验器的默认顺序值为 `0`。用 `addValidator(...)` 可保留默认链；`super(chain)` 会替换默认链，但不会绕过命令树的条件。声明了 `@CmdCD` 或启用了 `@UsageLimit` 而没有相应校验器时，加载会被拒绝。
 
@@ -192,7 +192,7 @@ public WorldCheckCommand() {
 
 ### 冷却与执行锁
 
-`@CmdCD(60)` 对玩家启用 60 秒冷却，按执行器实例与映射区分。方法注解优先于类级默认值（包括声明该映射的基类默认值）。方法体抛出异常仍开始冷却，未进入方法体的拒绝不开始冷却。显示的剩余时间是剩余整秒数加一，因此 `@CmdCD(5)` 可能显示 6 秒。要查询默认校验器上某个映射的冷却，用 `getCooldownValidator().getRemainingCooldown(playerId, this, method.toString())`；若替换了校验链，查询链中实际使用的校验器。
+`@CmdCD(60)` 对玩家启用 60 秒冷却，按执行器实例与映射区分。方法注解优先于类级默认值（包括声明该映射的基类默认值）。方法体抛出异常仍开始冷却，未进入方法体的拒绝不开始冷却。显示的剩余时间是剩余整秒数加一，因此 `@CmdCD(5)` 可能显示 6 秒。要查询默认校验器上某个映射的冷却，用 `getCooldownValidator().getRemainingCooldown(playerId, this, method.toString())`；若替换了校验链，查询链中实际使用的校验器。在该校验器上调用 `clearCooldown(playerId, this, method.toString())` 可清除当前执行器的冷却。双参数重载 `clearCooldown(playerId, method.toString())` 会清除该校验器所服务的所有执行器上此方法的冷却。
 
 `@UsageLimit(UsageLimit.LimitType.SENDER)` 按玩家锁定映射。`ALL` 为每个映射在所有玩家之间共用一把锁；`ContainConsole = true` 时，非玩家发送者会被玩家持有的锁拦截，但不能取锁。非玩家也不会取得 `SENDER` 锁。`NONE` 不限；`ContainConsole = false` 排除非玩家发送者。方法级注解优先于类级默认值。取锁不等待；方法体结束（包括抛出异常）或后续校验拒绝调用时释放锁。因此外层调用持锁时，嵌套分派同一映射可能被拒绝。卸载时，共用的内置校验器状态保留至最后一个执行器释放它。
 
@@ -213,6 +213,18 @@ public WorldCheckCommand() {
 没有异步注解时，方法体在全局 tick 线程上立即执行；由其他线程调用时则提交给 `global().run(...)`。立即执行可能阻塞服务器，嵌套的同步命令可以在外层调用返回前运行。如果 GUI 点击回调要分派会打开或关闭物品栏的命令，应把分派推迟到点击事件之后。使用面板的捕获式发送者时，分派返回前发送的回复可随命令结果返回；之后的回复进入控制台日志流。见[面板集成](/zh/guide/advanced/panel-integration#远程命令的结果)。
 
 `@RunAsync` 和 `@AsyncCommand` 的方法体由框架的 `Scheduler.async()` 执行，不使用模块调度器，也不是玩家实体任务。CPU 或 I/O 工作可以在异步方法体运行；世界、实体、方块、区块和物品栏的访问应提交到适当的[调度器上下文](/zh/guide/advanced/scheduled-tasks#调度器-api)，例如用模块注入的 `Scheduler` 调用 `scheduler.entity(player).run(...)`。玩家离线不会跳过已经接受的方法体或其完成钩子。方法体的失败提示可能由工作线程发送。
+
+在下面的模块执行器方法中，`scheduler` 是注入的 `Scheduler`，`buildReport` 是你自己实现的计算或 I/O 操作，不访问 Bukkit 状态。结果由调度后的回调发送给玩家。
+
+```java
+@CmdTarget(CmdTarget.CmdTargetType.PLAYER)
+@CmdMapping(format = "report <name>")
+@RunAsync
+public void report(Player player, @CmdParam("name") String name) {
+    String result = buildReport(name);
+    scheduler.entity(player).run(() -> player.sendMessage(result));
+}
+```
 
 `@AsyncCommand` 可显示处理中提示。`processingMessageKey` 使用 `<namespace>:<path>`（例如 `my-module:backup.processing`），颜色由相应目录定义。值为空或无效时使用 `ultitools:command.async.processing`；无效值按每个执行器和取值记录一次警告：
 

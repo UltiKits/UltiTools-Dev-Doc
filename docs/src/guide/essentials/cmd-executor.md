@@ -39,8 +39,8 @@ public void addPoint(@CmdSender Player player, @CmdParam("name") String name) {
 
 The framework compiles literal and typed argument nodes from the annotations and hands the tree to Paper during `LifecycleEvents.COMMANDS`. It does not create `PluginCommand` by reflection or edit Bukkit's private command map.
 
-- A module's scanned executor beans register automatically unless `manualRegister = true`. For a manually managed executor, keep it in the module container and use `getCommandManager().register(this, ExampleCommand.class)` in the module's `registerSelf()`; set `manualRegister = true` on that executor. The manager retrieves the bean from the container. An executor without `@CmdExecutor` is not registered.
-- For an [external Paper plugin](/guide/advanced/external-plugin-api), call `UltiToolsAPI.connect(this)` in `JavaPlugin.onEnable()`, with the dependency declared so UltiTools is already enabled. The connection registers eligible beans for the same Paper event, including the initial event in normal startup. Do not declare these annotation commands under `commands` in the external plugin's `plugin.yml` or use the module-only manual registration method.
+- A module's scanned executor beans register automatically unless the module disables [auto-registration](/guide/advanced/auto-register) with `@UltiToolsModule(cmdExecutor = false)` or the executor sets `manualRegister = true`. For a manually managed executor, keep it in the module container and use `getCommandManager().register(this, ExampleCommand.class)` in the module's `registerSelf()`; set `manualRegister = true` on that executor. The manager retrieves the bean from the container. An executor without `@CmdExecutor` is not registered.
+- For an [external Paper plugin](/guide/advanced/external-plugin-api), call `UltiToolsAPI.connect(this)` in `JavaPlugin.onEnable()`, with the dependency declared so UltiTools is already enabled. The connection registers eligible beans for the same Paper event, including the initial event in normal startup. These annotation commands do not need a `commands:` entry in the external plugin's `plugin.yml`. The manual registration method is for modules only.
 - Either owner can supply a container bean implementing `com.ultikits.ultitools.command.BrigadierCommand`. Implement `node()` to return a `LiteralCommandNode<CommandSourceStack>`; it is called once per registration. `aliases()` and nullable `description()` are optional. Beans are deduplicated by identity. Supply your own access checks and completion: handwritten trees do not receive annotation validators, cooldowns or `@CmdParam` completion. Redirect targets outside the supplied tree are not controlled by unload and do not rebind with a replacement; use the next commands event or restart to refresh them.
 
 For a module, a description path can resolve through its message catalogue at registration; otherwise the description is used as written. An external executor's description is used as written. The [external plugin message API](/guide/advanced/external-plugin-api) does not make external descriptions or automatic completion hints resolve through an external catalogue.
@@ -121,14 +121,14 @@ The following parser accepts a range such as `1-100`; register it the same way b
 
 Brigadier supplies literal suggestions. For an argument node, the framework merges explicit providers (`@CmdParam(suggest = ...)`) from accessible mappings that use it. Only when none of those mappings supplies a provider does `protected List<String> suggest(CommandSender sender, String label, String[] args)` receive the typed label and arguments, including the partial token. Return `null` for native suggestions, a list to replace them, or an empty list for no candidates.
 
-- `@players`, `@worlds`, `@materials` (also `@blocks` and `@items`) and `@boolean` (also `@toggle`) are built-in provider keys. Register a custom key with `TabCompletionManager.register(String, TabCompleter)` before the command contract is validated. Unknown `@key` values cause load to fail. `TabCompletionContext.getSender()` returns the requester; `getPlayer()` returns `null` for non-players.
+- `@players`, `@worlds`, `@materials` (also `@blocks` and `@items`) and `@boolean` (also `@toggle`) are built-in provider keys. Register a custom key with `TabCompletionManager.getInstance().register(key, completer)` before the command contract is validated. Unknown `@key` values cause load to fail. `TabCompletionContext.getSender()` returns the requester; `getPlayer()` returns `null` for non-players.
 - For a method provider, use its name in `suggest`. Return `List<String>` and use exactly one of `()`, `(String)`, `(Player)`, `(Player, String)`, `(Player, Command, String[])`, `(CommandSender)`, `(CommandSender, String)`, or `(CommandSender, Command, String[])`. `String` is the partial token, `Command` is looked up in the public command map by label, and `String[]` contains the arguments. Player-only providers are skipped for non-player requests. Unsupported parameter signatures are refused at load.
 - Method lookup starts on the executor. Modules can share providers by listing module container beans in class-level `@CmdSuggest({PointSuggest.class})`. For external executors, keep method providers on the executor itself; the shared-provider bean lookup is module-only.
 - If no method matches, a module can use a [module message path](/guide/essentials/messages#module-annotation-text) as the hint; a missing or invalid path uses the literal value. For an external executor, this missing-method branch supplies no hint, even if the plugin has its own catalogue.
 
 ## Access and feedback
 
-Class and mapping permissions are both required when set; `requireOp = true` at either level also requires OP. Method `@CmdTarget` can repeat or narrow the class target, never widen it or switch between `PLAYER` and `CONSOLE`. This applies to inherited mappings too.
+Class and mapping permissions are both required when set; `requireOp = true` at either level also requires OP. Method `@CmdTarget` can repeat or narrow the class target, never widen it or switch between `PLAYER` and `CONSOLE`. This applies to inherited mappings too. If a scanned executor violates this rule, UltiTools rejects the entire executor class before registering it as a bean and logs one `SEVERE` message per violation, starting with `Refused to register command class due to ambiguous @CmdTarget composition:`.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerOnlyCommand.java
 
@@ -172,7 +172,7 @@ The default unknown and argument-error replies are red. The usage prefix is yell
 
 ## Validation, cooldown and execution locks
 
-`CommandContext` supplies the sender, the primary command name (`getCommandName()`), the typed label (`getAlias()`), raw arguments (`getRawArgs()`), and the matched method and format. Read typed arguments from `getParsedParams()` or `getParam(name)`; `getParamValue(name)` returns the first element for an array. Use this typed result instead of re-parsing `getRawArgs()`.
+`CommandContext` supplies the sender, the primary command name (`getCommandName()`), the typed label (`getAlias()`), raw arguments (`getRawArgs()`), and the matched method and format. `getArgCount()` counts the raw arguments; `getArg(index)` reads a zero-based raw argument and returns `null` if the index is out of range. Read typed arguments from `getParsedParams()` or `getParam(name)`; `getParamValue(name)` returns the first element for an array. Use this typed result instead of re-parsing `getRawArgs()`.
 
 After resolving arguments, the framework runs validators in ascending `getOrder()` order. The defaults are `SenderTypeValidator` (100), `PermissionValidator` (200), `UsageLockValidator` (250) and `CooldownValidator` (300). A custom validator defaults to `0`. Use `addValidator(...)` to keep the default chain. `super(chain)` replaces the defaults but does not bypass the command tree's requirements. A declared `@CmdCD` or active `@UsageLimit` without the corresponding validator is refused at load.
 
@@ -192,7 +192,7 @@ Here the class is `WorldCheckCommand`. To supply your own chain, build it with `
 
 ### Cooldown and execution lock
 
-`@CmdCD(60)` applies a 60-second player cooldown per executor instance and mapping. A method annotation takes priority over a class default (including a base class default for mappings declared there). A body that throws still starts its cooldown; a rejection before the body runs does not. The displayed remaining time is the number of whole seconds left plus one, so `@CmdCD(5)` can display 6 seconds. To query the default validator for a mapping, use `getCooldownValidator().getRemainingCooldown(playerId, this, method.toString())`; if replacing the chain, query the validator actually present in it.
+`@CmdCD(60)` applies a 60-second player cooldown per executor instance and mapping. A method annotation takes priority over a class default (including a base class default for mappings declared there). A body that throws still starts its cooldown; a rejection before the body runs does not. The displayed remaining time is the number of whole seconds left plus one, so `@CmdCD(5)` can display 6 seconds. To query the default validator for a mapping, use `getCooldownValidator().getRemainingCooldown(playerId, this, method.toString())`; if replacing the chain, query the validator actually present in it. Use `clearCooldown(playerId, this, method.toString())` on that validator to clear the cooldown for this executor. The two-argument overload `clearCooldown(playerId, method.toString())` clears the method’s cooldown across all executors served by that validator.
 
 `@UsageLimit(UsageLimit.LimitType.SENDER)` locks a mapping per player. `ALL` uses one lock per mapping across players; with `ContainConsole = true`, non-player senders are blocked while a player holds it, but cannot acquire it. Non-player senders never acquire a `SENDER` lock either. `NONE` disables the limit; `ContainConsole = false` exempts non-player senders. A method-level annotation overrides the class default. The lock is acquired without waiting, released when the body finishes (even if it throws), and released if a later validation step refuses the invocation. A nested dispatch of the same mapping can therefore be refused while the outer invocation still holds the lock. On unload, shared built-in validator state is retained until its last executor releases it.
 
@@ -213,6 +213,18 @@ With `/ul reload`, a valid new value applies to future cooldowns, not ones alrea
 Without an async annotation, a body runs inline on the global tick thread, or is submitted to `global().run(...)` if invoked from another thread. Inline execution can block the server, and a nested synchronous dispatch can run before the outer invocation returns. If a GUI click callback dispatches a command that opens or closes an inventory, defer the dispatch out of the click event. With the panel's capturing sender, replies sent before dispatch returns can appear in the command result; later replies go to the console log stream. See [Panel integration](/guide/advanced/panel-integration#remote-command-results).
 
 `@RunAsync` and `@AsyncCommand` use the framework-owned `Scheduler.async()` for the body, not the module scheduler or a player entity task. Use the worker for CPU or I/O work; send world, entity, block, chunk and inventory access back to the appropriate [scheduler context](/guide/advanced/scheduled-tasks#scheduler-api), such as `scheduler.entity(player).run(...)` using the module's injected `Scheduler`. A player leaving does not skip the accepted body or its completion hooks. A body failure can send feedback from the worker thread.
+
+In this module executor method, `scheduler` is the injected `Scheduler` and `buildReport` is your own CPU or I/O work that does not access Bukkit state. Only the callback sends the result to the player.
+
+```java
+@CmdTarget(CmdTarget.CmdTargetType.PLAYER)
+@CmdMapping(format = "report <name>")
+@RunAsync
+public void report(Player player, @CmdParam("name") String name) {
+    String result = buildReport(name);
+    scheduler.entity(player).run(() -> player.sendMessage(result));
+}
+```
 
 `@AsyncCommand` can display a processing message. `processingMessageKey` uses `<namespace>:<path>` (for example, `my-module:backup.processing`), with color from that catalogue. An empty or invalid value uses `ultitools:command.async.processing`; an invalid value logs once per executor and value:
 

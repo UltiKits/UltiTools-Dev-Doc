@@ -24,7 +24,7 @@ Start with [Quick Start](/guide/quick-start) to build a module, install it on a 
 
 ## 6.x Documentation
 
-If you are working with 6.x, see the [archived v6.4.0 introduction](/v6.4.0/guide/introduction.html) and the [older-server guide](/guide/advanced/older-servers). That compatibility guidance does not apply to 7.0.
+If you are working with 6.x, see the [archived v6.4.0 introduction](/v6.4.0/guide/introduction.html) and the [older-server archive note](/guide/advanced/older-servers). That compatibility guidance does not apply to 7.0.
 
 ## The Team
 

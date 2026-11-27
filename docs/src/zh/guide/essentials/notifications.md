@@ -3,7 +3,7 @@
 自 v7.0.0 起，框架的 `NotificationService`（包 `com.ultikits.ultitools.services`）向单个玩家发送简短通知：聊天消息、标题、动作栏，或一条会自行减少并消失的 Boss 栏。所有文字都是[文本引擎](/zh/guide/essentials/messages)的 `Text`，按收件玩家的语言渲染。
 
 ::: warning 未发布的 v7.0.0 行为
-本页描述尚未发布的 7.0.0 框架。6.x 使用 `String` 文本、`int` 秒数与 tick、Bukkit 音效，方法返回 `boolean`；参见 [7.0 的通知服务](/zh/guide/advanced/module-versioning#notification-service-7)。
+本页描述尚未发布的 7.0.0 框架。6.x 使用 `String` 文本、`int` 秒数与 tick、Bukkit 音效，方法返回 `boolean`；参见 [7.0 的通知服务](/zh/guide/advanced/upgrading-to-7#notifications-migration)。
 :::
 
 ## 获取服务

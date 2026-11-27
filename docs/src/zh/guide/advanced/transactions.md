@@ -62,7 +62,7 @@ try {
 
 ## 批量操作
 
-`DataOperator` 接口提供了自动包装在事务中的批量方法：
+内置的 JSON、SQLite 和 MySQL `DataOperator` 实现在事务中执行 `insertAll` 和 `updateAll`。接口默认的 `updateAll` 只逐项调用 `update`，不会开启事务。以下示例使用内置操作器。
 
 ### insertAll
 

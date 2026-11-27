@@ -2,6 +2,8 @@
 
 7.0.0 尚未发布。本页说明自 v7.0.0 起框架如何处理 UltiPanel 集成；发布状态见 [7.0.0 版本说明](/zh/guide/release-notes/7.0.0)。服务器绑定与连接状态见[云端登录](/zh/guide/advanced/cloud-login)。
 
+使用[当前的设备码登录](./cloud-login.md)时，`/ulticloud login` 会打印 `Requesting a device code from UltiCloud...`。收到设备码后，控制台会打印验证地址和设备码，再打印 ` Or open this link directly: <uri>` 和 `The code expires in <minutes> minutes. Waiting for confirmation...`。随附的中英文语言文件都使用这些英文提示。
+
 ## UltiCloud 协议 2.1.0 的历史 {#ulticloud-协议-2-1-0}
 
 UltiTools 6.3.1 引入设备码登录与协议 2.1.0。协议变更见 [6.3.1 归档：面板集成](/zh/v6.3.1/guide/advanced/panel-integration.html#ulticloud-协议-2-1-0)，其中也有当时的[敏感命令](/zh/v6.3.1/guide/advanced/panel-integration.html#敏感命令)和[响应器注册](/zh/v6.3.1/guide/advanced/panel-integration.html#拥有一个请求-响应类型-panelresponderregistry)说明。下文说明 7.0 框架处理哪些请求，不规定具体面板部署提供哪些控件。
@@ -23,7 +25,7 @@ UltiTools 6.3.1 引入设备码登录与协议 2.1.0。协议变更见 [6.3.1 �
 | `power-actions` | `false` | 允许结构化的停服和重启请求，不经过远程命令。 |
 | `player-actions` | `false` | 允许踢出玩家、修改游戏模式和传送请求。 |
 
-框架接收请求时检查适用的能力。错误上报使用独立开关 `ultipanel.logging.error-reporting.enabled`，默认 `true`。`/ul reload` 会重载配置；已建立的会话在声明的能力集合改变后会重新连接，模块能力也包含在这个集合内。重载不会重读命令黑名单，也不会应用待生效的模块变更。
+框架接收请求时检查适用的能力。如果会话未接受某项能力，或该能力的开关已关闭，框架会返回与原请求关联的 `error`，错误码为 `capability_not_accepted`，`details.capability` 给出能力名称。错误上报使用独立开关 `ultipanel.logging.error-reporting.enabled`，默认 `true`。`/ul reload` 会重载配置；已建立的会话在声明的能力集合改变后会重新连接，模块能力也包含在这个集合内。重载不会重读命令黑名单，也不会应用待生效的模块变更。
 
 ## 远程命令黑名单 {#远程命令黑名单}
 
@@ -41,7 +43,7 @@ UltiTools 6.3.1 引入设备码登录与协议 2.1.0。协议变更见 [6.3.1 �
 
 框架通过自身调度器的 `global()` 上下文分派面板命令。Paper 的捕获式发送者有控制台权限，但不是控制台发送者本身。要求实际控制台发送者的命令可以拒绝它；框架不会改用控制台重试。
 
-成功时，`command.result` 的 `data.output` 包含分派期间捕获的即时反馈。分派被拒绝时，捕获的反馈改放在 `command_failed` 错误的 `message` 中。即时反馈不会同时回显到控制台。捕获式发送者收到的后续反馈会在结果发出后最多十分钟内转发给控制台，不会补到命令结果里。框架另写审计回显；不计服务端添加的日志前缀，英文随附文本为 `[Remote command] > <command>`，中文为 `[远程命令] > <command>`。在 `language: auto` 下，面板发送者收到的框架命令反馈使用 `fallback-language`。
+成功时，`command.result` 的 `data.output` 包含分派期间捕获的即时反馈。分派被拒绝时，捕获的反馈改放在 `command_failed` 错误的 `message` 中。即时反馈不会同时回显到控制台。捕获式发送者收到的后续反馈会在结果发出后最多十分钟内转发给控制台，不会补到命令结果里。框架另写审计回显。日志前缀之后的消息正文在英文中为 `[Remote command] > <command>`，在中文中为 `[远程命令] > <command>`。在 `language: auto` 下，面板发送者收到的框架命令反馈使用 `fallback-language`。
 
 自 v7.0.0 起，框架的同步命令方法体在全局 tick 线程上运行。`@RunAsync` 和 `@AsyncCommand` 方法体使用框架的 `async()` 上下文，之后的回复不属于分派的即时结果。面板命令处理器会在分派前去掉输入两端的空白。如果你自行分派命令，也应先去掉这些空白：带尾随空格的字面量命令可能在进入恢复逻辑之前就被新解析器拒绝。见 [7.0 命令迁移](/zh/guide/advanced/upgrading-to-7#command-migration)。
 
@@ -53,13 +55,13 @@ UltiTools 6.3.1 引入设备码登录与协议 2.1.0。协议变更见 [6.3.1 �
 
 ## 远程文件与配置 {#远程文件-api-边界}
 
-`ultipanel.files.editable-roots` 默认包含相对于服务器根目录的 `plugins` 和 `logs`。文件能力仍然适用，扩大根目录范围不会开放框架的私有状态目录或远程操作日志。已保存的云端凭据在 `<server root>/.ultikits/credentials.json`，位于所有默认可编辑根目录之外，远程文件 API 还会按文件名拒绝它。目录列表最多返回 2,000 项，超出时标记为已截断。远程文件 API 不会删除目录。
+`ultipanel.files.editable-roots` 默认包含相对于服务器根目录的 `plugins` 和 `logs`。文件能力仍然适用，扩大根目录范围不会开放框架的私有状态目录或远程操作日志。已保存的云端凭据在 `<server root>/.ultikits/credentials.json`，位于所有默认可编辑根目录之外，远程文件 API 还会按文件名拒绝它。目录列表最多返回 2,000 项，超出时标记为已截断。远程文件 API 不会删除目录。请求被路径策略拒绝时返回 `path_not_allowed`，`message` 给出原因。目录列表成功返回时，会省略路径策略拒绝的子项。
 
 编辑模块配置不同于直接写文件。模块配置处理器通过 `global()` 执行，并遵守框架的配置写入规则。配置验证、写入被拒绝的情形和变更生效时机，见[配置文件](/zh/guide/essentials/config-file)。
 
 ## 远程操作日志与实时日志 {#实时日志流}
 
-框架把远程命令的准入结果记入远程操作日志，与命令回复和实时日志流分开。随附的日志轮转配置为 `ultipanel.logging.action-log.max-size-bytes: 1048576` 和 `ultipanel.logging.action-log.max-files: 5`；远程操作日志没有关闭开关。
+框架把远程命令的准入结果记入远程操作日志，与命令回复和实时日志流分开。当前写入的文件是服务器根目录下的 `plugins/UltiTools/security/action.log.0`。随附的日志轮转配置为 `ultipanel.logging.action-log.max-size-bytes: 1048576` 和 `ultipanel.logging.action-log.max-files: 5`；远程操作日志没有关闭开关。
 
 `logs` 能力控制实时控制台日志转发。转发的日志行保留生成时的语言，框架不会再次翻译。`config.yml` 中旧的 `ultipanel.logging.batch` 键不控制正在使用的云端日志流；框架大约每秒发送一次 `log.lines`，批次已满也会发送。实时日志处理器挂接时会读取 `ultipanel.logging.levels` 和 `ultipanel.logging.excluded-loggers`。默认级别是 `info`、`warning`、`error`，默认没有配置排除的记录器。以服务器上的日志为准，不要把实时日志流当作完整记录。
 

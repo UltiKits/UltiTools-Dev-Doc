@@ -2,6 +2,8 @@
 
 7.0.0 has not been released. This page describes the framework side of UltiPanel integration as of v7.0.0; see the [7.0.0 release notes](/guide/release-notes/7.0.0) for the release status. For server linking and connection status, see [Cloud Login](/guide/advanced/cloud-login).
 
+With the [current device-code login](./cloud-login.md), `/ulticloud login` prints `Requesting a device code from UltiCloud...`. When the code arrives, the console prints the verification address and code, followed by ` Or open this link directly: <uri>` and `The code expires in <minutes> minutes. Waiting for confirmation...`. These messages are in English in both bundled catalogues.
+
 ## UltiCloud protocol 2.1.0 history {#ulticloud-protocol-2-1-0}
 
 UltiTools 6.3.1 introduced the device-code login and protocol 2.1.0. See the [archived 6.3.1 panel guide](/v6.3.1/guide/advanced/panel-integration.html#ulticloud-protocol-2-1-0) for the original protocol changes, including [sensitive commands](/v6.3.1/guide/advanced/panel-integration.html#sensitive-commands) and [responder registration](/v6.3.1/guide/advanced/panel-integration.html#owning-a-request-response-type-panelresponderregistry). The sections below describe what the 7.0 framework handles, not which controls a particular panel deployment exposes.
@@ -23,7 +25,7 @@ The framework reads these switches under `ultipanel.capabilities` in `plugins/Ul
 | `power-actions` | `false` | Allows structured stop and restart requests, separate from remote commands. |
 | `player-actions` | `false` | Allows kick, game mode and teleport requests. |
 
-The framework checks applicable capabilities when admitting requests. Error reporting uses the separate `ultipanel.logging.error-reporting.enabled` switch (default `true`). `/ul reload` reloads the configuration; an established session reconnects if the set of capabilities it offered has changed. This includes changes to the advertised module capabilities. Reload does not re-read the command blocklist or apply pending module changes.
+The framework checks applicable capabilities when admitting requests. If a capability was not accepted for the session or its switch is off, the framework returns a correlated `error` with code `capability_not_accepted` and the capability name in `details.capability`. Error reporting uses the separate `ultipanel.logging.error-reporting.enabled` switch (default `true`). `/ul reload` reloads the configuration; an established session reconnects if the set of capabilities it offered has changed. This includes changes to the advertised module capabilities. Reload does not re-read the command blocklist or apply pending module changes.
 
 ## Remote command blocklist {#remote-command-blocklist}
 
@@ -41,7 +43,7 @@ Synchronous nested calls entering the framework's command executor are checked a
 
 The framework hands panel command dispatch to its scheduler's `global()` context. Paper's capturing sender has console permissions but is not the actual console sender. Commands that require the actual console can refuse it; the framework does not retry as the console.
 
-`command.result` contains the immediate feedback captured during dispatch in `data.output` on success. When dispatch is refused, captured feedback is returned in the `command_failed` error's `message` instead. Immediate feedback is not also echoed to the console. Later feedback from the capturing sender goes to the console for up to ten minutes after the result, not into that result. The framework's audit echo is separate: the bundled text is `[Remote command] > <command>` in English and `[远程命令] > <command>` in Chinese, before the server's logger prefix. With `language: auto`, framework command feedback uses `fallback-language` for panel senders.
+`command.result` contains the immediate feedback captured during dispatch in `data.output` on success. When dispatch is refused, captured feedback is returned in the `command_failed` error's `message` instead. Immediate feedback is not also echoed to the console. Later feedback from the capturing sender goes to the console for up to ten minutes after the result, not into that result. The framework logs a separate audit echo. The message body after the logger prefix is `[Remote command] > <command>` in English and `[远程命令] > <command>` in Chinese. With `language: auto`, framework command feedback uses `fallback-language` for panel senders.
 
 As of v7.0.0, synchronous framework command bodies run on the global tick thread. `@RunAsync` and `@AsyncCommand` bodies use the framework's `async()` context; their later replies are not part of dispatch's immediate result. The panel command handler trims the input before dispatch. If you dispatch commands yourself, trim the input as well: a literal with a trailing space can fail in the new parser before recovery runs. See [7.0 command migration](/guide/advanced/upgrading-to-7#command-migration).
 
@@ -53,13 +55,13 @@ A revocation delayed behind another request on the same connection can still run
 
 ## Remote files and configuration {#remote-file-api-boundary}
 
-`ultipanel.files.editable-roots` defaults to `plugins` and `logs`, relative to the server root. The file capabilities still apply, and widening the roots does not expose the framework's private state or remote action log. The saved cloud credential is in `<server root>/.ultikits/credentials.json`, outside every default editable root, and the remote file API also refuses that file by name. Directory listings are capped at 2,000 entries and marked as truncated when they exceed that limit. The remote file API does not delete directories.
+`ultipanel.files.editable-roots` defaults to `plugins` and `logs`, relative to the server root. The file capabilities still apply, and widening the roots does not expose the framework's private state or remote action log. The saved cloud credential is in `<server root>/.ultikits/credentials.json`, outside every default editable root, and the remote file API also refuses that file by name. Directory listings are capped at 2,000 entries and marked as truncated when they exceed that limit. The remote file API does not delete directories. A request refused by path policy returns `path_not_allowed`; the `message` gives the reason. A successful directory listing omits children that the path policy refuses.
 
 Module configuration edits are distinct from raw file writes. The module configuration handler hands its work to `global()` and uses the framework's configuration write rules. See [Config File](/guide/essentials/config-file) for validation, write refusals and when configuration changes take effect.
 
 ## Remote action log and live logs {#live-log-stream}
 
-The framework records remote command decisions in the remote action log, separate from the command's reply and the live log stream. The bundled action log rotation settings are `ultipanel.logging.action-log.max-size-bytes: 1048576` and `ultipanel.logging.action-log.max-files: 5`; there is no disable switch for the action log.
+The framework records remote command decisions in the remote action log, separate from the command's reply and the live log stream. The active file is `plugins/UltiTools/security/action.log.0`, relative to the server root. The bundled action log rotation settings are `ultipanel.logging.action-log.max-size-bytes: 1048576` and `ultipanel.logging.action-log.max-files: 5`; there is no disable switch for the action log.
 
 The `logs` capability controls forwarding of live console lines. Forwarded lines retain their rendered language; the framework does not translate them again. The legacy `ultipanel.logging.batch` keys in `config.yml` do not control the active cloud stream, which sends `log.lines` roughly once a second or when a batch fills. The stream reads `ultipanel.logging.levels` and `ultipanel.logging.excluded-loggers` when its log handler attaches. The default levels are `info`, `warning` and `error`; there are no configured logger exclusions by default. Use the server log as the authoritative local record, not the live stream.
 

@@ -19,7 +19,7 @@ In 6.x the GUI system is built with `BaseInventoryPage`, `BasePaginationPage`, a
 | `BaseConfirmationPage`, `Confirm.gui(...)` | `Confirm` of the UI service (`com.ultikits.ultitools.ui.Confirm`), shown with `UiService#show` | [UI: Intents and Sessions](/guide/advanced/ui-service#notice-and-confirm) |
 | `Confirm.chat(...)` (`ChatConfirm`) | None in the framework; the module sends its own clickable chat prompt | [UI: Intents and Sessions](/guide/advanced/ui-service#chat-confirmation) |
 | `Buttons`, `ViewType` | No replacement type; use a `TextButton` label or the framework label keys | [Dialog buttons](/guide/advanced/ui-service#dialog-buttons) |
-| obliviate-invs, UniversalScheduler | No longer bundled; see [Module versioning](/guide/advanced/module-versioning#legacy-chest-removal) | |
+| obliviate-invs, UniversalScheduler | No longer bundled; see [Legacy chest pages and confirmation widgets](/guide/advanced/upgrading-to-7#chest-and-confirmation) | |
 
 `Colors` remains in 7.0.
 
@@ -292,7 +292,7 @@ As of v7.0.0, `getCode()` and `XVersionUtils` are removed; `Colors` remains and 
 The `XVersionUtils` call below is for 6.x only; `new ItemStack(Material.CYAN_STAINED_GLASS_PANE)` works on both 6.x and 7.0, while `new ItemStack(Colors.CYAN.getGlassPaneMaterial())` requires 7.0.
 :::
 
-As of v7.0.0, the framework's built-in GUI glass colors and button materials are unchanged. See [Native item and sound APIs in 7.0](/guide/advanced/module-versioning#native-item-and-sound-apis-in-7-0) for the full migration.
+As of v7.0.0, the framework's built-in GUI glass colors and button materials are unchanged. See [Native item and sound APIs in 7.0](/guide/advanced/upgrading-to-7#items-and-sounds) for the full migration.
 
 Usage:
 

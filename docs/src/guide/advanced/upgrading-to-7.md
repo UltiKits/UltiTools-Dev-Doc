@@ -27,11 +27,11 @@ With readable metadata and a `main:` entry, the floor and integer checks run bef
 
 | Declaration | What to check |
 | --- | --- |
-| Missing or not an integer | The log says there is no valid `api-version`. A missing or bare key shows `<missing>` in English or `<缺失>` in Chinese; a string such as `''`, `'26.3'`, `'1.21'` or `'abc'` is shown in quotes. Quoted integers such as `'700'` are accepted. |
-| Integer below `700`, such as `630` | The log names the level and minimum. Install a rebuilt JAR. |
+| Missing or not an integer | Search the log for `has no valid api-version` (Chinese: `未声明有效的 api-version`). A missing or bare key shows `<missing>` in English or `<缺失>` in Chinese; a string such as `''`, `'26.3'`, `'1.21'` or `'abc'` is shown in quotes. Quoted integers such as `'700'` are accepted. |
+| Integer below `700`, such as `630` | The log names the level and the minimum. Search for `below the minimum` (Chinese: `要求的最低级别`). Install a rebuilt JAR. |
 | Integer above the running framework's level | The installed framework is too old for the declared level. |
 
-A JAR refused by the integer or minimum check never supplies main or helper classes to another module, and it counts once in `Failed`. For example, if a `630` and a `700` JAR declare the same main class, the `700` copy can supply the classes even if its filename sorts later. The warning still names both copies; neither file is automatically deleted. Among admitted copies, [filename order still matters](./module-versioning#two-copies-of-one-module).
+A JAR refused by the integer or minimum check never supplies main or helper classes to another module, and it counts once in `Failed`. Refusing one module does not stop other eligible modules that do not depend on it from loading. For example, if a `630` and a `700` JAR declare the same main class, the `700` copy can supply the classes even if its filename sorts later. The warning still names both copies; neither file is automatically deleted. Among admitted copies, [filename order still matters](./module-versioning#two-copies-of-one-module).
 
 For dependencies on other server plugins, declare the provider under `depend` or `softdepend` in the module descriptor. See [Other plugins' classes](./startup-phases#other-plugins-classes) and [Runtime libraries](./startup-phases#runtime-libraries).
 
@@ -74,7 +74,7 @@ Check your code against the [complete list of removed legacy text types and entr
 
 As of v7.0.0, the framework no longer supplies XSeries or the cross-version material and sound layer. `Colors` remains and gains `getGlassPaneMaterial()`. If you maintain source for both 6.x and 7.0, use native constants such as `Material.CYAN_STAINED_GLASS_PANE` directly.
 
-To turn a material name into an item in 7.0, use `Material.matchMaterial`. It accepts current material names such as `DIAMOND` and namespaced keys such as `minecraft:stone`; there is no legacy-name lookup or fallback item. Reject `null`, block-only and air results before passing the material to `ItemSpec.builder`, as shown in [Item construction and storage in 7.0](#item-migration).
+To turn a material name into an item in 7.0, use `Material.matchMaterial`. It accepts current material names such as `DIAMOND` and namespaced keys such as `minecraft:stone`; there is no legacy-name lookup or fallback item. Reject `null`, block-only and air results before passing the material to `ItemSpec.builder`, as shown in [Item construction and storage](#item-migration).
 
 The following native replacements apply as of v7.0.0. Use `org.bukkit.Material`, `org.bukkit.Sound`, `org.bukkit.enchantments.Enchantment`, `org.bukkit.inventory.ItemFlag` and Adventure's `net.kyori.adventure.text.Component`:
 
@@ -154,7 +154,7 @@ The remaining builder methods map as follows. Here `builder` is an `ItemSpec.Bui
 | `.build()` / `.buildClone()` | `itemRenderer.render(spec, player)` creates a new stack on every call; `stack.clone()` copies an existing one |
 | `ItemStackBuilder.of(String)` | `Material m = Material.matchMaterial(name);` then `m != null && m.isItem() && !m.isAir() ? ItemSpec.builder(m) : null` |
 
-`ItemStackUtils` keeps its five methods and can read the Bukkit object streams it wrote in 6.x; this does not cover module-specific formats. In 7.0 it writes Paper item bytes encoded as Base64, which 6.x cannot read. Back up items and inventories before upgrading, and do not automatically overwrite a failed read with an empty inventory. Restore a backup from the matching version if you roll back. See [Items and Item Storage](/guide/essentials/items).
+`ItemStackUtils` keeps its five methods and can read the Bukkit object streams it wrote in 6.x, so those stored values need no advance conversion. This does not cover module-specific formats. In 7.0 it writes Paper item bytes encoded as Base64, which 6.x cannot read. Back up items and inventories before upgrading, and do not automatically overwrite a failed read with an empty inventory. Restore a backup from the matching version if you roll back. See [Items and Item Storage](/guide/essentials/items).
 
 ## Scheduling and declarative GUI {#scheduler-and-screens}
 
@@ -181,7 +181,7 @@ The 6.x pages are still described, as 6.x material, in [GUI Interface](/guide/ad
 
 As of v7.0.0, `Toast`, `NotificationService#sendToastNotification` and `Hologram` are removed.
 
-**Toasts.** The advancement-based popup depended on deprecated, version-unstable server internals, and message text containing quotes could break its generated JSON. There is no replacement helper. `NotificationService` offers `sendTitleNotification`, `sendSubTitleNotification`, `sendActionBarNotification`, `sendBossBarNotification` and `sendMessageNotification` (a chat message); some overloads also take a `Sound`. Use one of these, or chat, instead. In 7.0 these methods take `Text` and Adventure types; see [Notification service in 7.0](#notifications-migration).
+**Toasts.** The advancement-based popup depended on deprecated, version-unstable server internals, and message text containing quotes could break its generated JSON. There is no replacement helper. `NotificationService` offers `sendTitleNotification`, `sendSubTitleNotification`, `sendActionBarNotification`, `sendBossBarNotification` and `sendMessageNotification` (a chat message); some overloads also take a `Sound`. Use one of these, or chat, instead. In 7.0 these methods take `Text` and Adventure types; see [Notification service](#notifications-migration).
 
 **Holograms.** `Hologram` spawned an invisible armour stand for each text line. Use Paper's native `TextDisplay` entity instead; a single display can contain multiple lines. The following example disables entity persistence:
 

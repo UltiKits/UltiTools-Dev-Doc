@@ -16,7 +16,7 @@ MySQL 连接池可选项也在 `mysql` 下：`connectionTimeout`（`30000`）、
 | JSON | `plugins/UltiTools/data/<模块名>/<表名>/<id>.json` | 插件数据目录下的 `data/<表名>/<id>.json` |
 | MySQL | 共用 `mysql.database` 指定的数据库 | 同左，表名不自动添加插件前缀 |
 
-若请求的后端不可用（例如 MySQL 未启用或连接池创建失败，或后端名称写错），框架改用 JSON。启动日志中的 `数据存储方式：<store>` 显示实际使用的后端；配置与实际不符时，服务器会记录以下 `SEVERE` 消息（尖括号为实际值的占位符）：
+若请求的后端不可用（例如 MySQL 未启用或连接池创建失败，或后端名称写错），框架改用 JSON。启动时的存储方式、后端降级和 MySQL 连接失败消息均按控制台语言显示。中文日志中的 `数据存储方式：<store>` 显示实际使用的后端；配置与实际不符时，服务器会记录以下 `SEVERE` 消息（尖括号为实际值的占位符）：
 
 ```text
 数据存储降级：config.yml 里 datasource.type 配置为 '<configured>'，实际使用的是 '<actual>'。原因：<reason>
@@ -136,6 +136,8 @@ if (entry != null && entry.wasModified()) {
 
 `@Column.value` 指定列名，可与 Java 字段名不同；查询时请使用映射列名。`@Column.type` 默认是 `VARCHAR(255)`，用于 SQL 建表，在 JSON 后端不控制字段类型。SQL 后端映射标注过的字段（包括继承字段），把非简单值写成 JSON 文本，不支持按内部字段查询。JSON 文件则由 Gson 序列化，以 Java 字段名为键；操作器把映射列名转回字段名，普通条件也能查询嵌套路径。为了跨后端可用，查询字段应使用简单类型与映射列名。
 
+在 SQLite 中，默认的 `VARCHAR(255)` 列具有 TEXT 亲和性，因此 `int`、`long` 等数值字段会按文本储存，除非显式声明数值列类型。如果需要在 UltiTools 之外查询数据，请为新列声明数值类型。对已有的默认类型列手写 SQL 时，按数值比较或排序须用 `CAST` 转成数值，否则可能按文本顺序处理。SQLite 操作器会按 Java 字段类型转换 `WhereCondition` 的数值比较；查询 DSL 则在内存中对 Java 值执行 `gt`、`lt`、`gte`、`lte` 和 `orderBy`，`count()` 返回结果列表的大小。
+
 ## CRUD 操作
 
 UltiTools 封装了一套语义化的 CRUD 操作 API，你只需要调用相应的方法，即可完成对数据的增删改查。
@@ -152,7 +154,7 @@ UltiTools 封装了一套语义化的 CRUD 操作 API，你只需要调用相应
 
 - 模块启用时，框架会自动登记模块自身 JAR 中能加载且标有 `@Table` 的类。如果本模块的实体放在另一个库 JAR 中，可通过模块主类的 `@UltiToolsModule(additionalEntities = {UserData.class})` 补充登记；内置扫描仍然执行。
 - 普通 Paper 插件在 `JavaPlugin.onEnable()` 中调用 `UltiToolsAPI.connect(this)`。框架自动扫描该插件自己的 JAR；若有放在库 JAR 中的自有实体，改用 `UltiToolsAPI.connect(this, UserData.class)`。连接后调用静态方法 `UltiToolsAPI.getDataOperator(this, UserData.class)`，不需要构造 `UltiToolsPlugin`。插件禁用时调用 `UltiToolsAPI.disconnect(this)`。详见[外部插件 API](../advanced/external-plugin-api)。
-- 两种补充登记方式都不能声明属于另一个已知插件的实体。跨插件访问请使用对方公开的服务或 `EventBus`，不要直接取其操作器。
+- 如果任一种补充登记方式指定了属于另一个已知插件的实体，登记会抛出带有 `ENTITY_NOT_OWNED`（`ULTI-3010`）的 `PluginModuleException`。模块因此加载失败；`UltiToolsAPI.connect` 则抛出以该异常为原因的 `IllegalStateException`。这是查询操作器之前的登记错误。跨插件访问请使用对方公开的服务或 `EventBus`，不要直接取其操作器。
 
 当请求方已有作用域，但请求的实体类不在该作用域内，操作器入口抛出带 `ENTITY_NOT_OWNED`（`ULTI-3010`）的 `DataAccessException`。如果没有查到归属模块，`getMessage()` 的原文如下；如果查到了，则是第二种（占位符替换为实际值）：
 
@@ -364,7 +366,7 @@ dataOperator.transaction(() -> {
 
 每个插件的 JSON 表旁边都有一个隐藏的 `.ultitools-journal` 文件夹。已提交的事务在 `commit` 返回前写入日志并强制落盘；恢复时重放到表文件。模块的日志位于 `plugins/UltiTools/data/<模块名>/.ultitools-journal`；外部插件的日志位于其数据目录下的 `data/.ultitools-journal`。详见[JSON 事务行为](../advanced/transactions#json-事务行为)。
 
-自 v7.0.0 起，JSON 使用异步调度按墙钟时间周期落盘。`datasource.flushRate` 的单位为秒，默认 `10`；`0` 回退到 `10`，负数不会启动后台刷新。正常停服仍尝试最后一次落盘；修改该值后需重启。
+自 v7.0.0 起，JSON 使用异步调度按墙钟时间周期落盘。`datasource.flushRate` 的单位为秒：正数设置周期，缺省或 `0` 时使用 `10` 秒，负数禁用周期落盘。正常停服仍尝试最后一次落盘；修改该值后需重启。
 
 - 一个数据文件夹只运行一个服务器进程：两个服务器绝不能同时使用同一个 `plugins` 数据文件夹。
 - 备份时把 `.ultitools-journal` 文件夹与各表文件夹一起备份，或者在服务器停止时备份。`cp dir/*` 这类复制会跳过以点开头的文件夹。

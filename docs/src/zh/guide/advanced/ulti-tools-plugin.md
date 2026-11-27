@@ -14,7 +14,7 @@ v6.3.0 的 jar 里两者都不存在，下方的方法列表已相应移除该�
 
 ::: warning 未发布的 v7.0.0 迁移说明
 自 v7.0.0 起，`XVersionUtils` 也已移除，请使用 Paper 原生的物品、音效、附魔和 Adventure API。
-替代方式见 [7.0 原生物品与音效 API](/zh/guide/advanced/module-versioning#_7-0-原生物品与音效-api)。
+替代方式见 [7.0 原生物品与音效 API](/zh/guide/advanced/upgrading-to-7#items-and-sounds)。
 :::
 
 # 类 `UltiToolsPlugin`

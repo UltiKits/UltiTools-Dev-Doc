@@ -83,7 +83,7 @@ CI 会对 `src/main` 的注释与 javadoc、workflow 文件与一个测试包强
 
 第一条的适用范围需要注意。它描述的是静态链接的引用在一个方向上的情况，不是一条普遍保证：之后的框架版本仍然可能移除或者修改模块正在使用的内容，而通过反射访问的内容从一开始就不在这条保证的范围内，因为编译器没有记录它们。
 
-因此 pin 落后于最新正式版属于正常状态，不是需要修正的偏差。只在模块确实开始使用新 API 时才提高 pin；但升级到 v7.0.0 是新的 API 基线，6.x 模块必须重新构建，见[6.x 模块升到 7.0](#modules-6x-to-7)。
+因此 pin 落后于最新正式版属于正常状态，不是需要修正的偏差。只在模块确实开始使用新 API 时才提高 pin；但升级到 v7.0.0 是新的 API 基线，6.x 模块必须重新构建，见[构建目标与模块准入](./upgrading-to-7#build-target)。
 
 ### pin 与 `api-version`
 
@@ -136,39 +136,15 @@ pin 不是模块的运行时下限。这是两个互相独立的数字，其中�
 
 ### 6.x 模块升到 7.0 {#modules-6x-to-7}
 
-自 v7.0.0 起，6.x 模块须迁移源码后重新构建，不能只改旧 JAR 的声明。完整步骤见[从 6.x 升级到 7.0](./upgrading-to-7)，准入要求见[构建目标与模块准入](./upgrading-to-7#build-target)。
+迁移与重新构建的步骤见[从 6.x 升级到 7.0](./upgrading-to-7)。
 
 ### 7.0 原生物品与音效 API
 
-材质、音效和发光效果的替代写法见[原生物品与音效](./upgrading-to-7#items-and-sounds)。
-
-#### XVersionUtils 全部方法的替代方式
-
-逐项替代方式见 [`XVersionUtils` 方法对照](./upgrading-to-7#xversionutils-replacements)。
-
-### 7.0 的物品构建与存储 {#item-construction-7}
-
-构建器替代、存储格式与回退前的备份要求见[物品构建与存储](./upgrading-to-7#item-migration)。
-
-### 7.0 的调度与声明式 GUI
-
-每模块实例的调度器及声明式界面改动见[调度与声明式 GUI](./upgrading-to-7#scheduler-and-screens)。
+材料与音效的替代方式见[原生物品与音效](./upgrading-to-7#items-and-sounds)。
 
 ### 7.0 中的旧箱子页面与确认组件 {#legacy-chest-removal}
 
-旧页面和确认组件的替代方式及依赖打包要求见[旧箱子页面与确认组件](./upgrading-to-7#chest-and-confirmation)。
-
-### 7.0 的进度弹窗与悬浮字
-
-进度弹窗与悬浮字的替代方式见[提示弹窗与悬浮字](./upgrading-to-7#display-and-toast)。
-
-### 7.0 的通知服务 {#notification-service-7}
-
-新签名及调用示例见[通知服务](./upgrading-to-7#notifications-migration)。
-
-### 7.0 的文本与语言
-
-消息发送、随包语言文件和服主覆盖文件的迁移见[文字与语言](./upgrading-to-7#messages-migration)。
+替代组件和依赖见[旧箱子页面与确认组件](./upgrading-to-7#chest-and-confirmation)。
 
 ### 描述符变更
 

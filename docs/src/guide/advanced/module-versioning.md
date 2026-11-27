@@ -83,7 +83,7 @@ A module declares the framework as `provided`:
 
 The scope of the first point matters. It describes statically linked references in one direction and is not a general guarantee: a later framework release can still remove or reshape something the module uses, and anything reached by reflection was never covered, because the compiler did not record it.
 
-A pin that lags the latest release is therefore the normal state rather than drift to be corrected. Raise it only when the module actually starts using a newer API; moving to v7.0.0 is a new API baseline and requires rebuilding 6.x modules, as described in [Modules from 6.x to 7.0](#modules-6x-to-7).
+A pin that lags the latest release is therefore the normal state rather than drift to be corrected. Raise it only when the module actually starts using a newer API; moving to v7.0.0 is a new API baseline and requires rebuilding 6.x modules, as described in [Build target and module admission](./upgrading-to-7#build-target).
 
 ### The pin and `api-version`
 
@@ -136,39 +136,15 @@ See [`compatibility/DEPRECATIONS.md`](https://github.com/UltiKits/UltiTools-Rebo
 
 ### Modules from 6.x to 7.0 {#modules-6x-to-7}
 
-As of v7.0.0, migrate and rebuild 6.x modules; do not just edit the old JAR declaration. Start with [Upgrading from 6.x to 7.0](./upgrading-to-7) and its [build target and module admission](./upgrading-to-7#build-target) requirements.
+For migration and rebuild steps, see [Upgrading from 6.x to 7.0](./upgrading-to-7).
 
 ### Native item and sound APIs in 7.0
 
-For material, sound and glint replacements, see [Native items and sounds](./upgrading-to-7#items-and-sounds).
-
-#### Replacing every XVersionUtils method
-
-For each method, see the [`XVersionUtils` replacement table](./upgrading-to-7#xversionutils-replacements).
-
-### Item construction and storage in 7.0 {#item-construction-7}
-
-See [Item construction and storage](./upgrading-to-7#item-migration) for builder replacements, storage formats and what to back up before a rollback.
-
-### Scheduling and declarative GUI in 7.0
-
-See [Scheduling and declarative GUI](./upgrading-to-7#scheduler-and-screens) for the per-module scheduler and screen changes.
+For material and sound replacements, see [Native items and sounds](./upgrading-to-7#items-and-sounds).
 
 ### Legacy chest pages and confirmation widgets in 7.0 {#legacy-chest-removal}
 
-See [Legacy chest pages and confirmation widgets](./upgrading-to-7#chest-and-confirmation) for replacements and which dependencies to package yourself.
-
-### Toasts and holograms in 7.0
-
-See [Toasts and holograms](./upgrading-to-7#display-and-toast) for alternatives to the removed widgets.
-
-### Notification service in 7.0 {#notification-service-7}
-
-See [Notification service](./upgrading-to-7#notifications-migration) for the new signatures and an example.
-
-### Text and languages in 7.0
-
-See [Text and languages](./upgrading-to-7#messages-migration) for migration of message calls, bundled catalogues and operator overrides.
+For replacements and dependencies, see [Legacy chest pages and confirmation widgets](./upgrading-to-7#chest-and-confirmation).
 
 ### Changed descriptors
 
