@@ -1,140 +1,64 @@
 # 事件监听器
 
-UltiTools 模块的事件监听与 Bukkit 的事件监听基本相同。
+7.0.0 尚未发布。本页介绍自 v7.0.0 起的行为。6.x 用法见 [v6.4.0 归档指南](/zh/v6.4.0/guide/essentials/event-listener.html)。
 
-参见 [Paper 事件监听器文档](https://docs.papermc.io/paper/dev/event-listeners)。
+UltiTools 模块可以用 `@EventListener` 监听 Paper/Bukkit 事件，也可以用 `@ModuleEventHandler` 订阅 UltiTools 模块事件。两者的注册和派发相互独立。
 
 ## 创建监听器
 
-创建一个实现 `Listener` 接口的类，并在处理事件的方法上添加 `@EventHandler` 注解。
+实现 `org.bukkit.event.Listener`。在类上标注 `com.ultikits.ultitools.annotations.EventListener`，在处理方法上标注 Bukkit 的 `@EventHandler`。处理方法的签名和优先级见 [Paper 的事件监听指南](https://docs.papermc.io/paper/dev/event-listeners)。
 
 ```java
 @EventListener
-public class BackListener implements Listener {
-
+public class JoinListener implements Listener {
     @EventHandler
-    public void onPlayerDeath(PlayerDeathEvent event) {
-        ...
+    public void onJoin(PlayerJoinEvent event) {
+        event.getPlayer().sendMessage(Component.text("Welcome!"));
     }
 }
 ```
 
-`@EventListener` 注解有一个可选的 `manualRegister` 参数（默认为 `false`）。对于通过标准模块 JAR 路径加载的监听器（例如使用 `@UltiToolsModule` 的写法），设为 `true` 时组件扫描会跳过该监听器的自动注册，需要通过 `getListenerManager().register(this, YourListener.class)` 手动注册。
+Bukkit 在派发事件的线程上调用处理方法。UltiTools 不切换线程：玩家加入事件在 Paper 主线程上处理，但异步派发的事件不在主线程上处理。异步处理方法如果需要访问玩家、世界或服务器状态，请把工作提交到对应的[调度上下文](../advanced/scheduled-tasks#调度器-api)。延后执行的任务无法改变已经派发完毕的事件结果。
 
 ## 监听器注册
 
-在继承了 `UltiToolsPlugin` 的类中的 `registerSelf` 中注册监听器。
+将监听器放进扫描范围。开启监听器自动注册后（见[自动注册](../advanced/auto-register)），UltiTools 从模块容器中查找带注解的 `Listener` Bean，在 `registerSelf()` 成功后向 Bukkit 注册。`manualRegister` 默认为 `false`。设置 `@EventListener(manualRegister = true)` 可跳过该 Bean 的自动注册，再在模块的 `registerSelf()` 中调用 `getListenerManager().register(this, JoinListener.class)`。该类仍须是 Bean，因为 `register` 从模块容器中获取它。
 
-::: info 自 v6.3.0 起的连接器构造器
-六参数构造器已移除。下面的连接器使用七参数构造器，由调用方传入 `resourceFolderPath`。
-新的独立 Bukkit 插件优先在自己的 `JavaPlugin` 中调用 `UltiToolsAPI.connect(this)`，见[外部插件 API](/zh/guide/advanced/external-plugin-api)。
-:::
+使用接收类的重载；7.0 不再提供接收监听器对象或包名的旧重载。模块卸载时，UltiTools 注销它为该模块跟踪的 Bukkit 监听器。直接通过 Bukkit 注册的监听器需要自行清理。
+
+独立的 Paper 插件可以通过 [`UltiToolsAPI.connect(this)`](../advanced/external-plugin-api) 注册发现的监听器 Bean。下面的示例演示在已有的 `UltiToolsPlugin` 连接器中手动注册；该连接器构造器接收七个参数，其中包括 `resourceFolderPath`。
 
 <<< @/../examples/src/main/java/com/ultikits/docs/listener/UltiToolsConnector.java
 
-当然，你也可以使用 UltiTools 提供的自动注册功能，详情可以查看[这篇文章](/zh/guide/advanced/auto-register)。
-
-
 ## 临时事件监听
 
-很多时候我们都只是需要临时监听事件，在传统的插件编写中，常常会维护一个列表来记录需要临时监听的玩家，这十分麻烦。
+`com.ultikits.ultitools.interfaces.TempListener` 直接向 Bukkit 注册。过滤器和处理方法都在事件派发线程上运行。处理方法返回 `true` 时注销监听器，返回 `false` 时继续监听。返回值不会取消事件。
 
-UltiTools 对 Bukkit 的事件监听器进行了封装，你可以十分便捷地在任何地方监听事件，即创即用，用后即销。
+### 临时监听器构建器
 
-### 临时监听器构建器 <Badge type="tip" text="v6.1.0+" />
-
-从 v6.1.0 开始，使用现代的 `TempListener` 构建器 API 来创建更清洁、更灵活的临时监听器：
+用 `TempListener.common(EventClass.class)` 创建构建器。`priority(...)` 默认为 `NORMAL`；`filter(...)` 先于处理方法执行，只有返回 `true` 才通过。用 `eventHandler(...).build()` 构建监听器，再调用 `register()` 注册，以便保留可手动注销的句柄：
 
 ```java
-// 简单使用 - 监听所有方块交互事件
-TempListener.common(PlayerInteractEvent.class)
-    .listen(event -> {
-        player.sendMessage("你点击了一个方块！");
-        return true; // 返回 true 自动注销监听器
-    });
-```
-
-**构建器方法：**
-
-- `eventHandler(TempEventHandler<E> handler)` — 设置事件处理器。返回 `true` 自动注销，返回 `false` 继续监听。
-- `filter(Function<E, Boolean> filter)` — 添加前置过滤器。返回 `true` 处理事件，返回 `false` 忽略事件。
-- `priority(EventPriority priority)` — 设置处理器优先级（默认：`NORMAL`）。
-- `build()` — 构建并返回 `TempListener`（需要手动 `register()`）。
-- `listen(TempEventHandler<E> handler)` — 一步构建并立即注册。
-
-::: tip build() 现在会传递你设置的过滤器 <Badge type="tip" text="v6.3.0+" />
-自 v6.3.0 起，`.filter(x).build()` 是同时获得「可过滤」与「可注销」监听器的推荐写法：`build()` 调用的是与 `listen(...)` 相同的四参构造器，因此你设置的过滤器会真正生效，对返回的 `TempListener` 调用 `register()` 就能拿到调用 `unregister()` 所需的句柄——一次构造，两种能力，不需要第二个监听器。
-在 v6.3.0 之前，`build()` 调用的是没有 filter 参数的三参构造器，过滤器会被静默丢弃；`listen(...)` 虽然传递了过滤器，却返回 `void`，拿不到注销句柄。这两个缺口由同一处修复一并关闭。
-:::
-
-**示例：等待玩家与特定方块交互**
-
-```java
-// 监听与材质名包含 WOOD 的方块的交互
-TempListener.common(PlayerInteractEvent.class)
-    .priority(EventPriority.HIGH)
-    .filter(event -> {
-        Block block = event.getClickedBlock();
-        return block != null && block.getType().name().contains("WOOD");
+TempListener listener = TempListener.common(PlayerInteractEvent.class)
+    .filter(event -> event.getPlayer().equals(targetPlayer) && event.getClickedBlock() != null)
+    .eventHandler(event -> {
+        event.getPlayer().sendMessage(Component.text("Block selected."));
+        return true;
     })
-    .listen(event -> {
-        event.getPlayer().sendMessage("你点击了木头方块！");
-        return true; // 首次匹配后自动注销
-    });
+    .build();
+listener.register();
 ```
 
-**示例：等待玩家聊天回复**
-
-```java
-// 监听玩家聊天
-TempListener.common(AsyncPlayerChatEvent.class)
-    .filter(event -> event.getPlayer().equals(targetPlayer))
-    .listen(event -> {
-        String message = event.getMessage();
-        if (message.equalsIgnoreCase("yes")) {
-            processConfirmation(targetPlayer);
-        }
-        return true; // 处理后自动注销
-    });
-```
-
-::: info 返回 true 会注销 TempEventHandler
-`TempEventHandler<E>` 是一个函数式接口，接收事件并返回布尔值：
-- 返回 `true` 自动注销监听器。
-- 返回 `false` 保持监听器活跃，继续处理后续事件。
-:::
+保留句柄，在操作结束时调用 `unregister()`；卸载时若它仍在监听，在 `onUnregister()` 中注销。模块的 `ListenerManager` 不跟踪由这个构建器创建的临时监听器。`listen(handler)` 一次完成构建和注册，但不返回句柄。
 
 ### 传统临时监听器（SimpleTempListener）
 
-::: warning 四个构造器已标记为待移除 <Badge type="tip" text="v6.3.0+" />
-自 v6.3.0 起，`SimpleTempListener` 的无参构造器以及两个、三个参数的重载——包括下面示例用到的无过滤器 `(Class, TempEventHandler)` 形态——都带上了 `@Deprecated(since = "6.3.0", forRemoval = true)`，将在未来版本中移除。它们彼此容易混淆：两个三参数重载仅在最后一个参数是 `EventPriority` 还是过滤器 `Function` 上不同，编译期没有任何信号提醒选错了。推荐使用上方的构建器 API，或直接使用未被废弃的四参数全参构造器 `new SimpleTempListener<>(eventClass, priority, handler, filter)`。
-:::
+使用构建器或 `new SimpleTempListener<>(eventClass, priority, handler, filter)`。无参、两参和三参构造器已在 v6.4.0 移除。对指定玩家进行监听时，用玩家过滤器替代已移除的 `PlayerTempListener` 和 `TempListener.player(...)`。
 
-下面示例中传统的直接实例化写法仍然可用，但其构造器已进入移除计划；新代码请使用构建器：
+## 模块事件总线 {#module-event-bus}
 
-```java
-// 传统方式 - 仍然可用，但其构造器已标记为待移除
-TempListener listener = new SimpleTempListener(PlayerInteractEvent.class, event -> {
-    // 做一些事...
-    return true; // 返回 true 自动注销监听器
-});
-listener.register(); // 开始监听
-```
+在受管理的 Bean 上用 `@ModuleEventHandler` 处理 `ModuleEvent`。`registerSelf()` 成功后，UltiTools 将这些方法注册到共享的 `EventBus`。卸载时会移除归属于该模块实例的订阅，包括在容器刷新或 `registerSelf()` 期间由加载线程建立的程序式订阅。对于之后建立且没有指定所属模块的订阅，请保留返回的 `Subscription` 并自行调用 `unsubscribe()`。见[模块事件总线](../advanced/module-eventbus)。
 
-针对特定玩家的事件，`PlayerTempListener`（及 `TempListener.player(...)`）已在 v6.3.0 删除，改用构建器加过滤器：
+`EventBus.publish(event)` 在发布者的线程上同步调用处理方法，该线程不一定是主线程。`publishAsync(event)` 通常使用工作线程，但线程池饱和时（工作线程全部忙碌，容量为 256 的队列已满）可以在调用线程上执行。它会拒绝 `Cancellable` 事件并抛出 `IllegalArgumentException`。
 
-```java
-// 已在 v6.3.0 删除：
-// TempListener listener = new PlayerTempListener<>(
-//     PlayerInteractEvent.class,
-//     event -> { /* ... */ return true; },
-//     targetPlayer
-// );
-
-// 新方式（推荐）：
-TempListener.common(PlayerInteractEvent.class)
-    .filter(event -> event.getPlayer().equals(targetPlayer))
-    .listen(event -> { /* ... */ return true; });
-```
-
-自 v6.3.0 起，本节顶部展示的 `.filter(x).build()` 就是同时获得「可过滤」与「可手动注销」监听器的推荐写法——不再需要直接构造 `SimpleTempListener`。
+自 v7.0.0 起，到达已注册 responder 的模块请求由面板桥接层通过框架调度器的 `global()` 上下文发布 `PanelMessageEvent`。事件处理方法在 Paper 主线程上运行，responder 本身仍在工作线程上运行。这是该发布者的行为，不是事件总线的一般规则。见[框架调度的工作](../advanced/scheduled-tasks#框架调度的工作)。
