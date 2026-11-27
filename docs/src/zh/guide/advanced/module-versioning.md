@@ -1,5 +1,7 @@
 # 模块版本规范
 
+7.0.0 尚未发布。本页标注「自 v7.0.0 起」的内容不适用于 6.x。
+
 本页说明的是**你的模块**所使用的版本号。`UltiTools-API` 自身的版本号遵循另一套约定，见[与框架版本号的区别](#与框架版本号的区别)。
 
 ## 版本号的选择
@@ -104,7 +106,7 @@ pin 不是模块的运行时下限。这是两个互相独立的数字，其中�
 一次成功的构建只能说明源码仍然可以编译。导致已发布 JAR 出错的是字节码中记录的描述符，而编译过程不会显示它。
 :::
 
-[JLS 的二进制兼容性一章][jls13]列出了可能造成这类问题的全部变更。下面举例说明本项目已发布或已公告的 API 移除（包括 7.0 原生 API 迁移）与描述符变更，不是完整清单。
+[JLS 的二进制兼容性一章][jls13]列出了可能造成这类问题的全部变更。下面举例说明本项目已发布或已公告的 API 移除与描述符变更，不是完整清单。
 
 ### API 被移除
 
@@ -124,7 +126,7 @@ pin 不是模块的运行时下限。这是两个互相独立的数字，其中�
 
 只有在发布提高后的 pin 时才会产生代价：针对更新的框架构建可能记录更新的描述符，这意味着需要同时提高 `api-version`，而那会让仍在使用旧版框架的服务器无法升级。因此提高 pin 适合用来做检查，不适合用来做修复：在一次临时构建中提高 pin，观察哪些地方编译不通过，从这些 API 迁移出去，然后单独决定正式发布使用的 pin 是否需要变动。
 
-对于带有废弃通告的 API，应关注通告，在移除正式发布之前完成迁移。下文的 7.0 移除项在 6.x 中没有预先标记为废弃；v7.0.0 是新的 API 基线。
+对于带有废弃通告的 API，应关注通告，在移除正式发布之前完成迁移。针对 v7.0.0 删除的公开 API，请查阅[升级对照表](./upgrading-to-7#removed-public-apis)。
 
 ::: tip 从废弃通告里读出移除期限
 自 v6.3.0 起，框架里每一个 `@Deprecated(forRemoval = true)` 成员都携带一个 `{@removeIn X.Y.Z}` javadoc 标签，指明移除会落在哪个具体版本。
@@ -134,247 +136,39 @@ pin 不是模块的运行时下限。这是两个互相独立的数字，其中�
 
 ### 6.x 模块升到 7.0 {#modules-6x-to-7}
 
-自 v7.0.0 起，6.x 模块不能直接加载到 7.0。将构建依赖更新为 UltiTools-API 7.0，迁移已删除的 API，针对目标 Paper 重新构建，并在 JAR 根目录的 `plugin.yml` 中声明整数 `api-version: 700`（或更高）。仅修改旧 JAR 的声明不会修复已删除 API 的引用。高于当前框架 API 级别的声明仍会被拒绝。
-
-7.0 按原样加载模块，保留共享的 parent-first `URLClassLoader`，但不再做加载期字节码适配、服务端 API 探测、启动或离线链接审计。仍然保留的容器跳过诊断描述已观察到的缺失类和处理器，不代表框架会补全缺失能力。
-
-存在可读 `plugin.yml` 和 `main:` 时，下列检查都在解析主类之前进行。文件不可读或没有 `main:` 仍走原有的元数据拒载消息。
-
-| 被拒情形 | 消息含义 |
-| --- | --- |
-| 整数低于 `700`，如 `630` | 声明低于当前框架要求的最低级别，须安装重新构建的模块 |
-| 缺少 `api-version` | 没有有效声明；读到的值显示为 `<missing>`（英文）或 `<缺失>`（中文） |
-| 空值或非整数，如 `'26.3'`、`1.21`、`abc` | 没有有效声明；只写 `api-version:` 不带值时显示 `<missing>`（英文）或 `<缺失>`（中文）。空字符串（`api-version: ''`）和其他值带单引号显示，如 `''` 或 `'1.21'`，不是低级别拒载 |
-
-缺失和非整数共用一条消息模板，低级别使用另一条。带引号的整数 `'700'` 也有效。以下逐字引用语言文件中的原始模板（不含日志前缀）；`%s`、`%d` 及中文的位置参数在运行时替换为 JAR 名、声明值或读到的值、最低级别和当前框架版本（两条模板中的顺序不同）：
-
-`language: en`
-
-```text
-Module '%s' declares api-version %d, below the minimum %d required by UltiTools-API %s; refusing to load. Install a module rebuilt for the current UltiTools-API; changing api-version alone does not make an old module compatible.
-Module '%s' has no valid api-version (read: %s); UltiTools-API %s requires an integer api-version of %d or higher -- refusing to load. Install a module rebuilt for the current UltiTools-API.
-```
-
-`language: zh`
-
-```text
-模块 '%s' 声明的 api-version 为 %d，低于 UltiTools-API %4$s 要求的最低级别 %3$d；拒绝加载。请安装针对当前 UltiTools-API 重新构建的模块；仅修改 api-version 无法使旧模块兼容。
-模块 '%s' 未声明有效的 api-version（读到的值：%s）；UltiTools-API %s 要求模块声明 %d 或更高的整数；拒绝加载。请安装针对当前 UltiTools-API 重新构建的模块。
-```
-
-因整数与最低级别检查被拒的 JAR（缺失、非整数或低于 `700`）不进入共享类路径，不能向其他模块提供主类或辅助类；每个拒载计入一次 `Failed`，无关模块继续加载。例如，同一主类的 `m-6.3.0.jar`（630）和 `m-7.0.0.jar`（700）并存时，旧副本被拒，新副本提供类，即使新文件名排序靠后。启动时的重复副本警告仍会列出这两个文件，并指明类从 `m-7.0.0.jar` 加载。框架不自动删除旧文件；均通过准入的副本之间仍按文件名排序，不按模块版本选最新。
-
-升级框架前，先在旧框架下让每个待处理的 `/upm update` 完成一次启动确认；不保留的更新先按[更新与卸载](#在服务器上更新和卸载)中的 6.x 行为取消（在旧框架上，`/upm uninstall` 也会卸载模块并删除其 JAR，应先备份需要保留的文件）。不要带着等待确认的 6.x 更新升级到 7.0：它可能被拒载并触发旧事务回滚，而恢复的旧 JAR 同样低于 700。完成或取消更新后，停服，将模块替换为重新构建的 7.0 版本，只保留预期的一份 JAR，再升级框架并启动。
-
-自 v7.0.0 起，安装、更新和卸载请求都在下次重启时应用。依赖立即卸载的操作流程需要改为先提交请求，再重启；重启前可[查看和撤销请求](#在服务器上更新和卸载)。
-
-自 v7.0.0 起，添加自定义附魔、改动标签或自带数据包的模块可以在[引导钩子中声明这些内容](/zh/guide/advanced/startup-phases#bootstrap-content)，而不是在 `registerSelf()` 中声明。移除此类模块可能影响存档，移除前请备份世界。
+自 v7.0.0 起，6.x 模块须迁移源码后重新构建，不能只改旧 JAR 的声明。完整步骤见[从 6.x 升级到 7.0](./upgrading-to-7)，准入要求见[构建目标与模块准入](./upgrading-to-7#build-target)。
 
 ### 7.0 原生物品与音效 API
 
-::: warning 未发布的 v7.0.0 迁移说明
-自 v7.0.0 起，框架不再提供 XSeries，也不再提供跨版本材质和音效兼容层。
-站内其他位置的 6.x 用法仅适用于对应的框架版本。
-:::
-
-替换下列已移除的公开符号后，针对 7.0 重新编译模块：
-
-| v7.0.0 移除的符号 | 替代方式 |
-| --- | --- |
-| `com.ultikits.ultitools.utils.XVersionUtils` | 直接调用 Paper 和 Adventure API，完整方法对照见下表 |
-| `com.ultikits.ultitools.entities.Sounds` | Paper 的 `org.bukkit.Sound` |
-| `com.ultikits.ultitools.entities.Colors#getCode()` | 原生 `Material.<COLOR>_STAINED_GLASS_PANE`，或 7.0 新增的 `Colors#getGlassPaneMaterial()` |
-
-`Colors` 枚举本身仍保留，自 v7.0.0 起新增 `getGlassPaneMaterial()`；6.x 没有这个 getter。`new ItemStack(Material.CYAN_STAINED_GLASS_PANE)` 在 6.x 和 7.0 上都能使用。自 v7.0.0 起，`ItemStackBuilder` 整体删除，包括带 XSeries 参数类型的入口；见 [7.0 的物品构建与存储](#item-construction-7)。
-
-在 7.0 中把材质名转换为物品，请使用 `Material.matchMaterial`。它接受当前材质名（如 `DIAMOND`）和带命名空间的 key（如 `minecraft:stone`）；框架不查询旧名称，也不回退为其他物品。把材质交给 `ItemSpec.builder` 之前，先排除 `null`、纯方块和空气的结果，写法见 [7.0 的物品构建与存储](#item-construction-7)。
-
-以下原生写法自 v7.0.0 起适用，使用 `org.bukkit.Material`、`org.bukkit.Sound`、`org.bukkit.enchantments.Enchantment`、`org.bukkit.inventory.ItemFlag` 和 Adventure 的 `net.kyori.adventure.text.Component`：
-
-| 6.x 写法 | 7.0 原生替代 |
-| --- | --- |
-| XSeries 材质或 `XVersionUtils` 物品工厂 | `new ItemStack(Material.STONE)`，或 `itemRenderer.render(ItemSpec.builder(Material.STONE).build(), player)` |
-| 将 `XVersionUtils.getSound(Sounds.ENTITY_ENDERMAN_TELEPORT)` 传给 `playSound` | `player.playSound(player.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, volume, pitch)`（音量和音调沿用原调用） |
-| 用 XSeries 附魔产生隐藏附魔的发光效果 | `ItemSpec.builder(Material.PAPER).glint(true).build()`，再渲染（只显示光泽，不添加附魔） |
-| `XVersionUtils.sendActionBar(player, "Ready")` | `player.sendActionBar(Component.text("Ready"))` |
-
-音效和附魔 API 在游戏逻辑执行时调用，不要放在静态初始化或枚举构造器中。纯视觉的光泽用 `ItemSpec.Builder#glint(true)`，已有物品栈用 `ItemMeta#setEnchantmentGlintOverride(Boolean)`；两者都不添加附魔。彩色玻璃使用 `new ItemStack(Colors.CYAN.getGlassPaneMaterial())`；现有 GUI 的玻璃颜色和按钮材质不变。
+材质、音效和发光效果的替代写法见[原生物品与音效](./upgrading-to-7#items-and-sounds)。
 
 #### XVersionUtils 全部方法的替代方式
 
-自 v7.0.0 起，已发布 6.5.0 类中的全部 15 个公开方法在 Paper 26.3 上按下表替换。其中 `color` 是保留的 `Colors` 枚举值，物品构造器是 `org.bukkit.inventory.ItemStack`。「没有直接等价物」指单个 Paper 调用无法保留整个辅助方法的行为，需要在自己的代码中保留表内说明的检查。
-
-| 已移除的 6.x 方法 | Paper 26.3 替代与需要保留的行为 |
-| --- | --- |
-| `getColoredPlaneGlass(Colors color)` | `new ItemStack(Material.valueOf(color.name() + "_STAINED_GLASS_PANE"))`；固定颜色可直接使用如 `Material.CYAN_STAINED_GLASS_PANE` |
-| `getColoredWool(Colors color)` | `new ItemStack(Material.valueOf(color.name() + "_WOOL"))` |
-| `getSign()` | `new ItemStack(Material.OAK_SIGN)` |
-| `getEndEye()` | `new ItemStack(Material.ENDER_EYE)` |
-| `getEmailMaterial(boolean isRead)` | `new ItemStack(isRead ? Material.FILLED_MAP : Material.PAPER)` |
-| `getHead(OfflinePlayer player)` | `new ItemStack(player.isOp() ? Material.DRAGON_HEAD : Material.PLAYER_HEAD)`；旧辅助方法仅选择头颅类型，不设置玩家皮肤 |
-| `getGrassBlock()` | `new ItemStack(Material.GRASS_BLOCK)` |
-| `registerNewObjective(Scoreboard scoreboard, String name, String criteria, String displayName)` | 没有直接等价物：先调用 `scoreboard.getObjective(name)`，存在就返回；不存在时调用 `scoreboard.registerNewObjective(name, Criteria.DUMMY, displayName)`。旧辅助方法忽略 `criteria`，始终创建 dummy 类型的计分项 |
-| `getSound(Sounds sound)` | 使用 `Sound.ENTITY_ENDERMAN_TELEPORT` 或其他同名原生常量；调用方也要替换已删除的 `Sounds` 类型 |
-| `getBed(Colors bedColor)` | `new ItemStack(Material.valueOf(bedColor.name() + "_BED"))` |
-| `getItemDurability(ItemStack itemStack)` | 没有直接等价物：若 `itemStack.getItemMeta()` 是 `org.bukkit.inventory.meta.Damageable`，返回 `itemStack.getType().getMaxDurability() - damageable.getDamage()`，否则返回 `0`。单独的 `getDamage()` 是已损耗值，不是剩余耐久 |
-| `getItemInHand(Player player, boolean isMainHand)` | `isMainHand ? player.getInventory().getItemInMainHand() : player.getInventory().getItemInOffHand()` |
-| `sendActionBar(Player player, String message)` | 纯文本使用 `player.sendActionBar(Component.text(message))` |
-| `sendPlayerList(Player player, String header, String footer)` | `player.setPlayerListHeaderFooter(header, footer)` 保留字符串调用；Adventure 纯文本可用 `player.sendPlayerListHeaderAndFooter(Component.text(header), Component.text(footer))` |
-| `getBlockFace(Block placedBlock)` | 没有直接等价物：读取 `placedBlock.getBlockData()`；若它是 `org.bukkit.block.data.Directional`，返回 `directional.getFacing()`，否则返回 `org.bukkit.block.BlockFace.NORTH` |
-
-模块若继续使用 XSeries，必须用 Maven Shade 或 Gradle Shadow 自行打包依赖并重定位包名（shade + relocate）。不能依赖框架提供，也不能只声明为 `provided`/`compileOnly`：由框架加载的 UltiTools 模块不能使用 Paper 的 `plugin.yml` `libraries:` 机制。[6.x 的运行库说明](/zh/guide/introduction)不是 7.0 的依赖供应承诺。
+逐项替代方式见 [`XVersionUtils` 方法对照](./upgrading-to-7#xversionutils-replacements)。
 
 ### 7.0 的物品构建与存储 {#item-construction-7}
 
-::: warning 未发布的 v7.0.0 物品 API
-自 v7.0.0 起，`com.ultikits.ultitools.utils.ItemStackBuilder` 已删除。请改用 `ItemSpec` 和注入的 `ItemRenderer` 构建物品，再重新编译。
-:::
-
-名字和说明行移到模块的语言文件中，以 MiniMessage 编写。6.x 的构建器调用，例如
-
-```java
-ItemStack item = ItemStackBuilder.of(Material.DIAMOND).name("&aShop").lore("&7Click to buy").amount(3).glow().build();
-```
-
-在用 `@Autowired` 注入 `itemRenderer` 后改写为：
-
-```java
-ItemSpec spec = ItemSpec.builder(Material.DIAMOND)
-        .name(messages.key("shop.name"))
-        .addLore(messages.key("shop.click"))
-        .amount(3)
-        .glint(true)
-        .build();
-ItemStack item = itemRenderer.render(spec, player);
-```
-
-其余构建器方法的对应关系如下。表中 `builder` 是 `ItemSpec.Builder`，`stack` 是渲染出的或已有的 `ItemStack`，`key2` 和 `key3` 是模块语言文件中的 `MessageKey`：
-
-| 6.x 调用 | 7.0 替代 |
-| --- | --- |
-| `.amount(n)` | `builder.amount(n)`；超出 1 到 99 时抛出 `IllegalArgumentException`，不再截断 |
-| `.lore(...)` / `.addLore(...)` | `builder.lore(List.of(Text.of(key2), Text.of(key3)))` 替换全部说明行；`builder.addLore(key2)` 追加一行；固定组件用 `Text.literal(component)` |
-| `.glow()` | `builder.glint(true)`；不添加附魔 |
-| `.enchant(e, lvl)` | `builder.data(DataComponentTypes.ENCHANTMENTS, ItemEnchantments.itemEnchantments().add(e, lvl).build())` |
-| `.removeEnchant(e)` | 渲染后调用 `stack.removeEnchantment(e)` |
-| `.hideAttributes()` | `builder.hiddenInTooltip(Set.of(DataComponentTypes.ATTRIBUTE_MODIFIERS))` |
-| `.flags(flags)` | 渲染后调用 `stack.editMeta(meta -> meta.addItemFlags(flags))` |
-| `.hideAll()` | `stack.editMeta(meta -> meta.addItemFlags(ItemFlag.values()))`；与 6.x 一样，名字和说明行仍然显示。`builder.tooltipHidden(true)` 会隐藏整个提示框，包括名字和说明行 |
-| `.unbreakable()` | `builder.data(DataComponentTypes.UNBREAKABLE)` |
-| `.customModelData(n)` | `builder.data(DataComponentTypes.CUSTOM_MODEL_DATA, CustomModelData.customModelData().addFloat(n).build())` |
-| `.leatherColor(c)` | `builder.data(DataComponentTypes.DYED_COLOR, DyedItemColor.dyedItemColor(c))` |
-| `.skullOwner(player)` | `builder.data(DataComponentTypes.PROFILE, ResolvableProfile.resolvableProfile(player.getPlayerProfile()))` |
-| `.meta(consumer)` / `.item(consumer)` | 渲染后调用 `stack.editMeta(consumer)` / `consumer.accept(stack)` |
-| `ItemStackBuilder.of(existingStack)` | `existingStack.clone()`，再调用 Paper 的 `setData` 和 `unsetData` |
-| `.build()` / `.buildClone()` | `itemRenderer.render(spec, player)` 每次调用都创建新物品栈；复制已有物品栈用 `stack.clone()` |
-| `ItemStackBuilder.of(String)` | `Material m = Material.matchMaterial(name);`，再 `m != null && m.isItem() && !m.isAir() ? ItemSpec.builder(m) : null` |
-
-模块存储的物品无需改动。`ItemStackUtils` 保留五个方法，可读取 6.x 保存的字符串，写入 6.x 无法读取的新格式；升级前请备份存储的物品。见[物品与物品存储](/zh/guide/essentials/items)。
+构建器替代、存储格式与回退前的备份要求见[物品构建与存储](./upgrading-to-7#item-migration)。
 
 ### 7.0 的调度与声明式 GUI
 
-自 v7.0.0 起（尚未发布），模块作者会遇到两处 API 变化。请按上文针对 7.0 重新构建模块。
-
-- **调度。** 用 `@Autowired` 注入 `com.ultikits.ultitools.scheduling.Scheduler`；每个模块实例拥有一个，卸载模块会取消其任务，`@Scheduled` 也运行在其上。异步重复任务按固定频率运行，绑定到实体的任务在实体被移除时结束（玩家则在断开连接时）。详见[调度器 API](/zh/guide/advanced/scheduled-tasks#调度器-api)。框架自身的工作改由其调度器运行，模块代码无需改动；可观察到的影响见[框架调度的工作](/zh/guide/advanced/scheduled-tasks#框架调度的工作)。
-- **声明式 GUI。** `DeclarativeGui` 不再继承 obliviate 的 `Gui`。构造器接收模块的 `UiService`、`Scheduler` 以及 `Text` 标题，行数固定为 1 到 6；`InventoryType` 构造器、`IconWrapper`、`RenderNodeDiffer`、`DiffResult` 和 `getPlayer()`（改为 `viewer()`）已删除；`ItemDisplay` 接收 `ItemSpec`，点击使用 `onClick(GridAction)`。详见[7.0 的变化](/zh/guide/advanced/declarative-gui#_7-0-的变化)。
+每模块实例的调度器及声明式界面改动见[调度与声明式 GUI](./upgrading-to-7#scheduler-and-screens)。
 
 ### 7.0 中的旧箱子页面与确认组件 {#legacy-chest-removal}
 
-::: warning 未发布的 v7.0.0 删除项
-自 v7.0.0 起，`abstracts.gui.BaseInventoryPage`、`abstracts.gui.BasePaginationPage`、`abstracts.gui.BaseConfirmationPage`、`widgets.Confirm`、`widgets.impl.ChatConfirm`、`widgets.impl.InventoryConfirm`、`entities.Buttons`、`entities.ViewType`（均在 `com.ultikits.ultitools` 下）以及 `DependenceManagers#initInventoryAPI` 已删除，不保留弃用桥接。仍引用其中任何一个的模块无法针对 7.0 编译，针对 6.x 构建的模块在 7.0 上无法加载。请针对 7.0 重新构建。
-:::
-
-框架 JAR 不再打包 obliviate-invs 与 UniversalScheduler。6.x 没有对它们做重定位，所以直接使用 `mc.obliviate.*` 或 `com.github.Anon8281.*` 的模块用的是框架自带的副本；这类模块必须自行打包这些库，或改写相关代码。`Colors` 仍然保留。
-
-| 6.x | 7.0 |
-|---|---|
-| `BaseInventoryPage` | `DeclarativeGui`，见[声明式 GUI](/zh/guide/advanced/declarative-gui) |
-| `BasePaginationPage` | 保存页码的 `State` 加显示当前切片的 `GridView`，见[声明式 GUI](/zh/guide/advanced/declarative-gui) |
-| `BaseConfirmationPage`、`Confirm.gui(...)` | 界面服务的 `Confirm`，见 [UI：意图与会话](/zh/guide/advanced/ui-service#notice-and-confirm) |
-| `Confirm.chat(...)` | 由模块自行发送可点击的聊天提示，见 [UI：意图与会话](/zh/guide/advanced/ui-service#chat-confirmation) |
-| `Buttons`、`ViewType` | 没有替代类型；使用 `TextButton` 的标签或框架标签键 |
-
-6.x 的旧页面仍作为 6.x 资料保留在 [GUI 界面系统](/zh/guide/advanced/gui)。
+旧页面和确认组件的替代方式及依赖打包要求见[旧箱子页面与确认组件](./upgrading-to-7#chest-and-confirmation)。
 
 ### 7.0 的进度弹窗与悬浮字
 
-::: warning 尚未发布的 v7.0.0 删除项
-自 v7.0.0 起，`com.ultikits.ultitools.widgets.Toast`、`NotificationService#sendToastNotification` 和 `com.ultikits.ultitools.widgets.Hologram` 已删除。
-请按下文迁移调用方，再针对 7.0 重新构建。
-:::
-
-**进度弹窗（Toast）。** 旧实现借助进度（advancement）弹窗，依赖已弃用、跨版本不稳定的服务端内部接口，消息中的引号还可能破坏生成的 JSON。框架不提供替代的辅助类。`NotificationService` 提供 `sendTitleNotification`、`sendSubTitleNotification`、`sendActionBarNotification`、`sendBossBarNotification` 和 `sendMessageNotification`（聊天消息），其中部分重载还接收一个 `Sound`。请改用这些方法或聊天。7.0 中这些方法改为接收 `Text` 和 Adventure 类型，参见 [7.0 的通知服务](#notification-service-7)。
-
-**悬浮字（Hologram）。** 旧的 `Hologram` 为每行文字生成一个隐形盔甲架。请改用 Paper 原生的 `TextDisplay` 实体，单个显示实体即可包含多行文字。下面的示例关闭了实体持久化：
-
-```java
-World world = location.getWorld();
-if (world == null) {
-    throw new IllegalArgumentException("The display location must have a world");
-}
-TextDisplay display = world.spawn(location, TextDisplay.class, d -> {
-    d.text(messages.shared(Text.of(messages.key("hologram.welcome"))));
-    d.setBillboard(Display.Billboard.CENTER);
-    d.setPersistent(false);
-});
-// later: display.remove();
-```
-
-- `World#spawn` 必须在拥有目标位置的线程上调用。在其它线程上时，先通过模块注入的 `Scheduler` 切换线程，例如 `scheduler.region(location).run(...)`，详见[调度器 API](/zh/guide/advanced/scheduled-tasks#调度器-api)。框架自身的工作改由其调度器运行，模块代码无需改动；可观察到的影响见[框架调度的工作](/zh/guide/advanced/scheduled-tasks#框架调度的工作)。
-- `Location#getWorld()` 可能返回 `null`，生成实体前要像示例那样检查。
-- `messages` 是模块注入的 `com.ultikits.ultitools.text.Messages` 服务，它的 `shared(Text)` 方法为所有玩家共同看到的对象（例如文字显示实体）生成文本。
-
-显示实体由调用方管理，不再需要时调用 `display.remove()` 移除。
+进度弹窗与悬浮字的替代方式见[提示弹窗与悬浮字](./upgrading-to-7#display-and-toast)。
 
 ### 7.0 的通知服务 {#notification-service-7}
 
-::: warning 尚未发布的 v7.0.0 通知 API
-自 v7.0.0 起，`NotificationService` 改为接收 `Text`、`Duration` 和 Adventure 类型，所有方法都返回 `void`。
-针对 6.x 编译的模块与它不保持二进制兼容，请迁移调用并重新构建。
-:::
-
-通知服务按收件玩家的语言渲染每个 `Text`，共有十二个发送方法：四个抽象方法和八个默认重载。签名变化如下：
-
-| 7.0 之前 | 自 v7.0.0 起 |
-| --- | --- |
-| 消息、标题、副标题和动作栏的 `String` 参数 | `com.ultikits.ultitools.text.Text` |
-| Boss 栏 `int` 秒数 | 正的 `java.time.Duration`；默认仍为 25 秒 |
-| `org.bukkit.Sound` | Adventure 的 `net.kyori.adventure.sound.Sound`，按调用方给出的来源、音量和音调播放 |
-| 标题淡入、停留、淡出的 `int` tick | Adventure 的 `Title.Times`；默认仍为 500 毫秒、2.5 秒、1 秒 |
-| `boolean` 返回值 | `void`；必需参数为 `null` 时抛出以参数名为消息的 `NullPointerException`，时长为零或负数时抛出 `IllegalArgumentException` |
-| 两个接收调用方 Bukkit `BossBar` 的重载 | 一个接收 Adventure `BossBar.Color` 和 `BossBar.Overlay` 的完整重载 |
-| `new InMemoryNotificationService()` | `new InMemoryNotificationService(Messages, Scheduler)`，更推荐注入 `NotificationService` |
-| Bean 名称 `inMemoryNotificationService` 和接口全限定类名字符串 | 按类型查找：`@Autowired NotificationService` 或 `getBean(NotificationService.class)` |
-
-6.x 的调用
-
-```java
-notificationService.sendBossBarNotification(player, "Arena closes soon", 10);
-```
-
-在通过 `@Autowired` 注入 `messages` 和 `notifications` 后改写为：
-
-```java
-notifications.sendBossBarNotification(player, Text.of(messages.key("arena.closing")), Duration.ofSeconds(10));
-```
-
-把文字移到模块的语言文件中。玩家或服主输入的内容以 `Arg.string` 传入，并在语言文件中写 `<name>` 这样的占位符，不要拼进模板；固定文字用 `Text.plain(string)`。再次发送 Boss 栏通知现在会替换文字、颜色和样式，并重新开始唯一的倒计时；6.x 中文字保持不变，重叠的倒计时还会让 Boss 栏提前消失。各方法使用的线程和已知限制见[通知](/zh/guide/essentials/notifications)。
+新签名及调用示例见[通知服务](./upgrading-to-7#notifications-migration)。
 
 ### 7.0 的文本与语言
 
-::: warning 未发布的 v7.0.0 文本引擎
-自 v7.0.0 起，模块随包提供 `messages/<语言>.yml` 语言文件，并通过注入的 `Messages` 服务发送文本。
-旧文本体系已移除，升级前必须迁移。
-:::
-
-- **语言文件。** 将 `lang/` 中需要保留的译文移到 `src/main/resources/messages/<locale>.yml`，改用小写点分键和 MiniMessage 值。只读取 `.yml`，不解释 `§` 或 `&` 颜色码；旧文件不会自动导入。
-- **源语言。** 模块自身文本不是英文时，在模块的 `plugin.yml` 中声明 `source-language`；默认为 `en`。
-- **发送文本。** 用 `@Autowired` 注入 `com.ultikits.ultitools.text.Messages`，用 `messages.key(path)` 构造键，用 `messages.send(...)` 发送，每个玩家就会看到自己客户端语言的版本。玩家或服主的输入以 `Arg.string` 传入，绝不拼进模板。实体名称、文本展示实体和共享 Boss 栏使用 `messages.shared(Text)`。
-- **默认值。** 新装时 `language` 与 `fallback-language` 均为 `auto`；主机时区不是中国时区时，控制台和后备语言为英文。见[语言选择](/zh/guide/essentials/messages#language-selection)。
-- **旧文本 API。** 用 `Messages` 替换 `i18n(...)`。若确实需要服务器后备语言，注入 `LocaleResolver` 并调用 `fallback()`，不再调用 `getLanguageCode()` 或 `getConfiguredLanguage()`。
-- **语言声明。** 删除 `supported()` 覆盖和旧语言声明，随模块打包支持的语言文件。
-
-逐项核对代码中是否还有[已删除的旧文本类型和入口](/zh/guide/essentials/i18n#removed-text-apis)。[迁移对照表](/zh/guide/essentials/i18n)还说明了配置注释和语言文件的迁移方式。
+消息发送、随包语言文件和服主覆盖文件的迁移见[文字与语言](./upgrading-to-7#messages-migration)。
 
 ### 描述符变更
 
