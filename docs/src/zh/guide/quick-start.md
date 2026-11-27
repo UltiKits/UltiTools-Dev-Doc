@@ -4,187 +4,204 @@ footer: false
 
 # 快速开始
 
-在这篇文章中，将会教你如何创建一个 UltiTools 模块。以及如何在自己的插件中使用UltiTools-API。
+7.0.0 尚未发布。本指南以 UltiTools-API 7.0 为目标构建模块，并用 `/hellomodule hello` 验证安装。
 
-[//]: # (## 使用 IDEA 插件快速创建)
+## 前置条件
 
-[//]: # ()
+自 v7.0.0 起，使用 JDK 25 和 Maven 构建模块。在符合[框架目标环境](/zh/guide/introduction#运行环境)的服务器上运行 UltiTools 7.0 来测试模块。将 UltiTools 框架 JAR 放在服务器的 `plugins/` 目录；模块 JAR 的安装目录不同，见下文。
 
-[//]: # (UltiKits 开发了官方的 IDEA 插件，你可以使用他来快速创建项目。)
+在 7.0.0 发布之前，框架 JAR 有两种获取方式：从源码用 `mvn clean package` 构建框架，或从下文 `pom.xml` 使用的快照仓库下载 `com.ultikits:UltiTools-API` 的 `7.0.0-SNAPSHOT` JAR。这个 JAR 本身就是 Paper 插件。为 7.0 构建的模块需要 7.0 框架；已发布的 6.x 版本不会加载它。
 
-## 创建 Paper 项目
+## 项目创建
 
-万事万物都起源于一个空项目，所以你需要创建一个空的Paper项目。你可以使用IDEA的[Minecraft插件](https://plugins.jetbrains.com/plugin/8327-minecraft-development)
-来快速创建一个空的Paper项目，或者手动创建一个空的maven项目。
+自 v7.0.0 起，[UltiKits CLI](/zh/guide/advanced/ultikits-cli) 提供 7.0 模块模板。npm 上发布的 CLI 还不包含这个模板，目前从 npm 安装的 CLI 创建的是 6.x 项目。如果你的 CLI 构建包含 7.0 模板，执行：
 
-## 添加依赖项
-
-不管是创建一个UltiTools模块还是使用 UltiTools-API，你都需要在你的 Java 项目中，将 UltiTools-API 添加到你的依赖项中。
-
-::: code-group
-
-```xml [Maven]
-<dependency>
-  <groupId>com.ultikits</groupId>
-  <artifactId>UltiTools-API</artifactId>
-  <version>6.5.0</version>
-  <scope>provided</scope>
-</dependency>
+```bash
+ultikits create HelloModule
+cd HelloModule
 ```
 
-```groovy [Gradle]
-dependencies {
-  compileOnly 'com.ultikits:UltiTools-API:6.5.0'
-}
+模块名填 `HelloModule`，Java 包名填 `com.example.hellomodule`，再填写简介和作者，预发布 API 版本保留默认的 `7.0.0-SNAPSHOT`。如果没有 7.0 模板，请新建 `HelloModule` 目录，再按下文手工创建文件。
+
+### 初始目录结构
+
+```text
+pom.xml
+src/main/
+├── java/com/example/hellomodule/
+│   └── HelloModule.java
+└── resources/
+    ├── plugin.yml
+    └── messages/
+        ├── en.yml
+        └── zh.yml
 ```
 
-:::
+CLI 还会生成 `README.md` 和 `.gitignore`。下文只展示本示例所需的文件。如果使用 CLI，保留生成的 `pom.xml`、`plugin.yml` 和主类，再添加下文的命令与消息键。
 
-最新的UltiTools-API版本号，可以在 [Maven Central](https://search.maven.org/artifact/com.ultikits/UltiTools-API) 中查看。
+### Maven 构建配置
 
-添加完成后重载你的项目。
+手工创建项目时，使用下面的 `pom.xml`。它使用与 7.0 模板相同的 API 坐标、`provided` 作用域和 Java 编译目标。`provided` 依赖不打入模块 JAR，运行时由 UltiTools 和 Paper 提供各自的 API。
 
-## 创建一个UltiTools的模块
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.ultikits.plugins</groupId>
+  <artifactId>HelloModule</artifactId>
+  <version>1.0.0</version>
+  <properties>
+    <java.version>25</java.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <ultitools.version>7.0.0-SNAPSHOT</ultitools.version>
+  </properties>
+  <repositories>
+    <repository>
+      <id>papermc</id>
+      <url>https://repo.papermc.io/repository/maven-public/</url>
+    </repository>
+    <repository>
+      <id>central-snapshots</id>
+      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+      <releases><enabled>false</enabled></releases>
+      <snapshots><enabled>true</enabled></snapshots>
+    </repository>
+  </repositories>
+  <dependencies>
+    <dependency>
+      <groupId>io.papermc.paper</groupId>
+      <artifactId>paper-api</artifactId>
+      <version>26.3.build.258-stable</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.ultikits</groupId>
+      <artifactId>UltiTools-API</artifactId>
+      <version>${ultitools.version}</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+  <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+      </resource>
+    </resources>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.16.0</version>
+        <configuration><release>${java.version}</release></configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
+```
 
-以下内容将会教你如何创建一个UltiTools的模块。如果你只是想在自己的插件中使用UltiTools-API，可以跳转到 [使用UltiTools-API](#使用ultitools-api)。
+预发布阶段，模板默认使用 `7.0.0-SNAPSHOT`，并加入 Maven Central 快照仓库。如果从[框架源码](https://github.com/UltiKits/UltiTools-Reborn)构建，可以在框架项目中执行 `mvn clean install`，将对应的快照安装到本地 Maven 仓库。7.0.0 正式发布后，使用 `7.0.0`，无需快照仓库。
 
-### 创建模块元数据文件
+### 模块描述文件
 
-在你开始编写代码之前，你需要在 `resources` 文件夹中创建一个 `plugin.yml` 文件。
-
-UltiTools 在加载该模块之前会先读取该文件，以便确认该模块的主类等信息。
-
-::: tip 自 v6.3.0 起
-没有可读的 `plugin.yml`、没有 `main:` 声明，或 `main:` 指向的类不是具体的 `UltiToolsPlugin`
-子类的模块 jar，会在加载时被拒绝，并给出具体原因。
-:::
-
-当 `main:` 指向一个不存在的类时，拒载的那一行后面会跟着 `ClassNotFoundException` 的堆栈。这是预期行为：
-堆栈是有意打印的，便于看清是哪一次类查找失败。完全没有 `main:` 声明的 jar 被拒载时不打印堆栈。
-
-下面的描述文件示例用于 6.x（其中 `630` 对应 6.3.0）：
+将 `plugin.yml` 放在 `src/main/resources/`，Maven 会将它打包到 JAR 根目录。`name` 填模块名，`main` 填具体 `UltiToolsPlugin` 子类的完整类名。`version` 填模块自身的版本；本例由 Maven 资源过滤替换 `${project.version}`。`source-language` 可省略，默认值为 `en`。
 
 ```yaml
-# 模块名称
-name: TestPlugin
-# 模块版本
+name: HelloModule
 version: '${project.version}'
-# 模块主类
-main: com.test.plugin.MyPlugin
-# 模块用到的 UltiTools API 级别，例如 6.3.0 为 630
-api-version: 630
-# 模块作者
-authors: [ yourname ]
-# UltiTools 检查更新时使用的唯一标识符
-identify-string: test-plugin
-```
-
-自 v6.3.0 起，为 UltiTools-API 6.3.0 构建的模块应声明 `api-version: 630`；6.3.0 上的 `/upm` 只安装声明 `630`（框架自身 API 级别）的模块（见[模块版本规范](/zh/guide/advanced/module-versioning)）。
-
-自 v7.0.0 起，针对 7.0 重新构建的模块必须在 JAR 根目录的 `plugin.yml` 中声明至少为 `700` 的整数；缺失、空值、非整数或低于 `700` 都会被拒载。最小描述文件如下，`api-version` 是 UltiTools 模块级别，不是 Paper 的版本字符串：
-
-```yaml
-name: TestPlugin
-version: 1.0.0
-main: com.test.plugin.MyPlugin
+main: com.example.hellomodule.HelloModule
 api-version: 700
+source-language: en
 ```
 
-上面的构建依赖和 `630` 示例仅用于 6.x，不能直接用于 7.0。面向 7.0 时，应同时更换构建依赖并重新构建，不能只修改声明。加载器仍会拒绝要求比当前框架更新的 API 级别；拒载消息与安装步骤见[6.x 模块升到 7.0](/zh/guide/advanced/module-versioning#modules-6x-to-7)。
+自 v7.0.0 起，`api-version` 是必填项。它是模块支持的最低 UltiTools API 级别，不是 Paper 版本，也不是模块自身的版本。框架接受 `700` 至自身 API 级别之间的整数，含两端。模板为 `7.0.0-SNAPSHOT` 和 `7.0.0` 生成的值都是 `700`。
 
-### 编写模块主类
+### 模块主类
 
-新建一个主类继承 `UltiToolsPlugin`，实现 `registerSelf()` 完成启动工作。
-可选的 `onReload()` 和 `onUnregister()` 钩子分别处理自定义重载与卸载工作；没有自定义工作时可以省略。
-
-::: tip 自 v6.3.0 起
-`reloadSelf()` 与 `unregisterSelf()` 是 `final` 方法，改为重写 `onReload()` 与
-`onUnregister()`。
-:::
-
-`onUnregister()` 在框架注销该模块的命令与监听器之前运行，此时模块自身的 bean 仍然存活。自 v7.0.0 起，模块的 `UiService` 仍在显示的界面会在 `onUnregister()` 运行之前、卸载返回之前以 `CloseReason.OWNER_UNLOADED` 结束；参见[界面：意图与会话](/zh/guide/advanced/ui-service#unload-and-server-stop)。`onReload()` 在框架自身的重载步骤之后运行：配置重载与语言目录刷新。
-
-执行 `/ul reload` 时，框架会在 `onReload()` 返回之后记录一行日志，写明模块名称。如果模块原有的重写只是记录自己的重载日志，这个重写可以直接删除。如果模块有实际的重载或卸载工作，把原有的 `reloadSelf()`/`unregisterSelf()` 重写改名为 `onReload()`/`onUnregister()`。从改名后的钩子中删除所有 `super.unregisterSelf()` 调用，保留模块自己的实际清理逻辑；框架会在 `onUnregister()` 返回后注销命令和监听器。
-
-自 v6.3.0 起，`onUnregister()` 可以抛出任何异常，包括它没有声明的受检异常。框架仍会注销该模块的命令和监听器、关闭它的容器并把它从已加载列表中移除，然后把钩子自己的异常原样重新抛给调用方，是同一个实例，不做包装。如果之后的清理步骤也失败，该失败会作为被抑制异常附加到钩子的异常上，而不会取代它。
-
-<<< @/../examples/src/main/java/com/ultikits/docs/quickstart/MyPlugin.java
-
-这样就已经完成了一个什么功能都没有的UltiTools模块。
-
-### 重载结果
-
-自 v6.3.0 起，`/ul reload` 与 `/ul reload <模块名>` 会如实报告每个模块的重载结果：
-
-- 框架只在 `onReload()` 返回之后才记录该模块的重载日志行。如果某个重载步骤或 `onReload()` 抛出异常，框架改为记录一行错误日志，写明模块名称和原因，不会再记录成功日志行。
-- `/ul reload <模块名>` 回复成功；重载抛出异常时回复失败及原因。
-- `/ul reload` 在某个模块失败时仍会重载其余所有模块，最后回复一条汇总：全部模块已重载，或哪些模块失败。
-
-只完成了一部分的重载，可以不抛异常而直接说明。改为重写 `onReload(ReloadReport report)`，用 `report.partial(...)` 记下每一个没有重载的部分：
+编写 `src/main/java/com/example/hellomodule/HelloModule.java`。`@UltiToolsModule` 启用扫描包内受支持组件的自动注册。实现 `registerSelf()` 并返回 `true`，允许模块启动。`onReload()` 和 `onUnregister()` 是可选钩子，用于自定义重载与清理。
 
 ```java
-@Override
-protected void onReload(ReloadReport report) {
-    try {
-        scoreboardService.restart();
-    } catch (RuntimeException e) {
-        getLogger().error(e, "计分板服务未能重启");
-        report.partial("计分板服务未能重启：" + e.getMessage());
+package com.example.hellomodule;
+
+import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
+import com.ultikits.ultitools.annotations.UltiToolsModule;
+
+@UltiToolsModule(scanBasePackages = "com.example.hellomodule")
+public class HelloModule extends UltiToolsPlugin {
+    @Override
+    public boolean registerSelf() {
+        return true;
     }
 }
 ```
 
-框架随后会记录一条警告日志列出这些部分，代替成功日志行；`/ul reload <模块名>` 回复这些部分，代替成功回复；`/ul reload` 的汇总也会列出该模块及这些部分。框架自身重载步骤中未生效的部分也记在同一份报告里：自 v6.3.0 起，被拒绝并保留旧值的配置绑定 `@Scheduled` 或 `@CmdCD` 值也会列在其中（[#595](https://github.com/UltiKits/UltiTools-Reborn/issues/595)）。`onReload(ReloadReport)` 的默认实现调用 `onReload()`，因此只重写 `onReload()` 的模块行为不变。重载完全无法继续时，应当抛出异常。`reloadSelf()` 的签名不变；`reloadWithReport()` 执行同样的重载并返回 `ReloadReport`，供模块自己的重载命令使用。
+## 第一个命令
 
-框架 `config.yml` 中的 `language` 设置对整个服务器只有一个值，`/ul reload <模块名>` 不会把改动后的值只应用到一个模块上。磁盘上的值改变后，该模块继续使用框架当前运行的语言，重载被报告为部分完成，写明新旧两个值，并说明执行完整的 `/ul reload` 才会生效。
+自 v7.0.0 起，UltiTools 将 `@CmdExecutor` 和 `@CmdMapping` 编译成 Brigadier 命令树，通过 Paper 注册。在扫描包中添加 `src/main/java/com/example/hellomodule/HelloCommand.java`。`@CmdSender` 注入命令发送者，支持玩家或控制台；继承 `BaseCommandExecutor` 需要重写 `handleHelp`。命令参数和权限见[命令执行器](/zh/guide/essentials/cmd-executor)。
 
-### 已加载模块列表
+```java
+package com.example.hellomodule;
 
-自 v6.3.0 起，`getPluginManager().getPluginList()` 返回已加载模块的不可修改快照，取自调用那一刻。在任何线程遍历它都是安全的，对它添加或删除元素会抛出 `UnsupportedOperationException`。`PluginManager.unregister(...)` 会自行把卸载的模块移出列表。
+import com.ultikits.ultitools.abstracts.command.BaseCommandExecutor;
+import com.ultikits.ultitools.annotations.Autowired;
+import com.ultikits.ultitools.annotations.command.CmdExecutor;
+import com.ultikits.ultitools.annotations.command.CmdMapping;
+import com.ultikits.ultitools.annotations.command.CmdSender;
+import com.ultikits.ultitools.text.Messages;
+import org.bukkit.command.CommandSender;
 
-## 使用UltiTools-API
+@CmdExecutor(alias = {"hellomodule"})
+public class HelloCommand extends BaseCommandExecutor {
+    @Autowired
+    private Messages messages;
 
-::: tip 自 v6.2.2 起
-你可以使用更简单的外部插件 API：在你的插件 `onEnable()` 中调用 `UltiToolsAPI.connect(this)` 即可。详情请参阅[外部插件 API 指南](./advanced/external-plugin-api.md)。
-:::
+    @CmdMapping(format = "hello")
+    public void hello(@CmdSender CommandSender sender) {
+        messages.send(sender, messages.key("command.hello"));
+    }
 
-以下部分介绍的是旧版连接器方式，该方式仍受支持，但不再推荐用于新项目。自 v6.3.0 起，六参数构造器已移除，连接器使用显式接收 `resourceFolderPath` 的七参数构造器；新的集成应在自己的 `JavaPlugin` 中使用外部插件 API。
+    @Override
+    protected void handleHelp(CommandSender sender) {
+        messages.send(sender, messages.key("command.help"));
+    }
+}
+```
 
-### 创建入口类（旧版）
+## 玩家可见文本
 
-新建一个类继承 `UltiToolsPlugin` ，这个类将会作为你的插件的入口类。
+自 v7.0.0 起，`Messages` 和 `messages/<locale>.yml` 是唯一的文本系统。将下面的 UTF-8 语言文件放在 `src/main/resources/` 下。如果使用了 CLI，将 `command` 条目添加到已有文件中。`messages.key("command.hello")` 引用当前模块的消息键；消息值使用 MiniMessage 为问候文字着色。见[消息与语言](/zh/guide/essentials/messages)和[旧文本迁移](/zh/guide/essentials/i18n)。
 
-<<< @/../examples/src/main/java/com/ultikits/docs/quickstart/UltiToolsConnector.java
+```yaml
+# src/main/resources/messages/en.yml
+command:
+  hello: '<green>Hello from HelloModule!</green>'
+  help: 'Usage: /hellomodule hello'
+```
 
-集成它的插件需要传入全部七个参数来构造连接器，包括自己的资源目录。标准模块则使用上文[创建一个UltiTools的模块](#创建一个ultitools的模块)中的无参主类。
+```yaml
+# src/main/resources/messages/zh.yml
+command:
+  hello: '<green>HelloModule 向你问好！</green>'
+  help: '用法：/hellomodule hello'
+```
 
-### 将入口类注册到UltiTools插件管理器（旧版）
+## 构建与安装
 
-旧版集成先构造连接器，再把实例传给 `UltiToolsPlugin.getPluginManager().register(connector)`，并在使用前检查返回的布尔值。这使用的是 `register(UltiToolsPlugin)` 重载，不通过反射调用构造器。
+在模块项目目录执行：
 
-自 v6.3.0 起，反射式 `register(Class, Object...)` 重载与六参数构造器均已移除，不要再向 `register(...)` 传入元数据实参。新的独立插件使用[外部插件 API](./advanced/external-plugin-api.md)，标准模块则使用上方的无参主类。
+```bash
+mvn clean package
+```
+
+Maven 生成 `target/HelloModule-1.0.0.jar`。安装本地构建时，先停止服务器，把 JAR 放进 `plugins/UltiTools/plugins/`（如无此目录则创建），再启动服务器。替换自己的构建时，在停服期间移除旧副本。
+
+自 v7.0.0 起，`/upm install <模块名>`、`/upm update <模块名>` 和 `/upm uninstall <模块名>` 将变更排队到下次重启，不会改变正在运行的模块。`/upm install` 用于安装 UltiCloud 目录中的兼容模块，不用于安装刚构建的本地 JAR。关于待生效清单与 `/upm pending`，见[模块版本规范](/zh/guide/advanced/module-versioning#在服务器上更新和卸载)。
+
+自 v7.0.0 起，不支持 Bukkit `/reload`；`/ul reload` 不加载新的 JAR，也不应用排队的变更。JAR 发生变更后，请完整重启服务器。
 
 ## 验证安装
 
-如果是模块，将模块放入插件文件夹/UltiTools/plugins文件夹中，重新启动服务器。
+启动后，在服务器控制台执行 `ul list`，或以管理员身份在游戏中执行 `/ul list`。输出应包含 `HelloModule 1.0.0`。在游戏中执行 `/hellomodule hello`，英文回复为 `Hello from HelloModule!`，中文回复为 `HelloModule 向你问好！`。如果列表中没有模块，先检查服务器启动日志；如果模块已列出但没有命令，请确认 `HelloCommand` 位于扫描包内。
 
-如果是连接到UltiTools的插件，将插件放入插件文件夹，重新启动服务器。
+## 6.x 文档
 
-在游戏中OP或者在命令行中使用这个命令来验证你是否成功连接到了UltiTools。
-
-```shell
-ul list
-```
-
-如果一切正常的话，你应该会在输出中看到你的插件的名字和版本。
-
-```text
-ul list
-[12:42:16] [Server thread/INFO]: BasicFunctions 1.0.0
-[12:42:16] [Server thread/INFO]: UltiTools-Login 1.0.0
-[12:42:16] [Server thread/INFO]: UltiTools-MysqlConnector 1.0.0
-[12:42:16] [Server thread/INFO]: UltiTools-SidebarPlugin 1.0.0
-[12:42:16] [Server thread/INFO]: Example 1.0.0           <--- 这是我们的示例插件
-```
-
-在后续的文章中，将会教你有关命令、事件、配置文件、数据存储、开发注解等的使用方法。
+面向 6.x 的项目请参阅[归档的 v6.4.0 快速开始](/zh/v6.4.0/guide/quick-start.html)和[旧服务器指南](/zh/guide/advanced/older-servers)。如果要将已有模块迁到 7.0，请参阅[升级指南](/zh/guide/advanced/upgrading-to-7)。
