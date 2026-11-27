@@ -1,139 +1,64 @@
 # Event Listener
 
-The event listener of UltiTools module is basically the same as Bukkit's event listener.
+7.0.0 has not been released. This guide describes behaviour as of v7.0.0. For 6.x, see the [archived v6.4.0 guide](/v6.4.0/guide/essentials/event-listener.html).
 
-Please refer to [Paper's event listener guide](https://docs.papermc.io/paper/dev/event-listeners).
+UltiTools modules can listen to Paper/Bukkit events with `@EventListener`, or subscribe to UltiTools module events with `@ModuleEventHandler`. These are separate registration and dispatch paths.
 
 ## Create a Listener
 
-Create a class that implements `Listener` and add `@EventHandler` annotation to the method that handles the event.
+Implement `org.bukkit.event.Listener`. Mark the class with `com.ultikits.ultitools.annotations.EventListener` and mark its handler methods with Bukkit's `@EventHandler`. See [Paper's event listener guide](https://docs.papermc.io/paper/dev/event-listeners) for handler signatures and priorities.
 
 ```java
 @EventListener
-public class BackListener implements Listener {
-
+public class JoinListener implements Listener {
     @EventHandler
-    public void onPlayerDeath(PlayerDeathEvent event) {
-        ...
+    public void onJoin(PlayerJoinEvent event) {
+        event.getPlayer().sendMessage(Component.text("Welcome!"));
     }
 }
 ```
 
-The `@EventListener` annotation has an optional `manualRegister` parameter (default `false`). For listeners loaded through the standard module JAR path (as with `@UltiToolsModule`), setting `manualRegister` to `true` means component scanning skips automatic registration for that listener: you must register it manually via `getListenerManager().register(this, YourListener.class)`.
+Bukkit calls the handler on the thread that dispatches the event. UltiTools does not switch threads: a join event runs on Paper's main thread, but an asynchronously dispatched event does not. If work from an async handler needs to access player, world or server state, submit it to the appropriate [scheduler context](../advanced/scheduled-tasks#scheduler-api). A deferred task cannot change the outcome of an event whose dispatch has already completed.
 
 ## Register Event Listener
 
-Register the listener in `registerSelf` of the class that inherits `UltiToolsPlugin`.
+Put the listener in a scanned package. With listener auto-registration enabled (see [Auto Registration](../advanced/auto-register)), UltiTools looks up annotated `Listener` beans in the module's container and registers them with Bukkit after `registerSelf()` succeeds. `manualRegister` defaults to `false`. Set `@EventListener(manualRegister = true)` to keep a listener bean out of automatic registration, then call `getListenerManager().register(this, JoinListener.class)` from the module's `registerSelf()`. The class must still be a bean: `register` resolves it from the module's container.
 
-::: info Connector constructor as of v6.3.0
-The six-parameter constructor has been removed. The connector below uses the seven-parameter constructor and receives `resourceFolderPath` from its caller.
-For a new standalone Bukkit plugin, prefer `UltiToolsAPI.connect(this)` in your own `JavaPlugin`; see the [External Plugin API](/guide/advanced/external-plugin-api).
-:::
+Use the class-taking overload; the old overloads that accept a listener object or a package name are not available in 7.0. On unload, UltiTools unregisters the Bukkit listeners it tracked for that module. If you register a listener directly through Bukkit, arrange its cleanup yourself.
+
+For a standalone Paper plugin, use [`UltiToolsAPI.connect(this)`](../advanced/external-plugin-api) to register discovered listener beans. The following example shows manual registration in a connector that already extends `UltiToolsPlugin`; the connector constructor takes seven arguments, including `resourceFolderPath`.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/listener/UltiToolsConnector.java
 
-Sure, you can also use the automatic registration function provided by UltiTools. For details, please refer to [this article](/guide/advanced/auto-register).
-
 ## Temporary Listener
 
-Many times we just need to listen to events temporarily. In traditional plugin development, we often maintain a list to record the players who need to listen temporarily, which is very troublesome.
+`com.ultikits.ultitools.interfaces.TempListener` registers directly with Bukkit. Its filter and handler run on the event's dispatch thread. Returning `true` from the handler unregisters the listener; returning `false` leaves it active. The return value does not cancel the event.
 
-UltiTools encapsulates Bukkit's event listener, so you can listen to events anywhere, which is very convenient and automatic.
+### Temporary Listener Builder
 
-### Temporary Listener Builder <Badge type="tip" text="v6.1.0+" />
-
-Starting with v6.1.0, use the modern `TempListener` builder API for cleaner, more flexible temporary listeners:
+Use `TempListener.common(EventClass.class)` to create a builder. `priority(...)` defaults to `NORMAL`; `filter(...)` runs before the handler, and only `true` passes. Use `eventHandler(...).build()` and call `register()` to keep a handle you can unregister explicitly:
 
 ```java
-// Simple usage - listen to all block interactions
-TempListener.common(PlayerInteractEvent.class)
-    .listen(event -> {
-        player.sendMessage("You clicked a block!");
-        return true; // return true to auto-unregister
-    });
-```
-
-**Builder Methods:**
-
-- `eventHandler(TempEventHandler<E> handler)` — Sets the event handler. Returns `true` to auto-unregister, `false` to continue listening.
-- `filter(Function<E, Boolean> filter)` — Add a pre-handler filter. Returns `true` to handle the event, `false` to ignore it.
-- `priority(EventPriority priority)` — Set handler priority (default: `NORMAL`).
-- `build()` — Build and return the `TempListener` (manual `register()` required).
-- `listen(TempEventHandler<E> handler)` — Build and immediately register in one call.
-
-::: tip build() passes your filter through <Badge type="tip" text="v6.3.0+" />
-As of v6.3.0, `.filter(x).build()` is the single recommended way to get a listener that both filters and can be unregistered: `build()` calls the same four-argument `SimpleTempListener` constructor `listen(...)` already used, so the filter you set is applied, and calling `register()` on the returned `TempListener` gives you the handle to call `unregister()` on — one construction call, both capabilities, no second listener needed.
-Before v6.3.0, `build()` called a three-argument constructor that had no filter parameter, so a filter set through `.filter(...)` was silently discarded; `listen(...)` did pass the filter through, but returned `void`, with no handle to unregister. Both gaps are closed by the same fix.
-:::
-
-**Example: Wait for player to interact with a specific block type**
-
-```java
-// Listen for interactions with blocks whose material name contains WOOD
-TempListener.common(PlayerInteractEvent.class)
-    .priority(EventPriority.HIGH)
-    .filter(event -> {
-        Block block = event.getClickedBlock();
-        return block != null && block.getType().name().contains("WOOD");
+TempListener listener = TempListener.common(PlayerInteractEvent.class)
+    .filter(event -> event.getPlayer().equals(targetPlayer) && event.getClickedBlock() != null)
+    .eventHandler(event -> {
+        event.getPlayer().sendMessage(Component.text("Block selected."));
+        return true;
     })
-    .listen(event -> {
-        event.getPlayer().sendMessage("You clicked a wooden block!");
-        return true; // auto-unregister after first match
-    });
+    .build();
+listener.register();
 ```
 
-**Example: Wait for a chat response**
-
-```java
-// Listen for player chat
-TempListener.common(AsyncPlayerChatEvent.class)
-    .filter(event -> event.getPlayer().equals(targetPlayer))
-    .listen(event -> {
-        String message = event.getMessage();
-        if (message.equalsIgnoreCase("yes")) {
-            processConfirmation(targetPlayer);
-        }
-        return true; // auto-unregister
-    });
-```
-
-::: info Returning true unregisters the TempEventHandler
-The `TempEventHandler<E>` is a functional interface that receives the event and returns a boolean:
-- Return `true` to automatically unregister the listener after handling.
-- Return `false` to keep the listener active for subsequent events.
-:::
+Keep the handle and call `unregister()` when the operation ends or in `onUnregister()` if it is still active: temporary listeners created by this builder are not tracked by the module's `ListenerManager`. `listen(handler)` builds and registers in one call but returns no handle.
 
 ### Legacy Temporary Listener (SimpleTempListener)
 
-::: warning Four constructors deprecated for removal <Badge type="tip" text="v6.3.0+" />
-As of v6.3.0, `SimpleTempListener`'s no-argument constructor and its two- and three-argument overloads — including the no-filter `(Class, TempEventHandler)` shape used below — carry `@Deprecated(since = "6.3.0", forRemoval = true)` and will be removed in a future release. They confusably overlap: two three-argument overloads differ only in whether the last parameter is `EventPriority` or a filter `Function`, with no compile-time signal for picking the wrong one. Prefer the builder API above, or the four-argument all-args constructor `new SimpleTempListener<>(eventClass, priority, handler, filter)` directly, which is not deprecated.
-:::
+Use the builder or `new SimpleTempListener<>(eventClass, priority, handler, filter)`. The no-argument, two- and three-argument constructors were removed in v6.4.0. Use a player filter instead of the removed `PlayerTempListener` or `TempListener.player(...)`.
 
-The legacy direct instantiation approach using `SimpleTempListener` still works for the example below, but the constructor it calls is now on a removal track; the builder API is the recommended approach for new code:
+## Module Event Bus {#module-event-bus}
 
-```java
-// Legacy approach - still works, but its constructor is deprecated for removal
-TempListener listener = new SimpleTempListener(PlayerInteractEvent.class, event -> {
-    // do something...
-    return true; // return true to unregister this listener
-});
-listener.register(); // start listening
-```
+Use `@ModuleEventHandler` on a managed bean to handle a `ModuleEvent`. UltiTools registers those methods on the shared `EventBus` after `registerSelf()` succeeds. On unload it removes subscriptions owned by that module instance, including programmatic subscriptions made on the loading thread within container refresh or `registerSelf()`. For subscriptions created later without an owner, retain the returned `Subscription` and call `unsubscribe()` yourself. See [Module EventBus](../advanced/module-eventbus).
 
-For player-specific events, `PlayerTempListener` (and `TempListener.player(...)`) were removed in v6.3.0. Use the builder with a filter instead:
+`EventBus.publish(event)` invokes handlers synchronously on the publisher's thread, not necessarily the main thread. `publishAsync(event)` normally uses workers, but can run handlers on the calling thread if the pool is saturated (all workers busy and its 256-entry queue full). It rejects `Cancellable` events with `IllegalArgumentException`.
 
-```java
-// REMOVED in v6.3.0:
-// TempListener listener = new PlayerTempListener<>(
-//     PlayerInteractEvent.class,
-//     event -> { /* ... */ return true; },
-//     targetPlayer
-// );
-
-// NEW (recommended):
-TempListener.common(PlayerInteractEvent.class)
-    .filter(event -> event.getPlayer().equals(targetPlayer))
-    .listen(event -> { /* ... */ return true; });
-```
-
-As of v6.3.0, `.filter(x).build()` (shown at the top of this section) is the recommended way to get a listener that both filters and can be unregistered by hand — you no longer need to construct `SimpleTempListener` directly for that combination.
+As of v7.0.0, the panel bridge publishes `PanelMessageEvent` for module requests that reach a registered responder via the framework scheduler's `global()` context. Its handlers run on Paper's main thread; the responder itself runs on a worker. This is a property of that publisher, not of the event bus in general. See [Framework-scheduled work](../advanced/scheduled-tasks#framework-scheduled-work).

@@ -1,52 +1,45 @@
 # Conditional Registration
 
-::: info Since v6.2.0
-The `@ConditionalOnConfig` annotation is available starting from UltiTools-API v6.2.0.
-:::
+7.0.0 has not been released. This guide describes conditional component registration in UltiTools-API 7.0. See the [7.0.0 release notes](../release-notes/7.0.0) for the preview scope.
 
-UltiTools allows you to conditionally register components based on YAML configuration values. This lets server admins enable or disable features without requiring code changes.
+`@ConditionalOnConfig` lets module authors use a YAML setting to control which components are registered at startup.
 
 ## Basic Usage
 
-Add `@ConditionalOnConfig` to any component class (`@Service`, `@CmdExecutor`, `@EventListener`):
+Add `com.ultikits.ultitools.annotations.ConditionalOnConfig` to a class discovered by the [component scanner](./ioc-container), such as a `@Service`, `@CmdExecutor` or `@EventListener`. The annotation does not make the class a component on its own, and it does not guard manual registration.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/conditional/WarpCommands.java
-
-The corresponding YAML:
 
 ```yaml
 # config/config.yml
 enableWarp: true
 ```
 
-If `enableWarp` is `false` or missing, the `WarpCommands` class is **not registered** at all — no command, no memory usage, no side effects.
+If `enableWarp` is `false` or missing, the scanner skips `WarpCommands` without logging that the condition failed. It does not create that bean or register its command through the normal scan path. As of v7.0.0, with the setting `true`, the executor is registered through Paper as a Brigadier command. This example only supplies the root help handler.
 
-::: tip Every entry point evaluates the condition since v6.3.0
-As of v6.3.0, every entry point (standard modules, the listener package scan and the connector `PluginManager.register(UltiToolsPlugin)`) evaluates the condition during the component scan.
-Through v6.2.5 the connector entry point performed no component scan, so nothing there evaluated the condition ([issue #334](https://github.com/UltiKits/UltiTools-Reborn/issues/334)).
-:::
+If the evaluator cannot resolve the owning module or its resource folder, it logs a warning and lets scanning proceed as though the condition passed. In either locale the warning begins `@ConditionalOnConfig on <class> could not be evaluated:` and ends `Registering by default (fail-open).` This differs from a missing YAML file, which is treated as `false` before applying `negate`.
 
 ## Reload Drift Reporting <Badge type="tip" text="v6.3.0+" />
 
-`@ConditionalOnConfig` is evaluated once, at component scan (plugin startup). `ul reload` re-reads the config file, but it never registers or unregisters anything by itself -- it only reports what changed.
+The component scan decides what to register. `/ul reload` or `/ul reload <name>` compares the recorded startup decisions with the current files, but never creates or removes components in response. The drift check warns when a recorded decision changes or when the check itself fails. The targeted command’s success reply (`Module <module> has been reloaded` in English) confirms reload completion, not a change to the registered component set.
 
-As of v6.3.0, the drift message names what the container actually holds, not just what the condition now answers:
+The warning states the new decision and whether the container already holds a constructed instance. Both locales use the same English diagnostic:
 
-```
+```text
 [UltiTools-API] @ConditionalOnConfig drift after reload: com.example.MyService (config/config.yml -> myFeature.enabled) now evaluates to disabled, but the component is already registered. @ConditionalOnConfig is evaluated once at component scan; a restart is required to remove the component.
 ```
 
-::: tip Before v6.3.0, the advice was one fixed sentence
-The message used to advise "a restart is required" unconditionally, even when nothing had ever been constructed. As of v6.3.0 the advice follows what the container actually holds: present and now disabled restarts to remove it, absent and now disabled needs no restart (check the startup log instead), absent and now enabled restarts to create it, and present and now enabled needs no restart either.
-:::
+If an instance exists and is now disabled, restart to remove it. If no instance exists and it is now enabled, restart to create it. If the instance state already matches the new decision, no action is needed. If it is absent and now disabled but you expected it to have been present, check the startup log for a registration failure.
 
 ## Annotation Attributes
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `value` | `String` | (required) | Config file path relative to the plugin data folder |
-| `path` | `String` | (required) | Dot-separated YAML key path; as of v6.3.0 it is read with the module config entity's rule, so a flat dotted key such as `features.chat: false` matches too, and a path written in both forms refuses the module |
-| `negate` | `boolean` | `false` | If `true`, register when config value is `false` (inverted logic) |
+| `value` | `String` | Required | YAML path relative to the module data folder |
+| `path` | `String` | Required | Dot-separated path to a boolean setting; nested, flat dotted and mixed forms are supported |
+| `negate` | `boolean` | `false` | Invert the boolean result before applying it |
+
+Only the YAML boolean `true` counts as true. A missing path, a non-boolean value (including `"true"`) or an unreadable or unparseable file counts as false in the condition reader. Defining the same path in two forms in one file refuses the component scan, even if the values agree. Remove one definition and restart. See [Configuration Files](../essentials/config-file) for the shared path rules.
 
 ## Examples
 
@@ -75,57 +68,34 @@ features:
 
 ### Inverted Logic with negate
 
-Use `negate = true` to register a component when the config value is `false`:
+Use `negate = true` to register when the setting is `false`. It also registers when the setting or file is missing, because the default false result is inverted.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/conditional/NormalModeService.java
 
 ## Complete Example
 
-A plugin with optional features controlled by config:
+For a module containing the example classes on this page, declare its main class in `plugin.yml`. As of v7.0.0, the minimum accepted `api-version` is `700`; see [Quick Start](../quick-start) for the complete project setup.
 
 ```yaml
-# config/config.yml
-features:
-  home: true
-  warp: true
-  economy: false
-  welcome: true
+main: com.ultikits.docs.conditional.MyPlugin
+api-version: 700
 ```
 
 <<< @/../examples/src/main/java/com/ultikits/docs/conditional/MyPlugin.java
 
-```java
-@CmdExecutor(alias = {"home"}, permission = "myplugin.home")
-@ConditionalOnConfig(value = "config/config.yml", path = "features.home")
-public class HomeCommands extends BaseCommandExecutor {
-    // Registered (features.home = true)
+Place these settings in `config/config.yml` under the module data folder:
 
-    @Override
-    protected void handleHelp(CommandSender sender) { }
-}
-
-@CmdExecutor(alias = {"warp"}, permission = "myplugin.warp")
-@ConditionalOnConfig(value = "config/config.yml", path = "features.warp")
-public class WarpCommands extends BaseCommandExecutor {
-    // Registered (features.warp = true)
-
-    @Override
-    protected void handleHelp(CommandSender sender) { }
-}
-
-@Service
-@ConditionalOnConfig(value = "config/config.yml", path = "features.economy")
-public class EconomyService {
-    // NOT registered (features.economy = false)
-}
-
-@EventListener
-@ConditionalOnConfig(value = "config/config.yml", path = "features.welcome")
-public class WelcomeListener implements Listener {
-    // Registered (features.welcome = true)
-}
+```yaml
+# config/config.yml
+enableWarp: true
+economy:
+  enabled: false
+welcomeMessage:
+  enabled: true
+features:
+  teleport:
+    enabled: true
+maintenance: true
 ```
 
-::: tip Before v6.2.0
-Without `@ConditionalOnConfig`, developers had to manually check config values in `registerSelf()` and conditionally register components with `if` statements. The annotation approach is cleaner and eliminates boilerplate.
-:::
+On startup this enables the warp and teleport executors and the welcome listener. It skips the economy service and normal-mode service. Changing a flag and running `/ul reload <name>` reports the difference; restart the server to apply the new component set.

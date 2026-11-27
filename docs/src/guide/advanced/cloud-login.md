@@ -1,141 +1,52 @@
 # Cloud Login
 
-::: info As of v6.3.1
-UltiTools-API v6.3.1 links a server to UltiCloud with a device code and UltiCloud protocol 2.1.0. The 6.3.0 magic-link login and its cloud service stop at the cut-over.
-:::
-
-`/ulticloud login`, `/ulticloud logout`, `/ulticloud status` and `/ulticloud reconnect` connect a server to
-UltiCloud for remote management through the UltiPanel dashboard. As of v6.3.1 a linked server holds only a
-revocable credential of its own, never a user account token, and the framework speaks UltiCloud protocol
-2.1.0 to `wss://api.ultikits.com/v1/agent`. The commands run from the server console or over RCON and need
-operator rights.
-
-## Linking a server
-
-`/ulticloud login` asks UltiCloud for a device code and prints it:
-
-```
-========================================
- To link this server to UltiCloud, open:
- <verification URI>
- and enter the code:
- BCDF-GHJK
- Or open this link directly: <complete verification link>
-========================================
-The code expires in 10 minutes. Waiting for confirmation...
-```
-
-Open the address in a browser, sign in to UltiCloud, enter the code and confirm. The server's name is chosen
-on that confirmation page; the server's MOTD is only the suggested default. The code is case- and
-hyphen-insensitive. When the owner confirms, the console logs `UltiCloud: this server is now linked as <name>
-(server ID <server ID>).` and the connection starts.
-
-| Situation | What the command does |
-|---|---|
-| The server is already linked | Refuses and names `/ulticloud logout` |
-| A second `/ulticloud login` within 60 seconds | Refuses with the remaining seconds |
-| The owner denies on the confirmation page | Stops polling with `UltiCloud: linking was denied on the confirmation page. Run /ulticloud login to try again.` |
-| Nobody confirms within 10 minutes | Stops polling with `UltiCloud: the device code expired before it was confirmed. Run /ulticloud login to get a new code.` |
-| `/ulticloud logout` while waiting | Cancels the request; confirming afterwards does not link the server |
-
-Over RCON the command answers at once that the code and the link will be printed in the server console, and
-every line of the block above is also written to the console log. An RCON reply closes when the command
-returns, while the code arrives a moment later.
-
-## The server credential
-
-The credential is stored as the `cloud_credential` entry of `<server root>/.ultikits/credentials.json`, the
-framework-owned file that already held the 6.3.0 token. On a POSIX file system the file is owner-only. The
-credential does not expire and has no refresh token. UltiCloud may rotate it: the framework writes the new
-credential to disk before it acknowledges the rotation, keeps using the old one on the open connection, and
-uses the new one from the next connection. The remote file API never serves the `.ultikits` directory.
-
-`/ulticloud logout` revokes the credential on UltiCloud, then deletes it, stops reconnecting and stops every
-cloud feature. When UltiCloud cannot be reached, logout still deletes the credential locally and warns:
-`The cloud credential may still be valid. Revoke it in the panel: server settings > Revoke credential.`
+7.0.0 has not been released. This page describes the framework side of server linking as of v7.0.0; see the [7.0.0 release notes](/guide/release-notes/7.0.0) for the release status.
 
 ## Operator commands
 
-| Command | What it does |
+Run these operator-only commands from the server console or RCON. `/ulticloud login` (with or without an argument) and `/ulticloud logout` are refused from the panel even when the [remote command blocklist](/guide/advanced/panel-integration#remote-command-blocklist) is empty.
+
+| Command | Framework behavior |
 |---|---|
-| `/ulticloud login` | Requests a device code, prints it, and waits for the confirmation |
-| `/ulticloud logout` | Revokes and deletes the credential and stops all cloud features |
-| `/ulticloud status` | Prints `UltiCloud: Linked as <name> (server ID <server ID>)` and the connection state, or that the server is not linked |
-| `/ulticloud reconnect` | Retries the connection at once, at most once every 10 seconds; says so when the server is already connected or connecting, not linked, or needs an UltiTools upgrade |
+| `/ulticloud login` | Requests a device code and polls for a result. |
+| `/ulticloud login <code>` | Redeems a re-pair code without requesting a new device code. The command rejects malformed input without sending it. |
+| `/ulticloud logout` | Stops the local cloud session and cancels a pending login, or attempts to revoke and delete the saved server credential. |
+| `/ulticloud status` | Reports whether the server is linked and, if linked, its name, server ID and connection state. |
+| `/ulticloud reconnect` | Requests an immediate connection attempt. Use `/ulticloud status` to check the result. |
 
-## Connection and reconnect
+## Linking a server
 
-The connection is kept by one state machine. After a lost connection it retries with a random delay between
-1 second and an upper bound that doubles from 1 second to 60 seconds, opens a new socket on every attempt and
-reads the credential afresh. The console shows one line per attempt and per scheduled retry, never the
-credential. A connection counts as established only when UltiCloud's `welcome` arrives within 15 seconds;
-the framework then sends a heartbeat every 30 seconds and reconnects after 90 seconds without an answer.
+`/ulticloud login` prints a verification address, a device code, a direct link and the remaining validity in minutes. Follow the instructions in the console. The framework polls in the background and starts a connection after it has saved the server credential. Both login forms refuse to run when the server is already linked and share a 60-second login cooldown.
 
-Some answers from UltiCloud end or change the retry cycle:
+For a device-code request started over RCON, the initial reply is `Requesting a device code from UltiCloud. The code and the link will be printed in the server console.` For a re-pair request it is `Redeeming the re-pair code with UltiCloud. The result will be printed in the server console.` Check the console for the later output.
 
-| UltiCloud answers | What the framework does |
+## Unlinking a server
+
+As of v7.0.0, `/ulticloud logout` stops the local session before attempting remote revocation. When there is a saved credential, the revocation request and the local deletion run on the framework scheduler's `async()` context, not on the server tick thread. A failed revocation can still leave the server unlinked locally; in that case the command warns `The cloud credential may still be valid. Revoke it in the panel: server settings > Revoke credential.` A local delete failure is reported separately: check the server log and run `/ulticloud logout` again.
+
+## Connection status and retries
+
+A linked server is not necessarily connected. Both bundled language catalogues print `UltiCloud: Linked as <name> (server ID <server_id>)` and `Connection: <connection>` when linked, or `UltiCloud: Not linked` and `Use /ulticloud login to link this server.` when unlinked. The connection state is supplied by the framework in English:
+
+| `<connection>` | Meaning |
 |---|---|
-| HTTP 401, or close code 4401 (credential revoked, server deleted) | Stops, deletes the credential and the buffered cloud state, and logs `UltiCloud rejected this server's credential (it was revoked or is no longer valid). The saved credential was deleted. Run /ulticloud login to link this server again.` |
-| HTTP 426, or close code 4426 | Stops and keeps the credential; the console says this UltiTools version is no longer accepted and names the minimum version when UltiCloud sends one. Upgrade UltiTools and restart |
-| HTTP 402, or close code 4402 (plan limit) | Keeps the credential and pauses, see below |
-| HTTP 429, close code 4400 or 4429, another 4xx | Waits longer: a random delay up to a bound that grows from 60 seconds to 15 minutes, and at least the `Retry-After` of a 429 |
-| Close code 4000, three times in a row | Another connection uses the same credential; reconnecting stops after the third, and the console says so |
-| A `welcome` with another server ID than the linked one | Stops, keeps the credential, and tells the operator to contact support or log out and link again |
+| `connected` | The framework has accepted the connection's `welcome` message. |
+| `connecting` | An attempt is in progress, including a socket open but still awaiting `welcome`. |
+| `reconnecting in <seconds> s (attempt <attempt>)` | Another attempt is scheduled. |
+| `paused — plan limit reached; retrying every 15 minutes (next in <minutes> min). Run /ulticloud reconnect after renewing.` | The framework received a plan-limit refusal. It retains the credential and retries at the slower interval. |
+| `stopped — this UltiTools version is no longer accepted; upgrade UltiTools` | Automatic retries stopped. Upgrade UltiTools and restart the server. |
+| `stopped — another connection is using this server's credential` | Automatic retries stopped after repeated connection replacements. |
+| `stopped — UltiCloud answered with a different server ID than this server is linked to; contact UltiCloud support, or run /ulticloud logout and then /ulticloud login` | Automatic retries stopped because the connection reported a different server ID. |
+| `not connected` | The server remains linked but has no active connection or scheduled retry. |
 
-### Plan limit pause
+`/ulticloud reconnect` has a 10-second cooldown, including invocations refused by the connection state. `Reconnecting to UltiCloud now.` means an attempt was queued, not that the server is connected. An active connection or attempt, a required upgrade, an unlinked server or a server-ID mismatch each gets a separate reply. With `language: auto`, command feedback for non-player senders uses `fallback-language`; see [Messages and Languages](/guide/essentials/messages).
 
-When the UltiCloud account exceeds its plan (for example a Pro plan expired with more servers than the free
-plan allows, after a 7-day grace period), UltiCloud refuses the connection with HTTP 402 or closes it with
-4402. The framework keeps the credential, prints the reason, the end of the grace period and the plan's manage
-link once, and then retries quietly every 15 minutes. `/ulticloud status` shows `paused — plan limit reached;
-retrying every 15 minutes`. After the owner renews the plan or chooses this server to keep, the next retry
-connects, or `/ulticloud reconnect` connects at once. No new login is needed.
+## Panel capabilities and module APIs
 
-## Capability switches
+See [Panel Integration](/guide/advanced/panel-integration#capabilities) for the defaults under `ultipanel.capabilities` in `plugins/UltiTools/config.yml`. `/ul reload` can renegotiate the offered capabilities but does not apply pending module changes or reload module JARs.
 
-The switches under `ultipanel.capabilities` in `plugins/UltiTools/config.yml` decide what the panel may do.
-As of v6.3.1 the server declares to UltiCloud only what they allow, and checks the switch again for every
-request.
+`CloudAuthManager` is internal. Modules that need to link a player use the [player-link API](/guide/advanced/player-link), not the server login command or the former `UltiCloudRequests` API. See [Sensitive commands](/guide/advanced/panel-integration#sensitive-commands) for command argument redaction.
 
-| Key | Default | Panel feature |
-|---|---|---|
-| `monitoring` | `true` | Server status and the player, plugin and world snapshots |
-| `logs` | `true` | Live console log stream |
-| `player-events` | `true` | Player join, leave and command events |
-| `file-read` | `true` | Reading and listing files and module configuration |
-| `file-write` | `false` | Writing files and module configuration |
-| `file-delete` | `false` | Deleting files |
-| `commands` | `false` | Remote commands, subject to the blocklist |
-| `server-properties` | `false` | Reading and editing `server.properties` |
-| `power-actions` | `false` | Stopping and restarting the server from the panel (new in v6.3.1) |
-| `player-actions` | `false` | Kicking players, changing their game mode, teleporting them (new in v6.3.1) |
+## 6.x history
 
-Power and player actions are off by default. A 6.3.0 `config.yml` gains the two new keys once at start-up,
-set to `false`; only the missing keys are added, every value and comment the operator wrote stays byte for
-byte, and a file layout the framework cannot extend that way gets one warning and keeps both switches off.
-Error reports keep their own key, `ultipanel.logging.error-reporting.enabled`. After `/ul reload` a changed
-switch takes effect at once, and the server reconnects when the set of declared capabilities changed. See
-[Panel Integration](/guide/advanced/panel-integration) for what each feature sends and accepts.
-
-As of v6.5.0 a capability change made by `/ul reload` always triggers a new handshake, so UltiCloud sees the new set, module capabilities included. Remote commands now also refuse a built-in alias of a blocklisted command, for example `rl` for `reload`; see [Aliases and failures as of v6.5.0](/guide/advanced/panel-integration#aliases-and-failures-as-of-v6-5-0).
-
-## Upgrading from 6.3.0
-
-The 6.3.0 login used the owner's account token. It no longer works, and nothing migrates automatically:
-
-- At the first start of 6.3.1 the saved 6.3.0 token is deleted from `credentials.json`, with one warning
-  ending `Run /ulticloud login to re-attach this server.` The server's install ID in the same file is kept and
-  sent with the next device login, so the panel can attach the login to the existing server.
-- Run `/ulticloud login` once. The server keeps no other trace of the old login.
-
-## Module API compatibility
-
-`CloudAuthManager` remains internal (`@ApiStatus.Internal`). `UltiCloudRequests`, the 6.3.0 helper that sent
-UltiLogin's magic-link requests, was removed in 6.4.0. In 6.3.1–6.3.2 every call returned
-`PATH_NOT_ALLOWED` and sent nothing, so UltiLogin 2.0.0's `/panel` already stopped working before the removal; UltiLogin 2.1.0 uses the
-[player-link API](/guide/advanced/player-link) instead. A module that wants a player to reach the panel uses
-that API; one with secret-carrying commands registers them as sensitive (see
-[Panel Integration](/guide/advanced/panel-integration#sensitive-commands)).
-
-The complete list of 6.3.1 changes, deprecations and known limitations is the "UltiCloud protocol 2.1.0" section
-of [`COMPATIBILITY.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md).
+For the device-code transition in 6.3.1, see the [archived 6.3.1 cloud login guide](/v6.3.1/guide/advanced/cloud-login.html). For a module moving to 7.0, see [Upgrading to 7.0](/guide/advanced/upgrading-to-7).
