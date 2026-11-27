@@ -53,7 +53,7 @@ A revocation delayed behind another request on the same connection can still run
 
 ## Remote files and configuration {#remote-file-api-boundary}
 
-`ultipanel.files.editable-roots` defaults to `plugins` and `logs`, relative to the server root. The file capabilities still apply, and widening the roots does not expose the framework's private state or remote action log. Directory listings are capped at 2,000 entries and marked as truncated when they exceed that limit. The remote file API does not delete directories.
+`ultipanel.files.editable-roots` defaults to `plugins` and `logs`, relative to the server root. The file capabilities still apply, and widening the roots does not expose the framework's private state or remote action log. The saved cloud credential is in `<server root>/.ultikits/credentials.json`, outside every default editable root, and the remote file API also refuses that file by name. Directory listings are capped at 2,000 entries and marked as truncated when they exceed that limit. The remote file API does not delete directories.
 
 Module configuration edits are distinct from raw file writes. The module configuration handler hands its work to `global()` and uses the framework's configuration write rules. See [Config File](/guide/essentials/config-file) for validation, write refusals and when configuration changes take effect.
 
@@ -62,6 +62,8 @@ Module configuration edits are distinct from raw file writes. The module configu
 The framework records remote command decisions in the remote action log, separate from the command's reply and the live log stream. The bundled action log rotation settings are `ultipanel.logging.action-log.max-size-bytes: 1048576` and `ultipanel.logging.action-log.max-files: 5`; there is no disable switch for the action log.
 
 The `logs` capability controls forwarding of live console lines. Forwarded lines retain their rendered language; the framework does not translate them again. The legacy `ultipanel.logging.batch` keys in `config.yml` do not control the active cloud stream, which sends `log.lines` roughly once a second or when a batch fills. The stream reads `ultipanel.logging.levels` and `ultipanel.logging.excluded-loggers` when its log handler attaches. The default levels are `info`, `warning` and `error`; there are no configured logger exclusions by default. Use the server log as the authoritative local record, not the live stream.
+
+The stream is not redacted in general. It forwards console lines as the server printed them, including player command lines with their arguments, such as `<player> issued server command: /login <password>`. Only a command registered as sensitive has its arguments replaced with `***` (see [Sensitive commands](#sensitive-commands)). The bundled `config.yml` sets `ultipanel.capabilities.logs: true`; set it to `false` if the panel must not receive console lines.
 
 ## Sensitive commands {#sensitive-commands}
 

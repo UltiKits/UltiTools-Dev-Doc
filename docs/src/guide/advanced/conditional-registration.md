@@ -74,9 +74,11 @@ Use `negate = true` to register when the setting is `false`. It also registers w
 
 ## Complete Example
 
-For a module containing the example classes on this page, declare its main class in `plugin.yml`. As of v7.0.0, the minimum accepted `api-version` is `700`; see [Quick Start](../quick-start) for the complete project setup.
+For a module containing the example classes on this page, declare its main class in `plugin.yml`. As of v7.0.0, the minimum accepted `api-version` is `700`; see [Quick Start](../quick-start) for the complete project setup. `name` is required: the framework refuses to load a module whose `plugin.yml` has no `name:` key.
 
 ```yaml
+name: ConditionalExample
+version: 1.0.0
 main: com.ultikits.docs.conditional.MyPlugin
 api-version: 700
 ```

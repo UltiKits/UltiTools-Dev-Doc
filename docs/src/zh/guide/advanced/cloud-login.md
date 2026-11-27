@@ -16,7 +16,7 @@
 
 ## 服务器绑定
 
-`/ulticloud login` 会打印验证地址、设备码、直达链接和剩余有效时间（分钟）。按控制台提示操作。框架在后台轮询，保存服务器凭据后才开始连接。服务器已经绑定时，两种登录命令都会被拒绝；它们共用 60 秒的登录冷却时间。
+`/ulticloud login` 会打印验证地址、设备码、直达链接和剩余有效时间（分钟）。按控制台提示操作。框架在后台轮询，保存服务器凭据后才开始连接。凭据保存在 `<server root>/.ultikits/credentials.json` 的 `cloud_credential` 条目中，这是框架自有的文件，[远程文件 API](/zh/guide/advanced/panel-integration#远程文件-api-边界) 不提供它。服务器已经绑定时，两种登录命令都会被拒绝；它们共用 60 秒的登录冷却时间。
 
 通过 RCON 申请设备码时，初始回复为 `Requesting a device code from UltiCloud. The code and the link will be printed in the server console.`；兑换重新配对代码时，回复为 `Redeeming the re-pair code with UltiCloud. The result will be printed in the server console.`。后续输出在服务器控制台查看。
 

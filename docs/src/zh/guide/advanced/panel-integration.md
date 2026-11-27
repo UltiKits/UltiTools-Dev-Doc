@@ -53,7 +53,7 @@ UltiTools 6.3.1 引入设备码登录与协议 2.1.0。协议变更见 [6.3.1 �
 
 ## 远程文件与配置 {#远程文件-api-边界}
 
-`ultipanel.files.editable-roots` 默认包含相对于服务器根目录的 `plugins` 和 `logs`。文件能力仍然适用，扩大根目录范围不会开放框架的私有状态目录或远程操作日志。目录列表最多返回 2,000 项，超出时标记为已截断。远程文件 API 不会删除目录。
+`ultipanel.files.editable-roots` 默认包含相对于服务器根目录的 `plugins` 和 `logs`。文件能力仍然适用，扩大根目录范围不会开放框架的私有状态目录或远程操作日志。已保存的云端凭据在 `<server root>/.ultikits/credentials.json`，位于所有默认可编辑根目录之外，远程文件 API 还会按文件名拒绝它。目录列表最多返回 2,000 项，超出时标记为已截断。远程文件 API 不会删除目录。
 
 编辑模块配置不同于直接写文件。模块配置处理器通过 `global()` 执行，并遵守框架的配置写入规则。配置验证、写入被拒绝的情形和变更生效时机，见[配置文件](/zh/guide/essentials/config-file)。
 
@@ -62,6 +62,8 @@ UltiTools 6.3.1 引入设备码登录与协议 2.1.0。协议变更见 [6.3.1 �
 框架把远程命令的准入结果记入远程操作日志，与命令回复和实时日志流分开。随附的日志轮转配置为 `ultipanel.logging.action-log.max-size-bytes: 1048576` 和 `ultipanel.logging.action-log.max-files: 5`；远程操作日志没有关闭开关。
 
 `logs` 能力控制实时控制台日志转发。转发的日志行保留生成时的语言，框架不会再次翻译。`config.yml` 中旧的 `ultipanel.logging.batch` 键不控制正在使用的云端日志流；框架大约每秒发送一次 `log.lines`，批次已满也会发送。实时日志处理器挂接时会读取 `ultipanel.logging.levels` 和 `ultipanel.logging.excluded-loggers`。默认级别是 `info`、`warning`、`error`，默认没有配置排除的记录器。以服务器上的日志为准，不要把实时日志流当作完整记录。
+
+实时日志流总体上不做脱敏。它按服务器打印的原样转发控制台日志行，包括带参数的玩家命令行，例如 `<player> issued server command: /login <password>`。只有登记为敏感命令的命令，参数才会被替换为 `***`（见[敏感命令](#敏感命令)）。随附的 `config.yml` 把 `ultipanel.capabilities.logs` 设为 `true`；不希望面板收到控制台日志行时，把它设为 `false`。
 
 ## 敏感命令 {#敏感命令}
 

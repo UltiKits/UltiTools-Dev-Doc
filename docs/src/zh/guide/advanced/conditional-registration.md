@@ -74,9 +74,11 @@ features:
 
 ## 完整示例
 
-若模块包含本页的示例类，请在 `plugin.yml` 中声明模块主类。自 v7.0.0 起，可接受的最低 `api-version` 是 `700`。项目配置见[快速开始](../quick-start)。
+若模块包含本页的示例类，请在 `plugin.yml` 中声明模块主类。自 v7.0.0 起，可接受的最低 `api-version` 是 `700`。项目配置见[快速开始](../quick-start)。`name` 是必需的：`plugin.yml` 里没有 `name:` 键的模块，框架会拒绝加载。
 
 ```yaml
+name: ConditionalExample
+version: 1.0.0
 main: com.ultikits.docs.conditional.MyPlugin
 api-version: 700
 ```

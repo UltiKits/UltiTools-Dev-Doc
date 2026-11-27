@@ -16,7 +16,7 @@ Run these operator-only commands from the server console or RCON. `/ulticloud lo
 
 ## Linking a server
 
-`/ulticloud login` prints a verification address, a device code, a direct link and the remaining validity in minutes. Follow the instructions in the console. The framework polls in the background and starts a connection after it has saved the server credential. Both login forms refuse to run when the server is already linked and share a 60-second login cooldown.
+`/ulticloud login` prints a verification address, a device code, a direct link and the remaining validity in minutes. Follow the instructions in the console. The framework polls in the background and starts a connection after it has saved the server credential. The credential is stored as the `cloud_credential` entry of `<server root>/.ultikits/credentials.json`, a framework-owned file that the [remote file API](/guide/advanced/panel-integration#remote-file-api-boundary) does not serve. Both login forms refuse to run when the server is already linked and share a 60-second login cooldown.
 
 For a device-code request started over RCON, the initial reply is `Requesting a device code from UltiCloud. The code and the link will be printed in the server console.` For a re-pair request it is `Redeeming the re-pair code with UltiCloud. The result will be printed in the server console.` Check the console for the later output.
 
