@@ -8,7 +8,7 @@ footer: false
 
 ## 前置条件
 
-自 v7.0.0 起，使用 JDK 25 和 Maven 构建模块。在符合[框架目标环境](/zh/guide/introduction#运行环境)的服务器上运行 UltiTools 7.0 来测试模块。将 UltiTools 框架 JAR 放在服务器的 `plugins/` 目录；模块 JAR 的安装目录不同，见下文。
+自 v7.0.0 起，使用 JDK 25 和 Maven 构建模块。在符合[框架目标环境](/zh/guide/introduction#运行环境)的服务器上运行 UltiTools 7.0 来测试模块。将 UltiTools 框架 JAR 放在服务器的 `plugins/` 目录；模块 JAR 的安装目录不同，见下文。请从 [Paper 官方下载页](https://papermc.io/downloads/paper)获取 Paper 26.3 build 258。启动框架时需要联网解析运行库，除非这些库已缓存。
 
 在 7.0.0 发布之前，框架 JAR 有两种获取方式：从源码用 `mvn clean package` 构建框架，或从下文 `pom.xml` 使用的快照仓库下载 `com.ultikits:UltiTools-API` 的 `7.0.0-SNAPSHOT` JAR。这个 JAR 本身就是 Paper 插件。为 7.0 构建的模块需要 7.0 框架；已发布的 6.x 版本不会加载它。
 
@@ -21,7 +21,7 @@ ultikits create HelloModule
 cd HelloModule
 ```
 
-模块名填 `HelloModule`，Java 包名填 `com.example.hellomodule`，再填写简介和作者，预发布 API 版本保留默认的 `7.0.0-SNAPSHOT`。如果没有 7.0 模板，请新建 `HelloModule` 目录，再按下文手工创建文件。
+参数 `HelloModule` 指定目标目录名。在交互提示中另填模块名 `HelloModule`，Java 包名填 `com.example.hellomodule`，再填写简介和作者，预发布 API 版本保留默认的 `7.0.0-SNAPSHOT`。如果没有 7.0 模板，请新建 `HelloModule` 目录，再按下文手工创建文件。
 
 ### 初始目录结构
 
@@ -46,7 +46,7 @@ CLI 还会生成 `README.md` 和 `.gitignore`。下文只展示本示例所需�
 ```xml
 <project xmlns="http://maven.apache.org/POM/4.0.0">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.ultikits.plugins</groupId>
+  <groupId>com.example.hellomodule</groupId>
   <artifactId>HelloModule</artifactId>
   <version>1.0.0</version>
   <properties>
@@ -168,7 +168,7 @@ public class HelloCommand extends BaseCommandExecutor {
 
 ## 玩家可见文本
 
-自 v7.0.0 起，`Messages` 和 `messages/<locale>.yml` 是唯一的文本系统。将下面的 UTF-8 语言文件放在 `src/main/resources/` 下。如果使用了 CLI，将 `command` 条目添加到已有文件中。`messages.key("command.hello")` 引用当前模块的消息键；消息值使用 MiniMessage 为问候文字着色。见[消息与语言](/zh/guide/essentials/messages)和[旧文本迁移](/zh/guide/essentials/i18n)。
+自 v7.0.0 起，`Messages` 和 `messages/<locale>.yml` 是唯一的文本系统。将下面的 UTF-8 语言文件放在 `src/main/resources/` 下。如果使用了 CLI，将 `command` 条目添加到已有文件中。`messages.key("command.hello")` 引用当前模块的消息键；消息值使用 MiniMessage 为问候文字着色。默认配置 `language: auto` 下，模块有匹配的语言文件时，玩家会收到客户端语言的问候；否则框架会尝试后备语言。见[消息与语言](/zh/guide/essentials/messages)和[旧文本迁移](/zh/guide/essentials/i18n)。
 
 ```yaml
 # src/main/resources/messages/en.yml

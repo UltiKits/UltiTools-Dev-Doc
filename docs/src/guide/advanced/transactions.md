@@ -62,7 +62,7 @@ The `Callable<R>` overload declares `throws Exception`. If the call joined an ex
 
 ## Batch Operations
 
-The `DataOperator` interface provides batch methods that automatically wrap operations in a transaction:
+The built-in JSON, SQLite and MySQL `DataOperator` implementations run `insertAll` and `updateAll` in a transaction. The interface’s default `updateAll` only loops over `update`; it does not open a transaction. The examples below use a built-in operator.
 
 ### insertAll
 

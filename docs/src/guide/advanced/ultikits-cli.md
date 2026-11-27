@@ -79,7 +79,7 @@ ultikits logout     # Remove stored credentials
 
 In the CLI release that includes the 7.0 template, `ultikits create` generates modules only for UltiTools-API 7.0.0 or later. The template targets Paper 26.3 and Java 25.
 
-To upgrade an existing 6.x module, see [Modules from 6.x to 7.0](/guide/advanced/module-versioning#modules-6x-to-7).
+To upgrade an existing 6.x module, see [Modules from 6.x to 7.0](/guide/advanced/upgrading-to-7).
 
 ```bash
 ultikits create

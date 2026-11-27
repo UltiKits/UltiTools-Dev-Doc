@@ -83,7 +83,7 @@ Changing an override or the fallback language can leave behind an old comment th
 
 #### Numeric fields
 
-Primitives and boxed numeric fields use the same conversion rules. Panel JSON integers within the long range use `Long`; integers beyond the long range are kept exactly as `BigInteger`. Fractional panel numbers keep the existing `Double` route. Integral narrowing must be exact and within range; numeric text such as `'30'` can bind to an integer. A decimal binds to `float`/`Float` only when the parsed float's shortest printable decimal has the same numeric value: `0.03` and `1.50` pass, `0.100000001` does not. Invalid fields keep their declared defaults with a located warning. Use `double` when more decimal precision is required; float acceptance is not exact binary representation.
+Primitives and boxed numeric fields use the same conversion rules. Panel JSON integers within the long range use `Long`; integers beyond the long range are kept exactly as `BigInteger`. Fractional panel numbers use `Double`. Integral narrowing must be exact and within range; numeric text such as `'30'` can bind to an integer. A decimal binds to `float`/`Float` only when the parsed float's shortest printable decimal has the same numeric value: `0.03` and `1.50` pass, `0.100000001` does not. Invalid fields keep their declared defaults with a located warning. Use `double` when more decimal precision is required; float acceptance is not exact binary representation.
 
 An `int`, `long`, `Integer` or `Long` field can also drive a task interval or command cooldown: see [Config-Bound Timing](/guide/advanced/scheduled-tasks#config-bound-timing) and [Config-bound cooldowns](/guide/essentials/cmd-executor#binding-the-cooldown-to-a-config-key). The configuration must be registered exactly once; directory entities cannot be bound. Avoid combining a bound field with [`@Range`](/guide/advanced/config-validation), because binding has its own range check.
 
@@ -231,13 +231,13 @@ try {
 
 The condition is checked on the same read of the file that the write gate verifies the write against. An edit saved after that read makes the gate refuse the write, because the file changed. An entry is present when its whole key path exists where the framework reads the setting: its nested keys, or the flat dotted form, followed by the map keys, each one whole key. An entry holding `null` (`name: ~`) is present. An entry under a missing, `null`, empty (`{}`) or non-map key is absent, and so is every entry of a missing or comment-only file.
 
-When the condition does not hold, nothing is written and the call throws `com.ultikits.ultitools.config.ConfigEntryPresenceException`. It is a `ConfigWriteRefusedException`: `getRequired()` names the condition that failed, and `getReason()` names the entry's key path. The framework logs nothing above FINE for it, because your command reports it. A `null` condition throws `IllegalArgumentException`. The two-argument `saveOperatorMapEntry` is unchanged.
+When the condition does not hold, nothing is written and the call throws `com.ultikits.ultitools.config.ConfigEntryPresenceException`. It is a `ConfigWriteRefusedException`: `getRequired()` names the condition that failed, and `getReason()` names the entry's key path. The framework logs nothing above FINE for it, because your command reports it. A `null` condition throws `IllegalArgumentException`. When called without `EntryPresence`, `saveOperatorMapEntry` does not require the entry to be present or absent.
 
 ### Refused writes
 
 A write is refused when the file cannot be read or parsed, uses YAML anchors, aliases or merge keys, changed since it was read, or has a layout the renderer cannot write back byte for byte. A layout refusal names the line to fix, for example `the file's layout outside the keys this write owns would change (line 16)`.
 
-A runtime failure of the YAML library while a write is applied, rendered or checked is a refusal too. Writing a map into an entry that holds `null` with an inline comment (`foo: ~  # placeholder`) is one such layout. The reason names the keys, the step that failed and the failure's class, for example `the file cannot be written at autoreply.rules.foo: rendering the document failed (EmitterException)`. Before this change the library's exception reached the caller, so a module that rolled back only on `IOException` kept its in-memory change.
+A runtime failure of the YAML library while a write is applied, rendered or checked is a refusal too. Writing a map into an entry that holds `null` with an inline comment (`foo: ~  # placeholder`) is one such layout. The reason names the keys, the step that failed and the failure's class, for example `the file cannot be written at autoreply.rules.foo: rendering the document failed (EmitterException)`.
 
 Layouts that refuse every write to the file include a line of only spaces, a trailing space after a value, an inline comment aligned with several spaces, more than one space after a colon, spaces inside flow brackets (`[ a ]`), a `---` or `...` marker, a comment indented deeper than the key below it, two indentation widths in one file and mixed line endings. None of the files the framework and its modules ship has such a layout. The operator fixes the named line, or runs `/ul reload` after "the file changed since it was read", and repeats the change.
 
@@ -299,7 +299,7 @@ Update live state only after `WRITTEN` (or `UNCHANGED` for an edit). `FILE_CHANG
 
 The `File` and snapshot entry points use the JVM's default filesystem. Actual publication requires ordinary files on a local default POSIX filesystem with native atomic rename/link semantics and working POSIX attributes. Normal Windows filesystems are unsupported. An existing final symlink or nonregular edit target is refused, not followed; the real parent is resolved before appending the final basename. Supply trusted module paths: this API is not a path sandbox.
 
-Existing files retain the nine POSIX permission bits, owner and group, applied and verified on the staged inode before commit; failure aborts publication. A target without a write bit, or not writable by the process, is refused. Staging is created exclusively at mode `0600` before content is written, narrowed to `0000` before a required owner/group transition, then given its verified final mode. New files keep the process-created owner/group and mode `0600`; old writers' defaults are unchanged. Non-POSIX filesystems or a Java-exposed ACL view on the parent, target or stage are refused.
+Existing files retain the nine POSIX permission bits, owner and group, applied and verified on the staged inode before commit; failure aborts publication. A target without a write bit, or not writable by the process, is refused. Staging is created exclusively at mode `0600` before content is written, narrowed to `0000` before a required owner/group transition, then given its verified final mode. New files keep the process-created owner/group and mode `0600`. Non-POSIX filesystems or a Java-exposed ACL view on the parent, target or stage are refused.
 
 The helper does not copy ACLs. Absence of a Java ACL view does not prove the absence of Linux ACLs, default ACLs, security labels or xattrs. Do not adopt it where those, special mode bits, alternate streams, inode identity, hard-link relationships, creation times or arbitrary flags must be preserved. Replacement creates a new inode, so existing hard-link aliases keep the old content; not every incompatible metadata layout can be detected.
 
@@ -317,7 +317,7 @@ After interruption, stop the server and competing writers, then inspect the targ
 
 ### Atomic replacement
 
-The existing configuration and `OperatorFiles.write` paths below retain their backed in-place fallback; the opt-in helper above never uses it.
+Ordinary configuration writes and `OperatorFiles.write` can fall back to an in-place write with a backup; the opt-in helper above never uses that fallback.
 
 Comments on individual list items are kept only while the list keeps its length — the same as Bukkit, which keeps none.
 
@@ -331,7 +331,7 @@ Registration batches buffer initialization writes until every selected entity bi
 
 A panel update validates and stages the touched files before committing them together. On ordinary refusal it restores any files it wrote, does not commit the live changes, and reports failure. A storage failure can also prevent restoration; this is not a crash-safe multi-file transaction.
 
-Panel map leaf edits use actual whole file keys and the full declared field converter. A unique changed leaf persists; ambiguous or missing changed paths refuse the whole payload by name. Unchanged displayed leaves are not edits. Untargeted pending memory values and independently edited disk siblings are preserved. The existing reply format is unchanged.
+Panel map leaf edits use actual whole file keys and the full declared field converter. A unique changed leaf persists; ambiguous or missing changed paths refuse the whole payload by name. Unchanged displayed leaves are not edits. Untargeted pending memory values and independently edited disk siblings are preserved.
 
 A panel edit writes only the keys it names, through the write gate: it replaces an operator-edited value at exactly those keys, which is the operator's consent, and every other byte of the file stays. A file the gate refuses gets an error reply naming the reason. An edit of one field of a Bukkit value such as a `Location` writes that value as the file holds it with the one field changed, so the other fields keep the operator's text (`y: 64` stays), and only while the file still holds the value it was read with; otherwise the reply asks for a reload first.
 

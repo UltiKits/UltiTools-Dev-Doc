@@ -82,7 +82,7 @@ config.lock.timeout: "Maximum time to wait for the lock"
 
 #### 数值字段
 
-基本类型和包装类型使用相同数值转换规则。面板 JSON 中 long 范围内的整数使用 `Long`，超出 long 范围的整数以 `BigInteger` 精确保留；小数仍使用既有 `Double` 路径。整数收窄必须值精确且在范围内，`'30'` 等数值文字可以绑定整数。小数绑定 `float`/`Float` 时，读出的 float 最短可打印十进制必须与原十进制数值相同：`0.03`、`1.50` 可用，`0.100000001` 不可用。无效字段使用声明默认值并记录定位警告；更多十进制精度使用 `double`，float 接受不表示二进制精确。
+基本类型和包装类型使用相同数值转换规则。面板 JSON 中 long 范围内的整数使用 `Long`，超出 long 范围的整数以 `BigInteger` 精确保留；小数使用 `Double`。整数收窄必须值精确且在范围内，`'30'` 等数值文字可以绑定整数。小数绑定 `float`/`Float` 时，读出的 float 最短可打印十进制必须与原十进制数值相同：`0.03`、`1.50` 可用，`0.100000001` 不可用。无效字段使用声明默认值并记录定位警告；更多十进制精度使用 `double`，float 接受不表示二进制精确。
 
 `int`、`long`、`Integer`、`Long` 还可以驱动任务间隔和命令冷却，见[配置绑定时间](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间)与[配置绑定冷却](/zh/guide/essentials/cmd-executor#配置项绑定的冷却时间)。配置必须恰好注册一次，目录实体不能绑定。避免同时使用 [`@Range`](/zh/guide/advanced/config-validation)，绑定已有范围检查。
 
@@ -230,13 +230,13 @@ try {
 
 条件在写入闸门据以校验这次写入的同一次读取上判断；此后保存的改动会让闸门以文件已被改动为由拒绝写入。条目存在，指它的完整键路径在框架读取该设置的位置上存在：嵌套键或扁平的带点键，再接映射键，每个都是一个完整的键。值为 `null` 的条目（`name: ~`）算存在；上级键缺失、为 `null`、为空映射（`{}`）或不是映射时，条目算不存在；缺失或只有注释的文件不含任何条目。
 
-条件不成立时不写入，并抛出 `com.ultikits.ultitools.config.ConfigEntryPresenceException`。它是 `ConfigWriteRefusedException`：`getRequired()` 给出不成立的条件，`getReason()` 给出条目的键路径。框架对此只记 FINE 级日志，由你的命令告诉服主。条件为 `null` 时抛 `IllegalArgumentException`。原来的两参数 `saveOperatorMapEntry` 不变。
+条件不成立时不写入，并抛出 `com.ultikits.ultitools.config.ConfigEntryPresenceException`。它是 `ConfigWriteRefusedException`：`getRequired()` 给出不成立的条件，`getReason()` 给出条目的键路径。框架对此只记 FINE 级日志，由你的命令告诉服主。条件为 `null` 时抛 `IllegalArgumentException`。不传 `EntryPresence` 时，`saveOperatorMapEntry` 不要求条目必须存在或缺失。
 
 ### 被拒绝的写入
 
 文件无法读取或解析、使用了 YAML 锚点、别名或合并键、读取后被改动，或者排版无法被渲染器逐字节写回时，写入会被拒绝。排版引起的拒绝会给出要修改的行号，例如 `the file's layout outside the keys this write owns would change (line 16)`。
 
-YAML 库在应用、渲染或校验一次写入时抛出的运行时异常也按拒绝处理。把映射写入一个值为 `null` 且带行内注释的条目（`foo: ~  # placeholder`）就是这样的排版。原因会给出键、失败的步骤和异常类名，例如 `the file cannot be written at autoreply.rules.foo: rendering the document failed (EmitterException)`。此前该异常会直接传到调用方，只在 `IOException` 时回滚的模块会保留内存中的改动。
+YAML 库在应用、渲染或校验一次写入时抛出的运行时异常也按拒绝处理。把映射写入一个值为 `null` 且带行内注释的条目（`foo: ~  # placeholder`）就是这样的排版。原因会给出键、失败的步骤和异常类名，例如 `the file cannot be written at autoreply.rules.foo: rendering the document failed (EmitterException)`。
 
 会使该文件所有写入都被拒绝的排版包括：只含空格的行、值后面的行尾空格、用多个空格对齐的行内注释、冒号后多于一个空格、流式方括号内侧的空格（`[ a ]`）、`---` 或 `...` 标记、缩进比下面的键更深的注释、同一文件中的两种缩进宽度，以及混用的换行符。框架和各模块自带的文件都没有这类排版。服主改掉警告指出的那一行（如果原因是“文件在读取后已被改动”，则先执行 `/ul reload`），再重做一次改动即可。
 
@@ -298,7 +298,7 @@ OperatorFiles.WriteResult created = CrashSafeYamlFiles.create(newKitFile,
 
 `File` 和快照入口使用 JVM 默认文件系统。实际发布要求本地默认 POSIX 文件系统上的普通文件，具备原生原子 rename/link 语义和可用的 POSIX 属性。普通 Windows 文件系统不受支持。已有的末级符号链接或非普通编辑目标会被拒绝，不会被跟随；先解析真实父目录，再接上末级文件名。请传入可信的模块路径，该 API 不提供路径沙箱。
 
-已有文件保留九位 POSIX 权限、所有者和组，在提交前应用到暂存 inode 并校验，失败则中止发布。目标没有写权限位或进程不可写时拒绝。暂存文件在写入内容前以 `0600` 排他创建，需要改变所有者或组时先收紧为 `0000`，之后设置并校验最终权限。新文件保留进程创建的所有者和组，权限为 `0600`，旧写入入口的默认值不变。非 POSIX 文件系统，或父目录、目标、暂存文件暴露 Java ACL view 时，会被拒绝。
+已有文件保留九位 POSIX 权限、所有者和组，在提交前应用到暂存 inode 并校验，失败则中止发布。目标没有写权限位或进程不可写时拒绝。暂存文件在写入内容前以 `0600` 排他创建，需要改变所有者或组时先收紧为 `0000`，之后设置并校验最终权限。新文件保留进程创建的所有者和组，权限为 `0600`。非 POSIX 文件系统，或父目录、目标、暂存文件暴露 Java ACL view 时，会被拒绝。
 
 该入口不复制 ACL。没有 Java ACL view 不证明不存在 Linux ACL、默认 ACL、安全标签或 xattr。需要保留这些属性、特殊权限位、备用数据流、inode 身份、硬链接关系、创建时间或任意标记的文件，不应采用它。替换会创建新的 inode，已有硬链接别名仍保留旧内容；并非每种不兼容元数据布局都能被检测。
 
@@ -316,7 +316,7 @@ OperatorFiles.WriteResult created = CrashSafeYamlFiles.create(newKitFile,
 
 ### 原子替换
 
-下述现有配置和 `OperatorFiles.write` 路径仍保留备份后原地写入；上文选择性入口从不使用这条退路。
+普通配置写入和 `OperatorFiles.write` 可以回退到备份后原地写入；上文的选择性入口不使用这种回退。
 
 单个列表项的注释仅在列表长度不变时保留；Bukkit 则完全不保留列表项注释。
 
@@ -330,7 +330,7 @@ OperatorFiles.WriteResult created = CrashSafeYamlFiles.create(newKitFile,
 
 面板先校验并暂存触及的文件，再一起提交；普通拒绝会还原已写的文件，不提交运行值，并返回失败。存储故障也可能阻止恢复；这不是跨文件的崩溃安全事务。
 
-面板映射叶项按真实完整文件键和整个字段声明转换器处理。唯一变更保存，歧义或不存在变更拒绝整个请求并定位路径；未变显示项不算编辑。无关待保存内存和独立磁盘兄弟项保持，回复格式不变。
+面板映射叶项按真实完整文件键和整个字段声明转换器处理。唯一变更保存，歧义或不存在变更拒绝整个请求并定位路径；未变显示项不算编辑。无关待保存内存和独立磁盘兄弟项保持。
 
 面板编辑经写入闸门只写它指定的键：在这些键处替换服主改过的值（即服主的同意），文件的其余每个字节保持不变。闸门拒绝的文件会收到注明原因的错误回复。编辑 `Location` 这类 Bukkit 值中的一个字段时，写入的是文件中原样的整个值、只改该字段，其余字段保持服主写的文字（`y: 64` 不变），并且只在文件仍是读取时的值时写入；否则回复要求先重载。
 

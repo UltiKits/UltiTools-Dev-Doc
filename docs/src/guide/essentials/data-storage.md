@@ -16,7 +16,7 @@ The shipped MySQL pool settings under `mysql` are `connectionTimeout` (`30000`),
 | JSON | `plugins/UltiTools/data/<module name>/<table>/<id>.json` | `data/<table>/<id>.json` in the plugin's data folder |
 | MySQL | Shared database selected by `mysql.database` | Same database; no automatic plugin prefix on the table name |
 
-An unavailable backend falls back to JSON. This can happen when MySQL is disabled, its pool could not be created, or the configured name is unknown. The startup log `Data Storage Method: <store>` reports the actual backend. If it differs from the configured one, the server logs the following `SEVERE` messages (angle brackets stand for the actual values):
+An unavailable backend falls back to JSON. This can happen when MySQL is disabled, its pool could not be created, or the configured name is unknown. The startup backend line, downgrade warning and MySQL connection failure are rendered in the console language. In English, `Data Storage Method: <store>` reports the actual backend. If the configured backend differs from the one in use, the server logs the following `SEVERE` messages (angle brackets stand for the actual values):
 
 ```text
 Data store downgraded: datasource.type in config.yml is '<configured>', but '<actual>' is actually in use. Reason: <reason>
@@ -136,6 +136,8 @@ if (entry != null && entry.wasModified()) {
 
 `@Column.value` specifies the column name, which can differ from the Java field name. Use the mapped column name in queries. `@Column.type` defaults to `VARCHAR(255)` and is used in the SQL table definition; it does not control JSON types. The SQL stores map annotated fields, including inherited fields, and store non-simple values as JSON text without querying inside them. JSON files use Gson's Java field names; the operator translates mapped column names to those fields. Ordinary JSON conditions can also query nested paths. For portable queries, use simple field types and mapped column names.
 
+On SQLite, the default `VARCHAR(255)` column has TEXT affinity, so a numeric field such as `int` or `long` is stored as text unless you declare a numeric column type. For tables you plan to query outside UltiTools, use a numeric type when defining new columns. For hand-written SQL against an existing default-typed column, use a numeric `CAST` when comparing or sorting values numerically; otherwise comparisons and sorting can use text order. The SQLite operator casts `WhereCondition` numeric comparisons according to the Java field type. The query DSL evaluates `gt`, `lt`, `gte`, `lte` and `orderBy` on Java values in memory; `count()` reports the size of the resulting list.
+
 ## CRUD Operations
 
 UltiTools encapsulates a semantic CRUD operation API. You only need to call the corresponding method to complete the addition, deletion, modification and query of the data.
@@ -152,7 +154,7 @@ Request the operator after the framework has assigned the module's data scope, n
 
 - On enable, the framework automatically registers loadable `@Table` classes packaged in the module's own JAR. If an entity your module owns is in a separate library JAR, add it with `@UltiToolsModule(additionalEntities = {UserData.class})` on the main class. The automatic scan still runs.
 - An ordinary Paper plugin calls `UltiToolsAPI.connect(this)` in `JavaPlugin.onEnable()`. The framework scans the plugin's own JAR; to include an owned entity in a library JAR, use `UltiToolsAPI.connect(this, UserData.class)` instead. After connecting, call the static `UltiToolsAPI.getDataOperator(this, UserData.class)`; do not construct an `UltiToolsPlugin`. Call `UltiToolsAPI.disconnect(this)` when the plugin disables. See the [External Plugin API](../advanced/external-plugin-api).
-- Neither additional-registration mechanism can claim an entity that belongs to another known plugin. Use its exposed service or the `EventBus`, not its data operator.
+- If either additional-registration mechanism names an entity that belongs to another known plugin, registration throws `PluginModuleException` with `ENTITY_NOT_OWNED` (`ULTI-3010`). The module fails to load; `UltiToolsAPI.connect` wraps that cause in `IllegalStateException`. This is a registration error, before any operator lookup. Use its exposed service or the `EventBus`, not its data operator.
 
 If the caller has a data scope but the requested class is not registered in it, the operator lookup throws `DataAccessException` with `ENTITY_NOT_OWNED` (`ULTI-3010`). `getMessage()` uses the first line if no owning module is known, and the second if the owner is known (placeholders are replaced by their values):
 
@@ -364,7 +366,7 @@ The caller gets the original exception, or `UnexpectedRollbackException` for a r
 
 Each plugin’s JSON tables have a hidden `.ultitools-journal` folder beside them. Committed transactions are written there and forced to disk before `commit` returns; recovery replays them into the table files. For a module it is `plugins/UltiTools/data/<module name>/.ultitools-journal`; for an external plugin it is `data/.ultitools-journal` inside the plugin’s data folder. See [JSON Transaction Behavior](../advanced/transactions#json-transaction-behavior).
 
-As of v7.0.0, periodic JSON flushes use the asynchronous scheduler and wall-clock time. `datasource.flushRate` is in seconds and defaults to `10`; `0` falls back to `10`, and a negative value starts no background flush. Normal shutdown still attempts a final checkpoint. Restart after changing this value.
+As of v7.0.0, periodic JSON flushes use the asynchronous scheduler and wall-clock time. `datasource.flushRate` is in seconds: a positive value sets the period, a missing value or `0` uses `10` seconds, and a negative value disables periodic flushing. Normal shutdown still attempts a final checkpoint. Restart after changing this value.
 
 - Run one server process per data folder. Two servers must never use the same `plugins` data folder at the same time.
 - Back up the `.ultitools-journal` folder together with the table folders, or back up with the server stopped. A copy such as `cp dir/*` skips folders whose name starts with a dot.

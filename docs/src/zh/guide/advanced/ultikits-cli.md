@@ -79,7 +79,7 @@ ultikits logout     # 删除已保存的凭据
 
 在包含 7.0 模板的 CLI 版本中，`ultikits create` 只生成面向 UltiTools-API 7.0.0 及以上版本的模块工程。模板以 Paper 26.3 和 Java 25 为目标。
 
-要升级已有的 6.x 模块，见[6.x 模块升到 7.0](/zh/guide/advanced/module-versioning#modules-6x-to-7)。
+要升级已有的 6.x 模块，见[6.x 模块升到 7.0](/zh/guide/advanced/upgrading-to-7)。
 
 ```bash
 ultikits create

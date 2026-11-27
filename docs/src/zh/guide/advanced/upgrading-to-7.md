@@ -27,11 +27,11 @@ api-version: 700
 
 | 声明 | 检查项 |
 | --- | --- |
-| 缺失或不是整数 | 日志说明未声明有效的 `api-version`。缺少键或只写键不带值时，显示 `<missing>`（英文）或 `<缺失>`（中文）；`''`、`'26.3'`、`'1.21'` 或 `'abc'` 等值带引号显示。带引号的整数（如 `'700'`）也有效。 |
-| 整数低于 `700`，如 `630` | 日志列出声明值和下限。请安装重新构建的 JAR。 |
+| 缺失或不是整数 | 日志含 `未声明有效的 api-version`（英文：`has no valid api-version`）。缺少键或只写键不带值时，显示 `<missing>`（英文）或 `<缺失>`（中文）；`''`、`'26.3'`、`'1.21'` 或 `'abc'` 等值带引号显示。带引号的整数（如 `'700'`）也有效。 |
+| 整数低于 `700`，如 `630` | 日志列出声明值和下限；可搜索 `要求的最低级别`（英文：`below the minimum`）。请安装重新构建的 JAR。 |
 | 整数高于运行中的框架 API 级别 | 已安装的框架版本低于模块声明所需的级别。 |
 
-因整数或下限检查被拒的 JAR 不会为其他模块提供主类或辅助类，且只计入一次 `Failed`。例如，若 `630` 和 `700` 的两份 JAR 声明同一个主类，即使 `700` 的文件名排序在后，也可由它提供类。警告仍会列出两个副本；框架不会自动删除文件。当多个副本均符合准入要求时，[仍按文件名排序](./module-versioning#同一模块的两个副本)。
+因整数或下限检查被拒的 JAR 不会为其他模块提供主类或辅助类，且只计入一次 `Failed`。拒载不会阻止其他符合条件且不依赖被拒模块的模块加载。例如，若 `630` 和 `700` 的两份 JAR 声明同一个主类，即使 `700` 的文件名排序在后，也可由它提供类。警告仍会列出两个副本；框架不会自动删除文件。当多个副本均符合准入要求时，[仍按文件名排序](./module-versioning#同一模块的两个副本)。
 
 依赖其他服务端插件时，在模块描述文件的 `depend` 或 `softdepend` 中声明提供方。见[其他插件的类](./startup-phases#其他插件的类)与[运行库](./startup-phases#运行库)。
 
@@ -74,7 +74,7 @@ api-version: 700
 
 自 v7.0.0 起，框架不再提供 XSeries 或跨版本的材质与音效兼容层。`Colors` 仍然存在，并新增 `getGlassPaneMaterial()`。同时维护 6.x 和 7.0 源码时，可直接用 `Material.CYAN_STAINED_GLASS_PANE` 等原生常量。
 
-在 7.0 中把材质名转换为物品，请使用 `Material.matchMaterial`。它接受当前材质名（如 `DIAMOND`）和带命名空间的 key（如 `minecraft:stone`）；框架不查询旧名称，也不回退为其他物品。把材质交给 `ItemSpec.builder` 之前，先排除 `null`、纯方块和空气的结果，写法见 [7.0 的物品构建与存储](#item-migration)。
+在 7.0 中把材质名转换为物品，请使用 `Material.matchMaterial`。它接受当前材质名（如 `DIAMOND`）和带命名空间的 key（如 `minecraft:stone`）；框架不查询旧名称，也不回退为其他物品。把材质交给 `ItemSpec.builder` 之前，先排除 `null`、纯方块和空气的结果，写法见 [物品构建与存储](#item-migration)。
 
 以下原生写法自 v7.0.0 起适用，使用 `org.bukkit.Material`、`org.bukkit.Sound`、`org.bukkit.enchantments.Enchantment`、`org.bukkit.inventory.ItemFlag` 和 Adventure 的 `net.kyori.adventure.text.Component`：
 
@@ -154,7 +154,7 @@ ItemStack item = itemRenderer.render(spec, player);
 | `.build()` / `.buildClone()` | `itemRenderer.render(spec, player)` 每次调用都创建新物品栈；复制已有物品栈用 `stack.clone()` |
 | `ItemStackBuilder.of(String)` | `Material m = Material.matchMaterial(name);`，再 `m != null && m.isItem() && !m.isAir() ? ItemSpec.builder(m) : null` |
 
-`ItemStackUtils` 保留五个方法，仍可读取 6.x 由该工具写出的 Bukkit 对象流，不保证能读取模块自定义格式。7.0 用 Paper 的物品字节格式写入 Base64 字符串，6.x 读不了新格式。升级前备份物品和库存数据；读取失败时不要自动用空库存覆盖原数据。回退时恢复版本匹配的备份。见[物品与物品存储](/zh/guide/essentials/items)。
+`ItemStackUtils` 保留五个方法，仍可读取 6.x 由该工具写出的 Bukkit 对象流，这类已存数据无需预先转换。不保证能读取模块自定义格式。7.0 用 Paper 的物品字节格式写入 Base64 字符串，6.x 读不了新格式。升级前备份物品和库存数据；读取失败时不要自动用空库存覆盖原数据。回退时恢复版本匹配的备份。见[物品与物品存储](/zh/guide/essentials/items)。
 
 ## 调度与声明式 GUI {#scheduler-and-screens}
 
@@ -177,11 +177,11 @@ ItemStack item = itemRenderer.render(spec, player);
 
 6.x 的旧页面仍作为 6.x 资料保留在 [GUI 界面系统](/zh/guide/advanced/gui)。
 
-## 提示弹窗与悬浮字 {#display-and-toast}
+## 进度弹窗与悬浮字 {#display-and-toast}
 
 自 v7.0.0 起，`Toast`、`NotificationService#sendToastNotification` 和 `Hologram` 已删除。
 
-**进度弹窗（Toast）。** 旧实现借助进度（advancement）弹窗，依赖已弃用、跨版本不稳定的服务端内部接口，消息中的引号还可能破坏生成的 JSON。框架不提供替代的辅助类。`NotificationService` 提供 `sendTitleNotification`、`sendSubTitleNotification`、`sendActionBarNotification`、`sendBossBarNotification` 和 `sendMessageNotification`（聊天消息），其中部分重载还接收一个 `Sound`。请改用这些方法或聊天。7.0 中这些方法改为接收 `Text` 和 Adventure 类型，参见 [7.0 的通知服务](#notifications-migration)。
+**进度弹窗（Toast）。** 旧实现借助进度（advancement）弹窗，依赖已弃用、跨版本不稳定的服务端内部接口，消息中的引号还可能破坏生成的 JSON。框架不提供替代的辅助类。`NotificationService` 提供 `sendTitleNotification`、`sendSubTitleNotification`、`sendActionBarNotification`、`sendBossBarNotification` 和 `sendMessageNotification`（聊天消息），其中部分重载还接收一个 `Sound`。请改用这些方法或聊天。7.0 中这些方法改为接收 `Text` 和 Adventure 类型，参见 [通知服务](#notifications-migration)。
 
 **悬浮字（Hologram）。** 旧的 `Hologram` 为每行文字生成一个隐形盔甲架。请改用 Paper 原生的 `TextDisplay` 实体，单个显示实体即可包含多行文字。下面的示例关闭了实体持久化：
 

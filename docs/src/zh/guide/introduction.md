@@ -24,7 +24,7 @@ UltiTools 提供[依赖注入](/zh/guide/advanced/ioc-container)、[配置](/zh/
 
 ## 6.x 文档
 
-如果你仍在使用 6.x，请参阅[归档的 v6.4.0 简介](/zh/v6.4.0/guide/introduction.html)和[旧服务器指南](/zh/guide/advanced/older-servers)。这些兼容说明不适用于 7.0。
+如果你仍在使用 6.x，请参阅[归档的 v6.4.0 简介](/zh/v6.4.0/guide/introduction.html)和[旧服务器归档说明](/zh/guide/advanced/older-servers)。这些兼容说明不适用于 7.0。
 
 ## 鸣谢列表
 

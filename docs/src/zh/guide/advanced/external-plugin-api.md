@@ -31,7 +31,7 @@ depend: [UltiTools]
 
 自 v7.0.0 起，UltiTools 自身是 Paper 插件，但 Paper 26.3 上使用普通 `plugin.yml` 的插件仍可声明 `depend: [UltiTools]`。如果启用时一定会调用 `connect`，就用这个写法，让 Paper 先加载并启用 UltiTools。只有可选集成才用 `softdepend: [UltiTools]`：没有 UltiTools，Paper 也可以启用你的插件。此时先检查 UltiTools 是否已启用，再进入使用其类型的代码，不要无条件调用 `connect`。
 
-这里的 `api-version: '26.3'` 是 Paper API 版本，不是 UltiTools 模块等级 `700`。由 UltiTools 注册的命令无需在 `plugin.yml` 中声明 `commands`。
+这里的 `api-version: '26.3'` 是 Paper API 版本，不是 UltiTools 模块等级 `700`。由 UltiTools 注册的命令无需在 `plugin.yml` 中声明 `commands:`。
 
 ### 3. 连接与断开
 
@@ -41,11 +41,11 @@ depend: [UltiTools]
 
 连接成功后，控制台会出现 `[UltiTools-API] External plugin connected: <name> v<version>`。对同一个已连接实例重复调用 `connect` 会被忽略，控制台记录 `[UltiTools-API] Plugin <name> is already connected. Ignoring duplicate connect().`，不会重新扫描或给本次连接追加实体。
 
-UltiTools 尚未加载时，`connect` 抛出 `IllegalStateException`。登记抛出异常时，API 将它包装成 `IllegalStateException`，消息为 `Failed to connect plugin <name> to UltiTools`，请检查异常原因。登记过程失败后，框架撤销已尝试登记的资源（包括只完成一部分的失败阶段），再释放容器与数据作用域。重试前检查附带的清理异常；插件代码自身的副作用不会被回滚。只在连接调用之外用 `isConnected` 查询状态，不要在 Bean 初始化器中把它当作就绪信号。
+UltiTools 尚未加载时，`connect` 抛出 `IllegalStateException`。登记抛出 `Exception` 时，API 将它包装成 `IllegalStateException`，消息为 `Failed to connect plugin <name> to UltiTools`，请检查异常原因。从登记过程中抛出的 `Error`（例如 `NoClassDefFoundError`）不会被 `connect` 包装。登记过程失败后，框架撤销已尝试登记的资源（包括只完成一部分的失败阶段），再释放容器与数据作用域。重试前检查附带的清理异常；插件代码自身的副作用不会被回滚。只在连接调用之外用 `isConnected` 查询状态，不要在 Bean 初始化器中把它当作就绪信号。
 
 ## 组件扫描
 
-默认扫描以 `main` 所在的包为起点，包含它的子包，不从 JAR 根目录开始，也不包括同级包。移走示例主类时，将示例组件放在新主类所在的包或子包内。`@Table` 使用独立扫描，搜索插件自己的 JAR，不限于这个组件包。
+默认扫描以 `main` 所在的包为起点，包含它的子包，不从 JAR 根目录开始，也不包括同级包。如果 `main` 位于默认包中，UltiTools 会跳过组件扫描。移走示例主类时，将示例组件放在新主类所在的包或子包内。`@Table` 使用独立扫描，搜索插件自己的 JAR，不限于这个组件包。
 
 | 组件 | 登记方式 |
 |---|---|
@@ -67,6 +67,8 @@ UltiTools 尚未加载时，`connect` 抛出 `IllegalStateException`。登记抛
 <<< @/../examples/src/main/java/com/ultikits/docs/external/GreetCommand.java
 
 外部插件的 `description` 使用原文，即使插件有自己的消息目录也不查键。插件自行编写的回复可显式使用 `Messages`。参数解析与补全见[命令执行器](/zh/guide/essentials/cmd-executor)。
+
+外部插件的注解执行器应保留 `manualRegister` 的默认值 `false`。`connect` 跳过设置了 `manualRegister = true` 的执行器，外部插件 API 不提供事后注册这些执行器的方法。如果执行器使用自定义 `TypeParser`，请在调用 `connect` 前通过 `TypeParserRegistry.getInstance().register(...)` 注册解析器，因为连接时会编译命令树。自定义解析器不会替换内置参数映射。
 
 | 情况 | 控制台诊断 |
 |---|---|

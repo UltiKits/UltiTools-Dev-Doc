@@ -189,7 +189,7 @@ As of v7.0.0, the framework schedules its own background and main-thread work on
 - **Threading for callbacks.** Handlers of `PanelMessageEvent` run on the main thread through the framework's `global()` context. A panel responder still runs on a framework worker thread; see [Panel Integration](/guide/advanced/panel-integration).
 
 ::: warning Known limitations
-`datasource.flushRate` must be a positive number of seconds; a negative value starts no periodic JSON flush (6.x flushed once), and the data is still written at shutdown. Calling `delayTeleport` twice for one player starts two countdowns, as in 6.x.
+A positive `datasource.flushRate` sets the JSON flush period in wall-clock seconds; a missing value or `0` uses `10` seconds, and a negative value disables periodic flushing (6.x flushed once). Normal shutdown still attempts a final checkpoint. Calling `delayTeleport` twice for one player starts two countdowns, as in 6.x.
 :::
 
 As of v7.0.0, async command bodies (`@RunAsync`, `@AsyncCommand`) and the command timeout watcher run on the framework scheduler; during module unload the framework waits for bodies still running; see [Command Executor](../essentials/cmd-executor). The framework’s startup messages also use its `global()` context.

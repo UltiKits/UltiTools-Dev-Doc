@@ -3,7 +3,7 @@
 As of v7.0.0, the framework's `NotificationService` (package `com.ultikits.ultitools.services`) sends short notifications to one player: a chat message, a title, an action bar or a boss bar that empties and disappears by itself. Every text is a `Text` from the [text engine](/guide/essentials/messages) and is rendered in the recipient's language.
 
 ::: warning Unreleased v7.0.0 behaviour
-This page describes the unreleased 7.0.0 framework. 6.x takes `String` text, `int` seconds and ticks and Bukkit sounds, and its methods return `boolean`; see [Notification service in 7.0](/guide/advanced/module-versioning#notification-service-7).
+This page describes the unreleased 7.0.0 framework. 6.x takes `String` text, `int` seconds and ticks and Bukkit sounds, and its methods return `boolean`; see [Notification service in 7.0](/guide/advanced/upgrading-to-7#notifications-migration).
 :::
 
 ## Obtaining the service

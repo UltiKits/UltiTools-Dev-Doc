@@ -71,7 +71,7 @@ If `defaultValue` is omitted or `""`, the advice returns `null` for reference ty
 | Other text for a `String` method | Returned as written, for example `"0"` returns the string `"0"`. |
 
 ::: warning defaultValue Type Matching
-The reserved words `null`, `true`, `false`, and `empty` are matched after trimming and ignoring case, before numeric or string handling. For example, `"false"` produces a boolean, not the string `"false"`.
+The reserved words `null`, `true`, `false`, and `empty` are matched after trimming and ignoring case, before numeric or string handling. For example, `"false"` produces a boolean, not the string `"false"`. Numeric parsers receive the original string: `int` and `long` reject surrounding spaces and use the type default, while `float` and `double` accept surrounding whitespace.
 :::
 
 ## Custom Exception Handlers

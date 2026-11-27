@@ -14,7 +14,7 @@ In 6.x, use `XVersionUtils`'s static methods instead; the retired [`VersionWrapp
 
 ::: warning Unreleased v7.0.0 migration
 As of v7.0.0, `XVersionUtils` is also removed; use Paper's native item, sound, enchantment and Adventure APIs.
-See [Native item and sound APIs in 7.0](/guide/advanced/module-versioning#native-item-and-sound-apis-in-7-0) for replacements.
+See [Native item and sound APIs in 7.0](/guide/advanced/upgrading-to-7#items-and-sounds) for replacements.
 :::
 
 # 类 `UltiToolsPlugin`
