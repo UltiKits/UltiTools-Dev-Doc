@@ -4,7 +4,7 @@
 
 ## Create a YAML configuration file
 
-Declare the keys, defaults and comments in a Java configuration class. UltiTools reads module configuration under `plugins/UltiTools/pluginConfig/<module>/`, where `<module>` is the `name` in the module's root `plugin.yml`. For example, `@ConfigEntity("config/config.yml")` with a constructor that accepts that path uses `plugins/UltiTools/pluginConfig/<module>/config/config.yml`. On first initialization, the framework generates a missing file from the declared defaults and comments; for an existing file it adds only missing settings when it can do so safely. You do not need a matching YAML resource in the JAR: configuration entities do not copy one out.
+Declare the keys, defaults and comments in a Java configuration class. UltiTools reads module configuration under `plugins/UltiTools/pluginConfig/<module>/`, where `<module>` is the `name` in the module's root `plugin.yml`. For example, `@ConfigEntity("config/config.yml")` with a constructor that accepts that path uses `plugins/UltiTools/pluginConfig/<module>/config/config.yml`. On first initialization, the framework generates a missing file from the declared defaults and comments; for an existing file it adds only missing settings when it can do so safely. You do not need a matching YAML resource in the JAR. If the JAR does ship one under `config/` (for example `src/main/resources/config/config.yml`), the framework copies it into the module's configuration directory before configuration entities are initialized, whenever that file does not exist yet. The entity then starts from the shipped file and adds only the settings missing from it, instead of generating the file from the Java defaults and comments.
 
 ## Operate configuration files
 
@@ -23,10 +23,10 @@ Keep constructors cheap and side-effect-free: validation and save preparation ma
 
 `value` specifies a path relative to the module's configuration directory. For a single file, scan registration tries `public MyConfig(String configFilePath)` first. If that constructor is absent, it tries a public no-argument constructor; keep its `super("config/config.yml")` path consistent with the annotation. `SomeConfig` above uses a single-file path with no extension; prefer a `.yml` name such as `config/config.yml`.
 
-A directory path must already be a directory when registration runs. A missing path is treated as a single file, not created as a directory. Only immediate `.yml` files are loaded, without recursion, each using the same class's `(String)` constructor:
+A directory path must already be a directory when registration runs. A missing path is treated as a single file, not created as a directory. Only immediate `.yml` files are loaded, without recursion, each using the same class's `(String)` constructor. To have the directory on a fresh server, ship its files in the JAR under `config/`, for example `src/main/resources/config/warps/spawn.yml`: bundled files under `config/` are copied out before registration, so the directory exists when the entity registers:
 
 ```java
-@ConfigEntity("warps")
+@ConfigEntity("config/warps")
 public class WarpConfig extends AbstractConfigEntity {
     @ConfigEntry(path = "enabled")
     private boolean enabled = true;
@@ -39,7 +39,7 @@ public class WarpConfig extends AbstractConfigEntity {
 
 ```java
 List<WarpConfig> warps = module.getConfigs(WarpConfig.class);
-WarpConfig spawn = module.getConfig("warps/spawn.yml", WarpConfig.class);
+WarpConfig spawn = module.getConfig("config/warps/spawn.yml", WarpConfig.class);
 ```
 
 Here `module` is your `UltiToolsPlugin` instance. `getConfig` returns `null` when no entity is registered at that path.
@@ -340,6 +340,8 @@ A panel edit writes only the keys it names, through the write gate: it replaces 
 ```java
 UltiToolsPlugin.getConfigManager().reloadConfigs(module);
 ```
+
+This call reloads the files only. Configuration bindings, module message overrides, the comment refresh and `onReload()` run only through `/ul reload`.
 
 Reload performs a three-way comparison of the last effective baseline, live fields and incoming file. Memory-only edits survive and stay dirty; disk-only edits are adopted; conflicts take disk with a located, redacted warning. Maps merge recursively by whole keys and lists/scalars are atomic. A whole field the operator deleted from the file binds its declared default, with one warning naming the key, unless the module changed it since the last load or save; the file is not written either way. A failed reload of one configuration entity is all-or-nothing: if it fails, for example because validation rejects a value, memory is exactly as it was before the call and the exception is rethrown. A rejected value therefore cannot stay in a field and be kept by the next reload as an unsaved edit over the corrected file; fix the file and reload again. The same applies to a file that cannot be read or parsed: the reload throws `ConfigurationException` naming the file, and a module that calls `reload()` itself and catches only `IOException` should also catch `ConfigurationException` to report it. Memory-only map order is preserved when that disk map is unchanged; reload does not write it. This is not a concurrent map-insertion ordering policy.
 

@@ -38,7 +38,7 @@ Built-in coercions include number to String, numeric text to int/float, `"false"
 
 ## Registration and lookup
 
-A discovered converter must be a public top-level class with a public no-argument constructor. The package scanner does not discover nested converters. It is instantiated before configuration entities and is not an IoC bean; do not use injected dependencies or module initialization side effects. Put it in the packages named by `@UltiToolsModule(scanBasePackages = {...})`. Two registrations for the same target class refuse load and name both classes. `@ConfigConverterFor(value = T.class, exact = true)` serves only that exact class; the default `exact = false` also serves subtypes.
+A discovered converter must be a public top-level class with a public no-argument constructor. The package scanner does not discover nested converters. It is instantiated before configuration entities and is not an IoC bean; do not use injected dependencies or module initialization side effects. Put it in a scanned package: by default the package of the module class, or the packages named by `@UltiToolsModule(scanBasePackages = {...})`. Two registrations for the same target class refuse load and name both classes. `@ConfigConverterFor(value = T.class, exact = true)` serves only that exact class; the default `exact = false` also serves subtypes.
 
 Lookup order is:
 

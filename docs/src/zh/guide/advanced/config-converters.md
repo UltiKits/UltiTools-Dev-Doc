@@ -21,7 +21,7 @@ public interface ConfigConverter<T> {
 
 普通数据是 null、`String`、`Boolean`、`Integer`、`Long`、`BigInteger`、`Double`、这些数据组成的列表和字符串键映射。不能返回 Bukkit `MemorySection` 或任意 Java bean。UUID、枚举、`BigDecimal` 由内置转换器用文字表示。注册的 Bukkit `ConfigurationSerializable` 使用序列化别名和普通映射；读入 `Object` 字段的值保持普通数据，不自动构造 Bukkit 对象。
 
-转换器对声明类型中集合和数组均无 null 元素的每个值 `x` 必须满足正向相等。类型化集合（包括 `List<Object>`）和引用数组（包括 `Object[]`）写入时省略 null 元素，每个字段记录一条定位警告；从文件读取时，类型化集合里的 null 元素被跳过并给出定位警告，与 6.2 一致。映射的 null 值与整个 null 字段仍可往返。声明为 `Object` 的普通数据槽保持原样。反向相等适用于转换器输出的规范普通值 `p`（`p = toPlain(x)`）：
+转换器对声明类型中集合和数组均无 null 元素的每个值 `x` 必须满足正向相等。类型化集合（包括 `List<Object>`）和引用数组（包括 `Object[]`）写入时省略 null 元素，每个字段记录一条定位警告；从文件读取时，类型化集合里的 null 元素被跳过并给出定位警告。映射的 null 值与整个 null 字段仍可往返。声明为 `Object` 的普通数据槽保持原样。反向相等适用于转换器输出的规范普通值 `p`（`p = toPlain(x)`）：
 
 ```text
 fromPlain(toPlain(x)) equals x
@@ -38,7 +38,7 @@ fromPlain(toPlain(fromPlain(q))) equals fromPlain(q)
 
 ## 注册与查找
 
-发现的转换器需要是 public 顶层类，带 public 无参构造器；扫描器不发现嵌套转换器。转换器在配置实体前实例化，不是 IoC bean；不能依赖注入或模块初始化副作用。放进 `@UltiToolsModule(scanBasePackages = {...})` 的包。重复目标类型拒绝加载并列两个类。`@ConfigConverterFor(value = T.class, exact = true)` 只服务精确类型，默认 `exact = false` 也服务子类型。
+发现的转换器需要是 public 顶层类，带 public 无参构造器；扫描器不发现嵌套转换器。转换器在配置实体前实例化，不是 IoC bean；不能依赖注入或模块初始化副作用。放进会被扫描的包：默认是模块主类所在的包，或 `@UltiToolsModule(scanBasePackages = {...})` 指定的包。重复目标类型拒绝加载并列两个类。`@ConfigConverterFor(value = T.class, exact = true)` 只服务精确类型，默认 `exact = false` 也服务子类型。
 
 查找顺序为：
 

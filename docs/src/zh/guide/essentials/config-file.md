@@ -4,7 +4,7 @@
 
 ## 创建 YAML 配置文件
 
-在 Java 配置类里声明键、默认值和注释。框架读取 `plugins/UltiTools/pluginConfig/<模块名>/` 下的配置，目录名来自模块根 `plugin.yml` 的 `name`。例如，`@ConfigEntity("config/config.yml")` 配合接收路径的构造器，会使用 `plugins/UltiTools/pluginConfig/<模块名>/config/config.yml`。首次初始化时，如果文件不存在，框架按声明的默认值和注释生成文件；已有文件则只在能安全写入时补缺项。这里不需要在 JAR 中放一份同名 YAML，配置实体也不会把该资源原样复制出来。
+在 Java 配置类里声明键、默认值和注释。框架读取 `plugins/UltiTools/pluginConfig/<模块名>/` 下的配置，目录名来自模块根 `plugin.yml` 的 `name`。例如，`@ConfigEntity("config/config.yml")` 配合接收路径的构造器，会使用 `plugins/UltiTools/pluginConfig/<模块名>/config/config.yml`。首次初始化时，如果文件不存在，框架按声明的默认值和注释生成文件；已有文件则只在能安全写入时补缺项。这里不需要在 JAR 中放一份同名 YAML。如果 JAR 的 `config/` 下确实带了一份（例如 `src/main/resources/config/config.yml`），只要模块配置目录里还没有这个文件，框架会在初始化配置实体之前把它复制过去；配置实体随后以这份自带文件为起点，只补入其中缺少的设置，而不是按 Java 里的默认值和注释生成文件。
 
 ## 操作配置文件
 
@@ -22,10 +22,10 @@
 
 `value` 指定模块配置目录下的相对路径。扫描注册单文件时优先调用 `public MyConfig(String configFilePath)`；没有这个构造器才尝试公开无参构造器，此时 `super("config/config.yml")` 里的路径应与注解一致。`SomeConfig` 示例用的是无扩展名的单文件路径；通常使用 `.yml`，例如 `config/config.yml`。
 
-目录模式要求路径在注册时已经是一个目录。如果路径不存在，框架按单文件处理，不会把它创建为目录。框架仅扫描直属的 `.yml` 文件，不递归，每个文件用同一个配置类的 `(String)` 构造器实例化：
+目录模式要求路径在注册时已经是一个目录。如果路径不存在，框架按单文件处理，不会把它创建为目录。框架仅扫描直属的 `.yml` 文件，不递归，每个文件用同一个配置类的 `(String)` 构造器实例化。要让新服务器上也有这个目录，把其中的文件放在 JAR 的 `config/` 下，例如 `src/main/resources/config/warps/spawn.yml`：`config/` 下自带的文件会在注册之前复制出来，注册时目录已经存在：
 
 ```java
-@ConfigEntity("warps")
+@ConfigEntity("config/warps")
 public class WarpConfig extends AbstractConfigEntity {
     @ConfigEntry(path = "enabled")
     private boolean enabled = true;
@@ -38,7 +38,7 @@ public class WarpConfig extends AbstractConfigEntity {
 
 ```java
 List<WarpConfig> warps = module.getConfigs(WarpConfig.class);
-WarpConfig spawn = module.getConfig("warps/spawn.yml", WarpConfig.class);
+WarpConfig spawn = module.getConfig("config/warps/spawn.yml", WarpConfig.class);
 ```
 
 `module` 是当前 `UltiToolsPlugin` 实例。按路径找不到已注册的实体时，`getConfig` 返回 `null`。
@@ -90,7 +90,7 @@ config.lock.timeout: "Maximum time to wait for the lock"
 
 完整继承泛型参与列表、集合、队列、映射、数组和枚举转换。无效集合/映射元素跳过并警告，整个字段形状无效时使用最初声明默认值。警告定位文件、键、位置、类型，并隐藏密钥形状的值。自 v6.3.2 起，跳过值的警告把原始值和原因显示在同一条日志行中；密钥形状的值仍会隐藏，绑定不会修复磁盘上的原值。未知声明类型在读写任何配置文件前拒绝模块加载；登记转换器，不把原始映射偷偷传入自定义类。
 
-整个 null 字段和映射中的 null 值仍可往返，基本类型 null 无效。类型化集合（包括 `List<Object>`）和引用数组（包括 `Object[]`）写入时省略 null 元素，每个字段记录一条定位警告。读取时，文件中类型化集合里的 null 元素同样被跳过并给出定位警告，与 6.2 一致；声明为 `Object` 的普通数据槽保持普通数据。UUID 和枚举使用普通文字，注册的 Bukkit `ConfigurationSerializable` 使用别名映射。读进 `Object` 槽的 Bukkit 对象仍是普通映射。未知运行时 Java 对象拒绝保存，不触碰文件。
+整个 null 字段和映射中的 null 值仍可往返，基本类型 null 无效。类型化集合（包括 `List<Object>`）和引用数组（包括 `Object[]`）写入时省略 null 元素，每个字段记录一条定位警告。读取时，文件中类型化集合里的 null 元素同样被跳过并给出定位警告；声明为 `Object` 的普通数据槽保持普通数据。UUID 和枚举使用普通文字，注册的 Bukkit `ConfigurationSerializable` 使用别名映射。读进 `Object` 槽的 Bukkit 对象仍是普通映射。未知运行时 Java 对象拒绝保存，不触碰文件。
 
 #### 保存的位置（`Location`） {#saved-locations}
 
@@ -170,7 +170,7 @@ UltiTools 提供了校验注解来防止无效的配置值。详情请参阅[配
 
 | 文件 | 代码可以写入 |
 |---|---|
-| 模块自带的配置文件（`config.yml`、`spawn.yml`） | 文件不存在时首次创建；补入文件缺少的声明键和框架自己的注释，只插入；服主通过命令、面板或 GUI 明确要求修改的那一项；语言切换后，仍与出厂文字相同的值重新渲染 |
+| 模块自带的配置文件（`config.yml`、`spawn.yml`） | 文件不存在时首次创建；补入文件缺少的声明键和框架自己的注释，只插入；服主通过命令、面板或 GUI 明确要求修改的那一项 |
 | 服主自己创建的文件（礼包、菜单） | 服主执行创建操作时创建文件；编辑时只写编辑的部分 |
 
 除此之外一律不写：不在关闭、卸载或替换时保存，不修复无效值，不规整排版，也不清理 6.2 按点号拆开的映射键。
@@ -316,7 +316,7 @@ OperatorFiles.WriteResult created = CrashSafeYamlFiles.create(newKitFile,
 
 ### 原子替换
 
-下述现有配置和 `OperatorFiles.write` 路径仍保留备份后原地写入；上文 选择性入口从不使用这条退路。
+下述现有配置和 `OperatorFiles.write` 路径仍保留备份后原地写入；上文选择性入口从不使用这条退路。
 
 单个列表项的注释仅在列表长度不变时保留；Bukkit 则完全不保留列表项注释。
 
@@ -339,6 +339,8 @@ OperatorFiles.WriteResult created = CrashSafeYamlFiles.create(newKitFile,
 ```java
 UltiToolsPlugin.getConfigManager().reloadConfigs(module);
 ```
+
+这个调用只重载文件。配置绑定、模块消息覆盖、注释刷新和 `onReload()` 只在 `/ul reload` 时执行。
 
 重载比较上次有效基线、运行字段、传入文件。内存独有修改保持且脏，磁盘独有采用，冲突磁盘胜并安全定位警告。映射按完整键递归，列表和标量原子处理。服主从文件中删掉的整个字段使用声明默认值，并警告一次列出该键；但模块自上次加载或保存后改过该字段时保留模块的值。两种情况都不写文件。单个配置实体的失败重载是全有或全无的：重载失败时（例如校验拒绝某个值），内存与调用前完全一致并重新抛出异常。被拒绝的值因此不会留在字段里，被下一次重载当作覆盖在已修正文件之上的未保存修改保留下来；修正文件后再次重载即可。文件无法读取或解析时同样如此：重载抛出列出该文件的 `ConfigurationException`。模块自己调用 `reload()` 且只捕获 `IOException` 的，应同时捕获 `ConfigurationException` 并在自己的回复里报告。磁盘该映射未变时保留内存独有顺序，重载不写入它；这不是并发映射插入顺序策略。
 
