@@ -213,7 +213,7 @@ UltiTools 提供了校验注解来防止无效的配置值。详情请参阅[配
 
 ### `save()`
 
-`saveConfig(path, type)` 只保存当前模块中按该路径登记的配置实体。自 v7.0.0 起，如果该路径从未登记，即使磁盘上已有同名文件，也会抛出 `IllegalStateException`，异常消息会指出模块和路径。此时不会创建、登记或写入任何文件。如果已登记的实体不是请求类型的实例，则抛出 `ClassCastException`，异常消息会指出模块、路径、请求类型和已登记实体的类型。先登记配置实体再保存；若已持有登记过的实体，也可以直接调用它的 `save()`。如果 6.x 代码曾为处理缺少登记而捕获 `NullPointerException`，请先登记实体，或改为捕获 `IllegalStateException`。
+`saveConfig(path, type)` 只保存当前模块中按该路径登记的配置实体。自 v7.0.0 起，如果该路径从未登记，即使磁盘上已有同名文件，也会抛出 `IllegalStateException`，异常消息会指出模块和路径。此时不会创建、登记或写入任何文件。如果已登记的实体不是请求类型的实例，则抛出 `ClassCastException`，异常消息会指出模块、路径、请求类型和已登记实体的类型。先登记配置实体再保存；若已持有登记过的实体，也可以直接调用它的 `save()`。如果 6.x 代码曾为处理缺少登记而捕获 `NullPointerException`，请先登记实体，或在保存前确认 `getConfig(path, type)` 的返回值不是 `null`。不要用捕获 `IllegalStateException` 来判断是否已登记：不在服务器线程调用 `saveConfig` 时抛出的也是这个类型。
 
 `save()` 只写模块自上次加载或保存以来改过的设置，并且只在文件该处仍是读取时的值时才写。声明为 `Map` 的设置按条目写入；列表，以及 `Location`、`Vector` 这类 Bukkit 值，要么整体写入，要么不写。保存从不补入文件缺少的键，从不改写注释，也从不删除模块没有删除的映射条目。
 
