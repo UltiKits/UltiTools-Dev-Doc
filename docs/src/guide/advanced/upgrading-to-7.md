@@ -239,7 +239,7 @@ Move the text into the module's language file. Pass player or operator input as 
 
 `UltiToolsPlugin#saveConfig(path, type)` threw `NullPointerException` in 6.x when the path was not registered for the module. As of v7.0.0 it throws `IllegalStateException` naming the module and path, and writes no file. Register the configuration entity before saving it. If 6.x code caught `NullPointerException` to detect a missing registration, check that `getConfig(path, type)` returns non-null instead. Do not catch `IllegalStateException` for this: `saveConfig` throws the same type when it is called off the server thread. A registered entity of another type still throws `ClassCastException`. See [`save()`](../essentials/config-file#save).
 
-In 6.x a negative `datasource.flushRate` made the JSON store flush once in the background and never again. As of v7.0.0 a negative value starts no periodic flush and logs one warning at start-up; a normal server stop still writes the data. To restore periodic flushes, set a positive number of seconds and restart the server. See [Operating JSON Storage](../essentials/data-storage#operating-json-storage).
+In 6.x a negative `datasource.flushRate` made the JSON store flush once in the background shortly after start-up; later changes reached the table files only at a normal server stop. As of v7.0.0 a negative value starts no periodic flush, so that one background flush no longer happens, and UltiTools logs one warning at start-up. A normal server stop still attempts a final checkpoint, as it did in 6.x. To restore periodic flushes, set a positive number of seconds and restart the server. See [Operating JSON Storage](../essentials/data-storage#operating-json-storage).
 
 ## Rebuild and check the artifact {#rebuild-and-check}
 

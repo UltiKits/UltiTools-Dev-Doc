@@ -239,7 +239,7 @@ notifications.sendBossBarNotification(player, Text.of(messages.key("arena.closin
 
 6.x 中，路径没有在模块里登记时，`UltiToolsPlugin#saveConfig(path, type)` 抛出 `NullPointerException`。自 v7.0.0 起改为抛出 `IllegalStateException`，异常消息会指出模块和路径，并且不写任何文件。请在保存前先登记配置实体。如果 6.x 代码靠捕获 `NullPointerException` 判断是否缺少登记，请改为确认 `getConfig(path, type)` 的返回值不是 `null`。不要为此捕获 `IllegalStateException`：不在服务器线程调用 `saveConfig` 时抛出的也是这个类型。已登记的实体不是请求类型的实例时仍抛出 `ClassCastException`。参见 [`save()`](../essentials/config-file#save)。
 
-6.x 中，`datasource.flushRate` 为负数时，JSON 存储只在后台落盘一次，之后不再落盘。自 v7.0.0 起，负数不启动周期落盘，并在启动时记录一条警告；正常停服时仍会写入数据。要恢复周期落盘，请设置为正数秒并重启服务器。参见 [JSON 存储的运维](../essentials/data-storage)。
+6.x 中，`datasource.flushRate` 为负数时，JSON 存储在启动后不久于后台落盘一次；此后的改动要到正常停服时才写入数据文件。自 v7.0.0 起，负数不启动周期落盘，那一次后台落盘也不再发生，UltiTools 会在启动时记录一条警告。正常停服仍与 6.x 一样尝试最后一次落盘。要恢复周期落盘，请设置为正数秒并重启服务器。参见 [JSON 存储的运维](../essentials/data-storage#json-存储的运维)。
 
 ## 重新构建并检查产物 {#rebuild-and-check}
 
