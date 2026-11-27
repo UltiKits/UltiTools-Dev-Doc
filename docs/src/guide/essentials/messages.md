@@ -184,6 +184,12 @@ As of v7.0.0, if an override file cannot be parsed as a YAML catalogue, the fram
 As of v7.0.0, the full `/ul reload` also re-reads the bundled message catalogue from the framework JAR on disk. Replacing it or reloading while it is only partly copied can break framework messages until the server restarts.
 :::
 
+## External plugin messages {#external-plugin-messages}
+
+As of v7.0.0, a `JavaPlugin` connected through `UltiToolsAPI.connect(this)` gets its own namespace-bound `Messages` when its JAR includes a recognized `messages/<locale>.yml`. The same file format and [language selection](#language-selection) apply. Without a bundled locale file, the plugin inherits the framework `Messages` instance and does not get its own catalogue or messages directory.
+
+Put overrides in `plugins/<plugin name>/messages/<locale>.yml`, not in `messages/reference/`. `/ul reload` does not read these overrides; use your plugin's reload command to call `UltiToolsAPI.reloadMessages(this)` after connection. See [External Plugin API](/guide/advanced/external-plugin-api#external-plugin-messages) for locale filenames, source language, and reload restrictions.
+
 ## Module annotation text {#module-annotation-text}
 
 ::: info Annotation text as of v7.0.0

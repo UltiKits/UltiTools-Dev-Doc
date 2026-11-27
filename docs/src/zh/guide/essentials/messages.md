@@ -184,6 +184,12 @@ fallback-language: "auto"
 自 v7.0.0 起，完整的 `/ul reload` 也会从磁盘上的框架 JAR 重读内置消息目录。运行中替换 JAR，或在 JAR 尚未拷贝完整时重载，都可能导致框架消息在重启前异常。
 :::
 
+## 外部插件自己的消息文件 {#external-plugin-messages}
+
+自 v7.0.0 起，普通 `JavaPlugin` 通过 `UltiToolsAPI.connect(this)` 接入时，如果自己的 JAR 包含合规的 `messages/<语言>.yml`，就会获得绑定到自己命名空间的 `Messages`。文件格式和[语言选择](#language-selection)相同。没有随包语言文件时，插件继承框架的 `Messages` 实例，不会得到自己的消息目录，也不会生成消息文件夹。
+
+将覆盖文件放在 `plugins/<插件名>/messages/<语言>.yml`，不要放到 `messages/reference/`。`/ul reload` 不读取这些覆盖文件；请在插件自己的重载命令中于连接成功后调用 `UltiToolsAPI.reloadMessages(this)`。语言文件名、源语言和重载限制见[外部插件 API](/zh/guide/advanced/external-plugin-api#external-plugin-messages)。
+
 ## 配置注释、命令描述与补全提示 {#module-annotation-text}
 
 ::: info 注解文本（自 v7.0.0 起）
