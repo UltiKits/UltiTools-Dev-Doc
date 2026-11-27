@@ -249,7 +249,7 @@ const sidebarGuideZH: SidebarItemExt[] = [
         text: '更新说明',
         items: [
             {
-                text: '7.0.0（未发布）',
+                text: '7.0.0',
                 link: 'release-notes/7.0.0'
             },
             {
