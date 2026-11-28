@@ -33,6 +33,8 @@ make_fixture() {
   mkdir -p "$dir/scripts" "$dir/.vitepress" "$dir/examples"
   cp "$SCRIPT" "$dir/scripts/check-version-consistency.sh"
   chmod +x "$dir/scripts/check-version-consistency.sh"
+  # The script fetches Maven Central through this helper, resolved from its own ROOT.
+  cp "$ROOT/scripts/fetch-central-metadata.sh" "$dir/scripts/fetch-central-metadata.sh"
   if [ -n "$doc_ver" ]; then
     echo "  current: 'v${doc_ver}'," > "$dir/.vitepress/config.mts"
   else
@@ -413,14 +415,100 @@ run_case_e() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Cases H/I: fetch-central-metadata.sh retries a failed request and, when every
+# attempt fails, exits non-zero and says why. Neither case touches the network:
+# a fake `curl` earlier on PATH fails its first N invocations (HTTP 503, exit 22)
+# and then serves a fixed body.
+# ─────────────────────────────────────────────────────────────────────────────
+FETCH="$ROOT/scripts/fetch-central-metadata.sh"
+
+make_fake_curl() {
+  local dir
+  dir=$(mktemp -d)
+  cat > "$dir/curl" <<'FAKE'
+#!/usr/bin/env bash
+here="$(dirname "$0")"
+n=$(( $(cat "$here/calls" 2>/dev/null || echo 0) + 1 ))
+echo "$n" > "$here/calls"
+out=""
+while [ $# -gt 0 ]; do
+  if [ "$1" = "-o" ]; then out="$2"; fi
+  shift
+done
+if [ "$n" -le "$(cat "$here/fails")" ]; then
+  printf '503'
+  exit 22
+fi
+printf '<metadata><versioning><release>9.8.7</release></versioning></metadata>' > "$out"
+printf '200'
+FAKE
+  chmod +x "$dir/curl"
+  echo "$1" > "$dir/fails"
+  echo "$dir"
+}
+
+run_case_h() {
+  local fake out err rc=0 calls
+  fake=$(make_fake_curl 2)
+  err=$(mktemp)
+  out=$(PATH="$fake:$PATH" CENTRAL_FETCH_DELAY=0 CENTRAL_FETCH_ATTEMPTS=4 bash "$FETCH" 2>"$err") || rc=$?
+  calls=$(cat "$fake/calls" 2>/dev/null || echo 0)
+  if [ "$rc" = "0" ] && [ "$calls" = "3" ] \
+     && printf '%s' "$out" | grep -q '<release>9.8.7</release>' \
+     && grep -q 'attempt 1/4 failed (curl exit 22, HTTP 503)' "$err"; then
+    report "H_fetch_retries_then_succeeds" 0 ""
+  else
+    report "H_fetch_retries_then_succeeds" 1 "rc=$rc calls=$calls stderr=$(tr '\n' ' ' < "$err")"
+  fi
+  rm -rf "$fake" "$err"
+}
+
+run_case_i() {
+  local fake out err rc=0 calls
+  fake=$(make_fake_curl 99)
+  err=$(mktemp)
+  out=$(PATH="$fake:$PATH" CENTRAL_FETCH_DELAY=0 CENTRAL_FETCH_ATTEMPTS=3 bash "$FETCH" 2>"$err") || rc=$?
+  calls=$(cat "$fake/calls" 2>/dev/null || echo 0)
+  if [ "$rc" != "0" ] && [ "$calls" = "3" ] && [ -z "$out" ] \
+     && grep -q 'attempt 3/3 failed (curl exit 22, HTTP 503)' "$err"; then
+    report "I_fetch_gives_up_and_says_why" 0 ""
+  else
+    report "I_fetch_gives_up_and_says_why" 1 "rc=$rc calls=$calls out=$out stderr=$(tr '\n' ' ' < "$err")"
+  fi
+  rm -rf "$fake" "$err"
+}
+
+run_case_j() {
+  local fake err rc=0 calls
+  fake=$(make_fake_curl 0)
+  err=$(mktemp)
+  PATH="$fake:$PATH" TMPDIR="$fake/no-such-dir" CENTRAL_FETCH_DELAY=0 CENTRAL_FETCH_ATTEMPTS=4 \
+    bash "$FETCH" >/dev/null 2>"$err" || rc=$?
+  calls=$(cat "$fake/calls" 2>/dev/null || echo 0)
+  if [ "$rc" != "0" ] && [ "$calls" = "0" ] && grep -q 'cannot create a temporary file' "$err"; then
+    report "J_fetch_stops_on_local_tempfile_failure" 0 ""
+  else
+    report "J_fetch_stops_on_local_tempfile_failure" 1 "rc=$rc calls=$calls stderr=$(tr '\n' ' ' < "$err")"
+  fi
+  rm -rf "$fake" "$err"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Network-dependent setup for B/C: fetch the real Central release once.
 # A/D/E never touch the network and always run.
 # ─────────────────────────────────────────────────────────────────────────────
 
 echo "test-version-signal: probing Maven Central for the real <release> value"
-real_central=$(curl -sfL --connect-timeout 10 --max-time 30 \
-  https://repo1.maven.org/maven2/com/ultikits/UltiTools-API/maven-metadata.xml 2>/dev/null \
+real_central=$(bash "$FETCH" \
   | grep -oE '<release>[^<]+</release>' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+') || true
+
+# The probe above has already used every retry. When it still got nothing, the
+# fixture runs below (A, D, E) must not each repeat the whole retry schedule:
+# they check exit codes and the output contract, not the network. One attempt
+# each keeps a real Maven Central outage from stretching this suite by minutes.
+if [ -z "$real_central" ]; then
+  export CENTRAL_FETCH_ATTEMPTS=1
+fi
 
 # Prime the `gh`-shim cache exactly once, as a plain top-level statement
 # (NOT `$(strip_gh_from_path)`) so the assignment inside the function lands
@@ -446,6 +534,9 @@ echo
 run_case_a
 run_case_d
 run_case_e
+run_case_h
+run_case_i
+run_case_j
 
 if [ -n "$real_central" ]; then
   run_case_b "$real_central"

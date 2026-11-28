@@ -34,8 +34,10 @@ doc_ver=$(grep -oE "current: *'v[0-9]+\.[0-9]+\.[0-9]+'" "$ROOT/.vitepress/confi
           | grep -oE '[0-9]+\.[0-9]+\.[0-9]+') || true
 pom_ver=$(grep -oE '<ultitools\.version>[0-9]+\.[0-9]+\.[0-9]+</ultitools\.version>' "$ROOT/examples/pom.xml" \
           | grep -oE '[0-9]+\.[0-9]+\.[0-9]+') || true
-metadata=$(curl -sfL --connect-timeout 10 --max-time 30 \
-           https://repo1.maven.org/maven2/com/ultikits/UltiTools-API/maven-metadata.xml) || true
+# The helper retries a failed request and reports each failure on stderr. A value
+# that still cannot be read stays empty here and is reported as unknown below:
+# retrying must never turn "could not check" into a pass.
+metadata=$(bash "$ROOT/scripts/fetch-central-metadata.sh") || true
 central_ver=$(printf '%s' "$metadata" | grep -oE '<release>[^<]+</release>' \
               | grep -oE '[0-9]+\.[0-9]+\.[0-9]+') || true
 
