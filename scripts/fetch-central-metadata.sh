@@ -20,7 +20,12 @@ url=${CENTRAL_METADATA_URL:-https://repo1.maven.org/maven2/com/ultikits/UltiTool
 attempts=${CENTRAL_FETCH_ATTEMPTS:-4}
 delay=${CENTRAL_FETCH_DELAY:-3}
 
-body=$(mktemp)
+# A local failure is not a Maven Central failure: stop at once and say so,
+# instead of retrying requests that have nowhere to write.
+body=$(mktemp) || {
+  echo "fetch-central-metadata: cannot create a temporary file (TMPDIR=${TMPDIR:-unset})" >&2
+  exit 1
+}
 trap 'rm -f "$body"' EXIT
 
 i=1

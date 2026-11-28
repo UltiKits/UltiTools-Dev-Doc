@@ -451,7 +451,7 @@ run_case_h() {
   local fake out err rc=0 calls
   fake=$(make_fake_curl 2)
   err=$(mktemp)
-  out=$(PATH="$fake:$PATH" CENTRAL_FETCH_DELAY=0 bash "$FETCH" 2>"$err") || rc=$?
+  out=$(PATH="$fake:$PATH" CENTRAL_FETCH_DELAY=0 CENTRAL_FETCH_ATTEMPTS=4 bash "$FETCH" 2>"$err") || rc=$?
   calls=$(cat "$fake/calls" 2>/dev/null || echo 0)
   if [ "$rc" = "0" ] && [ "$calls" = "3" ] \
      && printf '%s' "$out" | grep -q '<release>9.8.7</release>' \
@@ -478,6 +478,21 @@ run_case_i() {
   rm -rf "$fake" "$err"
 }
 
+run_case_j() {
+  local fake err rc=0 calls
+  fake=$(make_fake_curl 0)
+  err=$(mktemp)
+  PATH="$fake:$PATH" TMPDIR="$fake/no-such-dir" CENTRAL_FETCH_DELAY=0 CENTRAL_FETCH_ATTEMPTS=4 \
+    bash "$FETCH" >/dev/null 2>"$err" || rc=$?
+  calls=$(cat "$fake/calls" 2>/dev/null || echo 0)
+  if [ "$rc" != "0" ] && [ "$calls" = "0" ] && grep -q 'cannot create a temporary file' "$err"; then
+    report "J_fetch_stops_on_local_tempfile_failure" 0 ""
+  else
+    report "J_fetch_stops_on_local_tempfile_failure" 1 "rc=$rc calls=$calls stderr=$(tr '\n' ' ' < "$err")"
+  fi
+  rm -rf "$fake" "$err"
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Network-dependent setup for B/C: fetch the real Central release once.
 # A/D/E never touch the network and always run.
@@ -486,6 +501,14 @@ run_case_i() {
 echo "test-version-signal: probing Maven Central for the real <release> value"
 real_central=$(bash "$FETCH" \
   | grep -oE '<release>[^<]+</release>' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+') || true
+
+# The probe above has already used every retry. When it still got nothing, the
+# fixture runs below (A, D, E) must not each repeat the whole retry schedule:
+# they check exit codes and the output contract, not the network. One attempt
+# each keeps a real Maven Central outage from stretching this suite by minutes.
+if [ -z "$real_central" ]; then
+  export CENTRAL_FETCH_ATTEMPTS=1
+fi
 
 # Prime the `gh`-shim cache exactly once, as a plain top-level statement
 # (NOT `$(strip_gh_from_path)`) so the assignment inside the function lands
@@ -513,6 +536,7 @@ run_case_d
 run_case_e
 run_case_h
 run_case_i
+run_case_j
 
 if [ -n "$real_central" ]; then
   run_case_b "$real_central"
