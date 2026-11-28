@@ -4,43 +4,27 @@ footer: false
 
 # 简介
 
-## 什么是UltiTools?
+本指南介绍 UltiTools-API 7.0，版本变更见[7.0.0 更新说明](/zh/guide/release-notes/7.0.0)。
 
-UltiTools是一款发布于2020年6月的MC服务器基础插件，拥有诸多基础及特色功能，并且注重每个用户的反馈。
+## 什么是 UltiTools？
 
-致力于让更多服主轻松上手服务器的搭建，减少语言不通、插件不兼容等问题带来的烦恼。
+UltiTools 是一个 Paper 插件，负责加载模块，并提供模块使用的 API。UltiTools 模块有自己的 JAR 和生命周期，由 UltiTools 加载，而不是由 Paper 作为独立插件加载。本指南面向模块开发；如果你已有一个独立的 Paper 插件，请参阅[外部插件 API](/zh/guide/advanced/external-plugin-api)。
 
-## 特点
+## 运行环境
 
-* 高兼容：自 v6.3.0 起，框架支持 Paper 1.19.2 build 163 及以上版本，Java 版本按所选 Paper 版本的要求配置（1.19.2 至 1.20.4 使用 Java 17，1.20.5 起使用 Java 21）。在 6.3.x 系列中，UltiKits、UltiLogin、UltiMail、UltiRemoteBag 和 UltiTrade 需要 Minecraft 1.21+。自 v6.4.0 起，这五个模块以框架支持的最低版本为目标，在 Minecraft 1.21 以下要求 UltiTools 6.4.0+；模块更新和能力限制见[支持 1.21 以下的服务端](/zh/guide/advanced/older-servers)。
+自 v7.0.0 起，框架的目标环境为 Paper 26.3（build 258）和 Java 25。不支持更早的 Paper 版本或普通 Spigot。构建 7.0 模块需要 JDK 25 和 Maven，模块模板使用 `--release 25` 编译。
 
-* 高度GUI：大部分功能都有图形化用户界面，便于玩家操作
+自 v7.0.0 起，已有模块须针对 UltiTools-API 7.0 和目标 Paper 重新构建。模块 JAR 根目录的 `plugin.yml` 必须声明整数 `api-version`，取值范围为 `700` 至运行中的框架 API 级别，含两端。只改这个字段不能让旧 JAR 兼容。迁移模块时，请参阅[升级指南](/zh/guide/advanced/upgrading-to-7)。
 
-* 高度自定义：UltiTools通过模块来拓展自身的功能，可以根据自身情况搭配任意模块，并且可以自定义消息文本
+## 模块 API
 
-* 配置完善：默认配置可直接作为基础配置使用，满足新手的开服需求，当然，一切均可自定义
+UltiTools 提供[依赖注入](/zh/guide/advanced/ioc-container)、[配置](/zh/guide/essentials/config-file)和[数据存储](/zh/guide/essentials/data-storage)。自 v7.0.0 起，注解式[命令](/zh/guide/essentials/cmd-executor)通过 Paper 注册为 Brigadier 命令树，模块通过 [`Messages`](/zh/guide/essentials/messages) 使用 `messages/<locale>.yml` 语言文件发送译文。
 
-* 持续维护：您的任何问题和建议都可以通过Github的Issues或者QQ群提交和反馈，作者会及时根据玩家的反馈和意见进行bug修复和新功能的更新
+参阅[快速开始](/zh/guide/quick-start)，构建一个模块，将它安装到服务器并运行它的第一个命令。
 
-* 功能丰富：UltiTools几乎涵盖了服务器所需的所有基础功能，同时包含了GUI登录，邮件系统等特色功能
+## 6.x 文档
 
-* 性能优化：插件的各方面都进行了优化，在实现丰富功能的同时保障了流畅的体验
-
-## 为什么选择使用UltiTools API进行插件开发?
-
-UltiTools API是UltiTools的核心，UltiTools API提供了一套完整的API，可以让您轻松开发出功能丰富的插件。
-
-自 v6.3.0 起，UltiTools API 将 obliviate-invs 和 UniversalScheduler 打包到自己的 JAR 中。Paper 根据 `plugin.yml` 的 `libraries:` 声明下载 ByteBuddy、HikariCP、XSeries、Java-WebSocket、commons-dbutils 和 JavaMail。Gson、MySQL Connector/J、protobuf、slf4j 和原生 Adventure 由 Paper 服务端自身提供。模块可以对这些库声明 `provided` 作用域，不必自行打包。直接使用 XSeries 的模块应针对框架声明的同一版本 13.7.1 编译。
-
-自 v6.3.0 起，`adventure-platform-bukkit` 库以及 `DependenceManagers#getAdventure()`、`#initAdventure(UltiTools)` 和 `#closeAdventure()` 方法已移除。发送 Adventure 组件请改用 Paper 的 `Player#sendMessage(Component)`。
-
-UltiTools API 提供了类 Spring 的 IoC 容器（`SimpleContainer`），支持注解驱动的依赖注入。
-
-UltiTools API提供了一套完整的GUI API，您可以轻松地开发出GUI插件，而无需担心GUI的实现细节。
-
-UltiTools API提供了高级的注解系统，您可以像开发Spring Boot应用一样开发UltiTools插件。（使用 UltiTools 自带的类 Spring IoC 容器）
-
-UltiTools 还提供了一个maven插件，可以自动将编译后的插件放入文件夹和上传模块至UltiCloud，提升您开发插件的生活质量。
+如果你仍在使用 6.x，请参阅[归档的 v6.5.0 简介](/zh/v6.5.0/guide/introduction.html)和[旧服务器归档说明](/zh/guide/advanced/older-servers)。这些兼容说明不适用于 7.0。
 
 ## 鸣谢列表
 

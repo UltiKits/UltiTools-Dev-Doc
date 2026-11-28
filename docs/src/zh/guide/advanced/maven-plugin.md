@@ -1,92 +1,58 @@
 # UltiTools Maven 插件
 
-UltiTools-API 为你的开发提供了一个 Maven 插件，可以自动将你的插件打包并复制到服务器文件夹中，也可以自动将你的插件上传至 UltiCloud。
+::: info Maven 插件与 UltiTools-API 7.0
+已发布的 Maven 插件 `2.0.0` 是独立构件；它的复制和发布流程尚未在 7.0 模块上验证。
+:::
 
-本页对应 `ultitools-maven-plugin` 2.0.0。1.x 连接的是已下线的旧面板后端，已无法发布。
+新建 7.0 模块请参阅[快速开始](../quick-start.md)。使用 `@ultikits/cli` 3.0.0 的 `ultikits create` 生成 7.0 项目，或按快速开始手工创建。Maven 插件不生成项目，构建和手动安装模块也不需要它。
 
-## 如何安装
+## 插件配置
 
-在你的 `pom.xml` 文件中的 `<build.plugins>` 标签下添加以下内容：
+将 [Maven Central 上已发布的构件](https://repo.maven.apache.org/maven2/com/ultikits/ultitools-maven-plugin/2.0.0/)添加到 `pom.xml` 的 `<build><plugins>` 下。只需填写所用目标的配置：
 
 ```xml
-    <plugin>
-        <groupId>com.ultikits</groupId>
-        <artifactId>ultitools-maven-plugin</artifactId>
-        <version>2.0.0</version>
-        <configuration>
-            <name>plugin_name</name>
-            <identifyString>id-string</identifyString>
-            <shortDescription>brief description</shortDescription>
-            <accessKeyFile>path/to/access_key.txt</accessKeyFile>
-            <pluginFolder>path/to/server/plugins/UltiTools/plugins</pluginFolder>
-        </configuration>
-    </plugin>
+<plugin>
+    <groupId>com.ultikits</groupId>
+    <artifactId>ultitools-maven-plugin</artifactId>
+    <version>2.0.0</version>
+    <configuration>
+        <pluginFolder>/path/to/server/plugins/UltiTools/plugins</pluginFolder>
+        <identifyString>example-module</identifyString>
+    </configuration>
+</plugin>
 ```
 
-其中，
+| 目标 | 参数与默认值 |
+|---|---|
+| `install`、`deploy` | 从 `outputDirectory`（默认 `${project.build.directory}`）读取 `fileName`（默认 `${project.build.finalName}.jar`）。 |
+| `install` | `pluginFolder` 是复制目标目录，无默认值。未设置时，此目标不执行复制。 |
+| `deploy` | `version` 默认是 `${project.version}`。`name`、`shortDescription` 和 `changelog` 可选，无配置默认值。`allowSnapshot` 默认是 `false`。 |
+| `deploy`、`withdraw`、`delete-module` | `identifyString` 必填，填写模块的 UltiCloud 标识。`accessKeyFile` 无默认值，相对路径以 `baseDir`（默认 `${basedir}`）为准。`apiUrl` 默认是 `https://api.ultikits.com`，可用 `-Dultitools.apiUrl` 设置。 |
 
-`<identifyString>` 标签必填，用于指定插件标识符，若无特殊需求，建议与插件名称相同，
+## Maven 目标
 
-`<name>` 标签可选，用于指定插件名称；模块不存在时用于创建模块，已存在时会同步到模块上，
+### 本地 JAR 复制
 
-`<shortDescription>` 标签可选，用于指定插件简介，将会在插件 `upm list` 中展示；与 `<name>` 一样会被同步，
+构建 UltiTools-API 7.0 模块时，按快速开始使用 `mvn clean package` 构建，停服后手动把 JAR 复制到 `plugins/UltiTools/plugins/`。替换自己的构建时移除旧 JAR，再启动服务器。`/ul reload` 不会加载新 JAR。
 
-`<accessKeyFile>` 标签用于指定保存开发者密钥的文件路径（相对项目目录）；设置了环境变量 `ULTIKITS_TOKEN` 时可省略，
+在 Maven 插件 2.0.0 中，`mvn clean package ultitools:install` 先打包，再把构建生成的 JAR 复制到 `pluginFolder`，覆盖同名文件。`ultitools:install` 是插件目标，不是 Maven 的 `install` 生命周期阶段。仅声明插件而未配置执行项，不会自动运行这个目标。
 
-`<pluginFolder>` 标签用于指定服务器插件文件夹的路径；只有 `ultitools:install` 使用它，未设置时该目标什么也不做。
+### UltiCloud 发布
 
-## 如何使用
+`mvn clean package ultitools:deploy` 打包项目并将生成的 JAR 上传到 UltiCloud。目标优先读取非空白的 `ULTIKITS_TOKEN` 环境变量，否则读取 `accessKeyFile` 的第一行作为开发者密钥。不要把密钥放进 POM 或提交到版本库。
 
-### 打包插件
+上传密钥能为已有模块发布版本。若要让目标自动创建不存在的模块，请配置 `name` 并使用管理密钥。对已有模块，目标会尝试同步配置中的 `name` 和 `shortDescription`；若密钥没有管理权限，会跳过资料更新并继续上传。
 
-在你的项目根目录下执行以下命令：
+目标默认拒绝发布 `-SNAPSHOT` 模块版本，可用 `-Dultitools.allowSnapshot=true` 放行。判断的是待发布的模块版本，不是所依赖的 UltiTools-API 版本。用 `-Dultitools.changelog="…"` 传更新说明（最多 5000 个字符）。JAR 上限为 50 MiB。上传成功不代表 JAR 能在 UltiTools 7.0 加载。
 
-```shell
-mvn clean package ultitools:install
-```
+### 版本撤回与模块删除
 
-这条命令会将你的插件打包并复制到服务器文件夹中。
-
-::: warning 复制前需要先关闭服务器
-Windows 上服务器占用 JAR 时复制会失败。Linux 和 macOS 上复制会成功，但运行中的服务器仍使用旧类，在重启前可能出错。
-:::
-
-### 上传插件至 UltiCloud
-
-如果你想你的插件被收录在upm list中，让用户可以使用 `upm install` 命令安装你的插件，你需要将你的插件上传至 UltiCloud。
-
-首先，你需要在 [UltiCloud](https://panel.ultikits.com/) 中创建一个账号，然后在开发者中心创建开发者密钥（`ucd_…`）。
-
-插件先读环境变量 `ULTIKITS_TOKEN`，没有时读 `<accessKeyFile>` 所指文件的第一行。旧版访问令牌会被拒绝。不要提交密钥文件，请把它加入 `.gitignore`。
-
-上传密钥只能为已有模块发布版本；创建模块或修改名称、简介需要管理密钥。
-
-填写`pom.xml` 中的 `<identifyString>` 标签，这个标签用于标识你的插件。你需要确保你的 `<identifyString>` 标签是唯一的。
-
-::: tip 不要弄得太复杂
-
-请不要让你的标识符太复杂，因为这个标签将会作为插件的ID，用户在使用 `upm install` 命令时需要输入这个ID。一般来说，作者名-插件名 就足够了。
-
-:::
-
-在你的项目根目录下执行以下命令：
+`ultitools:withdraw` 撤回一个已发布版本；`ultitools:delete-module` 删除模块。两者都没有默认生命周期阶段，都需要管理密钥和完全匹配的确认字符串。不要在共享 Maven 配置中填写目标版本和确认字符串；核对目标后在命令行显式传入。
 
 ```shell
-mvn clean package ultitools:deploy
-```
+# 撤回一个已发布版本。
+mvn ultitools:withdraw -Dultitools.withdrawVersion=1.2.3 -Dultitools.confirm=example-module@1.2.3
 
-这条命令会将你的插件打包并上传至 UltiCloud。
-
-快照版本默认拒绝发布，需要时加 `-Dultitools.allowSnapshot=true`。用 `-Dultitools.changelog="…"` 传更新说明（最多 5000 字）。JAR 最大 50 MiB。已发布的版本不能删除，只能撤回。
-
-### 撤回版本与删除模块
-
-`ultitools:withdraw` 撤回已发布版本，`ultitools:delete-module` 删除模块。两者都不绑定构建阶段：只在命令行显式调用时执行，需要管理密钥，并且需要完全一致的确认字符串。
-
-```shell
-# 撤回一个已发布版本，不可恢复。
-mvn ultitools:withdraw -Dultitools.withdrawVersion=1.2.3 -Dultitools.confirm=id-string@1.2.3
-
-# 删除模块，30 天内可用 `ultikits modules restore id-string` 恢复。
-mvn ultitools:delete-module -Dultitools.confirm=id-string
+# 删除模块。
+mvn ultitools:delete-module -Dultitools.confirm=example-module
 ```

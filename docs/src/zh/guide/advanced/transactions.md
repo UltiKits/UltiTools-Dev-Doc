@@ -1,14 +1,12 @@
 # 事务
 
-::: info 自 v6.3.0 起在所有后端上都是原子的
-事务支持自 UltiTools-API v6.2.0 起可用。三个存储后端自 v6.3.0 起都是原子的。
-:::
+本页介绍 UltiTools-API 7.0 的事务。请参阅[更新说明](../release-notes/7.0.0)和[升级指南](./upgrading-to-7)。使用 6.x 时请参阅[v6.5.0 归档指南](/zh/v6.5.0/guide/advanced/transactions.html)。
 
-到 v6.2.5 为止，`transaction(...)` 只在 JSON 后端上是原子的：MySQL 与 SQLite 执行代码块时没有挂
-事务管理器，每次写入执行即提交。从 v6.3.0 起，三个存储后端都挂上了真正的事务管理器，下面的转账
-写法在所有后端上都是原子的。
+MySQL、SQLite 和 JSON 都支持 `DataOperator#transaction(...)` 与 `@Transactional`。事务覆盖同一线程上加入同一插件事务的操作，不覆盖调度到其他线程的工作、其他插件的存储或发送玩家消息等副作用。
 
-UltiTools 通过 `DataOperator` 接口提供编程式事务支持。事务确保一组操作要么全部成功，要么在失败时全部回滚。
+下方示例以模块及其已登记的实体为前提。把 `@Table` 类打包到模块自己的 JAR 中，或用 `@UltiToolsModule(additionalEntities = {...})` 声明额外的合格实体。独立 Paper 插件在 `onEnable()` 中调用 `UltiToolsAPI.connect(this)`，再用 `UltiToolsAPI.getDataOperator(this, Entity.class)` 获取操作器。框架也扫描该插件自己 JAR 中的 `@Table` 类；额外的合格实体可用 `UltiToolsAPI.connect(this, Entity.class, ...)` 声明。两个入口都不能访问其他模块的数据。
+
+如果请求者的作用域未登记该实体，而且框架不知道哪个模块拥有它，获取操作器会抛出 `DataAccessException`（`ULTI-3010`，`ENTITY_NOT_OWNED`）：`Entity <class> is not registered to '<plugin>' -- use the owning module's exposed service or the EventBus instead.` 已知所属模块时，原文为 `Entity <class> belongs to module '<owner>', not '<plugin>' -- use <owner>'s exposed service or the EventBus instead.`
 
 ## 基本用法
 
@@ -37,7 +35,7 @@ dataOperator.transaction(() -> {
 });
 ```
 
-如果事务内的任何操作抛出异常，所有更改都会被回滚。
+回调向外抛出异常时，会回滚它开启的事务，或将它加入的事务标记为仅回滚。在回调内捕获普通操作异常并不等同于让异常向外传播。示例假设两个账户都存在且不是同一个账户；写入的原子性本身不能在所有后端防止并发余额更新被覆盖。
 
 ### 带返回值事务
 
@@ -60,22 +58,27 @@ try {
 }
 ```
 
+`Callable<R>` 重载声明 `throws Exception`。如果调用加入了已有事务，拿到结果不等于外层事务已经提交。
+
 ## 批量操作
 
-`DataOperator` 接口提供了自动包装在事务中的批量方法：
+内置的 JSON、SQLite 和 MySQL `DataOperator` 实现在事务中执行 `insertAll` 和 `updateAll`。接口默认的 `updateAll` 只逐项调用 `update`，不会开启事务。以下示例使用内置操作器。
 
 ### insertAll
 
 原子性批量插入多个实体：
 
 ```java
+DataOperator<HomeEntity> homeOperator = plugin.getDataOperator(HomeEntity.class);
 List<HomeEntity> homes = new ArrayList<>();
 homes.add(HomeEntity.builder().name("base").playerId(uuid).build());
 homes.add(HomeEntity.builder().name("mine").playerId(uuid).build());
 homes.add(HomeEntity.builder().name("farm").playerId(uuid).build());
 
-dataOperator.insertAll(homes); // 全部插入或全部不插入
+homeOperator.insertAll(homes);
 ```
+
+JSON 遇到已有 id 时不执行写入。原子性不等于每个输入都新增一行。
 
 ### updateAll
 
@@ -90,87 +93,94 @@ for (AccountEntity account : accounts) {
 dataOperator.updateAll(accounts); // 全部更新或全部不更新
 ```
 
-## 工作原理
+`updateAll(List<T>)` 声明 `throws IllegalAccessException`。除非调用方已有活动事务，否则上面的读取发生在批量事务之前。
 
-事务在所有存储后端上透明运行：
+## 工作原理
 
 | 后端 | 机制 |
 |------|------|
-| **MySQL / SQLite** | 使用 JDBC 事务（`Connection.setAutoCommit(false)`，提交/回滚） |
-| **JSON** | 按事务暂存写入（自 v6.3.0 起）：写入留在事务内，提交时一起应用，回滚时丢弃，提交之前其他线程看不到 |
+| MySQL / SQLite | 在当前线程的事务上绑定一条关闭自动提交的 JDBC 连接。批量语句也使用该事务。 |
+| JSON | 写入暂存到提交时。回滚丢弃暂存写入，不改动已提交的数据。 |
 
-你不需要知道当前使用的是哪个后端——相同的事务 API 适用于所有存储类型。
-
-::: tip 批量方法在所有后端上同样是原子的
-`insertAll` 与 `updateAll` 现在用的是同一套事务机制，包括此前会绕过它的两个直接 JDBC 语句路径：
-一次批量插入若第三行违反主键约束，在任何后端上都会保留零行，不只是 JSON。
-:::
-
-::: tip JSON 事务是暂存的、原子的、持久的（自 v6.3.0 起）
-JSON 事务暂存自己的写入，在同一插件的所有表上原子提交，崩溃之后保持完整。其他线程只能看到已提交的数据。
-:::
+JDBC 提交可能抛出 `DataAccessException`（`ULTI-3006`，`TRANSACTION_FAILED`），消息为 `Failed to commit transaction`。连接会被丢弃，但数据库可能已经提交。执行不能重复的操作时，先重读数据或核对已记录的操作 id，再决定是否重试。回滚本身失败时，服务器会记录失败，不能据此认为写入已经撤销。
 
 ### JSON 事务行为
 
-自 v6.3.0 起，JSON 事务内的写入先暂存给该事务，事务自己的读取能看到这些写入；其他线程只看到已提交的数据。提交一次性应用暂存的写入，回滚则丢弃它们，且不影响任何已提交的内容。模块作者可能注意到下面这些：
+JSON 事务能读到自己暂存的写入，其他线程只看到已提交的数据。一次提交会同时发布该插件各张表的改动，但两次独立读取仍可能分别发生在提交前后。
 
-- 其他线程在同一瞬间看到一次提交对该插件所有表的改动：一次读取要么看到该提交的全部改动，要么一个也看不到。覆盖同一插件多张表的事务作为一个整体提交，崩溃之后仍然全有或全无。
-- 事务内对某张表的第一次写入会锁住该表，其他写入者要等到事务结束。事务外的普通写入同样要等这把锁。默认隔离级别的 `@Transactional` 事务中的读取从不等待表锁。
-- 由 `DataOperator#transaction(...)`（两个重载都是）开启的事务，在第一次读取或写入某张表时就锁住它（与 `REPEATABLE_READ` 相同），直到事务结束。因此读写同一张表的两个 `transaction(...)` 回调一个接一个地运行，与 6.2.5 相同（6.2.5 中每个回调持有其操作器的锁），其中的“先读后写”不会丢失更新。代价也与 6.2.5 相同：`transaction(...)` 中的读取可能等待持有该表的另一个事务，最多 5 秒（与写入一样有上限，见下；6.2.5 的锁等待没有上限）。加入活动事务的 `transaction(...)`（在 `@Transactional` 方法或外层 `transaction(...)` 中调用）沿用该事务的隔离级别，与 Spring 中加入现有事务的作用域相同：在默认隔离级别的 `@Transactional` 方法中，它的读取不加表锁。默认隔离级别的 `@Transactional` 不在第一次读取时锁表。
-- 写入（或在第一次读取时锁表的读取）遇到被锁的表，最多等待 5 秒，或者等到事务的 `timeout` 截止时间（如果更早），然后抛出 `DataAccessException`，消息以 `JSON write failed with a lock-wait timeout` 开头（等待中的读取也是这段文字），该调用不生效。若这次等待会形成环（两个事务互相等待），闭环的那次调用立即失败，消息以 `JSON write failed with a deadlock` 开头。框架不会重试这两种失败。
-- 这两种失败都会在抛出异常之前把所在事务标记为仅回滚，因此在事务内捕获该异常并不能挽救事务：最外层提交会回滚该事务写入的全部内容，并抛出 `UnexpectedRollbackException`。该事务持有的表锁保留到它结束为止。
-- 在默认隔离级别的 `@Transactional` 方法中，两个事务可以读到同一个值，后者再按读到的旧值算出新值写入：这种丢失更新不会被阻止。凭读到的值计算写入的代码应使用 `DataOperator#updateIf`（检查与写入在表锁下一起完成），或 `@Transactional(isolation = Isolation.REPEATABLE_READ)` / `Isolation.SERIALIZABLE`，它们像 `DataOperator#transaction(...)` 一样在第一次读取时就锁表。在 `DataOperator#transaction(...)` 中不会发生丢失更新。
-- `REQUIRES_NEW` 与 `NOT_SUPPORTED` 独立于外层事务提交。与 SQLite、MySQL 的一个差别：这类方法与被它挂起的调用方在同一线程上运行，而表锁归线程所有，所以它不会等待调用方持有的锁；若它写入调用方已暂存的同一个键，最终保留的是外层事务稍后提交的值。
-- 改动了数据的提交会在返回前写入并强制落盘一条日志记录，即在提交线程（常常是服务器主线程）上等待磁盘。什么都没改的事务不写任何东西，也不强制任何落盘。
-- 持久性：“`commit` 返回即持久”在 Linux 上完全成立。在 Windows 和 macOS 上，它能抵御服务器崩溃，但断电或操作系统崩溃可能丢失最近的几次完整提交。丢失的提交是整笔丢失，不会只丢一半。
-- 因真实 I/O 错误而无法强制落盘的目录会以 `WARNING` 记录（`Could not force the directory <目录> to disk ...`）。此时完成的提交已经提交，能抵御服务器崩溃，要等下一次刷新完成后才能抵御断电。
-- 启动时若发现已提交的日志记录损坏，该插件的 JSON 数据保持关闭：数据操作会失败，错误信息指明该文件，直到服主把该文件移出日志文件夹。框架不会删除、跳过或应用损坏的记录，其他插件不受影响。在加载时就获取数据操作器的模块（所有官方模块都是如此）会在那次启动时被拒绝加载，所以把文件移走后需要重启服务器；只有在加载完成之后才首次请求数据的插件，会在下一次请求时再次执行恢复，无需重启。服主可以在[JSON 存储的运维](/zh/guide/essentials/data-storage#json-存储的运维)中查看详情。
-- 一个 `@Table` 值只对应一个实体类。同一插件的两个实体类若声明了相同的 `@Table` 值，会得到两份独立的缓存和两把互不排斥的表锁（与 6.2.5 相同），它们的写入彼此没有先后保证，上述各项保证在它们之间都不成立。
+- 第一次写入时锁表，其他写入者要等到事务结束。通过 `DataOperator#transaction(...)` 的任一重载开启事务时，第一次读表也会加锁。加入已有事务的调用沿用该事务的隔离级别。
+- 默认 `@Transactional` 的读取不等待表锁。两个调用方可能读到同一个值，然后相互覆盖更新。可用 `updateIf` 检查期望值并处理返回结果，或选用 `REPEATABLE_READ` 或 `SERIALIZABLE`，在首次读表时加锁。
+- 写入（包括事务外写入）或需要加锁的读取最多等表锁五秒，事务截止时间更早时则等到该时间。超时抛出 `DataAccessException`，消息以 `JSON write failed with a lock-wait timeout` 开头，读取也是如此。如果等待会形成环，调用立即失败，消息以 `JSON write failed with a deadlock` 开头。框架不会重试。事务内等待锁失败时，该事务会标记为仅回滚，已取得的锁保留到事务结束。
+- 在 JSON 上，`REQUIRES_NEW` 与 `NOT_SUPPORTED` 不等待同一线程上被挂起的调用方所持有的锁。如果它们写入外层事务已暂存的同一个键，外层稍后提交时可能覆盖内层写入。独立的 JDBC 事务仍可能与被挂起的调用方争用锁。
+
+有暂存改动的提交先在 `.ultitools-journal` 中写入记录并强制落盘，再以原子重命名将其标为已提交，最后发布内存中的改动。下次打开数据时先重放已提交的记录。检查点会写入表文件并清理已覆盖的记录。空事务提交不写记录。磁盘 I/O 在提交线程上执行，主线程上的事务应尽量短。
+
+在 Linux 上，如果存储设备遵守刷新请求，完成的提交能抵御断电。Windows 和 macOS 能抵御服务器进程崩溃，但断电或操作系统崩溃可能使最近的提交整笔丢失。若记录已提交但强制目录落盘时发生 I/O 错误，服务器会记录以 `Could not force the directory <directory> to disk` 开头的 `WARNING`；在一次检查点成功完成前，不能保证该提交能抵御断电。
+
+备份表文件时一并备份日志目录，不要通过删除日志目录来消除告警。模块的日志目录为 `plugins/UltiTools/data/<module name>/.ultitools-journal`，已接入的独立插件为 `<plugin data folder>/data/.ultitools-journal`。已提交的记录损坏时，受影响插件的 JSON 数据保持关闭，错误会指明记录，恢复不会跳过它。只有能接受丢失该记录的改动时，才将其移出日志目录。如果模块因打开数据失败而未能加载，移出记录后请重启。参见 [JSON 存储的运维](/zh/guide/essentials/data-storage#json-存储的运维)。
+
+同一插件的一个 `@Table` 值只用于一个实体类。映射到同一张表的两个类可能使用不同的缓存和锁，上述保证不涵盖通过两个类访问数据的情况。
 
 ### JSON 实体 id
 
-每个 JSON 实体存为 `<id>.json`。`insert` 创建新 id 时，若该 id 符合下列任一情况，就抛出指明该 id 的 `DataAccessException`（`DATA_ENTITY_INVALID`）予以拒绝，事务内外、所有操作系统上都一样：
+每个 JSON 实体存为 `<id>.json`。`insert` 创建新 id 时，若该 id 符合下列任一情况，就抛出指明该 id 的 `DataAccessException`（`ULTI-3007`，`DATA_ENTITY_INVALID`）予以拒绝，事务内外、所有操作系统上都一样：
 
 - 为空串，或含 `/`、`\`、NUL 或其他控制字符（U+0000 至 U+001F、U+007F）；
 - 是 `.` 或 `..`，或以点或空格结尾；
 - 是 Windows 设备名（`CON`、`PRN`、`AUX`、`NUL`、`COM1` 至 `COM9`、`LPT1` 至 `LPT9`，以及 `COM` 或 `LPT` 后跟上标 `¹`、`²` 或 `³`，不分大小写），无论带不带扩展名：`con.txt` 也会被拒绝，因为检查的是第一个点之前的部分；
 - 使文件名 `<id>.json` 的 UTF-8 长度超过 255 字节；
-- 指向服务器自身文件系统无法命名的文件，或其路径规则会把它解读为表文件夹中 `<id>.json` 以外的文件。在 Windows 上即含 `<`、`>`、`:`、`"`、`|`、`?` 或 `*` 的 id，包括以一个字母加冒号开头的 id（如 `c:foo` 或 `p:<uuid>`）：Windows 会把它当作盘符前缀，文件会变成另一个 id 的文件或落到数据文件夹之外。Linux 接受这些字符，所以 UltiRemoteBag 的 `<玩家 uuid>:<页码>` id 在 Linux 上照常可用。
+- 指向服务器自身文件系统无法命名的文件，或其路径规则会把它解读为表文件夹中 `<id>.json` 以外的文件。在 Windows 上即含 `<`、`>`、`:`、`"`、`|`、`?` 或 `*` 的 id，包括以一个字母加冒号开头的 id（如 `c:foo` 或 `p:<uuid>`）：Windows 会把它当作盘符前缀，文件会变成另一个 id 的文件或落到数据文件夹之外。Linux 文件系统通常接受这些字符。
 
-除最后一条由文件系统自己决定外，其余规则在所有操作系统上都一样。被拒绝的插入不会把事务标记为只能回滚。插入一个已有条目的 id 不做任何改动，也永远不会被拒绝；已存在的文件也绝不会因这些规则被改名或重写：它照常加载，对该 id 的读取、更新和删除照常可用。删除一个这些规则会拒绝的已有 id 后再插入它（在同一个事务中也一样）算作创建新 id，会被拒绝：要替换这样的条目，请用 `update`。6.2.5 会把含 `/` 或 `\` 的 id 写进子路径，读回时成为损坏的条目；在 Windows 上含 `:` 的 id 会被接受，之后每次刷新都失败。刷新若遇到文件系统无法命名的 id，会以指明表和 id 的错误失败，且不写入任何东西。启动恢复若在日志记录中遇到这样的 id（例如从 Linux 复制到 Windows 的记录），会以指明该记录、表和 id 的错误拒绝打开该插件的 JSON 数据，不改动任何文件，处理方式与损坏的记录相同。
+除最后一条由文件系统自己决定外，其余规则在所有操作系统上都一样。被拒绝的插入不会把事务标记为只能回滚。插入已有 id 不会替换已存条目，也不会触发新文件名检查。已有文件不会因该检查改名或重写，仍可按该 id 读取、更新和删除。删除一个这些规则会拒绝的已有 id 后再插入它（在同一个事务中也一样）算作创建新 id，会被拒绝：要替换这样的条目，请用 `update`。刷新若遇到文件系统无法命名的 id，会以指明表和 id 的错误失败，且不写入任何东西。启动恢复若在日志记录中遇到这样的 id（例如从 Linux 复制到 Windows 的记录），会以指明该记录、表和 id 的错误拒绝打开该插件的 JSON 数据，不改动任何文件，处理方式与损坏的记录相同。
 
-UUID 字符串作为 id 总是可用。小写字母、数字、`-` 和 `_` 是安全的字符，但由它们组成的 id 若是 Windows 设备名（`con`、`nul`、`aux`、`prn`、`com1` 至 `com9`、`lpt1` 至 `lpt9`，无论带不带扩展名），在所有操作系统上仍会被拒绝。不要用玩家名作为实体 id：`Con` 和 `Nul` 都是合法的玩家名。在 Windows 上，含 `<`、`>`、`:`、`"`、`|`、`?` 或 `*` 的 id 会在插入时被拒绝。这些规则会拒绝的已有 id 仍可读取、`update` 和删除，但删除后再插入会被拒绝；要替换这样的条目，请用 `update`。只有大小写不同的两个 id，在不区分大小写的文件系统（Windows，以及默认设置的 macOS）上指向同一个文件，会互相覆盖。
+建议使用小写 UUID 字符串。不要仅用字母大小写区分 id：在不区分大小写的文件系统上，它们可能指向同一个文件。
 
 ## 完整示例
 
-<<< @/../examples/src/main/java/com/ultikits/docs/transactions/EconomyService.java
+此服务用 `Callable` 将 `update` 的受检异常交给调用方处理。这里只演示如何把写入放在同一事务中，不是完整的并发余额管理方案。
 
-::: tip 单实体操作不需要事务
-对于简单的单实体操作，你不需要事务。事务在需要确保多个操作同时成功或同时失败时最为有用。
-:::
+```java
+import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
+import com.ultikits.ultitools.annotations.Autowired;
+import com.ultikits.ultitools.annotations.Service;
+import com.ultikits.ultitools.interfaces.DataOperator;
+
+@Service
+public class EconomyService {
+
+    @Autowired
+    private UltiToolsPlugin plugin;
+
+    public void transfer(String fromUuid, String toUuid, double amount) throws Exception {
+        DataOperator<AccountEntity> dataOperator =
+            plugin.getDataOperator(AccountEntity.class);
+
+        if (fromUuid.equals(toUuid) || !Double.isFinite(amount) || amount <= 0) {
+            throw new IllegalArgumentException("Invalid transfer");
+        }
+        dataOperator.transaction(() -> {
+            AccountEntity from = dataOperator.query().where("player_id").eq(fromUuid).first();
+            AccountEntity to = dataOperator.query().where("player_id").eq(toUuid).first();
+            if (from == null || to == null || from.getBalance() < amount) {
+                throw new IllegalStateException("Missing account or insufficient balance");
+            }
+            from.setBalance(from.getBalance() - amount);
+            to.setBalance(to.getBalance() + amount);
+            dataOperator.update(from);
+            dataOperator.update(to);
+            return null;
+        });
+    }
+}
+```
 
 ## 声明式事务 <Badge type="tip" text="自 v6.3.0 起已接线" />
 
-::: warning v6.3.0 首次接线
-到 v6.2.5 为止，`@Transactional` 从未被读取：没有拦截器运行，带注解方法与不带注解方法表现完全
-相同。v6.3.0 起端到端接线，并在加载期拒绝无法支持的 bean。
-:::
-
-到 v6.2.5 为止，创建代理的 `aop` 包在自身之外没有任何引用：没有 bean 后置处理器被注册，
-`TransactionInterceptor` 从不被实例化，因此带注解的方法与不带注解的方法执行路径完全相同，不提交、
-不回滚，也不打日志。在 v6.2.5 上，请改用本页前面的编程式写法，或者直接移除该注解。
-
-从 v6.3.0 起，`@Transactional` 已经在全部三个存储后端上端到端接线：SQLite 与 MySQL 通过每个插件
-一个的 `JdbcTransactionManager`，JSON 通过每个插件一个、暂存写入的 `JsonTransactionManager`（见 [JSON 事务行为](#json-事务行为)）。如果框架无法为某个
-声明了 `@Transactional` 的 bean 提供事务管理器，包括仅仅继承或扩展了带该注解的类，这个 bean 会在
-加载期直接被拒绝，而不是静默地不受事务保护地运行。
-
-`@Transactional` 注解提供了声明式事务管理，可以在服务方法上使用。相比编程式事务，这种方式代码更简洁，并且与 IoC 容器深度集成。
+在容器创建的 Bean 上使用 `@Transactional`。两种写法使用插件数据作用域的同一个管理器：MySQL 和 SQLite 使用 `JdbcTransactionManager`，JSON 使用 `JsonTransactionManager`。事务注解适用于正常启用和运行阶段，不适用于早期引导钩子。如果存储无法提供事务管理器，容器会拒绝需要该注解的 Bean，而不会让它在无事务的情况下运行。
 
 ### 前置条件
 
-`@Transactional` 注解适用于由容器自己创建的 Bean（`@Service`、`@Component` 等被扫描的组件）中的方法，因为事务是通过生成的子类代理实现的
-（自 v6.3.0 起是 ByteBuddy；更早的 CGLIB 引擎是同样的子类代理形态）：
+让容器创建 Bean，例如扫描带 `@Service` 或 `@Component` 的类。容器会在注入依赖之前实例化 Byte Buddy 生成的子类。请调用托管实例，而不是自行 `new`；登记已经构造好的实例不会把它变成事务代理。
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/PaymentService.java
 
@@ -180,7 +190,7 @@ UUID 字符串作为 id 总是可用。小写字母、数字、`-` 和 `_` 是�
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/AccountService.java
 
-方法成功完成时事务提交，抛出异常时自动回滚。
+新开启的事务在方法正常返回时尝试提交，异常按[回滚规则](#自定义回滚规则)处理。示例假设两个账户都存在且不是同一个账户。JSON 默认隔离级别下，并发读后写需要条件更新或读表加锁。
 
 ### 注解属性
 
@@ -190,26 +200,16 @@ UUID 字符串作为 id 总是可用。小写字母、数字、`-` 和 `_` 是�
 |------|------|--------|------|
 | `propagation` | `Propagation` | `REQUIRED` | 事务传播行为 |
 | `isolation` | `Isolation` | `DEFAULT` | 隔离级别 |
-| `timeout` | `int` | `-1` | 超时时间（秒），-1 表示无限制 |
-| `readOnly` | `boolean` | `false` | 是否为只读事务（允许数据库优化） |
-| `rollbackFor` | `Class[]` | `{}` | 触发回滚的异常类型 |
-| `noRollbackFor` | `Class[]` | `{}` | 不触发回滚的异常类型 |
+| `timeout` | `int` | `-1` | 超时时间（秒），仅正值设置截止时间 |
+| `readOnly` | `boolean` | `false` | 请求 JDBC 只读模式；在 JSON 上拒绝写入 |
+| `rollbackFor` | `Class<? extends Throwable>[]` | `{}` | 触发回滚的异常类型 |
+| `noRollbackFor` | `Class<? extends Throwable>[]` | `{}` | 不触发回滚的异常类型 |
+
+`@Transactional` 可标注方法或类。对已选中拦截的方法，依次查找方法本身的注解、声明该方法的类或其父类链上的类级注解、被覆写的父类方法上的注解。各处设置不会合并。仅在子类上加类级注解，不会让它覆盖从父类继承且未覆写的方法。
 
 ### 传播行为
 
-::: warning `NESTED` 被移除，不是未实现
-`Propagation.NESTED` 自 v6.3.0 起已不存在，引用它会编译失败。`REQUIRES_NEW` 与 `NOT_SUPPORTED`
-现在会在每个后端上真正挂起当前活动事务。
-:::
-
-到 v6.2.5 为止拦截器根本不会运行，所以这张表描述的是设计意图，不是实际观察到的行为。
-
-`NESTED` 被砍掉是因为可控性，不是不可实现。它完全可以映射到 `Connection.setSavepoint()`，但保存点
-的实际行为取决于服务器所装 Paper 构建自带的 `sqlite-jdbc` 版本，这不是本项目能钉住或能跨版本
-测试的东西。
-
-`propagation` 属性控制方法在现有事务中的行为。截至 v6.3.0，一共有六个取值，恰好对应
-Jakarta Transactions 2.0 的 `TxType` 集合：
+下列六种模式作用于当前线程和插件。没有 `NESTED` 模式，嵌套调用不是保存点。
 
 | 模式 | 行为 |
 |------|------|
@@ -217,57 +217,33 @@ Jakarta Transactions 2.0 的 `TxType` 集合：
 | `REQUIRES_NEW` | 总是创建新事务，挂起现有事务 |
 | `SUPPORTS` | 加入现有事务，若无事务则非事务执行 |
 | `NOT_SUPPORTED` | 总是非事务执行，挂起现有事务 |
-| `MANDATORY` | 要求存在事务，不存在则抛异常 |
-| `NEVER` | 禁止在事务内执行，若存在事务则抛异常 |
+| `MANDATORY` | 要求存在事务，不存在则抛出 `IllegalStateException` |
+| `NEVER` | 禁止在事务内执行，若存在事务则抛出 `IllegalStateException` |
 
 使用 `REQUIRES_NEW` 的例子：
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/AuditService.java
 
-::: warning 失败的加入方方法会回滚整个事务（自 v6.3.0 起）
-在 SQLite、MySQL 与 JSON 上一致：加入活动事务的 `@Transactional` 方法（`REQUIRED`，或在事务中调用的 `SUPPORTS`、`MANDATORY`）抛出其 `rollbackFor`/`noRollbackFor` 规则认可的异常时，即使调用方捕获了该异常，整个事务也被标记为仅回滚。
-最外层提交随后回滚该事务的全部写入，并抛出 `UnexpectedRollbackException`。
-:::
+加入方沿用外层的 `isolation`、`readOnly` 和 `timeout`，但仍使用自己的回滚规则。异常命中这些规则，或嵌套的编程式回调向外抛出异常时，即使调用方捕获异常，事务也会标记为仅回滚。事务不会立即结束，后续写入仍属于它。最外层尝试提交时会回滚并抛出 `UnexpectedRollbackException`。
 
-规则不认可的异常不会使事务无法提交。外层方法未捕获的加入方失败会使事务回滚，调用方收到原来的异常。调用方需要承受其失败的工作，应放进 `REQUIRES_NEW` 方法，它单独提交或回滚。
+同一方法还用了 `@ExceptionCatch` 时，事务拦截器在外层。如果内层把异常转换成正常返回，外层便不会按该异常触发回滚；但事务已有的仅回滚标记仍然有效。
 
-嵌套的 `DataOperator#transaction(...)` 遵循同一规则。自 v6.3.0 起，在 SQLite、MySQL 与 JSON 上一致：嵌套调用的回调失败时，整个事务被标记为仅回滚，并不结束；外层之后的写入仍留在事务内，外层提交回滚全部内容并抛出 `UnexpectedRollbackException`。6.3.0 之前在 SQLite 与 MySQL 上，内层失败会立即结束事务，外层之后的写入在没有事务的情况下执行。需要承受某项工作的失败时，让内层失败向外传播，或者把这项工作放进 `REQUIRES_NEW` 方法。
+如果加入方的异常继续传出外层注解方法，仍按外层方法的规则处理。回滚一般会继续抛出原异常。如果外层反而尝试提交已标记的事务，则优先抛出 `UnexpectedRollbackException`，原异常附为其 suppressed exception。需要独立提交或回滚时可用 `REQUIRES_NEW`，但仍需考虑后端的锁行为。
 
 ### 隔离级别
 
-`isolation` 属性控制事务的隔离级别：
+JDBC 会把非默认隔离级别传给 `Connection.setTransactionIsolation`；`DEFAULT` 保持连接的隔离级别不变。依赖某个隔离级别前，请确认驱动的支持情况和实际行为。
 
-| 级别 | 防止问题 |
-|------|----------|
-| `DEFAULT` | 使用数据库默认 |
-| `READ_UNCOMMITTED` | 无（允许脏读） |
-| `READ_COMMITTED` | 脏读 |
-| `REPEATABLE_READ` | 脏读、不可重复读 |
-| `SERIALIZABLE` | 所有问题 |
+| 级别 | JSON 行为 |
+|------|-----------|
+| `DEFAULT`、`READ_UNCOMMITTED`、`READ_COMMITTED` | 读取看见已提交的数据及本事务暂存的改动。第一次写入时锁表。 |
+| `REPEATABLE_READ`、`SERIALIZABLE` | 首次读写时锁表，直到事务结束。两者采用相同的表锁行为，不等于数据库范围的 SQL 可串行化。 |
 
-在 JSON 后端上，自 v6.3.0 起，`REPEATABLE_READ` 与 `SERIALIZABLE` 在事务第一次读取某张表时就锁住该表，得到表粒度的可重复读；其他级别在第一次写入时锁表，`READ_UNCOMMITTED` 按 `READ_COMMITTED` 处理。由 `DataOperator#transaction(...)` 开启的事务无论级别如何，都像 `REPEATABLE_READ` 一样在第一次读取时锁表；加入活动事务的 `transaction(...)` 沿用该事务的隔离级别。
-
-隔离级别越高，一致性保证越强，但性能影响越大。仅在需要严格隔离时使用 `SERIALIZABLE`：
-
-```java
-@Transactional(isolation = Isolation.SERIALIZABLE)
-public void criticalTransfer(String from, String to, double amount) {
-    // 确保与并发事务完全隔离
-}
-```
+新开启的编程式 JSON 事务从首次读取起加锁。加入已有事务不会改变其隔离级别。
 
 ### 自定义回滚规则
 
-::: tip `rollbackFor` 是叠加，不是替换
-自 v6.3.0 起，`rollbackFor` 叠加在默认的 `RuntimeException`/`Error` 回滚规则之上，不是替换它。
-:::
-
-一个既不匹配 `rollbackFor` 也不匹配 `noRollbackFor` 的异常，仍然会落到默认规则，所以
-`@Transactional(rollbackFor = BusinessException.class)` 在一个无关的 `NullPointerException` 上
-仍然会回滚。到 v6.2.5 为止，非空的 `rollbackFor` 会把默认规则整个替换掉，所以只列一个自定义
-类型就会静默停掉所有未列出异常的回滚；这个行为从 v6.3.0 起已经不存在。
-
-默认情况下，`@Transactional` 在 `RuntimeException` 或 `Error` 时回滚。使用 `rollbackFor` 指定额外的回滚异常：
+默认情况下，`@Transactional` 遇到 `RuntimeException` 或 `Error` 时回滚，遇到受检异常则不回滚。`rollbackFor` 增加规则，不改变未匹配异常的默认处理。可用它将受检异常纳入规则：
 
 ```java
 @Transactional(rollbackFor = BusinessException.class)
@@ -287,7 +263,7 @@ public void importData(String source) throws WarningException {
     try {
         // 执行导入...
     } catch (MinorIssueException e) {
-        throw new WarningException("非关键问题，事务提交");
+        throw new WarningException("非关键问题");
     }
 }
 ```
@@ -311,64 +287,35 @@ public void processOrder(Order order) throws ValidationException {
 
 ### 只读事务
 
-在只读查询方法上标记 `readOnly = true`，允许数据库应用优化：
+`readOnly = true` 会在 JDBC 新事务中调用 `Connection.setReadOnly(true)`。这是给驱动的提示，不是跨后端的写入保护。设置失败时，管理器记录 `Failed to set read-only mode`。
 
 <<< @/../examples/src/main/java/com/ultikits/docs/transactions/PlayerRepository.java
 
-在 JSON 后端上，自 v6.3.0 起，`readOnly = true` 会拒绝写入。这种拒绝不会把事务标记为仅回滚：捕获它后事务仍可提交，与 SQLite、MySQL 上一条失败的语句相同。
+JSON 拒绝写入时抛出 `DataAccessException`：`Write to JSON table '<table>' rejected: the transaction is read-only.` 这次拒绝本身不把事务标记为仅回滚。如果异常传出注解方法或编程式回调，仍按该作用域的规则处理。
 
 ### 超时配置
 
-::: tip JDBC 上按语句设限，JSON 上检查截止时间
-在 SQLite 与 MySQL 上，`timeout` 把 `setQueryTimeout` 施加在事务内每一条语句上，针对一个共享的、不断缩小的预算。在 JSON 上，每个数据操作都先检查截止时间。在所有后端上它都不会打断方法内的非数据库工作。
-:::
+只有正值 `timeout` 才为新事务设置截止时间，例如 `@Transactional(timeout = 30)`。默认值是 `-1`。加入已有事务不会重置时间预算。两种后端都不会打断 Java 代码、网络调用或其他非数据库工作。
 
-`timeout` 是作为 JDBC `setQueryTimeout` 施加在事务内发出的每一条语句上的，针对的是一个从事务开始
-时算起的共享截止时间。每条语句在准备时拿到的是这个预算里剩余的时间，向下取整到不小于 1 秒，让
-一个已经耗尽的预算依然快速失败。这不是对方法体整体的限制：方法内的非数据库工作（一次慢计算、
-一次对外网络调用）不会被打断，因为纯 JDBC 没有取消已经在途工作的机制。
-
-在 SQLite 与 MySQL 上按上述方式强制执行。在 JSON 后端上没有语句可设限，所以自 v6.3.0 起改为检查截止时间。事务内的每个数据操作都先检查它；截止时间过后开始的操作抛出 `DataAccessException`，消息以 `JSON transaction timeout` 开头。等待表锁也会在截止时间到达时结束（如果比 5 秒更早）。该失败在抛出之前把事务标记为仅回滚（与 Spring 在事务截止时间已过时的做法相同），因此捕获它并不能挽救事务：最外层提交会回滚并抛出 `UnexpectedRollbackException`。
-
-两类后端在这里有差别。在 SQLite 与 MySQL 上，截止时间之后发出的语句仍会执行，查询超时为 1 秒，并且不会标记事务为仅回滚。
-
-为长时间运行的事务设置超时（秒）：
-
-```java
-@Transactional(timeout = 30)
-public void bulkProcessing() {
-    // 该事务开启期间发出的每条语句，都会拿到 30 秒预算里在语句准备时刻剩余的那部分作为超时。
-    List<DataEntity> all = getDataOperator().getAll();
-    for (DataEntity entity : all) {
-        processEntity(entity);
-    }
-}
-```
-
-默认值 `-1` 表示无超时限制——拦截器在任何后端上都不会为它调用 `setTimeout`。
+- JDBC 给框架操作器发出的语句设置 `setQueryTimeout`，包括批量操作直接发出的语句。语句准备时按剩余整秒数设限，最少一秒。截止时间已过时，语句仍可带一秒的查询超时运行；时间耗尽本身不会将事务标记为仅回滚。
+- JSON 数据操作会检查截止时间，表锁等待也受其限制。因截止时间拒绝操作时，抛出消息以 `JSON transaction timeout` 开头的 `DataAccessException`，并标记事务为仅回滚。表锁等待失败用的是上面的锁等待提示。仅到达截止时间不会自动拒绝提交。
 
 ### 重要限制
 
-1. **方法资格**：`private`、`static`、`final` 方法不能声明事务——它们的调用方式各自绕开了代理能
-   拦截的路径。声明在与 bean 类不同包里的 package-private 方法同样不合格。`protected` 方法与
-   同包 package-private 方法合格。
-
-2. **自调用会被拦截，不会绕过代理**：与基于委托的代理框架不同，本框架生成的代理是 bean 自身的
-   **子类**，不是包裹它的另一个对象——所以同一个类里另一个方法调用 `this.transactionalMethod()`
-   会虚派发到代理的覆写版本，同样**会被拦截**，和从类外部发起的调用完全一样。同类内的自调用不
-   需要把服务注入自己或通过容器调用来获得事务行为。
-
-3. **非 final 类**：类不能是 `final`（子类代理的限制）。方法也必须是可重写的。
+1. `private`、`static`、`final` 方法，以及在 Bean 所在包以外声明的包级可见方法不能被拦截。有事务管理器时，直接标注不合格的方法会被忽略并记录警告，格式为 `AOP annotation ignored on <bean>: <problem> The annotation has no effect; the module still loads.` 类级注解同样跳过不合格的方法。可以覆写的 `protected` 或同包包级可见方法可以拦截。
+2. 在托管子类上，调用合格的 `this.transactionalMethod()` 时，虚方法分派会到达生成的覆写方法，无需自注入。直接调用 `super` 或调用自行 `new` 出来的对象不会进入该覆写方法。
+3. 若至少有一个方法原本可以被拦截，Java `final` 或 `sealed` Bean 会创建失败。若没有方法可以被拦截，这类限制只会触发警告。无法使用子类代理时，请用已登记实体的操作器开启编程式事务。
 
 ## 编程式 vs 声明式
 
-两种方法效果相同。根据使用场景选择：
+两种写法都可以原子地组织写入，但回滚规则和 JSON 默认读锁行为不同。
 
 ### 使用编程式事务（`dataOperator.transaction()`）当：
+
 - 需要对事务边界进行细粒度控制
 - 事务跨越多个服务调用
 - 在容器创建的 Bean 之外工作
-- 需要手动处理嵌套事务
+- 希望受检异常传出回调时触发回滚，而不必声明注解规则
 
 ### 使用声明式事务（`@Transactional`）当：
 - 希望服务层代码更简洁易读

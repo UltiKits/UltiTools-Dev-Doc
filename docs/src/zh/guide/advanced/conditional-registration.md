@@ -1,52 +1,45 @@
 # 条件注册
 
-::: info 自 v6.2.0 起
-`@ConditionalOnConfig` 注解自 UltiTools-API v6.2.0 起可用。
-:::
+本页介绍 UltiTools-API 7.0 的条件注册。变更概览见 [7.0.0 发布说明](../release-notes/7.0.0)。
 
-UltiTools 允许你根据 YAML 配置值来条件性地注册组件。这让服主无需修改代码即可启用或禁用功能。
+模块作者可以用 `@ConditionalOnConfig` 根据 YAML 设置决定启动时注册哪些组件。
 
 ## 基本用法
 
-在任意组件类（`@Service`、`@CmdExecutor`、`@EventListener`）上添加 `@ConditionalOnConfig`：
+将 `com.ultikits.ultitools.annotations.ConditionalOnConfig` 加在[组件扫描器](./ioc-container)能发现的类上，例如带 `@Service`、`@CmdExecutor` 或 `@EventListener` 的类。此注解本身不会把类变成组件，也不会限制手动注册。
 
 <<< @/../examples/src/main/java/com/ultikits/docs/conditional/WarpCommands.java
-
-对应的 YAML 配置：
 
 ```yaml
 # config/config.yml
 enableWarp: true
 ```
 
-如果 `enableWarp` 为 `false` 或缺失，`WarpCommands` 类将**完全不被注册**——没有命令注册、没有内存占用、没有副作用。
+如果 `enableWarp` 为 `false` 或缺失，扫描器会跳过 `WarpCommands`，不会记录条件不满足的日志。正常扫描流程不会为它创建 Bean 或注册命令。自 v7.0.0 起，将此项设为 `true` 后，执行器通过 Paper 注册为 Brigadier 命令。此示例只提供根命令的帮助处理方法。
 
-::: tip 自 v6.3.0 起所有入口都检查该条件
-自 v6.3.0 起，所有入口（标准模块、监听器包扫描以及连接器 `PluginManager.register(UltiToolsPlugin)`）都会在组件扫描时检查该条件。
-到 v6.2.5 为止，连接器入口不做组件扫描，那里没有任何地方检查这个条件（[issue #334](https://github.com/UltiKits/UltiTools-Reborn/issues/334)）。
-:::
+如果无法取得所属模块或其资源目录，框架会记录警告，并按条件满足继续扫描。中英文环境下，警告均以 `@ConditionalOnConfig on <class> could not be evaluated:` 开头，以 `Registering by default (fail-open).` 结尾。这和 YAML 文件缺失不同：文件缺失时，先按 `false` 处理，再应用 `negate`。
 
 ## 重载漂移报告 <Badge type="tip" text="v6.3.0+" />
 
-`@ConditionalOnConfig` 只在组件扫描时（插件启动）求值一次。`ul reload` 会重新读取配置文件，但它本身不会注册或注销任何组件——它只报告发生了什么变化。
+组件扫描决定注册哪些组件。执行 `/ul reload` 或 `/ul reload <name>` 时，框架对照当前文件检查已记录的启动判定，但不会因此创建或移除组件。已记录的判定结果发生变化，或检查本身失败时，会记录警告。指定模块重载成功时，命令回复 `模块 <module> 已重载`。这只说明重载已完成，不表示已注册的组件集合发生了变化。
 
-v6.3.0 起，漂移消息会说明容器里实际持有什么，而不只是条件现在给出的答案：
+警告说明新的判定结果，以及容器中是否已有构造完成的实例。中英文环境均使用同一条英文诊断：
 
-```
+```text
 [UltiTools-API] @ConditionalOnConfig drift after reload: com.example.MyService (config/config.yml -> myFeature.enabled) now evaluates to disabled, but the component is already registered. @ConditionalOnConfig is evaluated once at component scan; a restart is required to remove the component.
 ```
 
-::: tip v6.3.0 之前，建议是一句固定文案
-消息过去无条件建议"需要重启"，哪怕从未构造过任何实例。v6.3.0 起，建议会跟随容器实际持有的状态：已存在且现在禁用会建议重启移除，不存在且现在禁用则无需重启（改看启动日志），不存在且现在启用会建议重启创建，已存在且现在启用同样无需重启。
-:::
+如果已有实例而条件变为禁用，重启以移除实例。如果没有实例而条件变为启用，重启以创建实例。如果实例状态已符合新的判定，无需操作。如果实例不存在且条件变为禁用，但你原先预期它已注册，请检查启动日志是否有注册失败。
 
 ## 注解属性
 
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `value` | `String` | （必填） | 相对于插件数据目录的配置文件路径 |
-| `path` | `String` | （必填） | 点分隔的 YAML 键路径；自 v6.3.0 起按模块配置实体的同一规则读取，`features.chat: false` 这类扁平点键也能匹配，同一路径写了两种形式时拒绝加载模块 |
-| `negate` | `boolean` | `false` | 如果为 `true`，在配置值为 `false` 时注册（反转逻辑） |
+| `value` | `String` | 必填 | 相对于模块数据目录的 YAML 文件路径 |
+| `path` | `String` | 必填 | 以点分隔的布尔设置路径，支持嵌套、扁平点键和混合写法 |
+| `negate` | `boolean` | `false` | 将布尔结果取反后再用于注册判定 |
+
+只有 YAML 布尔值 `true` 算真。条件读取器将路径缺失、非布尔值（包括 `"true"`）、无法读取或无法解析的文件视为假。如果同一文件用两种形式定义同一路径，即使两个值相同，框架也会拒绝组件扫描。删掉其中一份定义后重启。共用的路径规则见[配置文件](../essentials/config-file)。
 
 ## 示例
 
@@ -75,57 +68,36 @@ features:
 
 ### 反转逻辑（negate）
 
-使用 `negate = true` 在配置值为 `false` 时注册组件：
+需要在设置为 `false` 时注册组件，可用 `negate = true`。设置或文件缺失时也会注册，因为默认的假值会被取反。
 
 <<< @/../examples/src/main/java/com/ultikits/docs/conditional/NormalModeService.java
 
 ## 完整示例
 
-通过配置控制可选功能的插件：
+若模块包含本页的示例类，请在 `plugin.yml` 中声明模块主类。自 v7.0.0 起，可接受的最低 `api-version` 是 `700`。项目配置见[快速开始](../quick-start)。`name` 是必需的：`plugin.yml` 里没有 `name:` 键的模块，框架会拒绝加载。
 
 ```yaml
-# config/config.yml
-features:
-  home: true
-  warp: true
-  economy: false
-  welcome: true
+name: ConditionalExample
+version: 1.0.0
+main: com.ultikits.docs.conditional.MyPlugin
+api-version: 700
 ```
 
 <<< @/../examples/src/main/java/com/ultikits/docs/conditional/MyPlugin.java
 
-```java
-@CmdExecutor(alias = {"home"}, permission = "myplugin.home")
-@ConditionalOnConfig(value = "config/config.yml", path = "features.home")
-public class HomeCommands extends BaseCommandExecutor {
-    // 已注册（features.home = true）
+将以下设置放入模块数据目录下的 `config/config.yml`：
 
-    @Override
-    protected void handleHelp(CommandSender sender) { }
-}
-
-@CmdExecutor(alias = {"warp"}, permission = "myplugin.warp")
-@ConditionalOnConfig(value = "config/config.yml", path = "features.warp")
-public class WarpCommands extends BaseCommandExecutor {
-    // 已注册（features.warp = true）
-
-    @Override
-    protected void handleHelp(CommandSender sender) { }
-}
-
-@Service
-@ConditionalOnConfig(value = "config/config.yml", path = "features.economy")
-public class EconomyService {
-    // 未注册（features.economy = false）
-}
-
-@EventListener
-@ConditionalOnConfig(value = "config/config.yml", path = "features.welcome")
-public class WelcomeListener implements Listener {
-    // 已注册（features.welcome = true）
-}
+```yaml
+# config/config.yml
+enableWarp: true
+economy:
+  enabled: false
+welcomeMessage:
+  enabled: true
+features:
+  teleport:
+    enabled: true
+maintenance: true
 ```
 
-::: tip v6.2.0 之前
-没有 `@ConditionalOnConfig` 时，开发者需要在 `registerSelf()` 中手动检查配置值，并使用 `if` 语句条件性地注册组件。注解方式更简洁，消除了样板代码。
-:::
+按这份设置启动时，传送点和传送命令的执行器以及欢迎监听器会启用，经济服务和普通模式服务会跳过。修改开关后执行 `/ul reload <name>` 会报告判定差异；重启服务器才会应用新的组件集合。

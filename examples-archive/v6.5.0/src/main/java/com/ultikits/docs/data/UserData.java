@@ -1,4 +1,4 @@
-package com.ultikits.docs.gui;
+package com.ultikits.docs.data;
 
 import com.ultikits.ultitools.abstracts.data.BaseDataEntity;
 import com.ultikits.ultitools.annotations.Column;
@@ -14,12 +14,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-@Table("warp_data")
-public class WarpData extends BaseDataEntity<String> {
-    @Column("name")
-    private String name;
+@Table("user_data")
+public class UserData extends BaseDataEntity<String> {
+    @Column("player_name")
+    private String playerName;
 
-    /** Serialised as "world,x,y,z" -- see WarpService.toLocation. */
-    @Column("location")
-    private String location;
+    @Column(value = "balance", type = "FLOAT")
+    private double balance;
 }

@@ -104,7 +104,7 @@ eventBus.publishAsync(event);
 
 ::: warning Async Restrictions
 - Cancellable events **cannot** be published asynchronously — the framework throws `IllegalArgumentException`
-- Async handlers must not call most Bukkit API methods (use `Bukkit.getScheduler().runTask()` to dispatch back)
+- Async handlers must not call most Bukkit API methods (as of v7.0.0, hand that work to the module's injected [`Scheduler`](/guide/advanced/scheduled-tasks#scheduler-api): `scheduler.entity(player).run(...)` for a player, `scheduler.global().run(...)` for server state)
 :::
 
 ## Cancellable Events

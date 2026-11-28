@@ -1,5 +1,7 @@
 # Module Versioning
 
+Passages marked “as of v7.0.0” do not apply to 6.x.
+
 This page describes the version number used by **your module**. `UltiTools-API` follows a different convention for its own version number, explained in [Differences from the framework's version](#differences-from-the-framework-s-version).
 
 ## Choosing the number
@@ -49,7 +51,7 @@ A module's version is also read by machines, but only to order two versions, nev
 
 All three go through `VersionComparatorUtil.compare` and ask whether A is greater than B. None of them looks at whether the difference is MAJOR, MINOR or PATCH.
 
-Two JARs of one module in the modules folder do not reach the first two. All module JARs share one class loader, so both copies resolve to the same class and are never loaded side by side. Which copy supplies the classes is decided by file name, not by version, as described in [Two copies of one module](#two-copies-of-one-module).
+Two JARs of one module in the modules folder do not reach the first two. All module JARs share one class loader, so both copies resolve to the same class and are never loaded side by side. Among API-admitted copies, which copy supplies the classes is decided by file name, not by version, as described in [Two copies of one module](#two-copies-of-one-module).
 
 Nor does anything resolve one module from Maven for another module to use. None of the official modules declares a dependency on a sibling module in its pom. A module built as a multi-module project, such as the discontinued `UltiBot`, depends on its own submodules, which is internal to that build rather than one module depending on another. The linkage argument that constrains the framework's version number therefore does not apply to a module's. If you publish your own module for others to compile and link against, that argument starts applying to yours: your version number now has to answer a compatibility question, so what you need is a stricter contract that preserves compatibility, not the framework's looser one.
 
@@ -81,7 +83,7 @@ A module declares the framework as `provided`:
 
 The scope of the first point matters. It describes statically linked references in one direction and is not a general guarantee: a later framework release can still remove or reshape something the module uses, and anything reached by reflection was never covered, because the compiler did not record it.
 
-A pin that lags the latest release is therefore the normal state rather than drift to be corrected. Raise it only when the module actually starts using a newer API.
+A pin that lags the latest release is therefore the normal state rather than drift to be corrected. Raise it only when the module actually starts using a newer API; moving to v7.0.0 is a new API baseline and requires rebuilding 6.x modules, as described in [Build target and module admission](./upgrading-to-7#build-target).
 
 ### The pin and `api-version`
 
@@ -90,11 +92,11 @@ The pin is not the module's runtime floor. These are two independent numbers, an
 | Number | Decides | Checked by |
 |---|---|---|
 | The `UltiTools-API` version in `pom.xml` | Which version's descriptors your bytecode records | Nothing. It is `provided`, does not enter the JAR, and the framework cannot read it at runtime |
-| `api-version` in `plugin.yml` | The declared runtime floor | `PluginManager.isUltiToolsVersionCompatible` when the module loads. This is the only framework version consulted before a module is admitted. As of v6.3.0 it is also consulted when `/upm` installs or updates the module, see [Version selection by API level](#version-selection-by-api-level) |
+| `api-version` in `plugin.yml` | The declared runtime floor | In 6.x, `PluginManager.isUltiToolsVersionCompatible` checks it when the module loads; this is the only framework version consulted before admission. As of v6.3.0, `/upm` also checks it when installing or updating a module. As of v7.0.0, `ModuleJarAdmission` checks the integer declaration and floor of `700` before main-class resolution; `PluginManager.isUltiToolsVersionCompatible` still checks whether a newer framework is needed. `/upm` checks the accepted range too; see [Version selection by API level](#version-selection-by-api-level) |
 
 Raising the pin does not raise the floor. A gap between the two numbers is not itself a fault: bytecode built against a newer pin still runs on the declared floor as long as every member it references already exists there. What breaks is a JAR whose bytecode references a symbol the framework version named in `api-version` does not declare, because that server admits it and then fails when the call site is reached.
 
-More than this one number is checked before a module is admitted: the JAR is structurally validated first, and a module is also refused when a newer instance of it is already loaded, which happens only when code registers the same main class a second time through `PluginManager#register`. The full test is `passesCompatibilityGates`, which is `!hasNewerVersionLoaded && isUltiToolsVersionCompatible`. Only `api-version` has anything to do with which framework versions the module can run on, which is why this page discusses only that one.
+In 6.x, only `api-version` has anything to do with which framework versions the module can run on. More than this one number is checked before a module is admitted: the JAR is structurally validated first and, as of v7.0.0, `ModuleJarAdmission` checks the declaration before main-class resolution. Later, `passesCompatibilityGates` checks `!hasNewerVersionLoaded && isUltiToolsVersionCompatible`; the newer-instance check matters when code registers the same main class a second time through `PluginManager#register`. Of these checks, `api-version` declares the framework level, rather than proving that every referenced API exists.
 
 ## Compatibility breaks caused by the framework
 
@@ -104,7 +106,7 @@ An older pin provides only the guarantee described in the previous section. A mo
 A successful build only shows that the source still compiles. What breaks an already published JAR is the descriptor recorded in its bytecode, and compilation does not show it to you.
 :::
 
-[The JLS chapter on binary compatibility][jls13] lists every change that can cause this, and there are more than the two below. These two are the ones this project has actually shipped; they are examples rather than a complete list.
+[The JLS chapter on binary compatibility][jls13] lists every change that can cause this. The examples below cover removed APIs and changed descriptors that this project has shipped or announced; they are not a complete list.
 
 ### Removed API
 
@@ -124,13 +126,25 @@ A successful build is not hard to get, because this check only covers what the s
 
 The cost only arrives if you publish the raised pin: building against a newer framework may record newer descriptors, which means raising `api-version` as well, which leaves behind every server still on the older framework. Raising the pin is therefore useful as a check and poor as a fix. Raise it in a throwaway build, see what fails to compile, migrate away from those APIs, then decide separately whether the released pin should move.
 
-The way to handle this situation is to follow deprecation notices and migrate before the removal is released.
+For APIs that carry deprecation notices, follow those notices and migrate before the removal is released. For public APIs removed in v7.0.0, see the [upgrade table](./upgrading-to-7#removed-public-apis).
 
 ::: tip Reading a deprecation notice for its deadline
 As of v6.3.0, every `@Deprecated(forRemoval = true)` member carries a machine-checked `{@removeIn X.Y.Z}` javadoc tag naming the concrete removal version.
 A build-time check fails the framework's own CI if the member is still declared once the project version reaches that target, so the tag is an enforced promise, not just documentation.
 See [`compatibility/DEPRECATIONS.md`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/compatibility/DEPRECATIONS.md) for every currently `ANNOUNCED` removal and its deadline in one place.
 :::
+
+### Modules from 6.x to 7.0 {#modules-6x-to-7}
+
+For migration and rebuild steps, see [Upgrading from 6.x to 7.0](./upgrading-to-7).
+
+### Native item and sound APIs in 7.0
+
+See [Native items and sounds](./upgrading-to-7#items-and-sounds) for alternatives to the old item material and sound APIs.
+
+### Legacy chest pages and confirmation widgets in 7.0 {#legacy-chest-removal}
+
+For replacements and dependencies, see [Legacy chest pages and confirmation widgets](./upgrading-to-7#chest-and-confirmation).
 
 ### Changed descriptors
 
@@ -177,6 +191,8 @@ python3 scripts/symcheck.py your-module.jar UltiTools-API-<the floor you declare
 An exit code of 0 means no symbols are missing. A non-zero exit code lists what is missing, and the JAR will fail on that framework the first time it reaches one of those call sites.
 
 Compare against the version you declare in `api-version`, not the one you pinned. These are different questions, and the first is the one your users will encounter.
+
+This `scripts/symcheck.py` is a manual symbol-comparison tool in the docs repository, not the removed framework startup or offline server-linkage audit. Passing it does not replace the v7.0.0 integer floor of 700 or the rebuild requirement.
 
 #### Reading the output
 
@@ -229,7 +245,7 @@ As of v6.3.0, a framework API linkage error naming a type under `com.ultikits.ul
 [UltiTools-API] Module 'UltiLogin-1.0.0.jar' (version 1.0.0, api-version 620) declares main: 'com.ultikits.plugins.login.UltiLogin', but it was built against an older UltiTools-API version and is not compatible with this one -- refusing to load. Upgrade it to a release of the module built for the current UltiTools-API version -- see https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md for the list of APIs removed or changed in this release. Cause: java.lang.IncompatibleClassChangeError: class com.ultikits.plugins.login.UltiLogin overrides final method com.ultikits.ultitools.abstracts.UltiToolsPlugin.unregisterSelf()V
 ```
 
-As of v6.3.0, a module refused this way is counted in the `Failed` number of the start-up summary `[UltiTools-API] Succeeded loaded <s>, Failed <f>.`, as is every other module JAR of that start that did not load: one refused while its main class is read, one excluded for a missing required plugin or a dependency cycle, and one whose registration failed. A second copy of a module that did load is not counted. When every JAR in the modules folder is refused, the summary reads `Succeeded loaded 0, Failed <n>.`; `No UltiTools plugin found.` appears only when the folder holds no module JAR. Before v6.3.0 the summary counted only modules that reached registration, so a start that refused a module could still print `Failed 0`.
+As of v6.3.0, a module refused this way is counted in the `Failed` number of the start-up summary `[UltiTools-API] Succeeded loaded <s>, Failed <f>.`, as is every other module JAR of that start that did not load: one refused while its main class is read, one excluded for a missing required plugin or a dependency cycle, and one whose registration failed. A second API-admitted copy of a module that did load is not counted; as of v7.0.0, an API-refused copy still counts once in `Failed`. When every JAR in the modules folder is refused, the summary reads `Succeeded loaded 0, Failed <n>.`; `No UltiTools plugin found.` appears only when the folder holds no module JAR. Before v6.3.0 the summary counted only modules that reached registration, so a start that refused a module could still print `Failed 0`.
 
 As of v6.3.0, a module whose main class still overrides `unregisterSelf()` or `reloadSelf()`, both `final` since 6.3.0, is refused whole at load with the `built against an older UltiTools-API version` line above, and a module that names it in `@PluginDependency(depends = ...)` is refused too, as for any missing hard dependency. A module that lists it only under `softDepends`, `loadBefore` or `loadAfter` still loads, and so does every unrelated module. The fix is a release of the module built for the current UltiTools-API version; module authors move the override's work to `onUnregister()` or `onReload()`.
 
@@ -239,23 +255,27 @@ As of v6.3.0, a module whose main class still overrides `unregisterSelf()` or `r
 
 A missing method or field fails loudly with a linkage error. A missing annotation attribute does not: the JVM drops any attribute the running annotation type does not declare, and nothing is logged. As of v6.3.0, `@Scheduled(config = ..., periodKey = ..., delayKey = ...)` and `@CmdCD(config = ..., key = ...)` read an interval or cooldown from a config key. A module that uses them still loads on a 6.2.x framework, where a bound `@Scheduled` runs once at load instead of on its interval and a bound `@CmdCD` enforces no cooldown.
 
-Raising the pin does not prevent this, for the reason given in [The pin and `api-version`](#the-pin-and-api-version). A module that uses either binding must declare `api-version: 630`, so that an older framework refuses it at load. To surface the mistake on the version you develop against, 6.3.0 itself refuses a module that uses a binding while declaring a lower `api-version`, naming the module, the binding and the required floor. Existing literal usages such as `@Scheduled(period = 6000)` and `@CmdCD(60)` are unaffected and need no change.
+Raising the pin does not prevent this, for the reason given in [The pin and `api-version`](#the-pin-and-api-version). In 6.x, a module using either binding must declare at least `630` (`api-version: 630` for 6.3.0), so that an older framework refuses it at load. As of v7.0.0, every module must instead be rebuilt against 7.0 and declare at least `700`, whether or not it uses bindings. To surface the mistake on the version you develop against, 6.3.0 itself refuses a module that uses a binding while declaring a lower `api-version`, naming the module, the binding and the required floor. Existing literal usages such as `@Scheduled(period = 6000)` and `@CmdCD(60)` are unaffected and need no change.
 
 ## Two copies of one module
 
+As of v7.0.0, API-refused JARs do not participate in the class-loading order below and each counts once in `Failed`; an old refused copy cannot shadow an admitted new copy. The framework does not clean up old copies automatically; keep only one.
+
 As of v6.3.0, UltiTools reads the JARs in `plugins/UltiTools/plugins/` in file-name order, compared as plain strings, and builds the module class loader in the same order. Before v6.3.0 the order was whatever the file system listed, which Java does not define, so the same folder could load a different copy on another machine.
 
-A module JAR is identified by the `main:` entry of its `plugin.yml`. When two or more JARs declare the same `main:` class, the class comes from the first of them in that order that carries it, and the other copies are refused. One warning at start-up names every copy and the JAR the classes load from:
+A module JAR is identified by the `main:` entry of its `plugin.yml`. When two or more admitted JARs declare the same `main:` class, the class comes from the first of them in that order that carries it, and the other copies are refused. When at least one JAR supplies the classes, one warning at start-up names every copy declaring that main class, including API-refused copies as of v7.0.0, and the JAR the classes load from:
 
 ```text
 [UltiTools-API] These JAR files all declare the same module main class com.example.MyModule: MyModule-1.0.0.jar, MyModule-1.1.0.jar. The module's classes load only from MyModule-1.0.0.jar; the other copies are not loaded. Keep only one of them.
 ```
 
+As of v7.0.0, only that first copy's early hook can run at start-up, once; see [Start-up Phases and Early Hooks](/guide/advanced/startup-phases#duplicate-copies-and-order).
+
 The version numbers play no part here. In the example the older `1.0.0` keeps running because its file name sorts first, whatever the two `plugin.yml` files say. Before v6.3.0 each refused copy logged its own error line instead of this one warning.
 
-`/upm uninstall` removes every copy. As of v6.3.0 it deletes each JAR whose `plugin.yml` `main:` names the module's main class, whatever `name:` that JAR declares, and names each deleted file in its reply.
+From v6.3.0 through the rest of 6.x, `/upm uninstall` identifies JARs whose `plugin.yml` `main:` names the module’s main class, regardless of their declared `name:`, and lists deleted files in its reply. As of v7.0.0, the command lists the identified JARs queued for deletion rather than deleting them while the server runs. At restart, it checks that the files still match the record.
 
-`/upm update` refuses to update a module while such a copy would win. As of v6.3.0, before it downloads anything, it looks in the modules folder for another JAR that declares the module's `main:` and whose file name sorts before the new JAR's name. If it finds one, the new version could never load there: the copy would keep supplying the classes and the update would be rolled back at every start. So the command stages nothing, and its reply names the new JAR and every such copy. Remove them and run `/upm update` again; no restart is needed in between. A copy that sorts after the new JAR does not stop the update, and the start-up warning above still names it.
+`/upm update` refuses to update a module while such a copy would win. As of v6.3.0, before it downloads anything, it looks in the modules folder for another JAR that declares the module's `main:` and whose file name sorts before the new JAR's name. As of v7.0.0, an API-refused copy is not a class-path blocker for this check. If it finds one, the new version could never load there: the copy would keep supplying the classes and the update would be rolled back at every start. So the command stages nothing, and its reply names the new JAR and every such copy. After moving those copies away, you can retry `/upm update` without restarting first. Applying the queued update still requires a restart. A copy that sorts after the new JAR does not stop the update, and the start-up warning above still names it.
 
 ## Version selection by API level
 
@@ -267,14 +287,17 @@ Which versions a server is offered and installs depends on the framework it runs
 
 | Server runs | Versions offered and installed |
 |---|---|
-| UltiTools-API 6.3.0 or later | `api-version` from 630 up to the framework's own API level (630 for 6.3.0) |
+| UltiTools-API 7.0 onward | Integer `api-version` from 700 up to the framework's own API level (700 for 7.0.0) |
+| UltiTools-API 6.3.0 through 6.x | `api-version` from 630 up to the framework's own API level (630 for 6.3.0) |
 | UltiTools-API before 6.3.0 | `api-version` below 630 only |
 
-A server on 6.3.0 or later sends its level (`apiLevel`, and `minApiLevel=630`) when it looks up a module's versions: in 6.3.0 with every catalogue request, as of v6.3.1 only on the module versions route. A framework before 6.3.0 sends none, and UltiCloud treats such a request as coming from a framework before 6.3.0, so released 6.2.x servers are not offered a 6.3.0 build. This applies to `/upm install`, `/upm install <module> <version>`, `/upm versions`, `/upm update` and the update check at start-up. The update check reports only a version this server can install and never mentions one that needs a newer UltiTools-API. `/upm list` still lists every module in the catalogue; Install on a module with no compatible version replies with the reason.
+A server on 6.3.0 through 6.x sends its level (`apiLevel`, and `minApiLevel=630`) when it looks up a module's versions: in 6.3.0 with every catalogue request, as of v6.3.1 only on the module versions route. A framework before 6.3.0 sends none, and UltiCloud treats such a request as coming from a framework before 6.3.0, so released 6.2.x servers are not offered a 6.3.0 build. This applies to `/upm install`, `/upm install <module> <version>`, `/upm versions`, `/upm update` and the update check at start-up. The update check reports only a version this server can install and never mentions one that needs a newer UltiTools-API. `/upm list` still lists every module in the catalogue; Install on a module with no compatible version replies with the reason.
 
-As of v6.3.2, `/upm check`, `/upm update <module>` and `/upm update all` reply `Update check still running; try again in a few seconds.` until the startup check completes, including before its manager exists. They do not consume partial results; update commands download and stage nothing during this time. These commands read the completed startup result, not a new check: wait for completion and retry. A completed check with failed lookups instead reports `Update check incomplete: could not confirm the latest version of <names>.`.
+From v6.3.2 through the rest of 6.x, `/upm check`, `/upm update <module>` and `/upm update all` reply `Update check still running; try again in a few seconds.` until the startup check completes, including before its manager exists. They do not consume partial results; update commands download and stage nothing during this time. These commands read the completed startup result, not a new check: wait for completion and retry. A completed check with failed lookups instead reports `Update check incomplete: could not confirm the latest version of <names>.`.
 
-`/upm` also checks what it downloads. `/upm install` writes the JAR into the modules folder as `<id>-<version>.jar.part`, a name the module loader never reads, and reads its `plugin.yml` again; `/upm update` makes the same check on the copy it downloads into `.ultikits/upm-transactions/`. A module whose `api-version` is absent, not an integer, below 630 or above the framework's level is refused: the download is deleted and nothing is written to the modules folder. For `/upm update` the staged download is discarded and no update is recorded. The reply names the declared level, the framework's level and the accepted range. With `language: en`:
+As of v7.0.0, module version requests carry `apiLevel` and `minApiLevel=700`. `/upm install` and `/upm update` use the same integer parser and floor of 700 after downloading; downloads above the framework's own level are still refused. `/upm update <module>` can proceed before the start-up update check completes if an existing queued change identifies the module. `/upm check` and `/upm update all` still wait for the check.
+
+The download locations, 630 range and reply examples below apply to 6.x. `/upm` also checks what it downloads. `/upm install` writes the JAR into the modules folder as `<id>-<version>.jar.part`, a name the module loader never reads, and reads its `plugin.yml` again; `/upm update` makes the same check on the copy it downloads into `.ultikits/upm-transactions/`. A module whose `api-version` is absent, not an integer, below 630 or above the framework's level is refused: the download is deleted and nothing is written to the modules folder. For `/upm update` the staged download is discarded and no update is recorded. The reply names the declared level, the framework's level and the accepted range. With `language: en`:
 
 ```text
 Cannot install ultirecipe: UltiCloud has no version of it that this server can install. This UltiTools-API is at API level 630 and installs only modules declaring api-version 630 to 630. Nothing was written to the modules folder.
@@ -299,6 +322,45 @@ The post-download check is what protects the server in that case.
 
 ## Updating and uninstalling on a server
 
+As of v7.0.0, `/upm install`, `/upm update` and `/upm uninstall` queue changes for the next restart. Running modules keep working until then. An uninstall request does not disable the module immediately, and `/ul reload` does not apply the queue. To stop a module urgently, queue its uninstall and restart the server.
+
+### Commands and pending changes
+
+As of v7.0.0, operators (OPs) and the server console can run these commands. The new `pending` and `revoke` subcommands do not require separate permission nodes.
+
+| Command | Action |
+| --- | --- |
+| `/upm install <module>` or `/upm install <module> <version>` | Stage a compatible catalogue version or the specified version. Installing a different version of a running module counts as an update. |
+| `/upm update <module>` or `/upm update all` | Stage an update for one module or for all modules with available updates. |
+| `/upm uninstall <module>` | Queue the identified JARs for deletion and list their names in the reply. |
+| `/upm pending` | List changes, download status and the results of applying changes at this start. |
+| `/upm revoke <module>` | Undo an unapplied change for that module or cancel an in-progress download. |
+
+As of v7.0.0, when uninstalling a module that added custom content, before the queued removal takes effect, the `/upm uninstall` reply and `/upm pending` both warn by content kind: custom enchantments are permanently lost from items when their chunks are loaded and saved, and items another plugin stored as raw bytes cannot be read while the enchantment is missing; a bundled data pack’s recipes and advancements disappear; and added item categories stop working.
+
+The pending list shows at most one entry per module. A successfully staged different version replaces a pending install or update; requesting the same pending version changes nothing. Requesting an install of the running version cancels its pending update or uninstall, or changes nothing if neither is pending.
+
+Uninstall replaces a pending update. If a module is only waiting to be installed, uninstall cancels the install without queuing a deletion. Uninstall also cancels an in-progress download for the module, even if an uninstall is already queued. An ordinary update does not override a pending uninstall: revoke it first, or use `install` to specify the version to keep.
+
+When changes are pending, each OP gets one reminder on joining per server run. Adding or replacing a change can trigger another reminder the next time that OP joins; it does not notify OPs who stay online. At each OP's first join after a restart, they also get a summary if changes were handled at that start. Run `/upm pending` for the individual results.
+
+### Application and recovery at start-up
+
+As of v7.0.0, install and update stage downloads in `.ultikits/upm-transactions/` under the server root and check the JAR's module identity, version and API level without modifying the modules directory. A new install in 6.x could overwrite a file of the same name. In 7.0, if that file already exists, a new install is refused before downloading or queuing anything, and the file is left untouched. Move or delete it before retrying. If a conflicting file appears after queuing, start-up leaves it in place and records the failed install.
+
+On restart, the framework processes removals before applying installs and updates in the [bootstrap phase](/guide/advanced/startup-phases), before building the module class loader. If a JAR queued for deletion no longer matches the recorded file, the framework leaves it in place, drops its deletion and asks you in the start-up log to run `/upm uninstall` again if needed. The JAR can still load.
+
+An install or update is kept only if the module loads from the target JAR at the expected version. Otherwise the framework rolls back the change: it removes a newly installed JAR from the modules directory or restores the previous JAR for an update, and reports the result in the start-up log. A failed bootstrap hook also triggers rollback for a new install. If a JAR is held open and cannot be removed, the log warns you and recovery continues at the next start.
+
+If start-up is interrupted, the framework uses the retained transaction record to finish or roll back the change at the next start. An unconfirmed install or update does not count as successful. Entries marked as failed remain visible in `/upm pending` but cannot be revoked; the next change request for that module reports the earlier failure. Entries that require operator action cannot be revoked either; check the files named in the start-up log.
+
+### Known limitations
+
+- As of v7.0.0, both install and update rely on atomic moves: the modules and transaction directories must be on the same file system.
+- As of v7.0.0, the pending changes' transaction records are not flushed with `fsync`; a power loss or system crash can lose the most recently queued request, so check `/upm pending` after restarting.
+
+### Updates and uninstalls in 6.x
+
 As of v6.3.0, `/upm update <module>` no longer replaces the JAR while the server runs. It downloads the new version into `.ultikits/upm-transactions/` under the server root and records it, and nothing in the modules folder changes until the next start. At that start, before any module loads, the old JAR is moved aside and kept and the new JAR is moved in. After the modules load, the update is kept only if your module is loaded from the new JAR at the new version; otherwise the new JAR is removed, the old JAR is put back, and the start-up log names both versions and says the restored version loads at the next start.
 
 This has two consequences for a module author:
@@ -310,7 +372,7 @@ A move that fails, such as a read-only folder or a file held open, leaves the mo
 
 As of v6.3.0, an update only ever moves, replaces or deletes a file whose SHA-256 matches its record: the downloaded JAR, or the old JAR it kept aside. If something else has changed one of those files, or put a file where the update needs a free place (for example a copy under the new JAR's name), the update does nothing to any file. It keeps its record in a state that means "on hold for the operator", and the start-up log names each unexpected file with the hash it expected and the one it found. Later starts repeat that line and do nothing else, and `/upm update` and `/upm uninstall` of that module refuse until you resolve it. To resolve it, check the named files, take back any JAR you need from `.ultikits/upm-transactions/`, then delete the update record named in the line and the folder of the same name.
 
-`/upm uninstall <module>` unloads every loaded instance through the framework's full unload path, deletes the module's JARs, and cancels any update of it still waiting for the next start, whichever of the module's names it was given. A JAR it cannot delete now, for example on Windows where the running server keeps every module JAR open, is recorded and deleted at the next start before any module loads.
+In 6.x, `/upm uninstall <module>` unloads every loaded instance through the framework's full unload path, deletes the module's JARs, and cancels any update of it still waiting for the next start, whichever of the module's names it was given. A JAR it cannot delete now, for example on Windows where the running server keeps every module JAR open, is recorded and deleted at the next start before any module loads.
 
 As of v6.3.0, before the next start deletes a recorded JAR it confirms that the file is still the one the uninstall recorded. If it cannot read the JAR to confirm that, it leaves the JAR in place, so the module can load again at that start, reports the JAR and the read error in the start-up log at SEVERE level, and keeps the deletion recorded for the start after.
 

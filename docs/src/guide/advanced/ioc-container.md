@@ -1,212 +1,128 @@
 # IOC Container
 
-IOC stands for Inversion of Control, which means that the creation and management of objects are handed over to the container instead of being actively created by the developer.
+This guide describes IoC (inversion of control) in UltiTools-API 7.0. The container creates and wires objects called beans. See the [7.0.0 release notes](../release-notes/7.0.0) for an overview of the changes.
 
-UltiTools has its own IOC container built on `SimpleContainer`, which uses a three-level cache for circular dependency resolution. If you have used Spring before, you will find the concepts familiar.
-
-
-::: warning A class that cannot be found is not registered as a bean
-
-Despite UltiTools attempting to scan the involved classes as comprehensively as possible, there may still be issues with Bean registration if the class cannot be found.
-
-:::
+As of v7.0.0, the module container is assembled during plugin enable, not during [bootstrap](./startup-phases). Bootstrap hooks cannot look up IoC services.
 
 ## Module container
 
-Each module has an independent context container `Context`, which you can get using the `getContext()` method of the main class.
+Every module has its own `SimpleContainer`, available from the module instance's `getContext()`. Its parent is the framework's shared container. A single-bean lookup falls back to the parent only if the module container has no matching bean; a local ambiguity is an error, not a reason to try the parent. Beans registered only in one module's container are not visible to sibling containers.
 
-The `Context` is backed by UltiTools' `SimpleContainer`. This article covers the basic usage.
-
-All modules' context containers use a public container as the parent container, which has some common UltiTools Beans, and there may be other common Beans registered by other modules.
+As of v7.0.0, obtain the framework `NotificationService` by its interface (`com.ultikits.ultitools.services.NotificationService`), through injection or `getBean(NotificationService.class)`. The old name aliases are gone. The framework creates and caches the service on first type lookup.
 
 ## Bean registration
 
 ### Automatic scanning
-Add the `@ComponentScan(...)` annotation to your main class, and UltiTools will automatically scan all classes in the given package when initializing your plugin. Those with the corresponding annotations will be automatically registered as Beans.
 
-Supported annotations：
-- `@Component`
-- `@Service`
-- `@CmdExecutor` (UltiTools API built-in)
-- `@EventListener` (UltiTools API built-in)
+By default, UltiTools scans the module main class's package and its subpackages. Set `@UltiToolsModule(scanBasePackages = {"com.example.module"})` to choose packages instead. `scanBasePackageClasses` selects packages by marker class; `@ComponentScan` is also supported.
+
+`@Component`, `@Service`, `@EventListener` and `@Configuration` are in `com.ultikits.ultitools.annotations`; `@CmdExecutor` is in `com.ultikits.ultitools.annotations.command`. The scanner also recognizes annotations composed with `@Component`. `@Component` and `@Service` accept a `String value` for the bean name; it defaults to `""`, which leaves the default name (the class's simple name with its first letter lowercased). `@Service` also takes `int priority`, default `0`.
+
+As of v7.0.0, scanned command executors are registered through Paper as Brigadier command trees. Discovery as a bean is distinct from command or listener registration and from AOP interception.
+
+A class that fails to load during discovery may be skipped. The per-class warning begins `Failed to load scanned class: `; the plugin logger emits this `SEVERE` summary (`ERROR` in the console, `error` in the panel stream). These messages are English in both locales:
+
+```text
+Module '<module or package>' skipped <count> class(es) that failed to load during startup and continued loading without them: <classes> -- see https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md for the list of APIs removed or changed in this release.
+```
+
+As of v7.0.0, the old class-name filter audit and startup audit summaries are gone; this skip diagnostic remains. A skipped class is not registered by that scan.
 
 ### Context connectors
 
-As documented for v6.3.2, the class named by `@ContextEntry(Connector.class)` is constructed separately by reflection during context assembly; it does not reuse a scanned bean. Do not also register that connector as a scanned component (for example with `@Component` or `@Service`), or assembly creates another instance. Keep the connector outside component registration; this annotation is not a singleton lookup.
+`@ContextEntry(Connector.class)` constructs the connector separately through its no-argument constructor after the initial container refresh, registers it under its simple class name, and then injects the module instance again. It does not reuse a scanned bean. Keep the connector out of component scanning to avoid creating a second instance.
 
 ### Manual registration
 
-You can register directly using the `registerType()` method of the container object:
+Use the registration method that matches who creates the object:
 
 ```java
-import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
-import com.ultikits.ultitools.annotations.UltiToolsModule;
-
-@UltiToolsModule
-public class BasicFunctions extends UltiToolsPlugin {
-
-    @Override
-    public boolean registerSelf() {
-        // on module register
-        getContext().registerType(MyBean.class, new MyBean());
-        return true;
-    }
-
-    ...
-}
+getContext().registerType(MyApi.class, existingInstance);
+getContext().registerSingleton("myHelper", new MyHelper());
+getContext().registerBean(MyService.class);
 ```
 
+- `registerType(Class, instance)` binds an existing instance for exact type lookup. It does not inject fields or run lifecycle hooks.
+- `registerSingleton(name, instance)` injects fields and runs `@PostConstruct`. It cannot attach an AOP proxy to an existing object and rejects unproxied instances that require `@Transactional` or `@ExceptionCatch` interception.
+- `registerBean(Class, Object...)` registers a definition for the container to construct, just as component scanning registers definitions. Use these paths for classes that need container-created proxies. Register before consumers first need the dependency; `registerSelf()` runs after the initial assembly.
+
+Scanned definitions are singleton by default, so lookups reuse the instance in that container. For a manual definition, `BeanDefinition#setScope(SimpleContainer.BeanScope.PROTOTYPE)` selects a fresh instance on each `getBean(name)` lookup. Prototype instances are not tracked for destruction on container close.
 
 ## Dependency acquisition
 
 ### Automatic injection
 
-If a class is managed by the container, you can use automatic injection:
+For a container-created component, use a constructor to receive required dependencies. With no explicit constructor arguments, the container tries a no-argument constructor first; only if there is none does it choose a constructor with the most parameters and resolve each parameter by type. Give the component one constructor if you want unambiguous constructor injection.
 
 ```java
-// field injection
-@Autowired
-MyBean myBean;                  
+@Service
+public class MyService {
+    private final MyBean dependency;
 
---- OR ---
-
-// constructor injection
-public MyClass(MyBean myBean) {
-    this.myBean = myBean;
+    public MyService(MyBean dependency) {
+        this.dependency = dependency;
+    }
 }
 ```
+
+For field injection, import `com.ultikits.ultitools.annotations.Autowired`. The container injects annotated fields by type after construction, including inherited fields. `required` defaults to `true`; with `required = false`, a missing bean leaves the field unchanged. A lookup exception, such as ambiguity or a supplier failure, still propagates. The annotation is not used to select a constructor or invoke an injection method.
+
+The singleton cache can expose an already constructed instance while its fields are being injected, which can resolve some singleton cycles. It does not resolve a cycle where constructors must build each other first, a prototype cycle, or a cycle between two already-created objects registered through separate `registerSingleton` calls. Do not rely on accessing a fully initialized bean through a circular reference.
 
 ### Manual acquisition
 
-If you need to get a dependency from the container, just call the `getBean()` method of the container object:
-
-```java
-MyBean myBean = context.getBean(MyBean.class);
-```
+Use `context.getBean(MyBean.class)` for type lookup or `context.getBean("myBean", MyBean.class)` for a named bean with a type check. A lookup returns `null` if the bean is missing (or, for the named overload, has the wrong type). An ambiguous type lookup throws instead.
 
 ### Module main class
 
-Module main class is managed by the container, and you can get it in many ways.
+The container exposes the running module instance, not a new copy.
 
 #### Get the main class through automatic injection
 
-Only if the class is managed by the container
+Use the same injection rules in managed services, command executors and listeners. For example:
 
 ```java
 @Autowired
-PluginMain pluginMain;                       // field injection
-
-public MyClass(PluginMain pluginMain) {
-    this.pluginMain = pluginMain;            // constructor injection
-}
+private MyPlugin plugin;
 ```
-
-::: tip The main class is obtained by field injection
-If the class is an event listener class or a command executor class, you can use field injection to get the main class.
-:::
 
 #### Manual acquisition
 
-If you cannot get the main class through the container in some cases, you can still create a getter to get the main class.
-
-```java
-public class MyPlugin extends UltiToolsPlugin {
-  private MyPlugin plugin;
-
-  @Override
-  public boolean registerSelf() {
-    // on module register
-    this.plugin = this;
-    return true;
-  }
-
-  public MyPlugin getInstance() {
-    return this.plugin;
-  }
-
-  ...
-}
-```
+If you already have the module context, use `context.getBean(MyPlugin.class)` after assembly. Otherwise, pass the running module instance to code outside the container instead of creating another instance.
 
 ## Bean Lifecycle Hooks <Badge type="tip" text="v6.2.0+" />
 
-Methods in managed beans can be automatically called at specific lifecycle points using `@PostConstruct` and `@PreDestroy` annotations.
+Use `@PostConstruct` to initialize a managed bean after field injection and `@PreDestroy` to release resources when the container closes. Both annotations are in `com.ultikits.ultitools.annotations`. Declare a no-argument `void` method; it may declare checked exceptions.
 
 ### @PostConstruct
 
-The `@PostConstruct` annotation marks a method to be called **after all dependencies have been injected** and the bean is fully initialized.
+Initialization runs when the bean is assembled, not on every lookup. An exception from `@PostConstruct` fails that assembly.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/ioc/DatabaseConnection.java
 
-**Rules:**
-- Method must have `void` return type
-- Method must accept no arguments
-- Can throw checked exceptions
-- Called only once per bean instance (for singletons)
-
 ### @PreDestroy
 
-The `@PreDestroy` annotation marks a method to be called **before the bean is destroyed** (when the plugin is disabled or the container shuts down).
+On container close, each managed singleton instance is destroyed once, even if it has aliases. The container logs exceptions from `@PreDestroy` and continues cleanup.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/ioc/ResourceManager.java
 
-**Rules:**
-- Method must have `void` return type
-- Method must accept no arguments
-- Can throw checked exceptions
-- Exceptions are logged but don't prevent shutdown
-
 ## Factory Method Beans <Badge type="tip" text="v6.2.0+" />
 
-For complex bean initialization or creating beans from third-party classes, use the `@Configuration` annotation with `@Bean` factory methods.
+Use `@Configuration` and `@Bean` (both from `com.ultikits.ultitools.annotations`) for third-party objects or objects that need several initialization steps.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/ioc/HttpClientConfiguration.java
 
-**When to use:**
-- Creating beans from external libraries (Gson, HTTP clients, database connection pools)
-- Complex initialization logic with multiple steps
-- Conditional bean creation based on runtime configuration
-- Named beans to disambiguate multiple implementations
+The scanner discovers component definitions before calling the factories. Give the configuration class an accessible no-argument constructor and declare the `@Bean` methods without parameters. The returned object is registered as a singleton; type lookup uses the stored object's actual class, not just the factory signature. Do not rely on the order of separate `@Bean` methods to inject one factory product into another.
 
-**Rules:**
-- Class must be annotated with `@Configuration`
-- Methods must be annotated with `@Bean`
-- Return type becomes the bean type
-- Bean name defaults to method name, unless `@Bean(name = ...)` or `@Bean(value = ...)` is set (v6.3.0+) — the first declared element becomes the registered name, and any remaining elements register as aliases resolving to the same instance.
-- Factory methods are invoked with no arguments; they cannot accept `@Autowired` parameters.
+The name defaults to the method name. In `@Bean(name = {"client", "httpClient"})`, `client` is the registered name and `httpClient` is an alias for the same instance. `value` is an alias for `name`; if you set both, their arrays must agree.
 
 ## Plugin Instance Injection <Badge type="tip" text="v6.2.0+" />
 
-Your plugin's main class (which extends `UltiToolsPlugin`) is automatically registered in the IoC container and can be injected into any managed bean.
+The framework registers each module's `UltiToolsPlugin` instance in that module's container.
 
 ### Why Use This Pattern
 
-Before v6.2.0, code typically used the static `getInstance()` pattern:
-
-```java
-// Old pattern (works but creates coupling)
-public class MyService {
-    public void doSomething() {
-        MyPlugin plugin = MyPlugin.getInstance();
-        // Use plugin
-    }
-}
-```
-
-Starting in v6.2.0, the plugin instance is automatically managed by the container:
-
-```java
-// New pattern (better - dependency injection)
-@Service
-public class MyService {
-    @Autowired
-    private MyPlugin plugin;  // Automatically injected
-
-    public void doSomething() {
-        // Use plugin - no coupling to static getInstance()
-    }
-}
-```
+Prefer injecting the module instance over calling a static `getInstance()`: the dependency is explicit, and a test can supply its own instance.
 
 ### Constructor Injection Example
 
@@ -214,80 +130,45 @@ public class MyService {
 
 ### How It Works
 
-The container automatically performs this registration:
-
-```java
-// Inside PluginManager during plugin initialization
-UltiToolsPlugin plugin = new YourPlugin();
-pluginContext.registerType(UltiToolsPlugin.class, plugin);  // Registered by parent class type
-pluginContext.getBeanFactory().registerSingleton(YourPlugin.class.getSimpleName(), plugin); // By name; resolvable by its concrete type
-```
-
-This means both injection styles work:
-
-```java
-@Autowired
-private UltiToolsPlugin plugin;  // Via parent type
-
-@Autowired
-private YourPlugin plugin;       // Via concrete type
-```
-
-**Benefits:**
-- Type-safe dependency injection
-- Better testability (can mock plugin for unit tests)
-- Eliminates static getInstance() calls
-- Follows standard dependency injection patterns
+Before scanning, the framework binds the instance under `UltiToolsPlugin.class`. After scanning, it also registers it as a singleton under the concrete class's simple name. Ordinary beans can therefore inject either the base type or the concrete type once assembly reaches that registration. A factory or bean initialized during the scan can rely on the base-type binding, not on the later concrete-type registration.
 
 ## Service Priority
 
-::: tip getBean(Class) uses priority since v6.3.0
-As of v6.3.0, `getBean(Class)` (and therefore `@Autowired`) uses `@Service(priority)` only after an explicit type binding and an exact-class bean, in the lookup order listed under Behavior below.
-Through v6.2.5 it returned the first assignable bean ([issue #202](https://github.com/UltiKits/UltiTools-Reborn/issues/202)).
-:::
+Single-bean type lookup (`getBean(Class)`, field injection and automatic constructor injection) uses this order in the module container:
 
-When multiple implementations of the same interface exist, use the `priority` attribute of the `@Service` annotation to control which one is returned by `getBean(Class)`.
+1. An exact type binding, including a supplier registered for that exact type.
+2. A matching bean definition for that exact class, or an assignable definition under the name the requested type explicitly declares in its own `@Component` or `@Service`. An accidental match to the generated name of an interface does not count.
+3. The highest `@Service(priority = ...)` among assignable candidates. Default priority is `0`. If the two highest priorities tie, the lookup throws an ambiguity error. Only when there is no local match does lookup fall back to the parent.
+
+For example, `getBean(BaseProcessor.class)` still returns an exact `BaseProcessor` bean even if a `PreferredProcessor extends BaseProcessor` has priority `10`. If you want to choose among implementations of an interface, set their priorities or explicitly bind the interface.
+
+When the following implementations are scanned and there is no explicit `PaymentProcessor` binding, injection selects `PayPalProcessor`.
 
 ```java
-// Multiple implementations of a payment processor
 @Service(priority = 10)
-public class PayPalProcessor implements PaymentProcessor {
-    // Higher priority = processed first
-}
+class PayPalProcessor implements PaymentProcessor { /* ... */ }
 
 @Service(priority = 5)
-public class StripeProcessor implements PaymentProcessor {
-    // Lower priority
-}
+class StripeProcessor implements PaymentProcessor { /* ... */ }
 
-@Service  // default priority = 0
-public class DirectBankProcessor implements PaymentProcessor {
-    // Lowest priority
-}
+@Service
+class DirectBankProcessor implements PaymentProcessor { /* ... */ }
 ```
-
-**Behavior:**
-- Higher `priority` value takes precedence
-- Default priority is 0
-- `getBean(Class)` and `@Autowired` resolve a type in this order: an explicit type binding (`registerType`) first; then the bean registered for that exact class (or under the name the type declares in its own `@Component`/`@Service`); only then the highest priority among all assignable candidates (interface or superclass)
-- In that last step a tie between the two highest priorities throws an ambiguous-bean error
-- So with `BaseProcessor` (priority 0) and `PreferredProcessor extends BaseProcessor` (priority 10) both registered, `getBean(BaseProcessor.class)` still returns `BaseProcessor`
-- Only `getOrderedBeansOfType()` returns results ordered by priority (highest first); `getBeansOfType()` returns an unordered map.
 
 ```java
-// Usage
 @Autowired
-private PaymentProcessor processor;  // Gets PayPalProcessor (highest priority)
+private PaymentProcessor processor;
 
-// Or get all ordered by priority
-List<PaymentProcessor> allProcessors = context.getOrderedBeansOfType(PaymentProcessor.class);
-// Returns: [PayPalProcessor, StripeProcessor, DirectBankProcessor]
+// All named candidates, sorted by descending priority:
+List<PaymentProcessor> processors = context.getOrderedBeansOfType(PaymentProcessor.class);
 ```
+
+`getBeansOfType()` returns a name-to-bean map without priority ordering.
 
 ## Conditional Registration <Badge type="tip" text="v6.2.0+" />
 
-Starting from v6.2.0, you can conditionally register components based on YAML configuration values using the `@ConditionalOnConfig` annotation.
+Use `@ConditionalOnConfig` to control whether the scanner registers a component based on a module YAML setting.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/ioc/EconomyService.java
 
-This eliminates the need for manual `if` checks in `registerSelf()`. See the [Conditional Registration](/guide/advanced/conditional-registration) guide for full details.
+`/ul reload` reports changed condition results but does not change the registered component set. See [Conditional Registration](./conditional-registration).

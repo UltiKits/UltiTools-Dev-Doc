@@ -1,8 +1,6 @@
 # Config Converters
 
-::: info Availability
-Configuration conversion is available in UltiTools-API v6.3.0.
-:::
+This guide targets UltiTools-API 7.0. For 6.x, see the [archived v6.5.0 guide](/v6.5.0/guide/advanced/config-converters.html).
 
 `ConfigConverter<T>` converts a declared Java value to plain configuration data and back. Register a converter with `@ConfigConverterFor` in your module's scan packages before configuration construction. The storage document and registry coordination bridges are internal, not a module transaction API.
 
@@ -17,13 +15,13 @@ public interface ConfigConverter<T> {
 }
 ```
 
-`ConversionContext` supplies `file()`, `path()` (an immutable list of whole keys), and `declaredType()` including generic arguments. Use `ctx.toPlain(nested)` for a nested runtime value and `ctx.fromPlain(nested, type)` for a nested declared type. A `ConversionException` takes a reason, file, whole path and declared type, optionally a cause; it provides located conversion failure information. As of v6.3.0, the reason you pass is shown to the operator in the skip warning as `(reason: ...)`, redacted together with the value under a secret-shaped key, so write it for the operator: say what the setting expects.
+`ConversionContext` supplies `file()`, `path()` (an immutable list of whole keys), and `declaredType()` including generic arguments. Use `ctx.toPlain(nested)` for a nested runtime value and `ctx.fromPlain(nested, type)` for a nested declared type. A `ConversionException` takes a reason, file, whole path and declared type, optionally a cause; it provides located conversion failure information. The reason you pass is shown to the operator in the skip warning as `(reason: ...)`, redacted together with the value under a secret-shaped key, so write it for the operator: say what the setting expects.
 
 ## Plain data and round trips
 
-As of v6.3.0, plain data is null, `String`, `Boolean`, `Integer`, `Long`, `BigInteger`, `Double`, lists and string-keyed maps of plain data. Return neither Bukkit `MemorySection` nor an arbitrary Java bean. UUIDs, enums and `BigDecimal` use text through their built-in converters. A registered Bukkit `ConfigurationSerializable` uses its serialization alias and plain map; a value read into an `Object` field stays plain, rather than automatically constructing a Bukkit object.
+Plain data is null, `String`, `Boolean`, `Integer`, `Long`, `BigInteger`, `Double`, lists and string-keyed maps of plain data. Return neither Bukkit `MemorySection` nor an arbitrary Java bean. UUIDs, enums and `BigDecimal` use text through their built-in converters. A registered Bukkit `ConfigurationSerializable` uses its serialization alias and plain map; a value read into an `Object` field stays plain, rather than automatically constructing a Bukkit object.
 
-Your converter must satisfy forward equality for every value `x` of the declared type whose collections and arrays contain no null element. Typed collections (including `List<Object>`) and reference arrays (including `Object[]`) omit null elements on write with one located warning per field; a null element of a typed collection read from the file is skipped with a located warning, as in 6.2. Null map values and null whole fields still round-trip. Plain data in a declared `Object` slot is unchanged. Reverse equality applies to canonical plain values `p` emitted by the converter (`p = toPlain(x)`):
+Your converter must satisfy forward equality for every value `x` of the declared type whose collections and arrays contain no null element. Typed collections (including `List<Object>`) and reference arrays (including `Object[]`) omit null elements on write with one located warning per field; a null element of a typed collection read from the file is skipped with a located warning. Null map values and null whole fields still round-trip. Plain data in a declared `Object` slot is unchanged. Reverse equality applies to canonical plain values `p` emitted by the converter (`p = toPlain(x)`):
 
 ```text
 fromPlain(toPlain(x)) equals x
@@ -36,11 +34,11 @@ A converter may accept noncanonical input `q`. Its canonical form is `toPlain(fr
 fromPlain(toPlain(fromPlain(q))) equals fromPlain(q)
 ```
 
-The approved coercions remain unchanged: number to String, numeric text to int/float, `"false"` to boolean and duplicate elements to a Set. They need not preserve the original noncanonical representation. Equality is semantic, not object identity; numeric plain values compare by value. Adding ten on read without subtracting ten on write violates forward equality. Panel map leaf edits and three-way reload depend on that equality to preserve unchanged siblings. Test null, nested values, converter-emitted plain values and accepted noncanonical inputs.
+Built-in coercions include number to String, numeric text to `int` or `float`, `"false"` to boolean and duplicate elements to a Set. They need not preserve the original noncanonical representation. Equality is semantic, not object identity; numeric plain values compare by value. Adding ten on read without subtracting ten on write violates forward equality. Panel map leaf edits and three-way reload depend on that equality to preserve unchanged siblings. Test null, nested values, converter-emitted plain values and accepted noncanonical inputs.
 
 ## Registration and lookup
 
-As of v6.3.0, a discovered converter must be a public top-level class with a public no-argument constructor. The package scanner does not discover nested converters. It is instantiated before configuration entities and is not an IoC bean; do not use injected dependencies or module initialization side effects. Put it in the packages named by `@UltiToolsModule(scanBasePackages = {...})`. Two registrations for the same target class refuse load and name both classes. `@ConfigConverterFor(value = T.class, exact = true)` serves only that exact class; the default `exact = false` also serves subtypes.
+A discovered converter must be a public top-level class with a public no-argument constructor. The package scanner does not discover nested converters. It is instantiated before configuration entities and is not an IoC bean; do not use injected dependencies or module initialization side effects. Put it in a scanned package: by default the package of the module class, or the packages named by `@UltiToolsModule(scanBasePackages = {...})`. Two registrations for the same target class refuse load and name both classes. `@ConfigConverterFor(value = T.class, exact = true)` serves only that exact class; the default `exact = false` also serves subtypes.
 
 Lookup order is:
 
@@ -56,36 +54,38 @@ Full inherited generic types are checked before any selected config file is read
 Module UltiRecipe, file config/recipes.yml, key "recipes": no config converter for ...RecipeDefinition (declared as java.util.Map<java.lang.String, ...RecipeDefinition>). Register one with @ConfigConverterFor(RecipeDefinition.class) in the module's scan packages, or declare the value type as Map<String, Object>.
 ```
 
-The actual message names the complete type. During binding, a convertible declared type with an invalid whole value uses its initially declared default, and invalid list/map elements are skipped with a located warning. Unknown runtime objects on save refuse the write before changing the target. Secret-shaped values are redacted in binding warnings.
+The actual message names the complete type. A whole-field conversion failure uses the initially declared default; invalid elements of typed collections or maps are skipped. A binding warning can read `File <file>, key '<key>', declared as <type>: found <kind> <value> (reason: <reason>); skipped or using the declared default`. The reason is omitted when unavailable; on a secret-shaped value, both the value and reason are shown as `<redacted>`. Unsupported runtime objects refuse a save before the file changes. As of v7.0.0, the world key in a Paper-serialized location is `world_key`; see [Saved locations](/guide/essentials/config-file#saved-locations).
 
 ## Converter example
 
-Place the value/field members below inside `MigrationExample` in package `example.config` (imports go before the outer class). Put the converter in its own public top-level `TokenConverter.java` in the same scanned package, as shown in the second block; do not nest it in the outer class. These inline snippets target v6.3.0; unlike shared example-file references, they are not compiled by the documentation build. The text-only map shape is strict so both equations hold, including null text.
+Create `TokenConfig.java` and `TokenConverter.java` in `example.config`, a package your module scans. The first file declares the config entity and immutable value; the second contains the public top-level converter. The example targets 7.0. The map accepts exactly one `text` key holding text or null.
 
 ```java
-import java.util.Objects;
+package example.config;
+
+import com.ultikits.ultitools.abstracts.AbstractConfigEntity;
+import com.ultikits.ultitools.annotations.ConfigEntity;
 import com.ultikits.ultitools.annotations.ConfigEntry;
 
-public static class Token {
-    public String text;
-    public Token(String text) { this.text = text; }
-    @Override public boolean equals(Object other) {
-        return other instanceof Token && Objects.equals(text, ((Token) other).text);
-    }
-    @Override public int hashCode() { return Objects.hashCode(text); }
-}
-@ConfigEntry(path = "token")
-private Token token = new Token("hello");
+@ConfigEntity("config/tokens.yml")
+public class TokenConfig extends AbstractConfigEntity {
+    public record Token(String text) {}
 
+    @ConfigEntry(path = "token")
+    private Token token = new Token("hello");
+
+    public TokenConfig(String path) {
+        super(path);
+    }
+}
 ```
 
 ```java
-// TokenConverter.java: a separate top-level source file.
 package example.config;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import example.config.MigrationExample.Token;
+import example.config.TokenConfig.Token;
 import com.ultikits.ultitools.config.convert.ConfigConverter;
 import com.ultikits.ultitools.config.convert.ConfigConverterFor;
 import com.ultikits.ultitools.config.convert.ConversionContext;
@@ -93,24 +93,25 @@ import com.ultikits.ultitools.config.convert.ConversionException;
 
 @ConfigConverterFor(Token.class)
 public class TokenConverter implements ConfigConverter<Token> {
-    public TokenConverter() { }
-    @Override public Object toPlain(Token value, ConversionContext ctx) {
+    @Override
+    public Object toPlain(Token value, ConversionContext ctx) {
         if (value == null) { return null; }
         Map<String, Object> plain = new LinkedHashMap<>();
-        plain.put("text", value.text);
+        plain.put("text", value.text());
         return plain;
     }
-    @Override public Token fromPlain(Object plain, ConversionContext ctx)
-            throws ConversionException {
+
+    @Override
+    public Token fromPlain(Object plain, ConversionContext ctx) throws ConversionException {
         if (plain == null) { return null; }
-        if (!(plain instanceof Map)) { throw failure(ctx); }
-        Map<?, ?> map = (Map<?, ?>) plain;
-        if (map.size() != 1 || !map.containsKey("text")
-                || !(map.get("text") == null || map.get("text") instanceof String)) {
+        if (!(plain instanceof Map<?, ?> map) || map.size() != 1 || !map.containsKey("text")) {
             throw failure(ctx);
         }
-        return new Token((String) map.get("text"));
+        Object text = map.get("text");
+        if (text != null && !(text instanceof String)) { throw failure(ctx); }
+        return new Token((String) text);
     }
+
     private ConversionException failure(ConversionContext ctx) {
         return new ConversionException("Expected only a text key containing text or null",
                 ctx.file(), ctx.path(), ctx.declaredType());
@@ -120,10 +121,4 @@ public class TokenConverter implements ConfigConverter<Token> {
 
 ## Legacy parser migration
 
-::: warning Removed in v6.4.0
-The legacy parser API is gone: `ConfigEntry#parser()`, `interfaces.Parser`, `interfaces.ObjectConfigSerializer`, `interfaces.impl.pasers.ConfigParser`, `DefaultConfigParser` and `StringHashMapParser`. They were deprecated for removal in v6.3.0. Replace each with a public top-level `ConfigConverter<T>` annotated `@ConfigConverterFor(T.class)` in a scanned package, as in the example above.
-:::
-
-Delete `parser = ...` from the field. A declaration that only named `DefaultConfigParser` or `StringHashMapParser` needs no replacement, because the built-in conversions cover those types.
-
-See [Configuration](/guide/essentials/config-file) for whole map keys, file protection, edited emission, atomic/backed saves, reload and the removed entity accessor. The storage limits that still apply are recorded in [#578](https://github.com/UltiKits/UltiTools-Reborn/issues/578) (see Configuration for which ones); [#580](https://github.com/UltiKits/UltiTools-Reborn/issues/580) is a documented reader limitation.
+7.0 does not provide `@ConfigEntry(parser = ...)`. Remove the attribute; register custom conversion with `@ConfigConverterFor` in a scanned package and use built-in conversion for basic types and plain maps. See [Upgrading from 6.x to 7.0](/guide/advanced/upgrading-to-7) for other migration steps and [Configuration](/guide/essentials/config-file) for write protection and reload behavior.

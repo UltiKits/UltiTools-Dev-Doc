@@ -1,21 +1,29 @@
 # Data Storage
 
-UltiTools encapsulates a data storage API that supports MySQL database, SQLite database (since 6.1.0), and JSON file storage.
-Data storage is transparent to developers, and UltiTools will determine which storage method
-to use based on the server owner's configuration.
+This page describes behaviour as of v7.0.0; see the [release notes](../release-notes/7.0.0) and the [upgrade guide](../advanced/upgrading-to-7). For 6.x, see the [v6.5.0 data storage archive](/v6.5.0/guide/essentials/data-storage.html).
 
-All you need is an entity class. CRUD operations will be done automatically by UltiTools.
+UltiTools provides one entity API for MySQL, SQLite and JSON. A module or external plugin defines and registers its entities, then explicitly reads and writes them through a `DataOperator<T>`. The server operator selects the backend for the whole server.
 
-::: warning Try not to nest objects
-The storage API maps each `@Column` field to one column (one field in a JSON file). With SQLite and MySQL a field of a non-simple type is stored as JSON text and cannot be queried by its inner fields; only the JSON backend can, so try to use simple values.
-:::
+## Backend Selection
 
-::: warning SQLite with native spark profiling before v6.3.2
-Earlier builds can exhaust a nominal 3 s SQLite busy wait in about 0.4 s on the server thread under Paper's native spark profiler, when another thread or process holds a write lock on the same database file ([#645](https://github.com/UltiKits/UltiTools-Reborn/issues/645)).
-MySQL is not affected; servers with long-held SQLite write locks should use MySQL.
-:::
+In the UltiTools `config.yml`, set `datasource.type` to `sqlite`, `json`, or `mysql` (case-sensitive; whitespace is not trimmed). The shipped config selects `sqlite`; if the key resolves to no value, the fallback is `json`. For MySQL, also set `mysql.enable` to `true`, set `mysql.host`, `mysql.port`, `mysql.username`, `mysql.password`, and `mysql.database`, and create the database beforehand. Restart after changing this configuration. Switching backends does not move existing data. The storage choice is separate from your module's own [configuration files](./config-file).
 
-As of v6.3.2, SQLite busy waits use monotonic elapsed time: profiler signals no longer consume the wait budget merely by interrupting requested sleeps. The 3000 ms default, DEFERRED transactions and JDBC statement-timeout selection are unchanged. Keep SQLite transactions short and do not share or externally modify a live SQLite file. A read-to-write lock upgrade can still fail immediately if waiting would deadlock; not every `SQLITE_BUSY` waits for the full timeout, and you should not blindly retry a whole transaction. Direct changes to SQLite busy handlers or `PRAGMA busy_timeout` are outside this managed policy.
+The shipped MySQL pool settings under `mysql` are `connectionTimeout` (`30000`), `keepaliveTime` (`60000`), and `maxLifetime` (`1800000`) in milliseconds, `maximumPoolSize` (`8`), and `connectionTestQuery` (`select 1`). Prepared-statement settings are `cachePrepStmts` (`true`), `prepStmtCacheSize` (`250`), and `prepStmtCacheSqlLimit` (`2048`).
+
+| Backend | UltiTools module | External plugin |
+|---|---|---|
+| SQLite | `plugins/UltiTools/sqliteDB/<module name>.db` | `data.db` in the plugin's data folder |
+| JSON | `plugins/UltiTools/data/<module name>/<table>/<id>.json` | `data/<table>/<id>.json` in the plugin's data folder |
+| MySQL | Shared database selected by `mysql.database` | Same database; no automatic plugin prefix on the table name |
+
+An unavailable backend falls back to JSON. This can happen when MySQL is disabled, its pool could not be created, or the configured name is unknown. The startup backend line, downgrade warning and MySQL connection failure are rendered in the console language. In English, `Data Storage Method: <store>` reports the actual backend. If the configured backend differs from the one in use, the server logs the following `SEVERE` messages (angle brackets stand for the actual values):
+
+```text
+Data store downgraded: datasource.type in config.yml is '<configured>', but '<actual>' is actually in use. Reason: <reason>
+Player data will be read from and written to the '<store>' store. Data is not shared between backends - if this is not what you want, stop the server, fix config.yml and restart.
+```
+
+A MySQL pool creation failure also logs `MySQL connection failed: <error>`. SQLite's default busy wait is 3000 ms, measured against a monotonic clock. An upgrade from a read to a write lock can still fail immediately with `SQLITE_BUSY`. Keep transactions short and do not share a live SQLite file across servers or modify it externally.
 
 ## Create Entity Class
 
@@ -25,15 +33,33 @@ Create a class that extends `BaseDataEntity<String>`, and use the `@Table` and `
 
 <<< @/../examples/src/main/java/com/ultikits/docs/data/UserData.java
 
-`@Table` is used to mark the data set corresponding to the class, and `@Column` is used to mark the field corresponding to the field of the data set of the class.
+The `UserData` example uses Lombok to generate its accessors, constructors, builder, and equality methods. Here is a complete entity without Lombok. Save it as `PlayerNote.java`:
 
-`@Data`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor`, `@EqualsAndHashCode` are Lombok annotations, which are used to automatically generate `getter`, `setter`, `builder`, `equals`, `hashCode` methods.
+```java
+package com.example.mymodule.data;
 
-::: warning Migration from AbstractDataEntity
-Starting from v6.2.0, `DataOperator`, `Query`, and `UltiToolsPlugin.getDataOperator()` require entities to extend `BaseDataEntity<String>` instead of `AbstractDataEntity`. If your entity still extends `AbstractDataEntity`, change it to `BaseDataEntity<String>`.
-:::
+import com.ultikits.ultitools.abstracts.data.BaseDataEntity;
+import com.ultikits.ultitools.annotations.Column;
+import com.ultikits.ultitools.annotations.Table;
 
-`BaseDataEntity<String>` provides lifecycle hooks for insert/update/delete/load events:
+@Table("my_module_player_notes")
+public class PlayerNote extends BaseDataEntity<String> {
+    @Column("note_text")
+    private String text;
+
+    public String getText() {
+        return text;
+    }
+
+    public void setText(String text) {
+        this.text = text;
+    }
+}
+```
+
+Package `PlayerNote` in the owning module's JAR. During enable, UltiTools [registers the entity in the module's data scope](#entity-registration) by scanning that JAR for `@Table`; this scan does not register the entity as an IoC bean and is independent of `scanBasePackages`. See the [entity scan](https://github.com/UltiKits/UltiTools-Reborn/blob/1953187e750e736e46ed09f980bd4d2e8e4b54d7/src/main/java/com/ultikits/ultitools/manager/PluginManager.java#L2208-L2221).
+
+`BaseDataEntity<String>` declares an `@Column("id")` field. On `insert`, a null ID is filled through `setId` with a UUID string before `onCreate()`. In SQL, `id` is the primary key and is written from `getId()`; JSON uses `getId()` to key the entry and name its file. Do not redeclare the `id` field. If you override its accessors, ensure they report the same ID on write and read.
 
 | Method | Description |
 |--------|-------------|
@@ -41,22 +67,22 @@ Starting from v6.2.0, `DataOperator`, `Query`, and `UltiToolsPlugin.getDataOpera
 | `onUpdate()` | Called before the entity is updated |
 | `onDelete()` | Called before the entity is deleted |
 | `onLoad()` | Called after the entity is loaded from the data store |
-| `validate()` | Returns `true` if the entity is valid |
+| `validate()` | Returns `true` by default; built-in operators do not invoke this entity validation hook automatically. |
 | `isNew()` | Returns `true` if the entity has no ID |
-| `copyWithoutId()` | Creates a copy of the entity without the ID. The entity class must implement `Cloneable`. |
+| `copyWithoutId()` | Makes a shallow copy and clears its ID; the concrete entity class must implement `Cloneable`. |
 
-As of v6.3.0, the data operators call these hooks themselves, on the JSON, MySQL and SQLite backends alike:
+The built-in operators call the hooks on these paths:
 
 | Hook | Called by |
 |------|-----------|
 | `onCreate()` | `insert` and `insertAll`, on each entity, before its fields are written |
 | `onUpdate()` | `update(entity)`, `updateAll`, `updateCounted` and `updateIf`, on the entity passed in, before its fields are written, whether or not a row is then written |
 | `onDelete()` | `delById` and the Query DSL's `delete()`, on the stored entity, before it is removed; not called when no row has the id |
-| `onLoad()` | `getById`, `getAll`, `page`, `getLike` and the Query DSL reads built on them, once per entity returned |
+| `onLoad()` | `getById`, `getAll`, `page`, and `getLike`, for each entity returned by those reads. The Query DSL can filter or slice those results after loading. |
 
-`update(column, value, id)`, `del(conditions)` and `exist(...)` do not read an entity and call no hook. Before v6.3.0 no operator called any of the four hooks.
+`update(column, value, id)`, `del(conditions)`, and `exist(...)` call no entity lifecycle hooks.
 
-### AuditableDataEntity <Badge type="tip" text="v6.2.0+" />
+### AuditableDataEntity
 
 For entities that require audit tracking of creation and modification, use `AuditableDataEntity`:
 
@@ -73,7 +99,7 @@ For entities that require audit tracking of creation and modification, use `Audi
 
 All four fields are pre-configured with `@Column` annotations and do not need to be declared in subclasses.
 
-As of v6.3.0 the operators fill the four columns through these hooks: `insert` sets `created_at` and `updated_at`, and `created_by` and `updated_by` when a current user is set; an update sets `updated_at`, and `updated_by` when a current user is set, and leaves `created_at` and `created_by` unchanged. A command handled by `BaseCommandExecutor` for a player sets that player as the current user while the command body runs, so writes made there record the player. Elsewhere, set the context yourself as shown below. Before v6.3.0 the operators did not call the hooks, and all four columns stayed NULL.
+An insert sets `created_at` and `updated_at`; if a user is set on the current thread, it also sets `created_by` and `updated_by`. An entity update sets `updated_at` and, if a user is set, `updated_by`, leaving the creation time and user unchanged. UltiTools annotation commands set a player sender’s UUID on the thread executing the command and restore the previous value afterward. For other entry points, such as listeners or scheduled work, set the context yourself as shown below.
 
 #### User Context Management
 
@@ -89,7 +115,7 @@ try {
     DataOperator<AuditEntry> op = plugin.getDataOperator(AuditEntry.class);
     AuditEntry entry = AuditEntry.builder()
         .action("login")
-        .details("Player logged in from 192.168.1.1")
+        .details("Player signed in")
         .build();
     op.insert(entry);  // createdBy and updatedBy automatically set
 } finally {
@@ -115,7 +141,7 @@ Example usage:
 
 ```java
 AuditEntry entry = op.getById("some-id");
-if (entry.wasModified()) {
+if (entry != null && entry.wasModified()) {
     System.out.println("Modified " + entry.getTimeSinceUpdate().getSeconds() + " seconds ago");
 }
 ```
@@ -126,15 +152,13 @@ if (entry.wasModified()) {
 
 ### @Table
 
-`@Table` annotation has a `value` attribute, which is used to specify the name of the data set corresponding to the class.
+`@Table.value` names the MySQL or SQLite table and the JSON directory holding the entity files. Use a stable, simple name such as `my_module_user_data`, with no SQL reserved word or path separator. MySQL tables share a database, so choose a name that does not collide with another plugin's tables.
 
 ### @Column
 
-`@Column` annotation has two attributes, `value` attribute is used to specify the column of the data set corresponding to the field, `type` attribute is used to specify the type of the column of the data set corresponding to the field.
+`@Column.value` specifies the column name, which can differ from the Java field name. Use the mapped column name in queries. `@Column.type` defaults to `VARCHAR(255)` and is used in the SQL table definition; it does not control JSON types. The SQL stores map annotated fields, including inherited fields, and store non-simple values as JSON text without querying inside them. JSON files use Gson's Java field names; the operator translates mapped column names to those fields. Ordinary JSON conditions can also query nested paths. For portable queries, use simple field types and mapped column names.
 
-The default value of the `type` attribute is `VARCHAR(255)`.
-
-Available types can be found in [MySQL Data Types](https://www.w3schools.com/mysql/mysql_datatypes.asp).
+On SQLite, the default `VARCHAR(255)` column has TEXT affinity, so a numeric field such as `int` or `long` is stored as text unless you declare a numeric column type. For tables you plan to query outside UltiTools, use a numeric type when defining new columns. For hand-written SQL against an existing default-typed column, use a numeric `CAST` when comparing or sorting values numerically; otherwise comparisons and sorting can use text order. The SQLite operator adds a numeric `CAST` based on the Java field type only for `WhereCondition` comparisons using `GREATER` or `LESS` on supported numeric fields; `EQUAL` does not get that cast. The query DSL evaluates `gt`, `lt`, `gte`, `lte` and `orderBy` on Java values in memory; `count()` reports the size of the resulting list.
 
 ## CRUD Operations
 
@@ -142,36 +166,75 @@ UltiTools encapsulates a semantic CRUD operation API. You only need to call the 
 
 ### DataOperator
 
-`DataOperator` is used for data operations.
-
-In the main class that inherits `UltiToolsPlugin`, there is a `getDataOperator` method to get the data operator.
-
-You need to get the instance of the module main class, and then call the `getDataOperator` method.
+A module calls `getDataOperator(Class<T>)` on its loaded `UltiToolsPlugin` instance. This example uses `UserData` packaged with the module:
 
 <<< @/../examples/src/main/java/com/ultikits/docs/data/UserDataService.java
 
-::: warning Obtain DataOperator when it is needed
-`DataOperator` is not thread-safe. Please get `DataOperator` when you need it, and do not try to save `DataOperator` object.
-:::
+The complete caller for `PlayerNote` goes in `PlayerNoteStore.java` in the same package:
+
+```java
+package com.example.mymodule.data;
+
+import com.ultikits.ultitools.abstracts.UltiToolsPlugin;
+import com.ultikits.ultitools.interfaces.DataOperator;
+
+public class PlayerNoteStore {
+    private final DataOperator<PlayerNote> notes;
+
+    public PlayerNoteStore(UltiToolsPlugin plugin) {
+        this.notes = plugin.getDataOperator(PlayerNote.class);
+    }
+
+    public String addNote(String text) {
+        PlayerNote note = new PlayerNote();
+        note.setText(text);
+        notes.insert(note);
+        return note.getId();
+    }
+
+    public PlayerNote findNote(String id) {
+        return notes.getById(id);
+    }
+}
+```
+
+Create `new PlayerNoteStore(this)` from the owning module after the framework has assigned its data scope, not in the module constructor. Pass the ID returned by `addNote` to `findNote`; it returns `null` if no record has that ID. Use the operator within the owning plugin's lifetime; do not pass it from an old module instance to its replacement. See [`UltiToolsPlugin#getDataOperator`](https://github.com/UltiKits/UltiTools-Reborn/blob/1953187e750e736e46ed09f980bd4d2e8e4b54d7/src/main/java/com/ultikits/ultitools/abstracts/UltiToolsPlugin.java#L583-L598).
+
+### Entity Registration {#entity-registration}
+
+- On enable, the framework automatically registers loadable `@Table` classes packaged in the module's own JAR. If an entity your module owns is in a separate library JAR, add it with `@UltiToolsModule(additionalEntities = {UserData.class})` on the main class. The automatic scan still runs.
+- An ordinary Paper plugin calls `UltiToolsAPI.connect(this)` in `JavaPlugin.onEnable()`. The framework scans the plugin's own JAR; to include an owned entity in a library JAR, use `UltiToolsAPI.connect(this, UserData.class)` instead. After connecting, call the static `UltiToolsAPI.getDataOperator(this, UserData.class)`; do not construct an `UltiToolsPlugin`. Call `UltiToolsAPI.disconnect(this)` when the plugin disables. See the [External Plugin API](../advanced/external-plugin-api).
+- If either additional-registration mechanism names an entity that belongs to another known plugin, registration throws `PluginModuleException` with `ENTITY_NOT_OWNED` (`ULTI-3010`). The module fails to load; `UltiToolsAPI.connect` wraps that cause in `IllegalStateException`. This is a registration error, before any operator lookup. Use its exposed service or the `EventBus`, not its data operator.
+
+If the caller has a data scope but the requested class is not registered in it, the operator lookup throws `DataAccessException` with `ENTITY_NOT_OWNED` (`ULTI-3010`). `getMessage()` uses the first line if no owning module is known, and the second if the owner is known (placeholders are replaced by their values):
+
+```text
+Entity <fully-qualified class name> is not registered to '<requesting plugin>' -- use the owning module's exposed service or the EventBus instead.
+Entity <fully-qualified class name> belongs to module '<owner>', not '<requesting plugin>' -- use <owner>'s exposed service or the EventBus instead.
+```
+
+Check that the class can load, has `@Table`, and is packaged or explicitly registered with the caller. A module instance without a scope also gets `ULTI-3010`, but with a different message. An external plugin that has not connected gets `IllegalStateException`: `Plugin <plugin name> is not connected to UltiTools`. See [Exception Handling](../advanced/exception-handling) for error codes and formatted messages.
 
 ### Insert
 
 ```java
-SomeEntity entity = SomeEntity.builder()
-    .name("test")
-    .something(42.0)
+UserData entity = UserData.builder()
+    .playerName("test")
+    .balance(42.0)
     .build();
 dataOperator.insert(entity);
 ```
+
+`insert` is not an upsert: a duplicate ID fails the SQL insert, whereas JSON keeps the existing entry. Use `update` to change an existing entry.
 
 ### Query
 
 Using `WhereCondition`:
 
 ```java
-List<SomeEntity> list = dataOperator.getAll(
+List<UserData> list = dataOperator.getAll(
     WhereCondition.builder()
-        .column("name")
+        .column("player_name")
         .value("test")
         .build()
 );
@@ -180,33 +243,31 @@ List<SomeEntity> list = dataOperator.getAll(
 Or get a single entity by ID:
 
 ```java
-SomeEntity entity = dataOperator.getById("some-id");
+UserData entity = dataOperator.getById("some-id");
 ```
 
 Get all entities:
 
 ```java
-List<SomeEntity> all = dataOperator.getAll();
+List<UserData> all = dataOperator.getAll();
 ```
 
 Pagination:
 
 ```java
-List<SomeEntity> page = dataOperator.page(1, 10); // page 1, 10 per page
+List<UserData> page = dataOperator.page(1, 10); // page 1, 10 per page
 ```
 
-::: warning page() returns an empty list on the JSON backend
-On the JSON backend `page(int, int)` forwards to `getAll(WhereCondition...)`, whose zero-length branch returns an empty list, while the same call on MySQL or SQLite builds a plain `LIMIT ? OFFSET ?` and returns the rows, so one module gives two different results depending on the configured backend.
-Take `getAll()` and slice the result with `subList` when you need a page that behaves the same on every backend: `page(1, 10, WhereCondition.empty())` is not a substitute, because the relational operators do not filter empty conditions and would emit `WHERE null = ?`.
-Aligning `page` and `exist` with `getAll` on empty conditions is tracked in [issue #193](https://github.com/UltiKits/UltiTools-Reborn/issues/193).
+::: warning Unfiltered JSON pagination
+JSON returns an empty list from `page(int, int)`, whereas MySQL and SQLite query with `LIMIT ? OFFSET ?`. For portable pagination, supply a real condition or slice `getAll()`; do not pass `WhereCondition.empty()` to substitute for an unfiltered page, because SQL `page` rejects it.
 :::
 
 ::: tip Query DSL
-Starting from v6.2.0, you can use the [fluent Query DSL](/guide/essentials/query-dsl) for more readable queries:
+Use the [fluent Query DSL](./query-dsl) to chain conditions:
 
 ```java
-SomeEntity entity = dataOperator.query()
-    .where("name").eq("test")
+UserData entity = dataOperator.query()
+    .where("player_name").eq("test")
     .first();
 ```
 :::
@@ -216,14 +277,14 @@ SomeEntity entity = dataOperator.query()
 Update a single field:
 
 ```java
-dataOperator.update("name", "newName", entityId);
+dataOperator.update("player_name", "newName", entityId);
 ```
 
 Update by entity object:
 
 ```java
 try {
-    entity.setName("newName");
+    entity.setPlayerName("newName");
     dataOperator.update(entity);
 } catch (IllegalAccessException e) {
     // handle or rethrow
@@ -232,11 +293,11 @@ try {
 
 This overload declares `throws IllegalAccessException`, so the calling method must declare or catch it.
 
-As of v6.3.0, every entity a read returns (`getById`, `getAll`, `page`, `getLike` and the Query DSL) is a copy, and `insert` stores a copy of the entity you pass. Changing an entity has no effect on the stored data until you pass it to `update(...)`, on every backend. Before v6.3.0 the JSON backend returned the instances it kept in memory, so there a change without `update(...)` was saved at the next flush, while MySQL and SQLite never saved it.
+Entities returned by reads are detached from storage, and later changes to the object passed to `insert` do not change stored data. Write field changes back explicitly.
 
-As of v6.3.0, `update(T)`, `update(column, value, id)`, `delById` and `updateAll` throw `DataAccessException` when the id is `null`, because no row can be addressed by it; `updateAll` checks every entity before it writes any. Rows that UltiTools-API 6.2.0 stored on SQLite without an id are given one when the table is initialised: the id the entity reports through `getId()`, or a new UUID when it reports none, as long as the entity then reports that id. One console line names the table and the count; a row that no id would make addressable is left as it is and counted in a warning. Every write stores `getId()` in the `id` column, so an entity that overrides `getId()` onto another field is addressable by the value it reports.
+`update(T)`, `update(column, value, id)`, `delById`, and `updateAll` reject a null ID with `DataAccessException`. `updateAll` checks all input entities before writing.
 
-As of v6.3.0, an update by an id that no row has writes nothing and logs one warning naming the table and the id, on every backend, and returns normally. To learn whether the update wrote, call `updateCounted(entity)`, which returns `1` for a written row and `0` when no row has the id:
+Updating an ID that does not exist does not insert a new record. SQL logs `Update of table '<table>' matched no row with id '<id>'; nothing was written.`; JSON uses `entry` instead of `row`. Use `updateCounted(entity)` for the update count:
 
 ```java
 if (dataOperator.updateCounted(entity) == 0) {
@@ -246,9 +307,9 @@ if (dataOperator.updateCounted(entity) == 0) {
 
 A `DataOperator` implementation outside the framework that does not override `updateCounted` is counted by whether a row with the id exists before its `update`.
 
-### Conditional Update <Badge type="tip" text="v6.3.0+" />
+### Conditional Update
 
-`updateIf(entity, expected...)` writes the entity only while the stored row still matches every expected condition, and returns whether it wrote. Use it to update a value you read earlier without overwriting a change another writer made in between:
+`updateIf(entity, expected...)` writes only if the stored record matches every expected condition and reports whether it wrote. It writes back the whole mapped entity, not just the fields in the conditions. The example assumes the account maps only `balance` besides its ID; if it maps other mutable columns, check their previous values too to avoid overwriting concurrent changes from a stale snapshot.
 
 ```java
 Account read = dataOperator.getById(accountId);
@@ -261,11 +322,11 @@ if (!written) {
 }
 ```
 
-On MySQL and SQLite the check and the write are one `UPDATE ... WHERE id = ? AND <conditions>` statement, so the result holds across servers that share one database. On the JSON backend the check and the write run together under the table lock; a JSON store belongs to one server. The conditions mean what they mean in `getAll(WhereCondition...)`.
+On MySQL and SQLite the check and the write are one `UPDATE ... WHERE id = ? AND <conditions>` statement. The atomic check also holds across servers sharing a MySQL database; do not share a live SQLite file. On the JSON backend the check and the write run together under the table lock; a JSON store belongs to one server. The conditions mean what they mean in `getAll(WhereCondition...)`.
 
-`updateIf` returns `false`, and writes nothing, when no row with the entity's id matches every condition. It throws `DataAccessException` when the id is `null`, when a condition is `null`, when a condition names a column the entity does not map with `@Column`, or when a condition's value is `null` under a comparison other than the default `EQUAL`, on every backend. As of v6.3.0 a `null` expected value under the default comparison means `IS NULL` (JSON: the field is absent or JSON null), so a compare-and-set against a column that was still unset when you read it misses when another writer has filled it in the meantime; this meaning belongs to `updateIf` alone ([#640](https://github.com/UltiKits/UltiTools-Reborn/issues/640)). A `DataOperator` implementation outside the framework that does not implement it throws `UnsupportedOperationException`.
+`updateIf` returns `false`, and writes nothing, when no row with the entity's id matches every condition. It throws `DataAccessException` when the id is `null`, when a condition is `null`, when a condition names a column the entity does not map with `@Column`, or when a condition's value is `null` under a comparison other than the default `EQUAL`, on every backend. A `null` expected value under the default comparison means `IS NULL` (JSON: the field is absent or JSON null), so a compare-and-set against a column that was still unset when you read it misses when another writer has filled it in the meantime; this meaning belongs to `updateIf` alone ([#640](https://github.com/UltiKits/UltiTools-Reborn/issues/640)). A `DataOperator` implementation outside the framework that does not implement it throws `UnsupportedOperationException`.
 
-As documented for v6.3.2, numeric `EQUAL` on a default MySQL text column and on JSON can match neighbouring integers beyond ±9,007,199,254,740,992 (2^53). An `updateIf` precondition can therefore match a value different from the one read. Do not use such numbers as exact compare-and-set (CAS) tokens. On MySQL declare `type = "BIGINT"` for exact integral equality; on JSON the condition-evaluation map has already converted numbers to `double`, so declaring a numeric column type does not restore exact matching.
+Numeric `EQUAL` on a default MySQL text column and on JSON can match neighbouring integers beyond ±9,007,199,254,740,992 (2^53). An `updateIf` precondition can therefore match a value different from the one read. Do not use such numbers as exact compare-and-set (CAS) tokens. On MySQL declare `type = "BIGINT"` for exact integral equality; on JSON the condition-evaluation map has already converted numbers to `double`, so declaring a numeric column type does not restore exact matching.
 
 ### Delete
 
@@ -280,7 +341,7 @@ Delete by condition:
 ```java
 dataOperator.del(
     WhereCondition.builder()
-        .column("name")
+        .column("player_name")
         .value("test")
         .build()
 );
@@ -294,32 +355,46 @@ dataOperator.del(
 WhereCondition.builder().column("somecol").value(someval).build();
 ```
 
-`column` is used to specify the column to be queried, and `value` is used to specify the value to be queried.
+`column` is the mapped column name and `value` is the value to compare. `comparison` defaults to `Comparison.EQUAL`. Multiple conditions are combined with AND.
 
-#### Comparisons <Badge type="tip" text="v6.3.0+" />
+#### Comparisons
 
-As of v6.3.0 a comparison other than `EQUAL` means the same in `getAll`, `exist`, `page`, `del` and `updateIf` on SQLite, MySQL and JSON, and no table is changed. 6.2.5's SQLite and MySQL operators matched every condition by equality.
+`EQUAL` tests equality, and `GREATER` and `LESS` are strict comparisons.
 
-- `INCLUDE`, `STARTSWITH` and `ENDSWITH` match the value literally as text on every backend: `%`, `_`, `!` and `\` are ordinary characters, not wildcards or escapes. `getLike` and `Query#like` keep pattern semantics.
-- Letter case and accents follow the backend: SQLite ignores the case of ASCII letters only; MySQL compares under the `utf8mb3_general_ci` collation of the tables the framework creates, which ignores case and accents (`é` matches `e`); JSON compares exactly.
-- `GREATER` and `LESS` on a `byte`, `short`, `int`, `long`, `float` or `double` field (or its wrapper) compare numbers of the field's type on SQLite and JSON. Pass the value as a number of that type (`10`, not `"10"`): on MySQL a string value compares as text, so `"10"` sorts below `"2"`. On SQLite the typed comparison holds also in a column left on the default `VARCHAR(255)` type, with 64-bit integer precision, and a stored value compares the way it reads back: a `float` `0.1f` is neither greater nor less than `0.1f`. That read-back comparison applies to a value that is a finite number; a number beyond `double` range and any text are compared as bound. An infinite or NaN value is refused as of v6.4.0 (see "Null and non-finite condition values" below).
+- `INCLUDE`, `STARTSWITH` and `ENDSWITH` match the value literally as text on every backend: `%`, `_`, `!` and `\` are ordinary characters, not wildcards or escapes. For `Query#like`, see the [Query DSL](./query-dsl).
+- [`getLike`](#getlike) is a separate method with different pattern and validation rules.
+- For the three literal `WhereCondition` comparisons, letter case and accents follow the backend: SQLite ignores the case of ASCII letters only; MySQL compares under the `utf8mb3_general_ci` collation of the tables the framework creates, which ignores case and accents (`é` matches `e`); JSON compares exactly.
+- `GREATER` and `LESS` on a `byte`, `short`, `int`, `long`, `float` or `double` field (or its wrapper) compare numbers of the field's type on SQLite and JSON. Pass the value as a number of that type (`10`, not `"10"`): on MySQL a string value compares as text, so `"10"` sorts below `"2"`. On SQLite the typed comparison holds also in a column left on the default `VARCHAR(255)` type, with 64-bit integer precision, and a stored value compares the way it reads back: a `float` `0.1f` is neither greater nor less than `0.1f`. That read-back comparison applies to a value that is a finite number; a number beyond `double` range and any text are compared as bound. An infinite or NaN value is refused (see "Null and non-finite condition values" below).
 - On MySQL a numeric field left in a default text column compares in double precision, exact up to ±9,007,199,254,740,992 (2^53) and approximate beyond. Declare a numeric column `type` such as `BIGINT` where exact results matter. On JSON the values are compared as `double`, also approximate beyond 2^53.
-- `exist(...)` works on SQLite; in 6.2.x it threw `ClassCastException` there.
 - Known limitations: on SQLite a `double` in a default column is stored with 15 significant digits, so `1/3.0` reads back and compares as `0.333333333333333`; declare `type = "DOUBLE"` to keep every digit. Non-numeric text written by hand into a numeric field's column compares on SQLite as its leading number (`'abc'` as 0, `'12abc'` as 12), while JSON compares it as text. On SQLite a number that agrees with a stored `float` to 15 significant digits but differs after them (for example a whole number of 10^15 or more such as `(1L << 53) + 1`, or a decimal with 16 or more significant digits) compares as equal to it, in a default and in a `REAL` column; pass a `float` value for a `float` field.
 
-#### Null and non-finite condition values <Badge type="tip" text="v6.4.0+" />
+#### Null and non-finite condition values
 
-As of v6.4.0, `getAll`, `exist`, `page`, `del` and `updateIf` refuse a condition whose value is `null` (under any comparison) or an infinite or NaN `Double` or `Float` on SQLite, MySQL and JSON alike: they throw `DataAccessException` with `DATA_ENTITY_INVALID` before anything is read, deleted or written. The one exception is `updateIf` with a `null` value under `EQUAL`, which means `IS NULL`. `del(WhereCondition.empty())` is refused the same way on every backend ([#815](https://github.com/UltiKits/UltiTools-Reborn/issues/815), [#696](https://github.com/UltiKits/UltiTools-Reborn/issues/696)). Check a value with a null check or `Double.isFinite` before building the condition.
+`getAll`, `exist`, `page`, `del` and `updateIf` refuse a condition whose value is `null` (under any comparison) or an infinite or NaN `Double` or `Float` on SQLite, MySQL and JSON alike: they throw `DataAccessException` with `DATA_ENTITY_INVALID` (`ULTI-3007`) before anything is read, deleted or written. The one exception is `updateIf` with a `null` value under `EQUAL`, which means `IS NULL`. `del(WhereCondition.empty())` is refused the same way on every backend ([#815](https://github.com/UltiKits/UltiTools-Reborn/issues/815), [#696](https://github.com/UltiKits/UltiTools-Reborn/issues/696)). Check a value with a null check or `Double.isFinite` before building the condition.
 
-Up to v6.3.2 the backends disagreed: SQLite and MySQL bound such a value (a null `EQUAL` matched no row, a null `INCLUDE` matched the text `null`, an infinity compared as bound, NaN matched no row and on SQLite made an `updateIf` never apply), while JSON threw `NullPointerException` for a null `EQUAL` value and for an empty condition in `del`, `DataAccessException` for a null value under any other comparison, and `IllegalArgumentException` for an infinite or NaN value.
+#### getLike {#getlike}
 
-### Transactions <Badge type="tip" text="v6.2.0+" />
+`getLike(column, value, likeType)` uses `DataOperator.LikeType.START` for a prefix, `END` for a suffix, and `CONTAINS` for a substring. The built-in backends interpret the same arguments differently:
+
+| Backend | Pattern and matching |
+|---|---|
+| MySQL | SQL `LIKE` uses `value%`, `%value`, or `%value%`, respectively. `%` in `value` matches zero or more characters and `_` matches one. The framework supplies no `ESCAPE` clause and does not escape the value; MySQL applies its own escape rules (including its default backslash escape) and collation. |
+| SQLite | The same SQL patterns and wildcards apply. Without an `ESCAPE` clause, backslash is literal. With SQLite's default `LIKE` behavior, ASCII letters match regardless of case; non-ASCII letters are case-sensitive. |
+| JSON | Uses Java's `startsWith`, `endsWith`, or `contains`, respectively. Matching is case-sensitive; `%`, `_`, and backslash are literal. The operator resolves a mapped column name or reads the supplied Java field path (dot-separated for nested fields), converts a non-null value to text with `toString()`, and skips missing or null values. Numeric fields are matched as text. For example, JSON matches the integer `15` as `15.0`, so a suffix of `5` does not match; it does match in SQL when the value is represented as `15`. |
+
+On MySQL and SQLite, the pattern is bound as a JDBC parameter, but the `column` argument goes into the SQL as supplied, without the `WhereCondition` check against the entity's `@Column` mappings. Pass only a column name fixed by your code or selected from a fixed allowlist; never pass user input as `column`. An unknown name that the database rejects causes `DataAccessException` with `DATA_OPERATION_FAILED` (`ULTI-3008`) and `getMessage()` equal to `Failed to query with LIKE`. A null `column` is not rejected: it becomes the SQL `NULL` operand, which matches no rows. JSON does not check the column against the mappings either: a missing path, or a `null` or empty path, gives no matches.
+
+Do not pass `null` for `value` or `likeType`. SQL converts a null `value` to the text `null` when building its pattern (for example, `%null%` for `CONTAINS`); it does not search for SQL `NULL`. A null `likeType` throws `NullPointerException` before executing SQL. On JSON, a null `value` or `likeType` throws `NullPointerException` only when a row has a non-null value at the requested path; otherwise the method returns an empty list. An empty string is not rejected: it becomes a match-all pattern for non-null values on SQL and matches any non-null resolved value on JSON.
+
+For literal prefix, suffix, or substring matching across backends, use `WhereCondition` with `STARTSWITH`, `ENDSWITH`, or `INCLUDE` instead; case and accent handling still depends on the backend. See the [shared SQL implementation](https://github.com/UltiKits/UltiTools-Reborn/blob/1953187e750e736e46ed09f980bd4d2e8e4b54d7/src/main/java/com/ultikits/ultitools/interfaces/impl/data/AbstractRelationalDataOperator.java#L842-L863) and the [JSON implementation](https://github.com/UltiKits/UltiTools-Reborn/blob/1953187e750e736e46ed09f980bd4d2e8e4b54d7/src/main/java/com/ultikits/ultitools/interfaces/impl/data/json/SimpleJsonDataOperator.java#L635-L670).
+
+### Transactions
 
 For operations that need to succeed or fail together, see the [Transactions](/guide/advanced/transactions) guide.
 
 ::: tip MySQL and SQLite run this block in one JDBC transaction
-As of v6.3.0 the MySQL and SQLite stores give every operator they hand out a transaction manager ([#307](https://github.com/UltiKits/UltiTools-Reborn/issues/307)), so `transaction(...)` runs in a JDBC transaction and the two inserts below are committed or rolled back together.
-As of v6.3.0 the JSON backend stages the callback's writes and commits them together or not at all.
+MySQL and SQLite run the callback in one JDBC transaction.
+JSON stages the callback’s writes and commits them as one transaction.
 :::
 
 ```java
@@ -330,9 +405,9 @@ dataOperator.transaction(() -> {
 });
 ```
 
-On the JSON backend, a transaction begun by `transaction(...)` locks each table at its first read or write, as 6.2.5 serialized each table, so a read-modify-write inside it cannot lose an update; a read inside it can wait, at most 5 seconds, for another transaction that holds the table. In a `@Transactional` method at the default isolation, read-modify-write uses `updateIf` or `isolation = REPEATABLE_READ` instead; see [JSON Transaction Behavior](/guide/advanced/transactions#json-transaction-behavior).
+On the JSON backend, a transaction begun by `transaction(...)` locks each table at its first read or write, so a read-modify-write inside it cannot lose an update; a read inside it can wait, at most 5 seconds, for another transaction that holds the table. In a `@Transactional` method at the default isolation, read-modify-write uses `updateIf` or `isolation = REPEATABLE_READ` instead; see [JSON Transaction Behavior](/guide/advanced/transactions#json-transaction-behavior).
 
-As of v6.3.0 a transaction whose own failure path fails never ends in an implicit commit ([#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)): when its rollback or its commit fails, the connection is discarded (a HikariCP pool evicts it) instead of being switched back to auto-commit, which would commit it, and the framework never retries the commit. What is stored afterwards depends on where the failure happened:
+A transaction whose own failure path fails never ends in an implicit commit ([#634](https://github.com/UltiKits/UltiTools-Reborn/issues/634)): when its rollback or its commit fails, the connection is discarded (a HikariCP pool evicts it) instead of being switched back to auto-commit, which would commit it, and the framework never retries the commit. What is stored afterwards depends on where the failure happened:
 
 - When the action fails and the rollback succeeds, nothing is stored.
 - When a SQLite or MySQL rollback fails, including the real rollback an outer commit performs for a rollback-only transaction, the framework issues no commit.
@@ -342,9 +417,7 @@ As of v6.3.0 a transaction whose own failure path fails never ends in an implici
 
 The caller gets the original exception, or `UnexpectedRollbackException` for a rollback-only transaction. An `Error` thrown inside `transaction(...)` rolls the transaction back (the JSON engine discards the staged writes) and is rethrown as the same instance.
 
-## JSON Storage Trade-offs <Badge type="tip" text="v6.3.0+" />
-
-The following are retained behavior, documented for v6.3.2 rather than runtime changes ([#694](https://github.com/UltiKits/UltiTools-Reborn/issues/694)):
+## JSON Storage Trade-offs
 
 - On Windows and macOS, durability covers a server-process crash, not loss of the last whole commits after power loss or an OS crash. Choose storage and backups for the guarantee you need; do not infer a cross-platform power-loss guarantee from Linux behavior.
 - A changed commit forces its journal synchronously on the committing thread, often the server main thread. Disk contention, including world saves, can therefore add tick latency; account for this when choosing JSON for frequent transactions.
@@ -352,19 +425,25 @@ The following are retained behavior, documented for v6.3.2 rather than runtime c
 - Directly constructing an operator gives it a separate identity and a sibling `<table folder>.ultitools-journal`; a common parent folder does not group separately constructed operators into one transaction. Use framework-managed operators for one plugin's coordinated tables.
 - Same-thread `REQUIRES_NEW` and `NOT_SUPPORTED` work does not wait for its suspended caller's thread-owned table locks. If both write the same key, the outer commit can replace the inner value; do not treat suspension as independent locking of that key.
 - JDBC and JSON timeouts differ: an exhausted JDBC budget still permits a statement with a one-second query timeout; JSON rejects a post-deadline operation and marks rollback-only. A waiting JSON read also uses the `JSON write failed ...` lock-error prefix. Handle the failure and rollback state, not the word “write” as proof that the call was a write. See [Timeout Configuration](/guide/advanced/transactions#timeout-configuration).
-- JSON keeps raw `<id>.json` names, with no versioned portable encoding or automatic migration. Windows-forbidden characters can be valid on Linux; persisted UltiRemoteBag claim ids containing `:` therefore cannot simply move to Windows. Plan any module-specific data migration separately, without deleting stored claims to bypass the restriction.
+- JSON keeps raw `<id>.json` names, with no versioned portable encoding or automatic migration. Windows-forbidden characters can be valid on Linux. Check existing IDs before moving data; do not delete entries to get around the restriction.
 - Case-only ids collide on case-insensitive filesystems. The device-name check does not universally forbid `COM0` or `LPT0`, and support by every Windows tool/provider is not promised. Prefer UUID ids; do not assume character checks alone make arbitrary names portable.
 
-## Operating JSON Storage <Badge type="tip" text="v6.3.0+" />
+## Operating JSON Storage
 
-As of v6.3.0, every plugin's JSON tables have a hidden `.ultitools-journal` folder beside them. Committed transactions are written there and forced to disk before `commit` returns, and the next start replays them into the table files. In a server it is `plugins/UltiTools/data/<plugin name>/.ultitools-journal`. See the [Transactions](/guide/advanced/transactions#json-transaction-behavior) guide for what a transaction guarantees.
+Each plugin’s JSON tables have a hidden `.ultitools-journal` folder beside them. Committed transactions are written there and forced to disk before `commit` returns; recovery replays them into the table files. For a module it is `plugins/UltiTools/data/<module name>/.ultitools-journal`; for an external plugin it is `data/.ultitools-journal` inside the plugin’s data folder. See [JSON Transaction Behavior](../advanced/transactions#json-transaction-behavior).
+
+As of v7.0.0, periodic JSON flushes use the asynchronous scheduler and wall-clock time. `datasource.flushRate` is in seconds: a positive value sets the period, a missing value or `0` uses `10` seconds, and a negative value disables periodic flushing. In that case, UltiTools logs one startup warning with the configured value and tells you how to restore periodic flushing: set a positive interval in `config.yml` and restart the server. Normal shutdown still attempts a final checkpoint. Restart after changing this value.
 
 - Run one server process per data folder. Two servers must never use the same `plugins` data folder at the same time.
 - Back up the `.ultitools-journal` folder together with the table folders, or back up with the server stopped. A copy such as `cp dir/*` skips folders whose name starts with a dot.
 - Never delete `.ultitools-journal`, not even after a crash: it holds commits that are not yet in the table files.
 - After a crash, start the server once before you edit any JSON data file by hand: the start replays the journal and would overwrite the edit.
-- A damaged newest journal record after a power cut usually means the disk or its controller did not honour flush requests. The plugin's JSON data stays closed until you move the named file out of the journal folder and restart the server. A module that obtains its data operators while it loads, as every shipped module does, is refused at that start. Only a plugin that first requests its data after it has loaded recovers at its next request, without a restart.
+- A damaged newest journal record after a power cut usually means the disk or its controller did not honour flush requests. The plugin's JSON data stays closed until you move the named file out of the journal folder and restart the server. A module that obtains its data operators while it loads is refused at that start. Only a plugin that first requests its data after it has loaded recovers at its next request, without a restart.
 - One entity file that keeps failing to move (for example, a file another program keeps locked) stops every flush of that plugin from emptying the journal: records accumulate, start-up recovery takes longer, and each failed flush is reported in the server log.
 - On Windows, a journal file move that another program (an antivirus scanner, an indexer, a backup tool) briefly holds is retried for at most 150 ms before the commit fails.
-- A JSON data folder whose ids contain `<`, `>`, `:`, `"`, `|`, `?` or `*` (UltiRemoteBag's edit claims use `:`) cannot be copied from Linux to Windows: Windows cannot create those files. Data whose ids differ only in letter case cannot be moved to Windows or to a default macOS volume either: the files collide. If a journal record holding such an id reaches a Windows server, start-up keeps that plugin's JSON data closed and names the record: apply it on the Linux server that wrote it, or move it out of the journal folder and lose its changes.
-- New ids are checked when they are created, and existing files are never renamed; see [JSON Entity Ids](/guide/advanced/transactions#json-entity-ids). A UUID string always works as an id; lowercase letters, digits, `-` and `_` are safe only if the id is not a Windows device name (`con`, `nul`, `aux`, `prn`, `com1`–`com9`, `lpt1`–`lpt9`). Do not key entities by player names (`Con` and `Nul` are valid names). An existing id the rules refuse keeps working for reads, `update` and delete, but deleting it and inserting it again is refused: replace it with `update`.
+- A JSON data folder whose ids contain `<`, `>`, `:`, `"`, `|`, `?` or `*` cannot be copied from Linux to Windows: Windows cannot create those files. Data whose ids differ only in letter case cannot be moved to Windows or to a default macOS volume either: the files collide. If a journal record holding such an id reaches a Windows server, start-up keeps that plugin's JSON data closed and names the record: apply it on the Linux server that wrote it, or move it out of the journal folder and lose its changes.
+- New ids are checked when they are created, and existing files are never renamed; see [JSON Entity Ids](/guide/advanced/transactions#json-entity-ids). A standard UUID string is a portable id; lowercase letters, digits, `-` and `_` are safe only if the id is not a Windows device name (`con`, `nul`, `aux`, `prn`, `com1`–`com9`, `lpt1`–`lpt9`). Do not key entities by player names (`Con` and `Nul` are valid names). An existing id the rules refuse keeps working for reads, `update` and delete, but deleting it and inserting it again is refused: replace it with `update`.
+
+## Stored Items
+
+As of v7.0.0, `ItemStackUtils` writes Base64-encoded Paper item bytes. It still reads the legacy Bukkit object streams written by its 6.x counterpart and accepts line-wrapped Base64, but 6.x cannot read the new writes. The five public methods remain available: `serializeItems`, `deserializeItems`, `serializeItem`, `deserializeItem`, and `isValidSerialized`. The array reader preserves empty slots as `null`; the single-item reader can return `null` for either an empty slot or a failed read. Read only trusted server data. A conversion failure logs `Failed to serialize ItemStack array` or `Failed to deserialize ItemStack array` at `SEVERE` and returns `null`. Back up item strings and inventories before upgrading, and do not replace data that failed to load with an empty inventory. See [Item construction and storage](../advanced/upgrading-to-7#item-migration).

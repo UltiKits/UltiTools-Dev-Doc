@@ -1,64 +1,59 @@
 # 经济系统
 
-::: info 自 v6.3.0 起
-以下经济状态和诊断日志已在 UltiTools-API v6.3.0 中提供。v6.2.5 及更早版本的 `EconomyUtils` 在不可用时只会静默返回。
+::: info 自 v7.0.0 起
+本页介绍 UltiTools-API 7.0 的经济系统。6.x 用户请参阅[归档的 v6.5.0 经济系统指南](/zh/v6.5.0/guide/advanced/economy.html)。
 :::
 
-UltiTools 把 Vault 的经济 API 当作一个可选的软依赖来集成。服务器不安装 Vault 时，UltiTools
-和其他每一个模块都能正常运行：框架本身以及任何非经济模块都不需要经济能力才能工作。模块调用
-经济操作时，走的是 `EconomyUtils`，不会直接接触 Vault。
+请使用 `com.ultikits.ultitools.utils.EconomyUtils` 的静态方法。Vault 是 `paper-plugin.yml` 中的可选服务器依赖（`required: false`），因此不装 Vault 也能启动 UltiTools。经济操作仍需要 Vault 和已注册的经济提供者。
 
 ## 经济状态
 
-经济服务始终处于以下三种状态中的一种，服务器启动时控制台会报告当前是哪一种：
+UltiTools 启动时会安排输出一条 INFO 日志。无论选择哪种语言，日志都是以下英文原文：
 
-| 状态 | 启动时的控制台输出 | 含义 |
-|---|---|---|
-| Vault 未安装 | `[UltiTools-API] Vault not installed - economy service unavailable.` | 服务器上没有名为 `Vault` 的插件 |
-| 没有已注册的提供者 | `[UltiTools-API] Vault detected, but no economy provider is registered - economy service unavailable.` | Vault 已安装，但没有任何经济插件（例如 EssentialsX）向它注册 `Economy` 提供者 |
-| 可用 | `[UltiTools-API] Hooked into Vault, economy provider: <provider name>.` | Vault 已安装且有提供者注册 |
+| 状态 | 日志 |
+|---|---|
+| Vault 未安装 | `[UltiTools-API] Vault not installed - economy service unavailable.` |
+| 已安装 Vault，但未注册提供者 | `[UltiTools-API] Vault detected, but no economy provider is registered - economy service unavailable.` |
+| 可用 | `[UltiTools-API] Hooked into Vault, economy provider: <provider name>.` |
 
-这个状态在每次调用时都会重新判断，不是在启动时缓存下来的：框架启动之后才注册的提供者，
-下一次调用就能看到。插件加载顺序除声明的依赖关系外并没有其他保证。
+统一入口通过 Bukkit 的 `ServicesManager` 查询当前的 Vault `Economy` 注册项，不缓存启动时的结果。有多个提供者时，UltiTools 使用 Bukkit 按服务优先级选出的那个，不合并余额、不按模块或币种选择提供者，也不会在操作失败后改用另一个。框架的 `EconomyProvider` 是内部接口，不是公开的注册接口或多币种 API。
 
 ## 调用统一入口
 
-模块自己不判断 Vault 是否存在。它调用 `EconomyUtils`，由后者报告当前状态，并在上面三种状态下
-都能安全运作：
+涉及玩家的操作支持 `OfflinePlayer` 或 `UUID`（`transfer` 的两个玩家参数类型须相同）。`UUID` 重载通过 Bukkit 查找玩家。
+
+| 方法 | 返回结果 |
+|---|---|
+| `isAvailable()`、`setup()` | 当前有可用提供者时返回 `true`，否则返回 `false`。两者都不注册提供者。 |
+| `getBalance(player)` | 提供者给出的余额；不可用时返回 `0`。仅凭 `0` 无法判断账户余额是否真的为零。 |
+| `has(player, amount)` | 提供者给出的结果；不可用时返回 `false`。 |
+| `deposit(player, amount)`、`withdraw(player, amount)` | 不可用、金额小于等于零或提供者报告失败时返回 `false`。提款时，提供者的 `has` 检查未通过也返回 `false`。 |
+| `transfer(from, to, amount)` | 金额小于等于零、付款方余额检查未通过或扣款失败时返回 `false`。否则先扣款，再入账。收款方入账返回 `false` 时，会尝试退款，然后返回 `false`，但不检查退款结果。这不是原子事务。 |
+| `format(amount)` | 由提供者格式化；不可用时使用 `String.format("%.2f", amount)`。 |
+| `getCurrencyName()`、`getCurrencyNamePlural()` | 分别返回提供者给出的单数、复数币名；不可用时都返回 `coins`。 |
+| `getEconomy()` | 返回 Vault 的原始 `Economy` 实例；不可用时返回 `null`。签名引用了 Vault 类型；代码不应依赖 Vault 类型时，请使用其他方法。 |
+
+服务不可用时的默认值不适用于 Bukkit 或提供者抛出的异常。这些异常可能直接传给调用方；例如，收款方入账抛异常时，转账不会尝试退款。即使之前检查过服务可用，也要检查操作结果：
 
 ```java
-if (EconomyUtils.isAvailable()) {
-    double balance = EconomyUtils.getBalance(player);
-    EconomyUtils.withdraw(player, 10.0);
+import com.ultikits.ultitools.utils.EconomyUtils;
+
+// 方法内已有一个名为 player 的 OfflinePlayer：
+if (EconomyUtils.withdraw(player, 10.0)) {
+    // 扣款成功后再交付购买的物品。
 }
 ```
 
-经济服务不可用时，`EconomyUtils` 的每个操作都返回一个安全的默认值（0、`false`，或一个格式化
-好的普通字符串），不会抛出异常；同一个模块在同一次服务器运行期间第一次发起请求时，控制台会
-输出一条 WARNING，之后同一模块的请求不会重复输出。这条警告会指出发起请求的模块名，区分
-「Vault 未安装」和「Vault 已安装但没有提供者注册」两种原因，明确说明这是服务器自身的环境问题，
-不是 UltiTools 或该模块的缺陷，并给出安装建议。模块开发者不需要做任何事去获得这条行为，现有的
-每一处 `EconomyUtils` 调用点都已经具备它。
+## 外部 JavaPlugin 调用方
 
-发起请求的一方从调用栈中识别。v6.3.0 起，这条警告可以指出：
+声明对 UltiTools 的依赖，并在 `onEnable()` 中调用 `UltiToolsAPI.connect(this)`。经济操作使用同一组 `EconomyUtils` 静态方法；`UltiToolsAPI` 没有单独的经济接口。若在 `onDisable()` 中显式断开连接，调用 `UltiToolsAPI.disconnect(this)`。接入方式见[外部插件 API](./external-plugin-api.md)。
 
-- 已加载的模块：按其 `@UltiToolsModule` 扫描的包，另外加上其主类所在的包
-  （[issue #489](https://github.com/UltiKits/UltiTools-Reborn/issues/489)）；
-- 仍在注册过程中的模块：来自其构造函数、`@PostConstruct` 方法或 `registerSelf()` 的请求
-  （[issue #483](https://github.com/UltiKits/UltiTools-Reborn/issues/483)）；
-- 通过[外部插件 API](./external-plugin-api.md) 连接的普通 Bukkit 插件，按插件名，直到它断开连接
-  （[issue #462](https://github.com/UltiKits/UltiTools-Reborn/issues/462)）。
+## 服务不可用警告
 
-匹配到的最具体的包优先；同一个包被两个不同的一方声明时，两者都不指出。以上都覆盖不到的请求记为
-`an unknown caller`，按发起请求的包各记一次，而不是所有这类请求共用一次，所以第二个无法识别的调用方不会被吞掉。
+同一次服务器运行期间，每个识别出的模块名或外部插件名首次请求不可用的经济服务时，会输出一条 WARNING。归属以调用栈中最近的匹配帧为准；在该帧中，最具体的包优先。已加载模块提供扫描包和主类所在的包；注册中的模块在注册线程上提供同样的包；外部插件连接期间提供其扫描包。最具体的包有归属冲突或没有匹配帧时，调用方记为未知；能辨认调用包时，未知调用方按包去重。请把模块主类放进专用包：宽泛的包根也会匹配子包，可能把无关调用记到你的模块名下。
 
-已知限制，只写入文档、不改代码（[issue #567](https://github.com/UltiKits/UltiTools-Reborn/issues/567)）：主类所在的包连同其子包都算在内，
-与扫描的包相同。主类放在与其他代码共用的宽泛包里（例如 `com.example`，而其他插件或库也在 `com.example` 下）时，
-该包里不属于这个模块的代码可能被记到它名下，并用掉该模块本次运行唯一的一次警告。请把主类放在自己专用的包里
-（如 `com.example.myplugin`），官方模块都是这样做的。
+警告也是固定的英文。以下模板两处 `<name>` 使用同一名称，归属不明时原文是 `an unknown caller`。`<cause>` 的原文是 `Vault is not installed on this server` 或 `Vault is installed, but no economy provider is registered with it`。
 
-## 本页不涉及的变化
-
-Vault 仍然是 UltiTools 的可选软依赖：`plugin.yml` 的 `softdepend` 中依然列出 `Vault`，对 Vault API
-的 Maven 依赖依然是 `provided` 作用域。任何模块调用 `EconomyUtils` 的方式都不需要改变。一个公开
-的多币种经济接口正在为未来版本设计，不属于 v6.3.0 的一部分，这一版本中没有任何代码依赖它。
+```text
+[UltiTools-API] Module '<name>' requested the economy service, but <cause>. This is the server's environment, not a defect in UltiTools or in '<name>'. Install Vault and an economy plugin (e.g. EssentialsX) that registers a Vault economy provider to enable economy features.
+```

@@ -1,727 +1,247 @@
 # 命令执行器
 
-在传统的 Bukkit 插件开发中，我们通常会使用 Bukkit 的 `CommandExecutor` 接口来处理命令。
+本页介绍自 v7.0.0 起的命令行为。旧版 Bukkit 命令封装见 [6.5.0 归档指南](/zh/v6.5.0/guide/essentials/cmd-executor.html)。
 
-但在某些情况下，我们需要判断命令的发送者是否为玩家，是否拥有某些权限，判断参数等等。
+## 基本用法
 
-如果一个插件存在多个命令，那么这些判断逻辑就会重复出现在每个命令的处理方法中，这样的代码是非常冗余的。
-
-除此之外，我们也可能还需要处理命令错误，输出帮助信息等等。
-
-UltiTools-API 对原生的 `CommandExecutor` 接口进行了封装，提供了一个更加简洁的命令处理方式。
-
-## 创建命令执行器
-
-从 v6.2.0 开始，你应该继承 `BaseCommandExecutor` 类，并重写 `handleHelp` 方法。这里的 `@CmdTarget` 和 `@CmdExecutor` 注解是代表了该命令的目标类型和执行器信息。
-
-::: danger v6.3.0 起已移除
-`AbstractCommandExecutor`（以及空壳 `AbstractCommendExecutor`）自 v6.2.0 起已弃用，并在 **v6.3.0 中被彻底删除**——不是不可达，而是这个类在 jar 里已经不存在了。请使用 `BaseCommandExecutor`，它提供了相同的注解驱动功能，同时支持可插拔的验证链、改进的上下文管理和自定义类型解析器支持。完整迁移指南见
-`COMPATIBILITY.md` 的 [Migrating off `AbstractCommandExecutor`](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md#migrating-off-abstractcommandexecutor)（该文件为英文，是仓库的权威版本对照文档）一节。
-:::
-
-::: tip `/命令 help` 现在与其他调用一样受同一套校验 <Badge type="tip" text="v6.3.0+" />
-v6.3.0 之前，help 子命令会在校验链之前执行，导致在 `@CmdTarget(PLAYER)` 命令上用控制台调用、或发送者缺少所需权限时，`handleHelp` 仍然会被调用。v6.3.0 起，`handleGatedHelp` 会先跑 `SenderTypeValidator` 和 `PermissionValidator`，发送者类型不匹配或权限缺失都会在你的 `handleHelp` 实现被调用之前被拒绝。自定义校验器子类若 `shouldValidate` 判定当前上下文不适用，同样会在这里被跳过，与正常命令派发时一致。
-:::
+继承 `BaseCommandExecutor`，用 `@CmdExecutor` 声明命令，并实现 `handleHelp(CommandSender)`。`@CmdMapping` 方法接收已转换为声明类型的参数，不需要实现 Bukkit 的 `onCommand`。
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/ExampleCommand.java
 
-这样你就完成了一个空的什么都不做的命令执行器。这里的 `@CmdTarget` 和 `@CmdExecutor` 注解是代表了该命令的发送者类型和执行器信息。我们将在下一节详细介绍这两个注解。
-
-## 注册命令
-
-::: info 自 v6.3.0 起的连接器构造器
-六参数构造器已移除。下面的连接器使用七参数构造器，由调用方传入 `resourceFolderPath`。
-新的独立 Bukkit 插件优先在自己的 `JavaPlugin` 中调用 `UltiToolsAPI.connect(this)`，见[外部插件 API](/zh/guide/advanced/external-plugin-api)。
-:::
-
-和spigot开发一样，有了执行器，就需要去注册它。我们可以在 `registerSelf` 方法中使用 `getCommandManager().register()` 方法来注册命令。
-
-如果你的模块存在大量的命令执行器而不想手动注册，也可以使用 UltiTools 提供的自动注册功能，详情可以查看[这篇文章](/zh/guide/advanced/auto-register)。
-
-<<< @/../examples/src/main/java/com/ultikits/docs/command/UltiToolsConnector.java
-
-## 基于映射的命令执行器
-
-### 快速上手
-
-假如你的插件拥有一个设置传送点的功能，你希望玩家输入一个带有传送点名称的命令，以此来设立一个传送点。
-
-那么这个命令应该会长这样：`/point add name`
-
-如果是使用传统的方法，你需要判断参数输入的合法性，发送者以及权限等，如果还有其他功能，你还需要编写一大堆的 `switch ... case` 和 `if ... else` 语句，疯狂嵌套。
-使得代码可读性变差，提高了维护的难度。~~（还容易烧干你的脑子）~~
-
-使用这个方法，你只需要编写最主要的逻辑即可，剩下的交给 UltiTools。
-
-首先你需要创建一个继承了 `BaseCommandExecutor` 的执行器类。
-
-接着创建一个名为 `addPoint` 的方法，并添加你想要的参数：
+例如，在标注 `@CmdExecutor(alias = {"point"})` 的类中，下面的映射实现 `/point add <name>`。即使类允许非玩家调用，方法级的发送者限制也能保证这里取得 `Player`：
 
 ```java
-public void addPoint(@CmdSender Player player, String name) {
-  ...
-}
-```
-
-是的，你的每一个功能都使用一个独立的函数，没有多余的判断。
-
-如果你希望拿到的是 `Player` 对象而不是 `CommandSender` 对象，那你拿到的就是 `Player`，完全不需要判断与转换。你只需要在希望获取发送者对象的参数前面添加 `@CmdSender` 注解即可。
-
-然后，你只需要添加 `@CmdMapping` 注解，以便 UltiTools 能够根据输入的命令匹配你的方法：
-
-```java
-@CmdMapping(format = "add <name>")
-public void addPoint(@CmdSender Player player, String name) {
-  ...
-}
-```
-
-最后，使用 `@CmdParam` 来绑定命令参数：
-
-```java
-@CmdMapping(format = "add <name>")
+@CmdTarget(CmdTarget.CmdTargetType.PLAYER)
+@CmdMapping(format = "add <name>", permission = "point.add")
 public void addPoint(@CmdSender Player player, @CmdParam("name") String name) {
-  ...
-}
-``` 
-
-至此，你只需要注册命令执行器即可完成所有工作。
-
-### 参数Tab提示补全
-
-::: tip BaseCommandExecutor 的 Tab 补全已接线 <Badge type="tip" text="v6.3.0+" />
-自 v6.3.0 起，`suggest(Player, Command, String[])` 通过共享的 `commands/tabcomplete/` 分发实现，既解析 `@CmdMapping` format 首段的第一参数字面量，也解析参数位上 `@CmdParam` 的 `suggest` 属性——下面几节说明完整的解析顺序。你仍然可以重写 `suggest(...)` 来自定义行为，该方法保持 `protected`。
-
-对于后续参数，只有前面各段与玩家已输入内容相匹配的映射才会提供字面量补全，且每个字面量只出现一次；玩家无权使用（权限或 OP）的映射不会提供任何补全。
-:::
-
-每次写完一个命令之后希望给自己的命令添加Tab提示补全，但是又不想写一大堆的代码？
-
-为Tab补全绞尽脑汁判断每个命令的长度和之前的参数来生成一个补全List，这非常容易把人累死。
-
-现在你只需要简单的为每一个参数写一个方法返回补全List即可！这个方法可以被反复利用，所有繁杂的参数数量判断都交给 UltiTools 来完成。
-
-你所需要做的只是在 `@CmdParam` 注解中添加 `suggest` 属性，指定一个方法名即可。
-
-
-```java
-@CmdMapping(format = "add <name>")
-public void addPoint(@CmdSender Player player, @CmdParam(value = "name", suggest = "listName") String name) {
-  ...
-}
-
-public List<String> listName(Player player, Command command, String[] args) {
-  ...
+    player.sendMessage("Point: " + name);
 }
 ```
 
-UltiTools会首先在当前类中搜索匹配的方法名，并尝试调用此方法。
+### 注解参考
 
-提供补全的方法返回 `List<String>`。原有参数列表只支持 `()`、`(Player)`、`(String)`、`(Player, String)` 和 `(Player, Command, String[])`，参数顺序不能任意改变。`Player` 是请求补全的玩家，`String` 是当前尚未输完的参数，`Command` 是当前命令，`String[]` 是其参数数组。
+| 注解 | 属性与默认值 |
+|---|---|
+| `@CmdExecutor`（类） | 必填 `alias`，至少含一个标签。首个是主标签，其余是别名。`permission` 和 `description` 默认为 `""`，`requireOp` 和 `manualRegister` 默认为 `false`。 |
+| `@CmdMapping`（方法） | 必填 `format`；`""` 映射只有根标签的调用。`permission` 默认为 `""`，`requireOp` 默认为 `false`。 |
+| `@CmdParam`（参数） | 必填 `value`，对应 `format` 中的参数名。`suggest` 默认为 `""`。 |
+| `@CmdSender`（参数） | 无属性。类型匹配时注入发送者，否则注入 `null`。未标注的 `CommandSender` 子类型参数也可接收发送者；参数类型本身不限制谁能调用。 |
+| `@CmdTarget`（类或方法） | 必填 `value`：`PLAYER`、`CONSOLE`（所有非玩家发送者）或 `BOTH`。类未标注时默认 `BOTH`；方法未另设限制时使用类级目标。 |
+| `@CmdSuggest` | 必填 `value`，即提供者类的数组。写在执行器类上：补全查找读取类上的标注，不读取映射方法上的标注。 |
+| `@CmdCD`（类或方法） | `value` 默认为 `0` 秒，`key` 默认为 `""`，`config` 默认为 `AbstractConfigEntity.class`。 |
+| `@UsageLimit`（类或方法） | 必填 `value`：`SENDER`、`ALL` 或 `NONE`。`ContainConsole` 默认为 `true`。 |
+| `@RunAsync`（方法） | 无属性。 |
+| `@AsyncCommand`（方法） | 默认 `showProcessing = true`、`processingMessageKey = ""`、`timeout = 30` 秒。 |
 
-#### 发送者感知补全 <Badge type="tip" text="v6.3.2+" />
+## 命令引擎
 
-自 v6.3.2 起，控制台、RCON 和其他 `CommandSender` 实现与玩家使用同一套补全分发。提供补全的方法还支持三个精确的参数列表：`(CommandSender)`、`(CommandSender, String)` 和 `(CommandSender, Command, String[])`。类型必须是 `CommandSender` 本身，而不是某种发送者子类。这些形式既可写在命令执行器中，也可写在 `@CmdSuggest` 指定的类中。
+### 注册与归属
 
-候选字面量或补全方法产生结果之前，会先经过同样的类级与映射级权限、OP 检查及生效的 `@CmdTarget` 限制。`CONSOLE` 指所有非玩家发送者，不限于 `ConsoleCommandSender`。请求被拒绝时静默返回空候选。对控制台或 RCON 发送者，`suggest` 返回 `null` 而不是空列表，服务器随之回退到默认补全，即在线玩家名。补全过程不执行带副作用的验证器、冷却或使用锁，也不发送命令拒绝消息。
+框架把注解编译成字面量节点和类型化参数节点，在 `LifecycleEvents.COMMANDS` 事件中把命令树交给 Paper。框架不再通过反射构造 `PluginCommand`，也不修改 Bukkit 的私有命令表。
 
-注册的自定义补全器通过 `TabCompletionContext.getSender()` 取得请求者。玩家请求的 `getPlayer()` 返回该玩家，所有非玩家请求均返回 `null`；使用玩家专属 API 前，自定义补全器必须检查是否为 `null`。只接收 Player 的补全方法会跳过非玩家请求，绝不会收到 null 玩家。无参、仅 String 参数的方法、内置补全器和注册的 `@key` 补全器对两类发送者都可用。
+- 模块扫描得到的执行器 Bean 会自动注册，除非模块通过 `@UltiToolsModule(cmdExecutor = false)` 关闭[自动注册](/zh/guide/advanced/auto-register)，或执行器设置 `manualRegister = true`。手动注册时，将执行器保留在模块容器中并设 `manualRegister = true`，在模块的 `registerSelf()` 中调用 `getCommandManager().register(this, ExampleCommand.class)`。管理器从容器中取 Bean；未标注 `@CmdExecutor` 的执行器不会注册。
+- [外部 Paper 插件](/zh/guide/advanced/external-plugin-api)应声明依赖，让 UltiTools 先启用，再在 `JavaPlugin.onEnable()` 中调用 `UltiToolsAPI.connect(this)`。连接时的注册会将合格的 Bean 交给同一个 Paper 事件处理，正常启动时可赶上首次事件。这些注解命令无需在外部插件的 `plugin.yml` 中声明 `commands:`。手动注册方法仅适用于模块。
+- 两种所有者都可以提供实现 `com.ultikits.ultitools.command.BrigadierCommand` 的容器 Bean。`node()` 返回 `LiteralCommandNode<CommandSourceStack>`，每次注册调用一次；`aliases()` 和可返回 `null` 的 `description()` 可选。Bean 按实例去重。手写树需要自行检查权限和提供补全，不使用注解校验器、冷却或 `@CmdParam` 补全。指向所提供命令树以外的重定向目标不受卸载控制，也不会随实例替换而重新绑定；请通过下次命令事件或重启刷新。
 
-原有受保护的 `suggest(Player, Command, String[])` 重写入口仍处理玩家请求；v6.3.2 新增 `suggest(CommandSender, Command, String[])`，不删除旧入口。原有 Player 重载、构造器以及基于玩家的 context 工厂和 builder 仍受支持；以玩家构造的 context 也会将该玩家作为 sender 返回。
+注册时可将模块描述作为消息目录中的路径解析；未解析时使用原文。外部执行器的描述直接使用原文。[外部插件消息 API](/zh/guide/advanced/external-plugin-api)不会让外部命令的描述或自动补全提示从外部目录解析。
 
-#### 内置补全器（`@key` 记法） <Badge type="tip" text="v6.3.0+" />
+### 启动后注册的命令
 
-自 v6.3.0 起，以 `@` 开头的 `suggest` 值会通过一个已注册的补全器解析，而不是当作方法名——完全不需要写方法：
+首次命令事件后，Paper 已收到命令树结构。注销所有者会隐藏其命令树并阻止执行。实际注册签名相同的替换实例时，可重新绑定到已有结构。新根命令或签名不同的替换命令要等到 `/minecraft:reload` 或重启才可用：
+
+```text
+Command /<label> from <owner> was registered after start-up; it becomes available after /minecraft:reload or a restart.
+```
+
+如果另一 UltiTools 所有者已使用相同根标签或别名，只拒绝冲突的绑定，不阻止该所有者的其他命令注册。如果 Paper 注册器未登记请求的标签，框架会另外记录警告：
+
+```text
+Command /<label> from <owner> (<executor class>) conflicts with <previous owner> (<previous class>); rejected.
+Command label /<label> from <owner> was not registered by Paper (label occupied).
+```
+
+`/minecraft:reload` 重载数据包并重新触发命令事件。`/ul reload` 不重建执行器、不重新绑定命令树，也不应用条件注册配置的变动；这类变动需要重启。框架不会自行重载数据包。安装或更新模块 JAR 仍需重启：Paper 会保留参数类型实例，包括其中持有的自定义解析器。Bukkit 的插件 `/reload` 与热重载不受支持。
+
+### 被拒绝的格式 {#被拒绝的格式}
+
+以下格式会在编译时被拒绝：规范化后路径相同（包括同一类中的重复格式）、同一父节点下有不同名称或类型的参数、字面量与参数的节点名相同、`@CmdParam` 与占位符不匹配、类型不受支持，以及 `<name...>` 不在末尾或类型不合法。不同节点名的字面量和参数可以共用一个父节点。子类可以替换继承的映射。另一个映射不能与省略可变参数后得到的执行路径重合。
+
+编译失败会回滚出错的模块或外部插件连接，不影响其他所有者的命令。格式诊断以 SEVERE 级别记录，原因例如 `competing parameter with <method>`、`duplicate path with <method>` 和 `greedy parameter must be last`：
+
+```text
+Cannot load module <module>: executor <class>: <class>#<method> [<format>]: <reason>. Change @CmdMapping formats to use distinct literal prefixes, one parameter name/type per position, terminal <name...> arrays, and registered custom type parsers.
+```
+
+### 从 6.x 迁移 {#从-6-x-迁移}
+
+按[升级指南](/zh/guide/advanced/upgrading-to-7)针对 7.0 重新构建；仅修改 `api-version` 不够。
+
+| 6.x API | 7.0 替代写法 |
+|---|---|
+| Bukkit `TabExecutor`、`onCommand`、`onTabComplete`；`matchMethod`、`parseParameters`、`validateParameterCount`、`parseParameterValue` | 使用 `BaseCommandExecutor` 的类型化映射；没有替代的字符串匹配器。 |
+| `AbstractCommand`、`AbstractTabExecutor`、`AbstractPlayerCommandExecutor`、`AbstractConsoleCommandExecutor` | 使用带 `@CmdTarget` 的 `BaseCommandExecutor` 或 `BrigadierCommand`。 |
+| `suggest(Player, Command, String[])`、`suggest(CommandSender, Command, String[])` | `suggest(CommandSender, String, String[])`。 |
+| `CommandContext.getCommand()` 及构建器的 `command(...)` | `getCommandName()` 与 `commandName(String)`；`getParsedParams()` 现在返回 `Map<String, Object>`，`getParam` 与 `getParamValue` 返回 `Object`。 |
+| 接收 `Class<? extends CommandExecutor>` 的 `CommandManager.register`；`registerCoreCommand(CommandExecutor)` | `Class<? extends BaseCommandExecutor>`；`registerCoreCommand(BaseCommandExecutor)`。 |
+| `unregister(String)`；`getPluginByCommand(Command)` | 随模块或外部插件注销命令；`getPluginByLabel(String)` 通过主标签、别名或带命名空间的标签查询所属模块（框架或外部命令返回 `null`）。 |
+| `CommandTabCompletionDispatch`；`TabCompletionManager.suggest(Player, Command, String[])`、`createContext(Player, Command, String[])`、`suggestFirstArgs` | Brigadier 补全字面量；使用基于上下文的提供者入口。`TabCompletionContext.getCommand()` 改为 `getCommandName()`。无候选即返回空结果，控制台与 RCON 也一样。 |
+| `WorldParser`、`GameModeParser`、`LocationParser`、`EnchantmentParser` 与隐式内置注册项 | 使用原生参数映射；只对未映射的类型显式注册自定义 `TypeParser`。 |
+
+`getMappings`、`handleHelp`、`getHelpCommand`、`createDefaultValidatorChain`、`executeCommand` 与 `buildMethodParams` 保留。详见框架的[兼容性说明](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md#command-engine-as-of-700)。
+
+## 参数
+
+格式中各部分用空白分隔。字面量不区分大小写，包括参数后面的字面量，并且优先于同位置的参数。框架可把字面量规范化后重派发一次，不会把参数值改成小写。例如 `accept` 与 `<name>` 同级时，`/trade ACCEPT` 匹配 `accept`，而 `/trade "Accept"` 将 `Accept` 传给 `String` 参数。
+
+| Java 类型 | 输入与取值 |
+|---|---|
+| `String` | 用空白分隔的一段文字，支持非 ASCII 字符；双引号可将 `"a b"` 合为一个参数。未闭合的引号无法解析。 |
+| `int`、`long`、`float`、`double`、`boolean` 及其装箱类型 | Brigadier 对应的参数类型。布尔值只接受 `true` 和 `false`，不再像 6.x 那样把 `yes` 静默转为 `false`。 |
+| `short`、`byte` 及其装箱类型 | 限定在 Java 类型取值范围内的整数。 |
+| `Player` | Paper 玩家选择器，按命令来源解析。找不到玩家时拒绝，不再像 6.5.0 那样传入 `null`。 |
+| `OfflinePlayer` | 由 Bukkit 解析的玩家名，补全在线玩家名。 |
+| `World`、`GameMode`、`UUID`、`Enchantment` | Paper 的世界、游戏模式、UUID 与附魔注册表参数。 |
+| `Material` | 小写资源键，例如 `minecraft:diamond`，不是 `DIAMOND`。 |
+| `Location` | 命令来源所在世界的 Paper 精确坐标 `x y z`，支持相对坐标，不再是 `world,x,y,z`。 |
+| 其他已注册 `TypeParser` 的类型 | 一段文字，可用双引号括起，由该解析器解析。 |
+
+只在末尾使用 `<name...>`，对应 `String`（余下文字）或数组（`String[]` 按空白拆分，其他数组按元素类型逐个解析）。省略时收到 `""` 或空数组。普通 `<name>` 不能表示数组。
+
+### 自定义类型解析器
+
+实现 `TypeParser<T>`，并在编译使用它的命令前调用 `TypeParserRegistry.getInstance().register(new ColorParser())`（模块自动注册前会先执行 `registerSelf()`）。用 `<color>` 占位符和 `@CmdParam("color") Color color` 声明参数。用 `<colors...>` 搭配 `Color[]` 可逐个解析剩余参数；命令树不会调用你重写的 `parseArray`。
+
+<<< @/../examples/src/main/java/com/ultikits/docs/command/ColorParser.java
+
+下面的解析器接受 `1-100` 这样的范围。用 `<range>` 占位符与 `IntRange` 参数前，以同样的方式注册它：
+
+<<< @/../examples/src/main/java/com/ultikits/docs/command/RangeParser.java
+
+## Tab 补全
+
+字面量由 Brigadier 补全。框架合并使用该参数节点的可用映射所指定的补全提供者（`@CmdParam(suggest = ...)`）。只有这些映射都未指定提供者时，`protected List<String> suggest(CommandSender sender, String label, String[] args)` 接收实际输入的标签和参数（包括当前未输完的部分）。返回 `null` 保留原生补全，返回列表则替换原生补全，空列表表示没有候选。
+
+- `@players`、`@worlds`、`@materials`（也可写成 `@blocks` 或 `@items`）、`@boolean`（也可写成 `@toggle`）是内置键。自定义键用 `TabCompletionManager.getInstance().register(key, completer)` 在校验命令声明前注册。未知 `@key` 会导致加载失败。`TabCompletionContext.getSender()` 返回请求者；对非玩家，`getPlayer()` 返回 `null`。
+- 使用方法提供者时，将方法名填入 `suggest`。返回 `List<String>`，参数列表只能为 `()`、`(String)`、`(Player)`、`(Player, String)`、`(Player, Command, String[])`、`(CommandSender)`、`(CommandSender, String)` 或 `(CommandSender, Command, String[])`。`String` 是未输完的参数，`Command` 按标签从公开命令表查找，`String[]` 包含命令参数。非玩家请求会跳过只接受玩家的方法。不支持的参数签名会在加载时被拒绝。
+- 方法优先在执行器中查找。模块可以用类级 `@CmdSuggest({PointSuggest.class})` 指定容器中的 Bean 来共享提供者。外部执行器应把方法写在执行器本身；共享提供者的 Bean 查找只支持模块。
+- 如果没有匹配的方法，模块可用[模块消息路径](/zh/guide/essentials/messages#module-annotation-text)作为补全提示；路径无效或键不存在时使用原文。外部执行器在此分支不提供提示，即使外部插件有自己的消息目录。
+
+## 权限与回复
+
+类和映射分别声明权限时，两者都须满足；任一层设置 `requireOp = true`，发送者还必须是 OP。方法的 `@CmdTarget` 可以重复或收窄类级目标，但不能放宽，也不能在 `PLAYER` 与 `CONSOLE` 之间切换。这同样适用于继承来的映射。扫描到违反此规则的执行器时，UltiTools 拒绝该类，不为它注册 Bean，并为每处违规记录一条 `SEVERE` 日志，开头为 `Refused to register command class due to ambiguous @CmdTarget composition:`。
+
+<<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerOnlyCommand.java
+
+### 可见性
+
+根节点的条件隐藏不可用的命令，映射的条件隐藏专属路径，共用的前缀仍然可见。框架会过滤用法和参数补全提供者，补全时不运行会改变状态的校验器。如果真实的补全参数与隐藏字面量同级，服务端分派器仍可能把同级字面量合并进补全结果。需要保密命令名时请避免这种结构。看到名称不代表能执行。
+
+在可用的根节点下，手动输入不可用的子命令通常与输入未知子命令走同一回复路径，包括 Brigadier 在回调前拒绝大小写完全匹配的隐藏字面量的情况。根级的任意文字参数与受限字面量同级时，名称不能完全隐藏：输入隐藏名得到未知指令回复和受限帮助，两个映射都不执行；其他词仍交给任意文字参数处理。如果根命令本身不可用，不应期待框架的权限或发送者类型提示。在线修改权限不会自动刷新客户端命令树，可重新登录或执行 `/minecraft:reload`；执行时始终检查当前权限。
+
+### 框架回复
+
+框架在非贪婪节点下增加接收余下整行的兜底参数 `args`（重名时用 `args_`，需要时继续追加下划线），该参数不向服务端请求补全。这可能让错误输入在客户端看起来有效，但不代表它会匹配到业务方法。输入到达框架恢复逻辑时：
+
+- 首段无法匹配时发送 `command.reply.unknown` 并调用受限帮助。更深位置匹配失败时，可能用 `command.reply.usage` 列出已匹配的最深节点下可用的映射。例如子命令之后应输入 `int` 却输入 `abc`，会收到用法而非自定义解析器错误；找不到玩家的选择器也可能走用法路径。
+- 自定义参数解析器抛出 `TypeParseException` 时，自定义解析错误路径通过 `command.reply.argument_error` 显示其未经翻译的详情。回复收到原生可翻译组件时会保留该组件。这不保证所有原生语法错误都能恢复：Paper 可能在框架回调前拒绝输入。
+- 恢复逻辑可规范化连续或末尾空白，并保留引号内容与接收余下整行的参数内容。原生字面量末尾恰好有一个空格（例如 `ul reload `）时，可能在回调前失败。控制台或面板分派前应去除末尾空白。
+
+框架回复中的 `<label>` 是主标签。帮助字面量默认为 `help`（`getHelpCommand()`）。默认帮助路径（包括没有对应映射时只输入根命令）受根节点条件约束，在调用 `handleHelp` 前运行链中适用的发送者类型与权限校验器，不运行冷却或执行锁校验器。
+
+### 回复语言与消息键
+
+`language: auto` 时，框架提示使用玩家的客户端语言；控制台、命令方块和面板发送者等非玩家使用 `fallback-language`。下表列出随框架发布的 13 个 `ultitools:` 键的文字。可在 `plugins/UltiTools/messages/<locale>.yml` 用点分或嵌套 YAML 键和 MiniMessage 值覆盖。完整的 `/ul reload` 会重读框架消息覆盖。插入的文本（如格式中的 `<words...>`）不会被当作 MiniMessage 解析；冷却秒数是不分组的整数。模块帮助和处理器自行发送的回复仍由你负责。
+
+| 键 | 英文 | 中文 |
+|---|---|---|
+| `command.reply.unknown` | `Unknown command, please enter /<label> <help> for help` | `未知指令，请使用/<label> <help>获取帮助` |
+| `command.reply.usage` | `Correct Usage: /<label> <format>` | `正确用法: /<label> <format>` |
+| `command.reply.argument_error` | `<error>` | `<error>` |
+| `command.error.op_required` | `You don't have permission to run this command!` | `你没有权限执行这个指令！` |
+| `command.error.no_permission` | `Executing this command requires <permission> permission` | `执行此命令需要 <permission> 权限` |
+| `command.error.player_only` | `This command can only be performed in GAME!` | `只有游戏内可以执行这个指令！` |
+| `command.error.console_only` | `This command can only be performed in CONSOLE!` | `只可以在后台执行这个指令！` |
+| `command.error.sender_locked` | `Please wait for last Command Processing!` | `请先等待上一条命令执行完毕！` |
+| `command.error.server_locked` | `Please wait for last Command Processing which sent by other players!` | `请先等待其他玩家发送的命令执行完毕！` |
+| `command.error.cooldown` | `Frequent operations, please try again in <seconds> seconds` | `操作频繁，请 <seconds> 秒后再试` |
+| `command.error.execution_failed` | `Command execution failed: <error>` | `命令执行出错: <error>` |
+| `command.async.processing` | `Processing...` | `处理中...` |
+| `command.async.timeout` | `Command execution timed out; no longer waiting. The command continues running in the background.` | `命令执行超时，已停止等待，命令仍在后台继续执行` |
+
+默认的未知指令与参数错误回复是红色。用法前缀是黄色，命令格式是灰色。命令树可能先于校验器拒绝分派，此时不会发出校验器的拒绝提示。
+
+## 校验、冷却与执行锁
+
+`CommandContext` 提供发送者、主命令名（`getCommandName()`）、实际输入的标签（`getAlias()`）、原始参数（`getRawArgs()`）以及匹配的方法与格式。`getArgCount()` 返回原始参数的数量；`getArg(index)` 从下标 0 开始读取原始参数，越界时返回 `null`。用 `getParsedParams()` 或 `getParam(name)` 读取类型化参数；参数为数组时，`getParamValue(name)` 返回首个元素。读取解析结果，不要重新解析 `getRawArgs()`。
+
+参数解析后，框架按 `getOrder()` 从小到大执行校验器。默认有 `SenderTypeValidator`（100）、`PermissionValidator`（200）、`UsageLockValidator`（250）和 `CooldownValidator`（300）。自定义校验器的默认顺序值为 `0`。用 `addValidator(...)` 可保留默认链；`super(chain)` 会替换默认链，但不会绕过命令树的条件。声明了 `@CmdCD` 或启用了 `@UsageLimit` 而没有相应校验器时，加载会被拒绝。
+
+<<< @/../examples/src/main/java/com/ultikits/docs/command/WorldRestrictionValidator.java
+
+在标注 `@CmdExecutor(alias = {"worldcheck"})` 的类中，可在构造器中注册校验器：
 
 ```java
-@CmdMapping(format = "tp <target>")
-public void tp(@CmdSender Player player, @CmdParam(value = "target", suggest = "@players") String target) {
-  ...
+public WorldCheckCommand() {
+    addValidator(new WorldRestrictionValidator("world", "world_nether"));
 }
 ```
 
-框架内置四个键：`@players`（在线玩家）、`@worlds`（已加载世界）、`@materials`（也支持 `@blocks`/`@items`）、`@boolean`（也支持 `@toggle`）。模块也可以通过 `TabCompletionManager.register(String, TabCompleter)` 在运行时注册自己的键。
+这里的类名是 `WorldCheckCommand`。要使用自定义链，可用 `ValidatorChain.builder().add(...).build()` 构造后传给 `super(...)`。如果依赖权限和发送者注解在执行时生效，请保留 `PermissionValidator` 和 `SenderTypeValidator`；命令树上的共用节点不能替代对实际映射的校验。若校验器取得了资源，方法体结束时在 `onComplete` 中释放；校验通过后分派仍失败时，在 `onRefused` 中释放。
 
-`@` 不是合法的 Java 标识符起始字符，因此这种记法永远不会与方法名值冲突——本页其他用普通方法名的示例都不需要改动。**未知**的 `@key` 会拒绝声明它的模块加载，并指明类、方法与键；它不会退回到下面介绍的纯字符串提示行为。
+`ValidationResult.failure(Text, String)` 接收延迟渲染的文本和诊断键。先读取 `getErrorText()`；由 `Text` 构造的失败，其 `getErrorMessage()` 为 `null`。现有的 `failure(String)` 与 `failure(String, String)` 通过 `getErrorMessage()` 读取。校验链返回首个失败。自定义字符串失败原样发送，不做消息目录翻译。
 
-::: tip suggest 可以直接填写固定字符串
+### 冷却与执行锁
 
-如果你仅仅只是想返回一个简单的提示字符串，那么你只需要在 `suggest` 字段中写上你想要的字符串即可。这里的字符串也支持i18n国际化。
+`@CmdCD(60)` 对玩家启用 60 秒冷却，按执行器实例与映射区分。方法注解优先于类级默认值（包括声明该映射的基类默认值）。方法体抛出异常仍开始冷却，未进入方法体的拒绝不开始冷却。显示的剩余时间是剩余整秒数加一，因此 `@CmdCD(5)` 可能显示 6 秒。要查询默认校验器上某个映射的冷却，用 `getCooldownValidator().getRemainingCooldown(playerId, this, method.toString())`；若替换了校验链，查询链中实际使用的校验器。在该校验器上调用 `clearCooldown(playerId, this, method.toString())` 可清除当前执行器的冷却。双参数重载 `clearCooldown(playerId, method.toString())` 会清除该校验器所服务的所有执行器上此方法的冷却。
 
-```java
-@CmdMapping(format = "add <name>")
-public void addPoint(@CmdSender Player player,
-                     @CmdParam(value = "name", suggest = "[名称]") String name) {
-  ...
-}
+`@UsageLimit(UsageLimit.LimitType.SENDER)` 按玩家锁定映射。`ALL` 为每个映射在所有玩家之间共用一把锁；`ContainConsole = true` 时，非玩家发送者会被玩家持有的锁拦截，但不能取锁。非玩家也不会取得 `SENDER` 锁。`NONE` 不限；`ContainConsole = false` 排除非玩家发送者。方法级注解优先于类级默认值。取锁不等待；方法体结束（包括抛出异常）或后续校验拒绝调用时释放锁。因此外层调用持锁时，嵌套分派同一映射可能被拒绝。卸载时，共用的内置校验器状态保留至最后一个执行器释放它。
 
-```
-:::
+### 配置项绑定的冷却时间 {#配置项绑定的冷却时间}
 
-::: tip 重写 suggest 方法可自行生成补全列表
-
-如果你对UltiTools生成的补全列表不满意，你可以重写 `suggest` 方法，自己生成补全列表。
-
-```java
-@Override
-protected List<String> suggest(Player player, Command command, String[] strings) {
-    ...
-}
-```
-:::
-
-#### @CmdSuggest 注解
-
-::: tip @CmdSuggest 在 BaseCommandExecutor 上已可读取 <Badge type="tip" text="v6.3.0+" />
-自 v6.3.0 起，下面示例中的类会通过共享的 `commands/tabcomplete/` 分发被读取，因此 `PointSuggest` 中的方法会按预期被查找并调用。
-:::
-
-如果你希望你的这个补全方法与其他命令类共享，那么你可以创建一个类，将想要复用的方法写在此类下。
-
-在需要使用此类中的方法的类上添加 `@CmdSuggest` 注解，指定此类的类名即可。
-
-```java
-@CmdSuggest({PointSuggest.class})
-public class PointCommand extends BaseCommandExecutor {
-
-    @CmdMapping(format = "add <name>")
-    public void addPoint(@CmdSender Player player, @CmdParam(value = "name", suggest = "listName") String name) {
-        ...
-    }
-}
-```
-```java
-public class PointSuggest {
-    public List<String> listName(Player player, Command command, String[] args) {
-        ...
-    }
-}
-```
-
-### 参数
-
-#### 无参命令
-
-如果该命令无需任何参数，那么只需要将 ` format` 值留空即可
-
-```java
-@CmdMapping(format="")
-```
-
-该种命令最多存在一个
-
-#### 不定参数
-
-在一个方法的最后一个参数，允许使用数组类型，你需要在 `format` 中的最后一个参数添加 `...`, 下面是一个示例：
-
-```java
-@CmdMapping(format = "add <name...>")
-public void addPoint(@CmdSender Player player, @CmdParam("name") String[] name) {
-  ...
-}
-```
-
-这样在玩家输入 `/somecmd add aa bb cc` 时，`name` 就为 `['aa', 'bb', 'cc']`
-
-#### 类型解析
-
-在对方法进行传参之前，UltiTools 会根据方法所需参数的类型对命令的可变参数进行转换。
-
-解析器保存在共享的 `TypeParserRegistry` 中，可用 `TypeParserRegistry.getInstance().getParser(SomeType.class)` 查询。
-
-对于部分类型，`BaseCommandExecutor` 通过 `TypeParserRegistry.getInstance()` 提供了默认的解析器（包括基类与数组）：
-
-- String (Java 内建)
-- Float (Java 内建)
-- Double (Java 内建)
-- Integer (Java 内建)
-- Short (Java 内建)
-- Byte (Java 内建)
-- Long (Java 内建)
-- OfflinePlayer (Bukkit API)
-- Player (Bukkit API)
-- Material (Bukkit API)
-- UUID (Java 内建)
-- Boolean (Java 内建)
-- World (Bukkit API)
-- GameMode (Bukkit API)
-- Location (Bukkit API)
-- Enchantment (Bukkit API)
-
-要支持新的类型，请实现 `TypeParser<T>` 并用 `TypeParserRegistry.getInstance().register(...)` 注册，见[自定义类型解析器](#自定义类型解析器)。
-
-### 权限
-
-#### 方法权限
-
-如果你需要为某一个方法指定权限，你只需要在 `@CmdMapping` 添加 `permission` 属性即可
-
-```java
-@CmdMapping(..., permission = "point.set.add")
-```
-
-::: tip 类级别和方法级别的权限需要同时满足
-`@CmdExecutor` 和 `@CmdMapping` 中定义的权限是**叠加**的——两者会被独立检查。命令发送者必须**同时拥有**类级别 `@CmdExecutor(permission=...)` 和方法级别 `@CmdMapping(permission=...)` 指定的权限才能执行该命令。
-:::
-
-#### OP 限定
-如果你希望全部方法只能由OP执行，你只需要在 `@CmdExecutor` 中设置 `requireOp` 属性为 `true` 即可
-
-```java
-@CmdExecutor(..., requireOp = true)
-```
-
-如果你希望某一个方法只能由OP执行，你只需要在 `@CmdMapping` 中设置 `requireOp` 属性为 `true` 即可
-
-```java
-@CmdMapping(..., requireOp = true)
-```
-
-### 限定发送者
-
-如果你希望为全部方法指定发送者，你只需要在你的类前面添加 `@CmdTarget` 注解即可。
-
-如果为某一个方法，则在该方法前面添加即可。
-
-```java
-@CmdTarget(CmdTarget.CmdTargetType.BOTH)
-```
-
-::: warning 方法级 `@CmdTarget` 只能收窄类级注解
-方法级 `@CmdTarget` 只能收窄类级 `@CmdTarget`（`BOTH` 收窄为 `PLAYER` 或 `CONSOLE`）。放宽（`PLAYER` 或 `CONSOLE` 改为 `BOTH`）或横向切换（`PLAYER` 与 `CONSOLE` 互换）会使该命令类在加载时被拒绝，并指出类名与方法名。
-自 v6.3.0 起，这也适用于该类从基类继承的映射：标注 `@CmdTarget(CONSOLE)` 的类若继承了 `@CmdTarget(BOTH)` 的映射，会被拒绝，日志中同时会指出声明该映射的类。
-:::
-
-### 异步执行
-如果一个命令需要执行比较耗时的任务，你需要在相应的方法前面添加 `@RunAsync`:
-
-```java
-@CmdMapping(format = "list")
-@RunAsync
-public void listPoint(@CmdSender Player player) {
-    //do query
-}
-```
-
-这将会创建一个新的异步线程来执行该方法，避免在Bukkit主线程中执行而造成阻塞。
-
-由于 Bukkit API 不允许被异步调用，因此如果你需要调用 Bukkit API，你需要新建一个同步执行的Task：
-
-```java
-@CmdMapping(format = "list")
-@RunAsync
-public void listPoint(@CmdSender Player player) {
-    //do query
-    new BukkitRunnable() {
-        @Override
-        public void run() {
-            //call bukkit api
-        }
-    }.runTask(PluginMain.getInstance());
-}
-```
-
-::: danger `@RunAsync` 方法体不得直接访问世界、实体、方块或区块状态。 <Badge type="danger" text="v6.3.0+" />
-这里的异步只留给纯 CPU 或 I/O 工作。异步方法体里任何对世界、实体、方块或区块的访问，都必须作为同步任务调度回主线程：像上面示例那样用 `BukkitRunnable#runTask(...)`，或任何其他同步调度方法（如 `runTaskLater(...)`）；注解本身从不授予对这些 API 的安全访问。方法体只做这类状态访问的处理器根本没有理由标注它。
-:::
-
-未标注 `@RunAsync` 的命令方法体在主线程上执行。自 v6.3.0 起，命令在主线程上被分派时，方法体就在分派的当下执行；只有分派来自其他线程时，才通过 `runTask()` 推迟（v6.3.0 之前一律推迟一个 tick，见下方[命令方法体何时执行](#命令方法体何时执行)）。无论哪种时序，都只改变方法体何时开始，不改变它是否会阻塞：整个方法体（包括其中任何耗时的 CPU 或 I/O 工作）依然会在主线程上同步执行。去掉 `@RunAsync` 只对本来就不做耗时工作的方法体是安全的，恢复的是其他命令同样使用的这套调度；如果方法体同时包含耗时工作与 Bukkit 访问，需要做的是把耗时部分留在异步线程，只把触碰 Bukkit 状态的那一段通过 `runTask(...)`（就像上面示例那样）调度回主线程，而不是简单去掉注解。Paper 也不会拦截异步方法体里全部对世界、实体、方块或区块的访问：它的异步操作检查只覆盖一部分不安全的操作，因此违反上面这条规则时，方法体可能在不安全或不一致的状态下继续运行，而不是直接崩溃；没有抛出异常并不能证明代码是安全的。对确实应该异步执行、且不需要更多控制的方法体，`@RunAsync` 仍然是正确的选择；如果它还需要处理中提示、超时或可配置的边界行为，就改用 `@AsyncCommand`。
-
-### 命令方法体何时执行 <Badge type="tip" text="v6.3.0+" />
-
-自 v6.3.0 起，没有 `@RunAsync` 或 `@AsyncCommand` 的命令方法体，只要命令是在服务器主线程上分派的，就在分派的当下、在分派过程之中执行。玩家、控制台、命令方块、命令矿车、RCON 以及面板的远程命令发出的每一条命令，Bukkit 都在主线程上分派。只有 `onCommand` 从其他线程被调用时，方法体才会通过 `runTask()` 推迟到主线程，这与 Bukkit 自带命令的行为一致。v6.3.0 之前，这类方法体一律在分派后晚一个 tick 执行，于是它发给命令方块、命令矿车和 RCON 的回复全部丢失：这些发送者在分派返回时就读取输出。在 v6.3.0 中，面板的远程命令不在其中：它以服务器控制台的身份运行，回复通过日志流到达面板。自 v6.3.1 起，它以 Paper 的捕获式命令发送者运行，这个发送者拥有控制台的权限，但不是控制台发送者，因此它也在其中：方法体在分派返回之前打印的内容随命令结果返回，之后（在 `@RunAsync`、`@AsyncCommand` 或调度任务中）打印的内容写入服务器控制台，经日志流到达面板（见[面板集成](/zh/guide/advanced/panel-integration#远程命令的结果)）。本变化适用于所有模块，包括第三方模块。
-
-模块需要检查的地方：
-
-- **依赖「晚一个 tick」的代码**，需要自己用 `runTask()` 调度那部分工作。
-- **`InventoryClickEvent` 处理器**（包括 GUI 库的点击回调）不得直接打开或关闭背包，也不得直接调用 `performCommand` 或 `Bukkit.dispatchCommand`。在那里分派的模块命令，现在会在点击事件之中执行它的方法体，而方法体可能开关背包，这是 Paper 不允许的。请推迟调用：
-
-```java
-icon.onClick(event -> {
-    event.setCancelled(true);
-    Bukkit.getScheduler().runTask(plugin, () -> player.performCommand("menu open shop"));
-});
-```
-
-- **分派了另一条命令的方法体**，会在自己尚未结束时，在同一线程上执行嵌套命令的方法体。`AuditableDataEntity` 写入 `created_by`、`updated_by` 的审计用户，会在每个方法体之前保存、之后恢复：嵌套方法体看到的是它自己的发送者（发送者不是玩家时为空），外层方法体之后看到的仍是它自己的发送者。
-- **分派自身命令的方法体**，在持有 `@UsageLimit` 锁时，嵌套的那次分派会被拒绝，见[执行锁](#执行锁)。
-- **同一 tick 内两次分派同一条 `@CmdCD` 命令**会受冷却约束：第二次被拒绝，因为冷却在第一次分派返回之前就已记录。
-
-### 命令冷却
-
-如果你不希望一个指令被大量执行而消耗服务器资源，那么你可以在相应的方法前面添加 `@CmdCD`:
-
-```java
-@CmdCD(60)
-```
-
-参数类型为整数，单位为秒。
-
-冷却结束之前执行该指令将会发送消息：`操作频繁，请 %d 秒后再试`（`%d` 会替换为剩余秒数）。自 v6.3.0 起 `en.json` 含此带参数的键，英文服务器显示 `Frequent operations, please try again in %d seconds`。
-
-此限制仅对**玩家**生效。
-
-**冷却在每一次执行尝试之后都会生效，不只是在执行成功之后。** 即使映射的方法抛出异常，冷却依然会像正常返回一样开始计时——校验器不区分成功与失败。这是有意为之：报错的指令同样消耗服务器资源，而在紧密循环里反复重试一个报错指令，正是冷却机制要防止的模式。
-
-自 v6.3.0 起，进行中的冷却按执行器实例和映射分别记录。同一个 `CooldownValidator` 被同一个类的两个执行器共用时（模块代码把同一个 `ValidatorChain` 传给两者时就会如此），玩家用过执行器 A 之后，不再需要在执行器 B 上等待。在方法执行之前就被拒绝的分派（例如参数个数不对）不会开始冷却。
-
-自 v6.3.0 起，共享基类执行器上的类级 `@CmdCD` 对该基类所声明的映射生效，包括被 `@ExceptionCatch` 等 AOP 注解拦截的映射；在子类中被重写的映射以子类的注解为准。
-
-自 v6.3.0 起，模块卸载时，其执行器实际使用的校验链中的 `CooldownValidator` 与 `UsageLockValidator` 会被释放（无论该链来自 `super(chain)` 还是重写的 `createDefaultValidatorChain()`）；仍被另一个已加载执行器使用的验证器会保留其冷却、锁与退出清理，直到最后一个使用它的执行器卸载。
-
-::: tip 校验链无法强制执行的 @CmdCD 现在会拒绝加载 <Badge type="tip" text="v6.3.0+" />
-自 v6.3.0 起，标注了 `@CmdCD`、而其校验链中缺少 `CooldownValidator` 的类或方法——最常见的情形是省略了它的自定义 `ValidatorChain`，见下方[创建自定义验证器](#创建自定义验证器)一节——会在插件加载时被拒绝，并指出问题类与方法。这关闭了此前「看似已声明，实则拦不住任何调用」的缺口。
-:::
-
-#### 配置项绑定的冷却时间 <Badge type="tip" text="v6.3.0+" />
-
-::: info 自 v6.3.0 起
-`@CmdCD` 可以不写字面量，改为从模块自己的配置文件中读取冷却时间，服主因此可以直接调整它。
-:::
-
-用 `key` 指定一个 `@ConfigEntry` 路径，并用 `config` 指定配置实体类。值的单位与 `value` 相同，都是秒，默认值只写在配置字段上：
+模块用 `config` 指定配置实体类，用 `key` 指定 `@ConfigEntry` 路径（路径为空时用字段名）。不设置 `value`，将默认值写在配置字段上：
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/BoundCooldownConfig.java
 
 <<< @/../examples/src/main/java/com/ultikits/docs/command/BoundCooldownCommand.java
 
-绑定的值为 `0` 表示没有冷却，与 `value = 0` 相同。键按 `@ConfigEntry(path = ...)` 声明的路径匹配；`path` 为空时按字段名匹配。与字面量的 `@CmdCD` 一样，绑定的 `@CmdCD` 可以写在执行器类上，也可以写在映射方法上，以最具体的声明为准。
+文件型配置必须恰好注册一次。缺失键、同时指定冲突的字面量、字段不是 `int` 或 `long`（可用装箱类型），或取值不在 `0..Integer.MAX_VALUE` 内（包括 `null`），都会使绑定在加载时被拒绝。目录实体与外部执行器不能使用该绑定。绑定值为 `0` 时不再开始新的冷却；字面量小于或等于零也关闭冷却。
 
-绑定在加载时检查。以下情况只有该模块被拒绝加载，日志中会给出键名和值：
+`/ul reload` 后，合法的新值用于后续冷却，不改变已开始的冷却。绑定更新无效时保留运行中的值，记录警告并报告为部分重载。面板拒绝写入超范围值。避免对同一字段加 `@Range`，它的校验可能使配置重载本身失败。相同的绑定方式也适用于[配置绑定的定时任务](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间)。
 
-- `value` 与 `key` 同时设置；
-- 该配置类没有为模块恰好注册一次；
-- 键没有匹配到任何 `@ConfigEntry` 路径；
-- 被绑定字段的类型不是 `int`、`long`、`Integer` 或 `Long`；
-- 值为负数、`null`，或大于 `Integer.MAX_VALUE`。
+## 执行线程与卸载
 
-绑定的值为负数会导致模块被拒绝加载，而字面量的 `@CmdCD` 值小于等于 0 时仍然只是关闭该映射的冷却。
+没有异步注解时，方法体在全局 tick 线程上立即执行；由其他线程调用时则提交给 `global().run(...)`。立即执行可能阻塞服务器，嵌套的同步命令可以在外层调用返回前运行。如果 GUI 点击回调要分派会打开或关闭物品栏的命令，应把分派推迟到点击事件之后。使用面板的捕获式发送者时，分派返回前发送的回复可随命令结果返回；之后的回复进入控制台日志流。见[面板集成](/zh/guide/advanced/panel-integration#远程命令的结果)。
 
-修改后的值在执行 `/ul reload` 时生效。解析出的秒数按执行器缓存，只在配置重载成功后刷新，因此通过面板所做的修改同样要等到下一次 `/ul reload`。重载时读到无效的值会保留当前正在使用的值，输出一条 WARNING，并且自 v6.3.0 起把这次重载报告为部分重载，写明该键、被拒绝的值和继续使用的值（[#595](https://github.com/UltiKits/UltiTools-Reborn/issues/595)）。已经在计时的冷却保持它开始计时时确定的结束时间，与新值无关：重载为 `0` 只是不再开始新的冷却，正在计时的冷却会自然到期。面板写入如果把被绑定的键设为范围之外的值（例如负数），会像违反 `@Range` 一样被拒绝，不会写入任何内容。
+`@RunAsync` 和 `@AsyncCommand` 的方法体由框架的 `Scheduler.async()` 执行，不使用模块调度器，也不是玩家实体任务。CPU 或 I/O 工作可以在异步方法体运行；世界、实体、方块、区块和物品栏的访问应提交到适当的[调度器上下文](/zh/guide/advanced/scheduled-tasks#调度器-api)，例如用模块注入的 `Scheduler` 调用 `scheduler.entity(player).run(...)`。玩家离线不会跳过已经接受的方法体或其完成钩子。方法体的失败提示可能由工作线程发送。
 
-被绑定的字段不要加模块自己的 `@Range`，绑定范围就是该字段的范围。如果同一字段上有 `@Range`，重载时超出范围的值会让配置重载本身失败，停止该模块其余的重载步骤并报告为失败（[#509](https://github.com/UltiKits/UltiTools-Reborn/issues/509) 已在 6.3.0 修复：完整的 `/ul reload` 仍会继续重载下一个模块），而不是保留当前正在使用的值。
-
-[外部插件 API](/zh/guide/advanced/external-plugin-api) 执行器中的绑定会被拒绝。使用绑定的模块必须在 `plugin.yml` 中声明 `api-version: 630`：6.2.x 框架会静默忽略这些新属性，完全不会执行冷却；6.3.0 则会拒绝使用了绑定、却声明了更低 `api-version` 的模块。`@Scheduled` 也支持同样的绑定方式，见[绑定到配置项的时间](/zh/guide/advanced/scheduled-tasks#绑定到配置项的时间)。
-
-### 执行锁
-
-如果你希望一个命令只能被一条一条地执行，那么可以在相应的方法前面添加 `@UsageLimit` 注解：
+在下面的模块执行器方法中，`scheduler` 是注入的 `Scheduler`，`buildReport` 是你自己实现的计算或 I/O 操作，不访问 Bukkit 状态。结果由调度后的回调发送给玩家。
 
 ```java
-@UsageLimit(ContainConsole = false, value = LimitType.SENDER)
-```
-其中 `ContainConsole` 为是否将限制应用于控制台，`value` 为限制类型。自 v6.3.0 起，`ContainConsole` 默认值为 `true`——除非像上面这样显式设为 `false`，否则控制台发送者现在也受此限制约束。
-
-可用的类型有：
-
-- `LimitType.SENDER` 限制每个发送者每次只能有一条该指令在执行
-- `LimitType.ALL` 限制全服只能有一条该指令在执行
-- `LimitType.NONE` 不作限制
-
-自 v6.3.0 起，`@UsageLimit` 也可以写在执行器类上，或写在声明这些映射的基类上。没有自带 `@UsageLimit` 的映射使用类级注解；方法级注解只管辖它自己的映射。
-
-在 `LimitType.SENDER` 策略下，玩家在上一条该指令执行完毕之前重复执行前将会收到提示：`请先等待上一条命令执行完毕！`
-
-自 v6.3.0 起，命令方法体在主线程上于分派时执行，因此持有锁的方法体再分派自身命令时，嵌套的那次分派会以上面的提示被拒绝（`SENDER`：同一发送者；`ALL`：任何发送者）。获取锁从不等待，因此不会阻塞；外层方法体返回时（无论正常返回还是抛出异常）会释放它的锁。如果嵌套调用必须执行，请用 `runTask()` 调度。同样自 v6.3.0 起，校验时已获取的锁，在分派随后于方法执行前被拒绝时会被释放：被冷却拒绝（冷却在锁之后检查）、参数个数不对、参数无法解析，或者后续验证器的 `shouldValidate` / `validate`、模块的参数解析器抛出异常（该异常随后原样抛出）。v6.3.0 之前，这种情况下锁会一直保留到玩家退出，此后该映射的每一次调用都会被拒绝。
-
-::: tip @UsageLimit 现在真正实现了串行化 <Badge type="tip" text="v6.3.0+" />
-自 v6.3.0 起，获取即为门槛：锁在验证本身内部被获取，被拦截的发送者在方法执行前就会被拒绝；`ALL` 范围的锁只能由获取它的发送者释放，其他发送者的完成不再能释放它。与上面的 `@CmdCD` 一样，链中缺少 `UsageLockValidator` 的 `@UsageLimit(SENDER|ALL)` 会在加载时拒绝，并指出问题类与方法；`LimitType.NONE` 不受此约束。
-:::
-
-在 `LimitType.ALL` 策略下，玩家在服内上一条该指令执行完毕之前重复执行前将会收到提示：`请先等待其他玩家发送的命令执行完毕！`
-
-## 命令上下文 <Badge type="tip" text="v6.2.0+" />
-
-`CommandContext` 是一个不可变的对象，它封装了命令调用的所有信息。它被传递给验证器，并在执行期间可用于访问命令元数据。
-
-### 访问上下文信息
-
-```java
-// 检查发送者是否是玩家
-boolean isPlayer = context.isPlayer();
-
-// 获取玩家（如果发送者不是玩家则返回 null）
-Player player = context.getPlayer();
-
-// 获取原始命令发送者
-CommandSender sender = context.getSender();
-
-// 获取命令及其别名
-Command command = context.getCommand();
-String alias = context.getAlias();
-
-// 获取原始参数
-String[] args = context.getRawArgs();
-int argCount = context.getArgCount();
-String firstArg = context.getArg(0);
-
-// 按名称获取已解析的参数
-String[] nameValues = context.getParam("name");
-String singleValue = context.getParamValue("name");
-
-// 获取匹配的方法和格式
-Method method = context.getMatchedMethod();
-String format = context.getMatchedFormat();
-
-// 获取命令调用时间戳
-long timestamp = context.getTimestamp();
-```
-
-## 命令验证链 <Badge type="tip" text="v6.2.0+" />
-
-验证链实现了责任链模式，允许你组合多个按顺序执行的验证器。内置验证器处理常见需求，如权限、发送者类型、冷却和执行锁。
-
-### 内置验证器
-
-#### SenderTypeValidator
-
-验证命令发送者是否与预期的目标类型匹配（玩家、控制台或两者）：
-
-<<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerOnlyCommand.java
-
-#### PermissionValidator
-
-验证发送者是否具有所需权限：
-
-```java
-@CmdExecutor(
-    alias = {"admin"},
-    permission = "myadmin.use",  // 所有命令的基本权限
-    requireOp = false
-)
-@CmdMapping(format = "reload", permission = "myadmin.reload")  // 方法特定权限
-public void reload(@CmdSender CommandSender sender) {
-    // 只有拥有 "myadmin.reload" 权限的用户才能执行此命令
+@CmdTarget(CmdTarget.CmdTargetType.PLAYER)
+@CmdMapping(format = "report <name>")
+@RunAsync
+public void report(Player player, @CmdParam("name") String name) {
+    String result = buildReport(name);
+    scheduler.entity(player).run(() -> player.sendMessage(result));
 }
 ```
 
-#### CooldownValidator
+`@AsyncCommand` 可显示处理中提示。`processingMessageKey` 使用 `<namespace>:<path>`（例如 `my-module:backup.processing`），颜色由相应目录定义。值为空或无效时使用 `ultitools:command.async.processing`；无效值按每个执行器和取值记录一次警告：
 
-使用 `@CmdCD` 管理每个玩家的命令冷却：
-
-```java
-@CmdMapping(format = "expensive")
-@CmdCD(30)  // 30 秒冷却
-public void expensiveOperation(@CmdSender Player player) {
-    // 执行昂贵的操作
-    // 玩家必须等待 30 秒后才能再次执行
-}
+```text
+Invalid processingMessageKey on <executor class>: <value>; using the default processing message
 ```
 
-以编程方式访问冷却状态：
+`timeout` 小于或等于零时不启动监视器。否则监视器只报告一次：玩家通过 `entity(player)` 接收，其他发送者通过 `global()` 接收；若方法体先结束，监视器会被取消。超时不取消或中断方法体。卸载中的执行器拒绝新异步提交；已接受的方法体及其完成钩子共用约十秒的等待时间。单个模块卸载有各自的额度；停服时，所有执行器共用一份，先在关闭服务前等待框架命令。只计实际等待时间。额度用完后继续卸载，仍有任务的执行器记录：
 
-```java
-public void checkCooldown(UUID playerId, String methodKey) {
-    long remaining = getCooldownValidator().getRemainingCooldown(playerId, methodKey);
-    if (remaining > 0) {
-        // 玩家仍在冷却中
-    }
-}
+```text
+Async command unload wait expired for <executor class>: <n> invocation(s); work continues in the background
 ```
 
-冷却校验器通过 `getCooldownValidator()` 获取，它是 `BaseCommandExecutor` 上的一个实例字段。每个命令执行器各持有自己的一份，因此该调用只能取到当前执行器的冷却状态。`methodKey` 是映射方法的 `method.toString()`。向 `super(...)` 传入自定义验证链时，`getCooldownValidator()` 返回的实例不在链中，始终报告没有冷却；请保留你放进链中的 `CooldownValidator` 的引用并查询它。通过自定义 `ValidatorChain` 把同一个校验器交给多个执行器时，以字符串为键的 `getRemainingCooldown(UUID, String)` 与 `clearCooldown(UUID, String)` 作用于其中全部执行器；自 v6.3.0 起，重载 `getRemainingCooldown(UUID, Object executor, String methodKey)` 与 `clearCooldown(UUID, Object executor, String methodKey)` 只作用于一个执行器。
+卸载在 tick 线程上等待时，不要让异步方法体阻塞等待全局或实体回调。卸载后仍在运行的工作不得依赖已释放的资源；调度器退役后提交工作可能被拒绝。命令等待与界面存储等待的额度相互独立。详见[运行中卸载等待与 Paper 看门狗警告](https://github.com/UltiKits/UltiTools-Reborn/blob/main/COMPATIBILITY.md#live-unload-waits-and-paper-watchdog-warnings)。
 
-#### UsageLockValidator
+## 命令测试
 
-使用 `@UsageLimit` 防止并发执行：
+UltiTools 7.0 没有为 UltiTools 模块提供受支持的无服务器命令注册测试夹具。在单元测试中，可以直接调用映射的处理方法和补全提供方法，检查其结果或副作用；也可以通过反射检查注解是否声明了预期的别名、映射和权限。直接调用会绕过框架分派，因此这些测试不能证明框架会绑定参数或执行权限检查。
 
-```java
-@CmdMapping(format = "backup")
-@UsageLimit(value = UsageLimit.LimitType.ALL)  // 仅限服务器执行一个
-public void backup(@CmdSender CommandSender sender) {
-    // 同时只有一个玩家可以运行此命令
-}
-
-@CmdMapping(format = "download")
-@UsageLimit(value = UsageLimit.LimitType.SENDER)  // 每个玩家仅一个
-public void download(@CmdSender Player player) {
-    // 每个玩家同时只能运行一个
-}
-```
-
-### 创建自定义验证器
-
-实现 `CommandValidator` 来创建自定义验证逻辑。自 v6.3.0 起，在 `validate` 中获取了资源的验证器应在 `onRefused` 中释放它；后续验证器抛出异常时，`onRefused` 同样会被调用：
-
-<<< @/../examples/src/main/java/com/ultikits/docs/command/WorldRestrictionValidator.java
-
-在你的命令执行器中注册验证器：
-
-<<< @/../examples/src/main/java/com/ultikits/docs/command/ValidatorCommand.java
-
-::: warning 自定义验证链会替换掉全部四个默认验证器
-把 `ValidatorChain` 传给 `super(...)` 会跳过 `createDefaultValidatorChain()`，因此 `SenderTypeValidator`（类上的 `@CmdTarget`）、`PermissionValidator`（`requireOp` 与方法级 `@CmdMapping` 的权限，类级 `permission` 仍由 Bukkit 强制）、`UsageLockValidator`（`@UsageLimit`）与 `CooldownValidator`（`@CmdCD`）都不在链里，除非你自己把它们加进去。
-改用上面那种写法：调用 `super()` 后用 `addValidator(...)` 注册自己的验证器，四个默认验证器保留，你的验证器按 `getOrder()` 排序。
-自 v6.3.0 起，链中缺少匹配验证器的 `@CmdCD`/`@UsageLimit` 会在插件加载时被拒绝，而不再是静默记录状态却不强制执行——见上方[命令冷却](#命令冷却)与[执行锁](#执行锁)小节的提示。
-:::
-
-或使用自定义验证链：
-
-<<< @/../examples/src/main/java/com/ultikits/docs/command/ChainCommand.java
-
-### 验证器执行顺序
-
-验证器按其 `getOrder()` 值的顺序执行（较低的值优先）：
-
-1. **100** - SenderTypeValidator（确保正确的用户类型）
-2. **200** - PermissionValidator（检查权限）
-3. **250** - UsageLockValidator（防止并发执行）
-4. **300** - CooldownValidator（检查冷却状态）
-5. 自定义验证器按其 `getOrder()` 返回值排序；默认值为 `0`，会排在所有内置验证器之前，如需在其后执行请返回大于 300 的值（示例用 400）
-
-## 异步命令 <Badge type="tip" text="v6.2.0+" />
-
-使用 `@AsyncCommand` 以异步方式执行命令而不阻塞服务器线程。它比 `@RunAsync` 提供更多配置选项：
-
-```java
-@CmdMapping(format = "backup")
-@AsyncCommand
-public void backupWorld(@CmdSender Player player) {
-    // 异步运行 - 适合 I/O 操作
-    performBackupLogic();
-
-    // 同步回主线程以进行 Bukkit 操作
-    Bukkit.getScheduler().runTask(UltiTools.getInstance(), () -> {
-        player.sendMessage("备份已完成！");
-    });
-}
-```
-
-### 异步命令选项
-
-::: tip @AsyncCommand 的 timeout 现在真正生效 <Badge type="tip" text="v6.3.0+" />
-自 v6.3.0 起，`timeout()` 是框架"等待多久"的截止时间，不是对方法体的取消：配置的时长耗尽而命令体仍在运行时，框架停止等待并向发送者发送一条超时消息，但命令体本身永远不会被中断，会自行运行至完成。`timeout = 0` 会完全禁用该监视器——框架会无限期等待，永远不会报告超时。
-:::
-
-```java
-@AsyncCommand(
-    showProcessing = true,                      // 显示"处理中..."消息
-    processingMessageKey = "command.backup.processing",  // 自定义 i18n 消息
-    timeout = 60                                // 60 秒超时（0 = 无超时，不设置时默认 30 秒）
-)
-@CmdMapping(format = "backup")
-public void backupWorld(@CmdSender Player player) {
-    // 上述配置的作用：
-    // - 执行时显示 command.backup.processing 对应的文本
-    //   （只有键为空时才使用默认的 处理中... / Processing...）
-    // - 使用自定义 i18n 键而不是默认值
-}
-```
-
-## 自定义类型解析器 <Badge type="tip" text="v6.2.0+" />
-
-类型解析器将命令参数字符串转换为你的方法所需的类型。UltiTools 为原始类型、Bukkit 实体和数组提供了内置解析器。
-
-### 内置解析器
-
-- **原始类型**: String、Integer、Double、Float、Long、Short、Byte、Boolean
-- **Bukkit 实体**: Player、OfflinePlayer、Material、World
-- **其他类型**: UUID、Location、GameMode、Enchantment
-- **数组**: 上述所有类型都支持数组语法
-
-### 创建自定义解析器
-
-实现 `TypeParser<T>`：
-
-<<< @/../examples/src/main/java/com/ultikits/docs/command/ColorParser.java
-
-注册解析器：
-
-```java
-@Autowired
-private UltiToolsPlugin plugin;
-
-@PostConstruct
-public void init() {
-    TypeParserRegistry.getInstance().register(new ColorParser());
-}
-```
-
-在你的命令中使用：
-
-```java
-@CmdMapping(format = "setcolor <color>")
-public void setColor(@CmdSender Player player, @CmdParam("color") Color color) {
-    // color 自动解析
-}
-```
-
-支持数组的高级解析器：
-
-<<< @/../examples/src/main/java/com/ultikits/docs/command/RangeParser.java
-
-```java
-// 使用方式
-@CmdMapping(format = "random <range>")
-public void randomNumber(@CmdSender Player player,
-                         @CmdParam("range") IntRange range) {
-    int value = ThreadLocalRandom.current().nextInt(range.min, range.max + 1);
-    player.sendMessage("随机值: " + value);
-}
-```
-
-## 传统命令执行器
-
-### 游戏内命令
-
-如果你希望一个指令只能在游戏内使用（由玩家执行），那么可以继承 `AbstractPlayerCommandExecutor` 类，并重写 `onPlayerCommand` 方法。
-
-<<< @/../examples/src/main/java/com/ultikits/docs/command/PlayerCommandExample.java
-
-该方法接收命令、参数和玩家；与 `CommandExecutor#onCommand` 不同，没有别名（label）参数。
-
-如果尝试在控制台执行该命令，将会收到一条错误消息：`只有游戏内可以执行这个指令！`
-
-如果你希望该指令能够使用 Tab 补全，请看下一节。
-
-### 命令补全
-
-Bukkit API 提供了 `TabCompleter` 接口用于命令补全。
-
-UltiTools 对该接口进行了封装，提供了一个更加简洁的命令补全方式。
-
-你只需要继承 `AbstractTabExecutor` 类，并重写 `onPlayerTabComplete` 方法。
-
-```java
-@Override
-protected List<String> onPlayerTabComplete(Command command, String[] strings, Player player) {
-    // 你的代码
-    return null;
-}
-```
-
-该方法接收命令、参数和玩家；与 `TabCompleter#onTabComplete` 不同，没有别名（label）参数。
-
-其余的用法与 `AbstractPlayerCommandExecutor` 类相同。
-
-### 控制台指令
-
-如果你希望一个指令只能在控制台使用，那么可以继承 `AbstractConsoleCommandExecutor` 类，并重写 `onConsoleCommand` 方法。
-
-<<< @/../examples/src/main/java/com/ultikits/docs/command/ConsoleCommandExample.java
-
-该方法接收发送者、命令和参数；与 `CommandExecutor#onCommand` 不同，没有别名（label）参数。
-
-如果尝试在游戏内执行该命令，将会收到一条错误消息：`只可以在后台执行这个指令！`
-
-### 指令帮助
-
-上述三个类都从 `AbstractCommand` 继承了 `sendHelpMessage`，它在那里声明为 `protected abstract`。
-它**不是框架替你提供的**，每个子类都必须自己实现——上面两个示例里的那个 override 就是因为这个：
-
-```java
-@Override
-protected void sendHelpMessage(CommandSender sender) {
-    // 你的代码，向玩家发送信息
-}
-```
-
-当发送 `/somecommand help` 指令时，将会调用该方法。
-
-### 错误处理
-
-你可能会发现，上述三个类的 onCommand 方法都返回了一个 `boolean` 类型的值。
-
-与原生的 `CommandExecutor` 接口相同，该值用于表示命令是否执行成功。
-
-当命令执行返回 `false` 时，将自动向命令发送者提示信息。
+在 Paper 服务器上验证模块命令是否注册、有权限和无权限的玩家是否看到预期的命令和补全建议，以及实际命令树能否正确分派命令并给出语法错误提示。

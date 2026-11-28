@@ -1,74 +1,59 @@
 # Economy
 
-::: info As of v6.3.0
-The economy states and diagnostics below are available in UltiTools-API v6.3.0. In v6.2.5 and earlier, `EconomyUtils` reports unavailability silently.
+::: info As of v7.0.0
+This page describes the economy API in UltiTools-API 7.0. For 6.x, see the [archived v6.5.0 economy guide](/v6.5.0/guide/advanced/economy.html).
 :::
 
-UltiTools integrates with Vault's economy API as an optional, soft dependency. A server without
-Vault installed runs UltiTools and every module normally — no economy feature is required for the
-framework or any other module to work. A module that does call an economy operation goes through
-`EconomyUtils`, never through Vault directly.
+Use the static methods on `com.ultikits.ultitools.utils.EconomyUtils`. Vault is an optional server dependency in `paper-plugin.yml` (`required: false`), so UltiTools can start without it. Economy operations still need Vault and a registered economy provider.
 
 ## Economy states
 
-The economy service is always in exactly one of three states, and the console reports which one
-applies once at server start:
+UltiTools schedules one INFO message at startup. Its text is English regardless of the configured language:
 
-| State | Console line at start | Meaning |
-|---|---|---|
-| Vault not installed | `[UltiTools-API] Vault not installed - economy service unavailable.` | No plugin named `Vault` is present |
-| No provider registered | `[UltiTools-API] Vault detected, but no economy provider is registered - economy service unavailable.` | Vault is present, but no economy plugin (for example EssentialsX) has registered an `Economy` provider with it |
-| Available | `[UltiTools-API] Hooked into Vault, economy provider: <provider name>.` | Vault is present and a provider is registered |
+| State | Message |
+|---|---|
+| Vault not installed | `[UltiTools-API] Vault not installed - economy service unavailable.` |
+| Vault present, no registered provider | `[UltiTools-API] Vault detected, but no economy provider is registered - economy service unavailable.` |
+| Available | `[UltiTools-API] Hooked into Vault, economy provider: <provider name>.` |
 
-The state is re-checked on every call, not cached at start-up — a provider that registers after the
-framework has already started is seen on the very next call, since plugin load order gives no
-ordering guarantee beyond declared dependencies.
+The façade looks up the current Vault `Economy` registration through Bukkit's `ServicesManager`; the startup result is not cached. If several providers are registered, UltiTools uses the one Bukkit selects by service priority. It does not combine balances, select a provider per module or currency, or try another provider if an operation fails. The framework's `EconomyProvider` interface is internal, not a public registration or multi-currency API.
 
 ## Calling the façade
 
-A module never checks for Vault itself. It calls `EconomyUtils`, which reports the current state
-and behaves safely in every one of the three states above:
+The player operations accept `OfflinePlayer` or `UUID` (`transfer` takes two players of the same type). The UUID overloads resolve players through Bukkit.
+
+| Method | Result |
+|---|---|
+| `isAvailable()`, `setup()` | `true` if a provider is currently available; `false` otherwise. Neither registers a provider. |
+| `getBalance(player)` | Provider balance, or `0` when unavailable. A zero alone does not prove that the account is empty. |
+| `has(player, amount)` | Provider's answer, or `false` when unavailable. |
+| `deposit(player, amount)`, `withdraw(player, amount)` | `false` when unavailable, when the amount is non-positive, or when the provider reports failure. Withdrawal also returns `false` if the provider's `has` check fails. |
+| `transfer(from, to, amount)` | Returns `false` for a non-positive amount, a failed funds check, or a failed withdrawal. Otherwise withdraws first, then deposits. If the recipient deposit returns `false`, it attempts to refund the sender and returns `false` without checking the refund result. This is not an atomic transaction. |
+| `format(amount)` | Provider formatting, or `String.format("%.2f", amount)` when unavailable. |
+| `getCurrencyName()`, `getCurrencyNamePlural()` | Provider's singular and plural names respectively; both fall back to `coins`. |
+| `getEconomy()` | Raw Vault `Economy`, or `null` when unavailable. Its signature uses a Vault type; prefer the other methods if your code must not depend on Vault classes. |
+
+The unavailable-service defaults do not handle exceptions thrown by Bukkit or the provider. Those exceptions can propagate; in particular, an exception from the recipient deposit does not trigger the transfer refund. Check the operation's result even if an earlier availability check succeeded:
 
 ```java
-if (EconomyUtils.isAvailable()) {
-    double balance = EconomyUtils.getBalance(player);
-    EconomyUtils.withdraw(player, 10.0);
+import com.ultikits.ultitools.utils.EconomyUtils;
+
+// Inside a method with an OfflinePlayer named player:
+if (EconomyUtils.withdraw(player, 10.0)) {
+    // Grant the purchase only after a successful withdrawal.
 }
 ```
 
-When the economy service is unavailable, every `EconomyUtils` operation returns a safe default
-(zero, `false`, or a plain formatted string) rather than throwing, and the console logs one
-WARNING the first time a given module makes a request in that server session — not on every call.
-That warning names the calling module, distinguishes "Vault is not installed" from "Vault is
-installed but no provider is registered," states plainly that this is the server's own
-environment rather than a defect in UltiTools or in the calling module, and gives the install
-instruction. A module author does nothing to opt into this — every existing `EconomyUtils` call
-site already receives it.
+## External JavaPlugin consumers
 
-The caller is found from the call stack. As of v6.3.0 the warning can name:
+Declare the UltiTools dependency and call `UltiToolsAPI.connect(this)` from `onEnable()`. Use the same static `EconomyUtils` methods; there is no economy accessor on `UltiToolsAPI`. If you disconnect explicitly in `onDisable()`, call `UltiToolsAPI.disconnect(this)`. See [External Plugin API](./external-plugin-api.md) for setup.
 
-- a loaded module, through the packages its `@UltiToolsModule` scans and, in addition, its main
-  class's own package ([issue #489](https://github.com/UltiKits/UltiTools-Reborn/issues/489));
-- a module that is still being registered — a request from its constructor, a `@PostConstruct`
-  method or `registerSelf()` ([issue #483](https://github.com/UltiKits/UltiTools-Reborn/issues/483));
-- a plain Bukkit plugin connected through the [External Plugin API](./external-plugin-api.md), by its
-  plugin name, until it disconnects ([issue #462](https://github.com/UltiKits/UltiTools-Reborn/issues/462)).
+## Unavailable-service warnings
 
-The most specific matching package wins; a package claimed by two different callers names neither.
-A request none of these covers is reported as `an unknown caller`, once per calling package rather
-than once for all of them, so a second unknown caller is not silenced.
+The first unavailable request per attributed module or external plugin name in a server session produces a WARNING. The closest matching call-stack frame is used. Within that frame, the most specific package wins: loaded modules contribute their scan packages and the main class's package, a module being registered contributes those roots on its registering thread, and an external plugin contributes its scan package while connected. If the best package has conflicting owners or no frame matches, the caller is unknown. Unknown callers are deduplicated by caller package when it can be determined. Keep your main class in a package dedicated to your module: a broad package root also matches its subpackages and may attribute unrelated calls to your module.
 
-A known limitation, documented rather than changed
-([issue #567](https://github.com/UltiKits/UltiTools-Reborn/issues/567)): the main class's own package
-counts together with its sub-packages, like a scanned package. A module whose main class sits in a
-broad package shared with other code -- `com.example`, while other plugins or libraries also live under
-`com.example` -- may be named as the caller for code there that is not its own, and that request uses
-up the module's one warning for the session. Put the main class in a package of its own, such as
-`com.example.myplugin`, as every first-party module does.
+The warning is also fixed English. In the template below, `<name>` is used in both positions and is literally `an unknown caller` when attribution fails. `<cause>` is either `Vault is not installed on this server` or `Vault is installed, but no economy provider is registered with it`.
 
-## What this does not change
-
-Vault stays an optional, soft dependency of UltiTools: `plugin.yml` still lists
-`Vault` under `softdepend`, and the Maven dependency on Vault's API is still `provided` scope. No module
-needs to change how it calls `EconomyUtils`. A public, multi-currency economy interface is under
-design for a future release; it is not part of v6.3.0, and no code in this release depends on it.
+```text
+[UltiTools-API] Module '<name>' requested the economy service, but <cause>. This is the server's environment, not a defect in UltiTools or in '<name>'. Install Vault and an economy plugin (e.g. EssentialsX) that registers a Vault economy provider to enable economy features.
+```

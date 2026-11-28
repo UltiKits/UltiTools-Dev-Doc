@@ -1,14 +1,12 @@
 # Query DSL
 
-::: info Since v6.2.0
-The fluent Query DSL is available starting from UltiTools-API v6.2.0.
-:::
+This page describes the query API as of v7.0.0. See the [7.0.0 release notes](../release-notes/7.0.0) for an overview.
 
-UltiTools provides a fluent Query DSL that lets you build data queries using a readable, chainable API. Instead of manually constructing `WhereCondition` objects, you can write expressive queries directly.
+`DataOperator#query()` creates a fluent query builder.
 
 ## Basic Usage
 
-Get a `Query` builder from any `DataOperator`:
+In a module, get the operator with `plugin.getDataOperator(HomeEntity.class)`. The entity must be registered to that module’s data scope. In a standalone Paper plugin, use `UltiToolsAPI.getDataOperator(this, HomeEntity.class)` after a successful `UltiToolsAPI.connect(this)`. See [Entity Registration](./data-storage#entity-registration) for entity discovery, additional registration, and ownership errors.
 
 ```java
 DataOperator<HomeEntity> dataOperator = plugin.getDataOperator(HomeEntity.class);
@@ -19,13 +17,13 @@ List<HomeEntity> homes = dataOperator.query()
     .list();
 ```
 
-The snippets on this page are fragments. The `HomeEntity` of the [complete example](#complete-example) maps only `player_id` and `name`; the snippets that query `world` assume it also maps a `world` column, and `PlayerEntity` stands for an entity with `balance` and `level` columns. Every column you name must be an `@Column` of the entity: the MySQL and SQLite backends reject an unknown column in `eq` with `DataAccessException`, and an in-memory operator such as `in` matches no row on an unknown column.
+Use each fragment with an operator for its entity type. The `HomeEntity` in the [complete example](#complete-example) maps `player_id` and `name`; the fragments using `world` assume you added that mapping. `playerOperator` is a `DataOperator<PlayerEntity>` whose entity maps `balance` and `level`. Use the `@Column` name rather than the Java field name. MySQL and SQLite reject an unknown `eq` column with `DataAccessException`; `in` matches no rows if the field cannot be resolved.
 
 ## Conditions
 
 ### where / and
 
-Use `where()` to start your first condition, and `and()` to add additional conditions:
+Use `where(column)` for the first condition and `and(column)` for subsequent ones. Both select the column for the next comparison; the comparison adds the condition. All conditions must match, and `where` does not clear earlier conditions.
 
 ```java
 // Find a specific home by player and name
@@ -41,18 +39,18 @@ After calling `where()` or `and()`, chain one of these operators:
 
 | Operator | Description | Example |
 |----------|-------------|---------|
-| `eq(value)` | Equal to | `.where("name").eq("base")` |
-| `ne(value)` | Not equal to | `.where("status").ne("disabled")` |
+| `eq(value)` | Backend `WhereCondition` with `EQUAL` | `.where("name").eq("base")` |
+| `ne(value)` | Non-null field value whose Java `equals` returns `false` | `.where("name").ne("base")` |
 | `gt(value)` | Greater than | `.where("level").gt(10)` |
 | `lt(value)` | Less than | `.where("balance").lt(1000.0)` |
-| `gte(value)` | Greater than or equal | `.where("level").gte(5)` |
-| `lte(value)` | Less than or equal | `.where("balance").lte(500.0)` |
-| `like(pattern)` | `%` matches any run of characters, `_` one character; case-insensitive (see below) | `.where("name").like("%base%")` |
-| `in(collection)` | Value in collection | `.where("world").in(worldList)` |
+| `gte(value)` | Greater than or equal to | `.where("level").gte(5)` |
+| `lte(value)` | Less than or equal to | `.where("balance").lte(500.0)` |
+| `like(pattern)` | Matches the entire string representation of a non-null value (see below) | `.where("name").like("%base%")` |
+| `in(collection)` | Non-null field value for which the collection’s `contains` returns `true` | `.where("world").in(worlds)` |
 
 ```java
 // Find players with balance between 100 and 1000
-List<PlayerEntity> players = dataOperator.query()
+List<PlayerEntity> players = playerOperator.query()
     .where("balance").gte(100.0)
     .and("balance").lte(1000.0)
     .list();
@@ -64,39 +62,42 @@ List<HomeEntity> homes = dataOperator.query()
     .list();
 ```
 
-`like` is not passed to the database. It is evaluated in memory, case-insensitively, on every backend: `%` and `_` are turned into a Java regular expression and every other character is interpreted as regex, so escape `.`, `(`, `[` and the like yourself.
+`like` uses Java regular expressions in memory with the `(?i)` flag. It replaces `%` with `.*` and `_` with `.`, leaving other characters to be interpreted as regex syntax. This is not SQL `LIKE`; escape regex metacharacters that should be literal.
+
+Range comparisons treat `null` as lower than non-null values and two nulls as equal. Standard finite numbers are compared at their exact values (the actual binary value for floating point), rather than all being converted to `double`. The built-in backends reject `eq(null)` and `eq` with a NaN or infinite condition value. `eq(null)` does not mean `IS NULL`.
 
 ## Ordering
 
-Sort results using `orderBy()` (ascending) or `orderByDesc()` (descending):
+Use `orderBy(column)` for ascending order or `orderByDesc(column)` for descending order. Only the last ordering call takes effect. Sorting uses the same comparison rules as range filters.
 
 ```java
 // Get players sorted by balance, highest first
-List<PlayerEntity> richest = dataOperator.query()
+List<PlayerEntity> richest = playerOperator.query()
     .orderByDesc("balance")
     .list();
 
 // Sort by level ascending
-List<PlayerEntity> sorted = dataOperator.query()
+List<PlayerEntity> sorted = playerOperator.query()
     .orderBy("level")
     .list();
 ```
 
 ## Pagination
 
-Use `limit()` and `offset()` to paginate results:
+After sorting, `offset(start)` skips rows (default `0`), then `limit(count)` caps what remains (unlimited by default). A negative offset skips nothing, a negative limit is unlimited, and `limit(0)` returns no rows.
 
 ```java
 // Get page 2 with 10 items per page
 int pageSize = 10;
 int page = 2;
-List<PlayerEntity> pageResults = dataOperator.query()
+List<PlayerEntity> pageResults = playerOperator.query()
+    .orderBy("id")
     .limit(pageSize)
     .offset((page - 1) * pageSize)
     .list();
 ```
 
-Only `eq` conditions reach the storage backend. The other operators, ordering, `offset` and `limit` are applied in memory to every row that matches the `eq` conditions, so this still loads the whole matching set. For large tables use `DataOperator.page(...)`.
+The built-in backends use the default query implementation. `list()` passes `eq` conditions to `getAll(...)` as `WhereCondition` objects, or calls unfiltered `getAll()` if there are none. MySQL and SQLite apply those equality conditions in SQL; the JSON backend matches them itself. The DSL applies other filters, sorting, and slicing in memory after reading the candidates. Even a single page loads all candidates first. For large tables on MySQL or SQLite, consider `DataOperator.page(...)` in [Data Storage](./data-storage); do not assume unfiltered JSON pagination behaves like SQL.
 
 ## Terminal Operations
 
@@ -104,11 +105,11 @@ Every query chain must end with a terminal operation:
 
 | Method | Return Type | Description |
 |--------|-------------|-------------|
-| `list()` | `List<T>` | Returns all matching results |
-| `first()` | `T` (nullable) | Returns the first match, or `null` |
-| `exists()` | `boolean` | Returns `true` if any match exists |
-| `count()` | `long` | Counts matching results |
-| `delete()` | `int` | Deletes matching results, returns the number of rows removed |
+| `list()` | `List<T>` | Returns the filtered, sorted, and sliced results |
+| `first()` | `T` | Narrows the builder’s limit to at most one row, then calls `list()`; returns `null` if empty |
+| `exists()` | `boolean` | Tests `getAll()` for emptiness with no filters, or calls `exist(...)` with only `eq` filters. Both paths ignore pagination. Other filters use `first()` |
+| `count()` | `long` | Returns the size of `list()`, including pagination; does not issue SQL `COUNT` |
+| `delete()` | `int` | Deletes the rows selected by `list()` individually by ID; built-in backends return the actual number removed |
 
 ```java
 // Check if a player has any homes
@@ -127,14 +128,18 @@ int deleted = dataOperator.query()
     .delete();
 ```
 
-As of v6.3.0, `delete()` returns the number of rows the backend actually removed, so a matched row that another writer removed first is not counted. If a matched row has a `null` id, `delete()` throws `DataAccessException` before deleting anything, because no delete can address that row.
+The builder is stateful; call `query()` again for an independent query. `delete()` checks all selected IDs first and throws `DataAccessException` (`ULTI-3007`) before deleting anything if any ID is `null`. The exception message is `Query#delete() matched a <entity class> row with a null id, which no delete can address; nothing was deleted.`
+
+Built-in backends call `onDelete()` on an entity found by ID; a row already removed by another writer is not counted. Deletion does not recheck the original filters at write time or start a transaction for the batch. With a third-party operator using the default fallback, the count is estimated by checking existence before and after deletion.
+
+When the DSL reads through `getAll(...)`, the built-in backends call `onLoad()` for every candidate before in-memory processing, even if it does not appear in the final result. The `exists()` path for equality-only filters skips that read.
 
 ## Complete Example
 
-Here is a complete example of a service using the Query DSL:
+This module service uses the DSL to find, list, check, and delete homes. Package the `@Table`-annotated `HomeEntity` in the owning module’s JAR.
 
 <<< @/../examples/src/main/java/com/ultikits/docs/query/HomeServiceImpl.java
 
-::: tip Legacy API
-The `WhereCondition` API still works and is not deprecated. The Query DSL is a higher-level alternative that is more readable for complex queries. You can mix both approaches freely.
+::: tip Direct conditions
+You can also pass `WhereCondition` directly to `DataOperator`. Backend comparisons do not necessarily behave like the DSL’s in-memory comparisons.
 :::

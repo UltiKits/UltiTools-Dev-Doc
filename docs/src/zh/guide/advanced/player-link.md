@@ -61,7 +61,7 @@ public class PanelLinkRequest {
 | `TIMED_OUT` | 网关 30 秒内没有回复 |
 | `INTERNAL_ERROR` | 网关回复了意外的错误 |
 
-future 可能在框架线程上完成。调用 Bukkit API 之前先切回主线程，例如用 `Bukkit.getScheduler().runTask(...)`。
+future 可能在框架线程上完成。自 v7.0.0 起，调用 Bukkit API 之前先切到该玩家的实体上下文，使用模块注入的 [`Scheduler`](/zh/guide/advanced/scheduled-tasks#调度器-api)，例如 `future.thenAcceptAsync(text -> player.sendMessage(text), scheduler.entity(player))`。如果那时玩家已经离开，该执行器会拒绝任务，后续阶段以 `RejectedExecutionException` 异常完成。
 
 ## 链接有效期与过期
 

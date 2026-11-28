@@ -9,7 +9,12 @@
 ::: danger v6.3.0 起已移除
 `getVersionWrapper()` 及其返回的 `VersionWrapper` 接口已在 v6.3.0 中被彻底删除，连同 `DefaultVersionWrapper` 一起。
 v6.3.0 的 jar 里两者都不存在，下方的方法列表已相应移除该行。
-请改用 `XVersionUtils` 的静态方法；已移除的 [`VersionWrapper` API](/api/version-wrapper) 仍可在 6.2.5 Javadoc 中查阅。
+在 6.x 中请改用 `XVersionUtils` 的静态方法；已移除的 [`VersionWrapper` API](/api/version-wrapper) 仍可在 6.2.5 Javadoc 中查阅。
+:::
+
+::: warning v7.0.0 迁移说明
+自 v7.0.0 起，`XVersionUtils` 也已移除，请使用 Paper 原生的物品、音效、附魔和 Adventure API。
+替代方式见 [7.0 原生物品与音效 API](/zh/guide/advanced/upgrading-to-7#items-and-sounds)。
 :::
 
 # 类 `UltiToolsPlugin`
@@ -27,9 +32,9 @@ v6.3.0 的 jar 里两者都不存在，下方的方法列表已相应移除该�
 > 
 > 版本: 1.0.0
 
-已实现的接口: `IPlugin`, `Localized`, `Configurable`
+已实现的接口: `IPlugin`, `Configurable`
 
-public abstract class **UltiToolsPlugin** extends java.lang.Object implements IPlugin, Localized, Configurable
+public abstract class **UltiToolsPlugin** extends java.lang.Object implements IPlugin, Configurable
 
 ## 构造器概要
 
@@ -42,7 +47,11 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 
 ## 方法概要
 
-下表只列出部分公开 API。该类还提供 `getConfigs(Class)`、`getConfiguredLanguage()`、`reloadWithReport()`、`isNewerVersionThan(...)`，受保护的钩子 `onUnregister()`、`onReload()` 与 `onReload(ReloadReport)`，以及 `getPluginName()`、`getVersion()`、`getContext()` 等 getter。完整列表见 [Javadoc](/api/)。
+下表只列出部分公开 API。该类还提供 `getConfigs(Class)`、`reloadWithReport()`、`isNewerVersionThan(...)`，受保护的钩子 `onUnregister()`、`onReload()` 与 `onReload(ReloadReport)`，以及 `getPluginName()`、`getVersion()`、`getContext()` 等 getter。完整列表见 [Javadoc](/api/)。
+
+::: tip 消息服务（自 v7.0.0 起）
+模块通过注入的 `Messages` 服务渲染文本，见[消息与语言](/zh/guide/essentials/messages)。
+:::
 
 :::tabs
 == 所有方法
@@ -54,12 +63,8 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
 | `static ConfigManager `                         | getConfigManager\()                                                         |
 | `final <T extends BaseDataEntity<String>> DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
-| `final Language`                                | getLanguage\()                                                              |
-| `final java.lang.String`                        | getLanguageCode()                                                           |
 | `static ListenerManager`                        | getListenerManager\()                                                       |
 | `static PluginManager`                          | getPluginManager\()                                                         |
-| `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
-| `final java.lang.String`                        | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
 | `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
 
 == 静态方法
@@ -78,10 +83,6 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.Class\<T> configType)                                  |
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
 | `final <T extends BaseDataEntity<String>> DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
-| `final Language`                                | getLanguage\()                                                              |
-| `final java.lang.String`                        | getLanguageCode()                                                           |
-| `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
-| `final java.lang.String`                        | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
 | `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
 
 == 具体方法
@@ -93,12 +94,8 @@ public abstract class **UltiToolsPlugin** extends java.lang.Object implements IP
 | `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
 | `static ConfigManager `                         | getConfigManager\()                                                         |
 | `final <T extends BaseDataEntity<String>> DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
-| `final Language`                                | getLanguage\()                                                              |
-| `final java.lang.String`                        | getLanguageCode()                                                           |
 | `static ListenerManager`                        | getListenerManager\()                                                       |
 | `static PluginManager`                          | getPluginManager\()                                                         |
-| `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
-| `final java.lang.String`                        | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
 | `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
 
 :::
@@ -111,10 +108,6 @@ equals, getClass, hashCode, notify, notifyAll, toString, wait, wait, wait
 ### 从接口继承的方法
 ::: info com.ultikits.ultitools.interfaces.IPlugin
 registerSelf, reloadSelf, unregisterSelf
-:::
-
-::: info com.ultikits.ultitools.interfaces.Localized
-supported
 :::
 
 ::: info com.ultikits.ultitools.interfaces.Configurable

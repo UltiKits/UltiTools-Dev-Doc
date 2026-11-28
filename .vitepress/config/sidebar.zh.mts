@@ -47,8 +47,20 @@ const sidebarGuideZH: SidebarItemExt[] = [
                 link: 'essentials/query-dsl'
             },
             {
-                text: 'I18n 多语言',
+                text: '旧文本体系迁移',
                 link: 'essentials/i18n'
+            },
+            {
+                text: '消息与语言（7.0）',
+                link: 'essentials/messages'
+            },
+            {
+                text: '物品与物品存储（7.0）',
+                link: 'essentials/items'
+            },
+            {
+                text: '通知（7.0）',
+                link: 'essentials/notifications'
             },
             {
                 text: '异常处理',
@@ -87,6 +99,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
             {
                 text: '模块加载顺序',
                 link: 'advanced/module-dependencies'
+            },
+            {
+                text: '启动阶段与早期钩子',
+                link: 'advanced/startup-phases'
             },
             {
                 text: '支持 1.21 以下的服务端',
@@ -141,6 +157,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
         text: '界面系统',
         items: [
             {
+                text: '界面：意图与会话（7.0）',
+                link: 'advanced/ui-service'
+            },
+            {
                 text: 'GUI 界面',
                 link: 'advanced/gui'
             },
@@ -171,6 +191,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
             {
                 text: '模块版本规范',
                 link: 'advanced/module-versioning'
+            },
+            {
+                text: '从 6.x 升级到 7.0',
+                link: 'advanced/upgrading-to-7'
             }
         ]
     },
@@ -224,6 +248,10 @@ const sidebarGuideZH: SidebarItemExt[] = [
         base: '/guide/',
         text: '更新说明',
         items: [
+            {
+                text: '7.0.0',
+                link: 'release-notes/7.0.0'
+            },
             {
                 text: '6.5.0',
                 link: 'release-notes/6.5.0'
@@ -1530,3 +1558,213 @@ const sidebarApiZH: DefaultTheme.SidebarItem[] = [
 ]
 
 export { sidebarGuideZH, sidebarGuideZH_v640, sidebarGuideZH_v632, sidebarGuideZH_v631, sidebarGuideZH_v630, sidebarGuideZH_v625, sidebarGuideZH_v624, sidebarGuideZH_v620, sidebarGuideZH_v610, sidebarApiZH }
+
+// Frozen from released master b517f003aff403c9fded1c0e82554ff0a08ff41f (v6.5.0).
+const sidebarGuideZH_v650: SidebarItemExt[] = [
+    {
+        base: "/guide/",
+        text: '开始',
+        items: [
+            {
+                text: '简介',
+                link: 'introduction'
+            },
+            {
+                text: '快速上手',
+                link: 'quick-start'
+            }
+        ]
+    },
+    {
+        base: "/guide/",
+        text: '核心能力',
+        items: [
+            {
+                text: '命令执行器',
+                link: 'essentials/cmd-executor'
+            },
+            {
+                text: '事件监听器',
+                link: 'essentials/event-listener'
+            },
+            {
+                text: '配置文件',
+                link: 'essentials/config-file'
+            },
+            {
+                text: '数据储存',
+                link: 'essentials/data-storage'
+            },
+            {
+                text: '流式查询 DSL',
+                link: 'essentials/query-dsl'
+            },
+            {
+                text: 'I18n 多语言',
+                link: 'essentials/i18n'
+            },
+            {
+                text: '异常处理',
+                link: 'advanced/exception-handling'
+            },
+            {
+                text: '事务',
+                link: 'advanced/transactions'
+            }
+        ]
+    },
+    {
+        base: "/guide/",
+        text: '框架机制',
+        items: [
+            {
+                text: '自动注册',
+                link: 'advanced/auto-register'
+            },
+            {
+                text: 'IOC 容器',
+                link: 'advanced/ioc-container'
+            },
+            {
+                text: '条件注册',
+                link: 'advanced/conditional-registration'
+            },
+            {
+                text: '配置校验',
+                link: 'advanced/config-validation'
+            },
+            {
+                text: '配置转换器',
+                link: 'advanced/config-converters'
+            },
+            {
+                text: '模块加载顺序',
+                link: 'advanced/module-dependencies'
+            },
+            {
+                text: '支持 1.21 以下的服务端',
+                link: 'advanced/older-servers'
+            },
+            {
+                text: '外部插件 API',
+                link: 'advanced/external-plugin-api'
+            },
+            {
+                text: 'UltiToolsPlugin 基类',
+                link: 'advanced/ulti-tools-plugin'
+            }
+        ]
+    },
+    {
+        base: "/guide/",
+        text: '运行时',
+        items: [
+            {
+                text: '定时任务',
+                link: 'advanced/scheduled-tasks'
+            },
+            {
+                text: '玩家缓存',
+                link: 'advanced/player-cache'
+            },
+            {
+                text: '模块事件总线',
+                link: 'advanced/module-eventbus'
+            },
+            {
+                text: '面板集成',
+                link: 'advanced/panel-integration'
+            },
+            {
+                text: '经济系统',
+                link: 'advanced/economy'
+            },
+            {
+                text: '云端登录',
+                link: 'advanced/cloud-login'
+            },
+            {
+                text: '玩家链接',
+                link: 'advanced/player-link'
+            }
+        ]
+    },
+    {
+        base: "/guide/",
+        text: '界面系统',
+        items: [
+            {
+                text: 'GUI 界面',
+                link: 'advanced/gui'
+            },
+            {
+                text: '声明式 GUI',
+                link: 'advanced/declarative-gui'
+            }
+        ]
+    },
+    {
+        base: "/guide/",
+        text: '工具链',
+        items: [
+            {
+                text: 'UltiTools Maven 插件',
+                link: 'advanced/maven-plugin'
+            },
+            {
+                text: 'UltiKits CLI',
+                link: 'advanced/ultikits-cli'
+            }
+        ]
+    },
+    {
+        base: "/guide/",
+        text: '发布',
+        items: [
+            {
+                text: '模块版本规范',
+                link: 'advanced/module-versioning'
+            }
+        ]
+    },
+    // Archived API navigation pins Javadoc to the frozen release.
+    {
+        text: 'API 参考',
+        skipVersioning: true,
+        items: [
+            {
+                text: 'API 参考',
+                link: '/api/6.5.0/index.html',
+                target: '_self'
+            }
+        ]
+    },
+    {
+        base: '/guide/',
+        text: '更新说明',
+        items: [
+            {
+                text: '6.5.0',
+                link: 'release-notes/6.5.0'
+            },
+            {
+                text: '6.4.0',
+                link: 'release-notes/6.4.0'
+            },
+            {
+                text: '6.3.2',
+                link: 'release-notes/6.3.2'
+            },
+            {
+                text: '6.3.1',
+                link: 'release-notes/6.3.1'
+            },
+            {
+                text: '6.3.0',
+                link: 'release-notes/6.3.0'
+            }
+        ]
+    },
+]
+
+export { sidebarGuideZH_v650 }
