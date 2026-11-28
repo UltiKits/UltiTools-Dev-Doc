@@ -12,7 +12,7 @@ v6.3.0 的 jar 里两者都不存在，下方的方法列表已相应移除该�
 在 6.x 中请改用 `XVersionUtils` 的静态方法；已移除的 [`VersionWrapper` API](/api/version-wrapper) 仍可在 6.2.5 Javadoc 中查阅。
 :::
 
-::: warning 未发布的 v7.0.0 迁移说明
+::: warning v7.0.0 迁移说明
 自 v7.0.0 起，`XVersionUtils` 也已移除，请使用 Paper 原生的物品、音效、附魔和 Adventure API。
 替代方式见 [7.0 原生物品与音效 API](/zh/guide/advanced/upgrading-to-7#items-and-sounds)。
 :::

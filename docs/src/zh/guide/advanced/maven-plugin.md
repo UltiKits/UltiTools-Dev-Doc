@@ -1,10 +1,10 @@
 # UltiTools Maven 插件
 
-::: info UltiTools 7.0 预览
-UltiTools-API 7.0.0 尚未发布。已发布的 Maven 插件 `2.0.0` 是独立构件；它的复制和发布流程尚未在 7.0 模块上验证。
+::: info Maven 插件与 UltiTools-API 7.0
+已发布的 Maven 插件 `2.0.0` 是独立构件；它的复制和发布流程尚未在 7.0 模块上验证。
 :::
 
-新建 7.0 模块请参阅[快速开始](../quick-start.md)。只有 CLI 构建包含 7.0 模板时才使用 `ultikits create`；目前 npm 上发布的 CLI 仍生成 6.x 项目。没有 7.0 模板时，按快速开始手工创建。Maven 插件不生成项目，构建和手动安装模块也不需要它。
+新建 7.0 模块请参阅[快速开始](../quick-start.md)。使用 `@ultikits/cli` 3.0.0 的 `ultikits create` 生成 7.0 项目，或按快速开始手工创建。Maven 插件不生成项目，构建和手动安装模块也不需要它。
 
 ## 插件配置
 
@@ -33,7 +33,7 @@ UltiTools-API 7.0.0 尚未发布。已发布的 Maven 插件 `2.0.0` 是独立�
 
 ### 本地 JAR 复制
 
-7.0 预览按快速开始使用 `mvn clean package` 构建，停服后手动把 JAR 复制到 `plugins/UltiTools/plugins/`。替换自己的构建时移除旧 JAR，再启动服务器。`/ul reload` 不会加载新 JAR。
+构建 UltiTools-API 7.0 模块时，按快速开始使用 `mvn clean package` 构建，停服后手动把 JAR 复制到 `plugins/UltiTools/plugins/`。替换自己的构建时移除旧 JAR，再启动服务器。`/ul reload` 不会加载新 JAR。
 
 在 Maven 插件 2.0.0 中，`mvn clean package ultitools:install` 先打包，再把构建生成的 JAR 复制到 `pluginFolder`，覆盖同名文件。`ultitools:install` 是插件目标，不是 Maven 的 `install` 生命周期阶段。仅声明插件而未配置执行项，不会自动运行这个目标。
 

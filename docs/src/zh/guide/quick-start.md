@@ -4,24 +4,24 @@ footer: false
 
 # 快速开始
 
-7.0.0 尚未发布。本指南以 UltiTools-API 7.0 为目标构建模块，并用 `/hellomodule hello` 验证安装。
+本指南以 UltiTools-API 7.0 为目标构建模块，并用 `/hellomodule hello` 验证安装。
 
 ## 前置条件
 
 自 v7.0.0 起，使用 JDK 25 和 Maven 构建模块。在符合[框架目标环境](/zh/guide/introduction#运行环境)的服务器上运行 UltiTools 7.0 来测试模块。将 UltiTools 框架 JAR 放在服务器的 `plugins/` 目录；模块 JAR 的安装目录不同，见下文。请从 [Paper 官方下载页](https://papermc.io/downloads/paper)获取 Paper 26.3 build 258。启动框架时需要联网解析运行库，除非这些库已缓存。
 
-在 7.0.0 发布之前，框架 JAR 有两种获取方式：从源码用 `mvn clean package` 构建框架，或从下文 `pom.xml` 使用的快照仓库下载 `com.ultikits:UltiTools-API` 的 `7.0.0-SNAPSHOT` JAR。这个 JAR 本身就是 Paper 插件。为 7.0 构建的模块需要 7.0 框架；已发布的 6.x 版本不会加载它。
+从 [GitHub 的 v7.0.0 发布页](https://github.com/UltiKits/UltiTools-Reborn/releases/tag/v7.0.0)或 [Maven Central](https://repo.maven.apache.org/maven2/com/ultikits/UltiTools-API/7.0.0/UltiTools-API-7.0.0.jar)下载框架 JAR。这个 JAR 是 Paper 插件。为 7.0 构建的模块需要 7.0 框架，6.x 版本不会加载它。
 
 ## 项目创建
 
-自 v7.0.0 起，[UltiKits CLI](/zh/guide/advanced/ultikits-cli) 提供 7.0 模块模板。npm 上发布的 CLI 还不包含这个模板，目前从 npm 安装的 CLI 创建的是 6.x 项目。如果你的 CLI 构建包含 7.0 模板，执行：
+自 v7.0.0 起，可以用 [UltiKits CLI](/zh/guide/advanced/ultikits-cli) 的 7.0 模块模板创建项目。安装 `@ultikits/cli` 3.0.0 后，执行：
 
 ```bash
 ultikits create HelloModule
 cd HelloModule
 ```
 
-参数 `HelloModule` 指定目标目录名。在交互提示中另填模块名 `HelloModule`，Java 包名填 `com.example.hellomodule`，再填写简介和作者，预发布 API 版本保留默认的 `7.0.0-SNAPSHOT`。如果没有 7.0 模板，请新建 `HelloModule` 目录，再按下文手工创建文件。
+参数 `HelloModule` 指定目标目录名。在交互提示中另填模块名 `HelloModule`，Java 包名填 `com.example.hellomodule`，再填写简介和作者，框架版本保留默认的 `7.0.0`。如果不使用 CLI，请新建 `HelloModule` 目录，再按下文手工创建文件。
 
 ### 初始目录结构
 
@@ -52,18 +52,12 @@ CLI 还会生成 `README.md` 和 `.gitignore`。下文只展示本示例所需�
   <properties>
     <java.version>25</java.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <ultitools.version>7.0.0-SNAPSHOT</ultitools.version>
+    <ultitools.version>7.0.0</ultitools.version>
   </properties>
   <repositories>
     <repository>
       <id>papermc</id>
       <url>https://repo.papermc.io/repository/maven-public/</url>
-    </repository>
-    <repository>
-      <id>central-snapshots</id>
-      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
-      <releases><enabled>false</enabled></releases>
-      <snapshots><enabled>true</enabled></snapshots>
     </repository>
   </repositories>
   <dependencies>
@@ -99,8 +93,6 @@ CLI 还会生成 `README.md` 和 `.gitignore`。下文只展示本示例所需�
 </project>
 ```
 
-预发布阶段，模板默认使用 `7.0.0-SNAPSHOT`，并加入 Maven Central 快照仓库。如果从[框架源码](https://github.com/UltiKits/UltiTools-Reborn)构建，可以在框架项目中执行 `mvn clean install`，将对应的快照安装到本地 Maven 仓库。7.0.0 正式发布后，使用 `7.0.0`，无需快照仓库。
-
 ### 模块描述文件
 
 将 `plugin.yml` 放在 `src/main/resources/`，Maven 会将它打包到 JAR 根目录。`name` 填模块名，`main` 填具体 `UltiToolsPlugin` 子类的完整类名。`version` 填模块自身的版本；本例由 Maven 资源过滤替换 `${project.version}`。`source-language` 可省略，默认值为 `en`。
@@ -113,7 +105,7 @@ api-version: 700
 source-language: en
 ```
 
-自 v7.0.0 起，`api-version` 是必填项。它是模块支持的最低 UltiTools API 级别，不是 Paper 版本，也不是模块自身的版本。框架接受 `700` 至自身 API 级别之间的整数，含两端。模板为 `7.0.0-SNAPSHOT` 和 `7.0.0` 生成的值都是 `700`。
+自 v7.0.0 起，`api-version` 是必填项。它是模块支持的最低 UltiTools API 级别，不是 Paper 版本，也不是模块自身的版本。框架接受 `700` 至自身 API 级别之间的整数，含两端。选择框架版本 `7.0.0` 时，模板生成的值为 `700`。
 
 ### 模块主类
 
@@ -204,4 +196,4 @@ Maven 生成 `target/HelloModule-1.0.0.jar`。安装本地构建时，先停止�
 
 ## 6.x 文档
 
-面向 6.x 的项目请参阅[归档的 v6.4.0 快速开始](/zh/v6.4.0/guide/quick-start.html)和[旧服务器指南](/zh/guide/advanced/older-servers)。如果要将已有模块迁到 7.0，请参阅[升级指南](/zh/guide/advanced/upgrading-to-7)。
+面向 6.x 的项目请参阅[归档的 v6.5.0 快速开始](/zh/v6.5.0/guide/quick-start.html)和[旧服务器指南](/zh/guide/advanced/older-servers)。如果要将已有模块迁到 7.0，请参阅[升级指南](/zh/guide/advanced/upgrading-to-7)。

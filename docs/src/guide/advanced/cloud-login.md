@@ -1,6 +1,6 @@
 # Cloud Login
 
-7.0.0 has not been released. This page describes the framework side of server linking as of v7.0.0; see the [7.0.0 release notes](/guide/release-notes/7.0.0) for the release status.
+This page describes the framework side of server linking as of v7.0.0; see the [7.0.0 release notes](/guide/release-notes/7.0.0) for an overview of the changes.
 
 ## Operator commands
 

@@ -2,15 +2,13 @@
 
 `@ultikits/cli` 是官方命令行工具，用于将 UltiTools 插件模块发布到 [UltiCloud](https://panel.ultikits.com/) 市场。开发者可以使用它进行身份验证、初始化项目元数据、上传 JAR 文件，以及管理已发布的模块和版本。
 
-除下文的预发布脚手架外，本页对应 `@ultikits/cli` 2.0.1。1.x 版本无法连接 UltiCloud，请用 `npm install -g @ultikits/cli@latest` 升级并重新运行 `ultikits login`。
+本页对应 `@ultikits/cli` 3.0.0。1.x 版本无法连接 UltiCloud，请用 `npm install -g @ultikits/cli@latest` 升级并重新运行 `ultikits login`。
 
-::: warning 预发布脚手架（自 v7.0.0 起）
-7.0 模板将在 CLI `2.0.1` 之后的下一个版本中提供，该版本尚未发布。
-在此之前，`npm install -g @ultikits/cli` 安装的是 `2.0.1`，仍使用 6.x 模板，生成的模块无法在 UltiTools-API 7.0 上运行。
-UltiTools-API 7.0.0 也尚未发布；预发布脚手架默认使用 `7.0.0-SNAPSHOT`。
+::: info 模块模板（自 v7.0.0 起）
+CLI 3.0.0 的 `ultikits create` 为 Paper 26.3 和 JDK 25 生成模块工程，默认框架版本为 `7.0.0`，不接受低于 `7.0.0` 的版本。仍需 6.x 模板时，请使用 CLI `2.0.1`。
 :::
 
-在预发布阶段开发 7.0 模块时，请按快速开始手写 [`pom.xml`](/zh/guide/quick-start#maven-构建配置) 和[模块描述文件](/zh/guide/quick-start#模块描述文件)，然后继续编写主类。
+如果要手工创建 7.0 模块，请按快速开始编写 [`pom.xml`](/zh/guide/quick-start#maven-构建配置) 和[模块描述文件](/zh/guide/quick-start#模块描述文件)，然后继续编写主类。
 
 `ultikits create [directory]` 的可选参数只指定输出目录；`create` 始终通过交互提示收集输入，没有非交互选项。
 
@@ -81,7 +79,7 @@ ultikits logout     # 删除已保存的凭据
 
 ## 创建新模块
 
-在包含 7.0 模板的 CLI 版本中，`ultikits create` 只生成面向 UltiTools-API 7.0.0 及以上版本的模块工程。模板以 Paper 26.3 和 Java 25 为目标。
+在 CLI 3.0.0 中，`ultikits create` 只生成面向 UltiTools-API 7.0.0 及以上版本的模块工程。模板以 Paper 26.3 和 Java 25 为目标。
 
 要升级已有的 6.x 模块，见[从 6.x 升级到 7.0](/zh/guide/advanced/upgrading-to-7)。
 
@@ -99,7 +97,7 @@ ultikits create
 | `Java package name:` | 根据模块名推导，例如 `UltiHome` 对应 `com.ultikits.plugins.home` | Java 包名，由点分隔的小写标识符组成。每段以 `a`–`z` 或 `_` 开头，后续字符只能是小写字母、数字或下划线。不得使用保留字。 |
 | `Short description:` | 无 | 模块简介。去掉首尾空白后不能为空。 |
 | `Author:` | `git config user.name` 的值（如有） | 作者名。去掉首尾空白后不能为空。 |
-| `UltiTools-API version:` | `7.0.0-SNAPSHOT` | 框架版本。使用三段数字（`X.Y.Z`），可附加一段或多段以连字符分隔的 ASCII 字母数字后缀，例如 `7.0.0-SNAPSHOT`。换算出的 API 级别不得超出 32 位有符号整数的范围。低于 `7.0.0` 的版本会被拒绝，命令会要求重新输入。 |
+| `UltiTools-API version:` | `7.0.0` | 框架版本。使用三段数字（`X.Y.Z`），可附加一段或多段以连字符分隔的 ASCII 字母数字后缀，例如 `7.0.0-SNAPSHOT`。换算出的 API 级别不得超出 32 位有符号整数的范围。低于 `7.0.0` 的版本会被拒绝，命令会要求重新输入。 |
 
 ### 生成的工程
 
@@ -168,7 +166,7 @@ mvn package
 
 ### 不启动服务器的模块测试 {#serverless-module-tests}
 
-将 JUnit Jupiter 测试放在 `src/test/java` 下，与被测代码使用相同的 Java 包。预览脚手架已添加 Jupiter 和 Mockito 测试依赖；手写工程需要将两者添加为 `test` 依赖，并使用支持 Jupiter 的 Surefire 版本。运行 `mvn test`。下列示例使用 JUnit Jupiter 6.1.3（`org.junit.jupiter.api`，与 7.0 脚手架一致）和 UltiTools 公开 API。模拟对象只记录或提供测试值，不运行 Paper。
+将 JUnit Jupiter 测试放在 `src/test/java` 下，与被测代码使用相同的 Java 包。7.0 脚手架已添加 Jupiter 和 Mockito 测试依赖；手写工程需要将两者添加为 `test` 依赖，并使用支持 Jupiter 的 Surefire 版本。运行 `mvn test`。下列示例使用 JUnit Jupiter 6.1.3（`org.junit.jupiter.api`，与 7.0 脚手架一致）和 UltiTools 公开 API。模拟对象只记录或提供测试值，不运行 Paper。
 
 #### 消息文件
 
@@ -787,7 +785,7 @@ jobs:
           node-version: '20'
 
       - name: Install a pinned UltiKits CLI
-        run: npm install -g @ultikits/cli@2.0.1 --ignore-scripts
+        run: npm install -g @ultikits/cli@3.0.0 --ignore-scripts
 
       - name: Publish to UltiCloud
         env:

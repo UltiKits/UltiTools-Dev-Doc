@@ -1,6 +1,6 @@
 # Configuration
 
-7.0.0 has not been released. This guide targets UltiTools-API 7.0. For 6.x, see the [archived v6.4.0 configuration guide](/v6.4.0/guide/essentials/config-file.html); to move a module forward, see [Upgrading from 6.x to 7.0](/guide/advanced/upgrading-to-7).
+This guide targets UltiTools-API 7.0. For 6.x, see the [archived v6.5.0 configuration guide](/v6.5.0/guide/essentials/config-file.html); to move a module forward, see [Upgrading from 6.x to 7.0](/guide/advanced/upgrading-to-7).
 
 ## Create a YAML configuration file
 

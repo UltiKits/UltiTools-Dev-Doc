@@ -1,6 +1,6 @@
 # Module Versioning
 
-7.0.0 has not been released. Passages marked “as of v7.0.0” do not apply to 6.x.
+Passages marked “as of v7.0.0” do not apply to 6.x.
 
 This page describes the version number used by **your module**. `UltiTools-API` follows a different convention for its own version number, explained in [Differences from the framework's version](#differences-from-the-framework-s-version).
 

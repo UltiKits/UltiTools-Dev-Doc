@@ -1,6 +1,6 @@
 # 异常处理
 
-7.0.0 尚未发布。本指南介绍 7.0 预览版的行为，另见[更新说明](../release-notes/7.0.0)和[从 6.x 升级到 7.0](./upgrading-to-7)。
+本指南介绍 UltiTools-API 7.0 的异常处理，另见[更新说明](../release-notes/7.0.0)和[从 6.x 升级到 7.0](./upgrading-to-7)。
 
 当受管 Bean 的方法遇到预期故障后可以返回合适的后备值时，可以使用 `@ExceptionCatch`。框架通过 Bean 的代理拦截调用。注解不会改变 Java 对受检异常的要求。
 

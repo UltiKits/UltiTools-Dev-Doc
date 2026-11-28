@@ -2,8 +2,8 @@
 
 As of v7.0.0, the framework has a text engine in the package `com.ultikits.ultitools.text`. Messages are Adventure components written in MiniMessage. Each player sees them in their own Minecraft client language, and the texts come from YAML language files with dotted keys. Operators change texts in override files, and a fallback language covers players whose language has no translation and the console.
 
-::: warning Unreleased v7.0.0 behaviour
-This page describes the unreleased 7.0.0 framework.
+::: info As of v7.0.0
+This page describes the framework as of v7.0.0.
 :::
 
 ## Language files

@@ -2,8 +2,8 @@
 
 As of v7.0.0, modules show screens to players through the framework's `UiService` (package `com.ultikits.ultitools.ui`). A module describes what it wants to show or ask as an intent. The service picks a backend that can display it, a Paper dialog or a chest inventory, and returns a `UiSession` whose result says how the screen ended. The [declarative GUI](/guide/advanced/declarative-gui) builds its pages on the same service.
 
-::: warning Unreleased v7.0.0 behaviour
-This page describes the unreleased 7.0.0 framework. 6.x has no `UiService`; its screens are the classes described in [GUI Interface](/guide/advanced/gui).
+::: info As of v7.0.0
+6.x has no `UiService`. For the 6.x screen classes, see the [archived v6.5.0 guide](/v6.5.0/guide/advanced/gui.html).
 :::
 
 ## Obtaining the service

@@ -1,6 +1,6 @@
 # Conditional Registration
 
-7.0.0 has not been released. This guide describes conditional component registration in UltiTools-API 7.0. See the [7.0.0 release notes](../release-notes/7.0.0) for the preview scope.
+This guide describes conditional component registration in UltiTools-API 7.0. See the [7.0.0 release notes](../release-notes/7.0.0) for an overview of the changes.
 
 `@ConditionalOnConfig` lets module authors use a YAML setting to control which components are registered at startup.
 

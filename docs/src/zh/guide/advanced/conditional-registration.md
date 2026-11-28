@@ -1,6 +1,6 @@
 # 条件注册
 
-7.0.0 尚未发布。本页介绍 UltiTools-API 7.0 的条件注册。预览版的范围见 [7.0.0 发布说明](../release-notes/7.0.0)。
+本页介绍 UltiTools-API 7.0 的条件注册。变更概览见 [7.0.0 发布说明](../release-notes/7.0.0)。
 
 模块作者可以用 `@ConditionalOnConfig` 根据 YAML 设置决定启动时注册哪些组件。
 

@@ -1,6 +1,6 @@
 # 面板集成
 
-7.0.0 尚未发布。本页说明自 v7.0.0 起框架如何处理 UltiPanel 集成；发布状态见 [7.0.0 版本说明](/zh/guide/release-notes/7.0.0)。服务器绑定与连接状态见[云端登录](/zh/guide/advanced/cloud-login)。
+本页说明自 v7.0.0 起框架如何处理 UltiPanel 集成；变更概览见 [7.0.0 版本说明](/zh/guide/release-notes/7.0.0)。服务器绑定与连接状态见[云端登录](/zh/guide/advanced/cloud-login)。
 
 使用[当前的设备码登录](./cloud-login.md)时，`/ulticloud login` 会打印 `Requesting a device code from UltiCloud...`。收到设备码后，控制台会打印验证地址和设备码，再打印 ` Or open this link directly: <uri>` 和 `The code expires in <minutes> minutes. Waiting for confirmation...`。随附的中英文语言文件都使用这些英文提示。
 

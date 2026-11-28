@@ -4,7 +4,7 @@ footer: false
 
 # Introduction
 
-7.0.0 has not been released. This guide describes UltiTools-API 7.0. See the [7.0.0 release notes](/guide/release-notes/7.0.0) for changes.
+This guide describes UltiTools-API 7.0. See the [7.0.0 release notes](/guide/release-notes/7.0.0) for changes.
 
 ## What is UltiTools?
 
@@ -24,7 +24,7 @@ Start with [Quick Start](/guide/quick-start) to build a module, install it on a 
 
 ## 6.x Documentation
 
-If you are working with 6.x, see the [archived v6.4.0 introduction](/v6.4.0/guide/introduction.html) and the [older-server archive note](/guide/advanced/older-servers). That compatibility guidance does not apply to 7.0.
+If you are working with 6.x, see the [archived v6.5.0 introduction](/v6.5.0/guide/introduction.html) and the [older-server archive note](/guide/advanced/older-servers). That compatibility guidance does not apply to 7.0.
 
 ## The Team
 

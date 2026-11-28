@@ -1,6 +1,6 @@
 # Panel Integration
 
-7.0.0 has not been released. This page describes the framework side of UltiPanel integration as of v7.0.0; see the [7.0.0 release notes](/guide/release-notes/7.0.0) for the release status. For server linking and connection status, see [Cloud Login](/guide/advanced/cloud-login).
+This page describes the framework side of UltiPanel integration as of v7.0.0; see the [7.0.0 release notes](/guide/release-notes/7.0.0) for an overview of the changes. For server linking and connection status, see [Cloud Login](/guide/advanced/cloud-login).
 
 With the [current device-code login](./cloud-login.md), `/ulticloud login` prints `Requesting a device code from UltiCloud...`. When the code arrives, the console prints the verification address and code, followed by ` Or open this link directly: <uri>` and `The code expires in <minutes> minutes. Waiting for confirmation...`. These messages are in English in both bundled catalogues.
 

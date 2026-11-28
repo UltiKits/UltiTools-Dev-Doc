@@ -4,24 +4,24 @@ footer: false
 
 # Quick Start
 
-7.0.0 has not been released. This guide builds a module for UltiTools-API 7.0 and verifies it with `/hellomodule hello`.
+This guide builds a module for UltiTools-API 7.0 and verifies it with `/hellomodule hello`.
 
 ## Prerequisites
 
 As of v7.0.0, use JDK 25 and Maven to build the module. Test it on a server running UltiTools 7.0 in the [framework's target environment](/guide/introduction#runtime-requirements). Put the UltiTools framework JAR in the server's `plugins/` directory; the module JAR goes in a different directory, described below. Download Paper 26.3 build 258 from the [official Paper downloads page](https://papermc.io/downloads/paper). Starting the framework requires network access to resolve its runtime libraries unless they are already cached.
 
-Until 7.0.0 is released, get the framework JAR in one of two ways: build the framework from source with `mvn clean package`, or download the `com.ultikits:UltiTools-API` `7.0.0-SNAPSHOT` JAR from the snapshot repository that the `pom.xml` below uses. That JAR is the Paper plugin itself. A module built for 7.0 needs a 7.0 framework; the released 6.x builds do not load it.
+Download the framework JAR from the [v7.0.0 release on GitHub](https://github.com/UltiKits/UltiTools-Reborn/releases/tag/v7.0.0) or from [Maven Central](https://repo.maven.apache.org/maven2/com/ultikits/UltiTools-API/7.0.0/UltiTools-API-7.0.0.jar). This JAR is the Paper plugin. A module built for 7.0 needs a 7.0 framework; 6.x versions do not load it.
 
 ## Project Setup
 
-As of v7.0.0, the [UltiKits CLI](/guide/advanced/ultikits-cli) has a 7.0 module template. The template is not in the npm release yet, and the CLI currently on npm creates a 6.x project. If your CLI build includes the 7.0 template, run:
+As of v7.0.0, you can use the 7.0 module template from the [UltiKits CLI](/guide/advanced/ultikits-cli). With `@ultikits/cli` 3.0.0 installed, run:
 
 ```bash
 ultikits create HelloModule
 cd HelloModule
 ```
 
-The `HelloModule` argument names the target directory. At the prompts, enter `HelloModule` separately as the module name and `com.example.hellomodule` as the Java package. Enter a description and author, and accept `7.0.0-SNAPSHOT` for the preview API. Without the 7.0 template, create the files below in a new `HelloModule` directory instead.
+The `HelloModule` argument names the target directory. At the prompts, enter `HelloModule` separately as the module name and `com.example.hellomodule` as the Java package. Enter a description and author, and accept the default framework version, `7.0.0`. If you are not using the CLI, create the files below in a new `HelloModule` directory instead.
 
 ### Initial Project Layout
 
@@ -52,18 +52,12 @@ For manual setup, use this `pom.xml`. It uses the same API coordinates, `provide
   <properties>
     <java.version>25</java.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <ultitools.version>7.0.0-SNAPSHOT</ultitools.version>
+    <ultitools.version>7.0.0</ultitools.version>
   </properties>
   <repositories>
     <repository>
       <id>papermc</id>
       <url>https://repo.papermc.io/repository/maven-public/</url>
-    </repository>
-    <repository>
-      <id>central-snapshots</id>
-      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
-      <releases><enabled>false</enabled></releases>
-      <snapshots><enabled>true</enabled></snapshots>
     </repository>
   </repositories>
   <dependencies>
@@ -99,8 +93,6 @@ For manual setup, use this `pom.xml`. It uses the same API coordinates, `provide
 </project>
 ```
 
-For preview builds, the template defaults to `7.0.0-SNAPSHOT` and adds Maven Central's snapshot repository. If you are building the [framework from source](https://github.com/UltiKits/UltiTools-Reborn) instead, you can install the matching snapshot into your local Maven repository with `mvn clean install` in the framework project. Once 7.0.0 is released, use `7.0.0` and omit the snapshot repository.
-
 ### Module Descriptor
 
 Place `plugin.yml` in `src/main/resources/` so Maven puts it at the JAR root. Set `name` to the module name and `main` to the fully qualified name of its concrete `UltiToolsPlugin` subclass. Set `version` to the module's own version; Maven resource filtering replaces `${project.version}` in this example. `source-language` is optional and defaults to `en`.
@@ -113,7 +105,7 @@ api-version: 700
 source-language: en
 ```
 
-As of v7.0.0, `api-version` is required. It is the minimum UltiTools API level the module supports, not the Paper version or the module's own version. The framework accepts integer levels from `700` through its own level, inclusive. The template generates `700` for both `7.0.0-SNAPSHOT` and `7.0.0`.
+As of v7.0.0, `api-version` is required. It is the minimum UltiTools API level the module supports, not the Paper version or the module's own version. The framework accepts integer levels from `700` through its own level, inclusive. The template generates `700` for framework version `7.0.0`.
 
 ### Module Entry Point
 
@@ -204,4 +196,4 @@ After startup, run `ul list` in the server console (or `/ul list` as an operator
 
 ## 6.x Documentation
 
-For a project targeting 6.x, use the [archived v6.4.0 quick start](/v6.4.0/guide/quick-start.html) and the [older-server guide](/guide/advanced/older-servers). To move an existing module to 7.0, see the [upgrade guide](/guide/advanced/upgrading-to-7).
+For a project targeting 6.x, use the [archived v6.5.0 quick start](/v6.5.0/guide/quick-start.html) and the [older-server guide](/guide/advanced/older-servers). To move an existing module to 7.0, see the [upgrade guide](/guide/advanced/upgrading-to-7).

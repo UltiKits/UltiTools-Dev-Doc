@@ -1,6 +1,6 @@
 # 数据储存
 
-7.0.0 尚未发布。本页描述自 v7.0.0 起的行为，参见[发布说明](../release-notes/7.0.0)和[升级指南](../advanced/upgrading-to-7)。使用 6.x 时请查阅 [v6.4.0 数据储存归档](/zh/v6.4.0/guide/essentials/data-storage.html)。
+本页描述自 v7.0.0 起的行为，参见[发布说明](../release-notes/7.0.0)和[升级指南](../advanced/upgrading-to-7)。使用 6.x 时请查阅 [v6.5.0 数据储存归档](/zh/v6.5.0/guide/essentials/data-storage.html)。
 
 UltiTools 为 MySQL、SQLite 和 JSON 提供统一的实体读写接口。模块或外部插件定义并登记实体，再用 `DataOperator<T>` 显式读写；服主选择全服后端。
 

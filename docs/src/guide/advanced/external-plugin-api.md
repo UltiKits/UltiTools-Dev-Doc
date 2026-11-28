@@ -1,6 +1,6 @@
 # External Plugin API
 
-7.0.0 has not been released. This guide describes the API as of v7.0.0 on Paper 26.3 with Java 25. For a 6.x plugin, start with the [upgrade guide](./upgrading-to-7#external-paper-plugins) or consult the [archived 6.4.0 guide](/v6.4.0/guide/advanced/external-plugin-api.html).
+This guide describes the API as of v7.0.0 on Paper 26.3 with Java 25. For a 6.x plugin, start with the [upgrade guide](./upgrading-to-7#external-paper-plugins) or consult the [archived 6.5.0 guide](/v6.5.0/guide/advanced/external-plugin-api.html).
 
 An external plugin remains a regular `JavaPlugin`. Paper loads its JAR from `plugins/`; UltiTools does not load it as a module. Connecting gives its components access to UltiTools dependency injection, commands, data and other services without extending `UltiToolsPlugin`.
 
@@ -12,12 +12,12 @@ An external plugin remains a regular `JavaPlugin`. Paper loads its JAR from `plu
 <dependency>
     <groupId>com.ultikits</groupId>
     <artifactId>UltiTools-API</artifactId>
-    <version>7.0.0-SNAPSHOT</version>
+    <version>7.0.0</version>
     <scope>provided</scope>
 </dependency>
 ```
 
-Use the [snapshot repository or a matching local build](/guide/quick-start) for preview development. Once 7.0.0 is released, use `7.0.0`. Do not bundle UltiTools-API in your JAR; Gradle uses `compileOnly`.
+Resolve the build dependency from Maven Central. Do not bundle UltiTools-API in your JAR; Gradle uses `compileOnly`. Download the framework JAR from GitHub Releases or Maven Central, as described in [Quick Start](/guide/quick-start).
 
 ### 2. Server dependency
 

@@ -2,8 +2,8 @@
 
 自 v7.0.0 起，模块用 `ItemSpec` 描述物品，再由框架的 `ItemRenderer` 按观看者的语言生成 `ItemStack`。两者都在 `com.ultikits.ultitools.item` 包中，基于 Paper 的数据组件（data component）。`ItemStackUtils` 仍把物品数组存成字符串；它改用新格式写入，并继续读取 6.x 保存的字符串。
 
-::: warning 未发布的 v7.0.0 行为
-本页描述尚未发布的 7.0.0 框架。6.x 没有 `ItemSpec` 和 `ItemRenderer`，用 `ItemStackBuilder` 构建物品，而 7.0 删除了它。
+::: warning 自 v7.0.0 起
+本页描述自 v7.0.0 起的框架行为。6.x 没有 `ItemSpec` 和 `ItemRenderer`，用 `ItemStackBuilder` 构建物品，而 7.0 删除了它。
 :::
 
 ## 描述物品

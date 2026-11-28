@@ -1,6 +1,6 @@
 # Player Cache
 
-7.0.0 has not been released. This page describes the player cache API as of v7.0.0. See the [7.0.0 release notes](../release-notes/7.0.0) for an overview.
+This page describes the player cache API as of v7.0.0. See the [7.0.0 release notes](../release-notes/7.0.0) for an overview.
 
 `@PlayerCache` removes a player’s entries from managed collections on quit. It does not load data or guarantee persistence.
 

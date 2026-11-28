@@ -1,6 +1,6 @@
 # Data Storage
 
-7.0.0 has not been released. This page describes behaviour as of v7.0.0; see the [release notes](../release-notes/7.0.0) and the [upgrade guide](../advanced/upgrading-to-7). For 6.x, see the [v6.4.0 data storage archive](/v6.4.0/guide/essentials/data-storage.html).
+This page describes behaviour as of v7.0.0; see the [release notes](../release-notes/7.0.0) and the [upgrade guide](../advanced/upgrading-to-7). For 6.x, see the [v6.5.0 data storage archive](/v6.5.0/guide/essentials/data-storage.html).
 
 UltiTools provides one entity API for MySQL, SQLite and JSON. A module or external plugin defines and registers its entities, then explicitly reads and writes them through a `DataOperator<T>`. The server operator selects the backend for the whole server.
 

@@ -2,8 +2,8 @@
 
 As of v7.0.0, a module describes an item with `ItemSpec` and turns it into an `ItemStack` with the framework's `ItemRenderer`, in the viewer's language. Both are in the package `com.ultikits.ultitools.item` and build on Paper's data components. `ItemStackUtils` still stores item arrays as strings; it writes a new format and keeps reading strings saved by 6.x.
 
-::: warning Unreleased v7.0.0 behaviour
-This page describes the unreleased 7.0.0 framework. 6.x has no `ItemSpec` or `ItemRenderer` and builds items with `ItemStackBuilder`, which 7.0 removes.
+::: warning As of v7.0.0
+This page describes the framework as of v7.0.0. 6.x has no `ItemSpec` or `ItemRenderer` and builds items with `ItemStackBuilder`, which 7.0 removes.
 :::
 
 ## Describing an item

@@ -1,6 +1,6 @@
 # Transactions
 
-UltiTools-API 7.0.0 has not been released. This guide describes the 7.0 development version. See the [release notes](../release-notes/7.0.0) and [upgrade guide](./upgrading-to-7). For 6.x, see the [archived guide](/v6.4.0/guide/advanced/transactions.html).
+This guide describes transactions in UltiTools-API 7.0. See the [release notes](../release-notes/7.0.0) and [upgrade guide](./upgrading-to-7). For 6.x, see the [archived v6.5.0 guide](/v6.5.0/guide/advanced/transactions.html).
 
 MySQL, SQLite and JSON support both `DataOperator#transaction(...)` and `@Transactional`. A transaction covers operations that join the same plugin's transaction on the same thread. It does not cover work scheduled on another thread, another plugin's storage, or side effects such as player messages.
 

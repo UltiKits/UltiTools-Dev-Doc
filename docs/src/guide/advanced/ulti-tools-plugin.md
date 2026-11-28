@@ -12,7 +12,7 @@ Neither exists in the jar; the method rows below have been removed to match.
 In 6.x, use `XVersionUtils`'s static methods instead; the retired [`VersionWrapper` API](/api/version-wrapper) remains available in the 6.2.5 Javadoc.
 :::
 
-::: warning Unreleased v7.0.0 migration
+::: warning v7.0.0 migration
 As of v7.0.0, `XVersionUtils` is also removed; use Paper's native item, sound, enchantment and Adventure APIs.
 See [Native item and sound APIs in 7.0](/guide/advanced/upgrading-to-7#items-and-sounds) for replacements.
 :::

@@ -2,8 +2,8 @@
 
 自 v7.0.0 起，模块通过框架的 `UiService`（包 `com.ultikits.ultitools.ui`）向玩家显示界面。模块把要显示或要询问的内容描述为一个意图（intent），服务选择能够显示它的后端，即 Paper 对话框或箱子物品栏，并返回一个 `UiSession`，其结果说明界面如何结束。[声明式 GUI](/zh/guide/advanced/declarative-gui) 的页面也建立在同一个服务之上。
 
-::: warning 未发布的 v7.0.0 行为
-本页描述尚未发布的 7.0.0 框架。6.x 没有 `UiService`，其界面是 [GUI 界面](/zh/guide/advanced/gui) 一页介绍的那些类。
+::: info 自 v7.0.0 起
+6.x 没有 `UiService`。旧版界面类见 [v6.5.0 归档指南](/zh/v6.5.0/guide/advanced/gui.html)。
 :::
 
 ## 获取服务 {#obtaining-the-service}

@@ -1,6 +1,6 @@
 # 配置校验
 
-7.0.0 尚未发布。本页以 UltiTools-API 7.0 为准；使用 6.x 时，请参阅[归档的 v6.4.0 指南](/zh/v6.4.0/guide/advanced/config-validation.html)。
+本页以 UltiTools-API 7.0 为准；使用 6.x 时，请参阅[归档的 v6.5.0 指南](/zh/v6.5.0/guide/advanced/config-validation.html)。
 
 UltiTools 为配置字段提供了声明式的校验注解。
 

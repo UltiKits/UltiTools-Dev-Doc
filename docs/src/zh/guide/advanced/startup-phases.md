@@ -2,8 +2,8 @@
 
 自 v7.0.0 起，UltiTools 框架 JAR 是一个 Paper 插件：它携带 `paper-plugin.yml`，不再携带 `plugin.yml`。模块 JAR 不变，仍用自己的 `plugin.yml` 描述自身。框架的描述文件声明了 `api-version: '26.3'`、`load: POSTWORLD`、一个引导器（bootstrapper）和一个运行库加载器，并把 Vault 与 PlaceholderAPI 列为可选的服务器依赖。
 
-::: warning 未发布的 v7.0.0 行为
-本页描述尚未发布的 7.0.0 框架。6.x 框架没有引导阶段，也不会调用早期钩子。
+::: info 自 v7.0.0 起
+6.x 框架没有引导阶段，也不会调用早期钩子。
 :::
 
 ## 两个阶段

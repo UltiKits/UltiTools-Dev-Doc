@@ -1,6 +1,6 @@
 # 配置文件
 
-7.0.0 尚未发布。本页以 UltiTools-API 7.0 为准。使用 6.x 时，请参阅[归档的 v6.4.0 配置指南](/zh/v6.4.0/guide/essentials/config-file.html)；升级时请参阅[从 6.x 升级到 7.0](/zh/guide/advanced/upgrading-to-7)。
+本页以 UltiTools-API 7.0 为准。使用 6.x 时，请参阅[归档的 v6.5.0 配置指南](/zh/v6.5.0/guide/essentials/config-file.html)；升级时请参阅[从 6.x 升级到 7.0](/zh/guide/advanced/upgrading-to-7)。
 
 ## 创建 YAML 配置文件
 

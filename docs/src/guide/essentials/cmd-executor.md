@@ -1,6 +1,6 @@
 # Command Executor
 
-UltiTools-API 7.0.0 has not been released. This page describes command behavior as of v7.0.0. For the old Bukkit wrappers, see the [archived 6.4.0 guide](/v6.4.0/guide/essentials/cmd-executor.html).
+This page describes command behavior as of v7.0.0. For the old Bukkit wrappers, see the [archived 6.5.0 guide](/v6.5.0/guide/essentials/cmd-executor.html).
 
 ## Basic usage
 

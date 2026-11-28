@@ -1,6 +1,6 @@
 # 外部插件 API
 
-7.0.0 尚未发布。本指南说明自 v7.0.0 起在 Paper 26.3、Java 25 上使用的 API。已有 6.x 插件可先查阅[升级指南](./upgrading-to-7#external-paper-plugins)或 [6.4.0 归档指南](/zh/v6.4.0/guide/advanced/external-plugin-api.html)。
+本指南说明自 v7.0.0 起在 Paper 26.3、Java 25 上使用的 API。已有 6.x 插件可先查阅[升级指南](./upgrading-to-7#external-paper-plugins)或 [6.5.0 归档指南](/zh/v6.5.0/guide/advanced/external-plugin-api.html)。
 
 外部插件仍是普通 `JavaPlugin`，由 Paper 从 `plugins/` 目录加载，不由 UltiTools 作为模块加载。连接后，插件组件可以使用 UltiTools 的依赖注入、命令、数据等功能，无需继承 `UltiToolsPlugin`。
 
@@ -12,12 +12,12 @@
 <dependency>
     <groupId>com.ultikits</groupId>
     <artifactId>UltiTools-API</artifactId>
-    <version>7.0.0-SNAPSHOT</version>
+    <version>7.0.0</version>
     <scope>provided</scope>
 </dependency>
 ```
 
-预览开发使用[快照仓库或对应的本地构建](/zh/guide/quick-start)。7.0.0 发布后改用 `7.0.0`。不要把 UltiTools-API 打进插件 JAR；Gradle 使用 `compileOnly`。
+从 Maven Central 获取编译依赖。不要把 UltiTools-API 打进插件 JAR；Gradle 使用 `compileOnly`。框架 JAR 可从 GitHub Releases 或 Maven Central 下载，详见[快速开始](/zh/guide/quick-start)。
 
 ### 2. 服务端依赖
 

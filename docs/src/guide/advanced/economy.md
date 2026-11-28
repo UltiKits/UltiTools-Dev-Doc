@@ -1,7 +1,7 @@
 # Economy
 
-::: info UltiTools 7.0 preview
-7.0.0 has not been released. This page describes the 7.0 development branch. For 6.x, see the [archived v6.4.0 economy guide](/v6.4.0/guide/advanced/economy.html).
+::: info As of v7.0.0
+This page describes the economy API in UltiTools-API 7.0. For 6.x, see the [archived v6.5.0 economy guide](/v6.5.0/guide/advanced/economy.html).
 :::
 
 Use the static methods on `com.ultikits.ultitools.utils.EconomyUtils`. Vault is an optional server dependency in `paper-plugin.yml` (`required: false`), so UltiTools can start without it. Economy operations still need Vault and a registered economy provider.
