@@ -1,6 +1,6 @@
 # 定时任务
 
-7.0.0 尚未发布。本页介绍自 v7.0.0 起的调度行为。6.x 示例见 [v6.4.0 归档指南](/zh/v6.4.0/guide/advanced/scheduled-tasks.html)。现有代码的改动见[升级指南中的调度与声明式 GUI](upgrading-to-7#scheduler-and-screens)。
+本页介绍自 v7.0.0 起的调度行为。6.x 示例见 [v6.5.0 归档指南](/zh/v6.5.0/guide/advanced/scheduled-tasks.html)。现有代码的改动见[升级指南中的调度与声明式 GUI](upgrading-to-7#scheduler-and-screens)。
 
 用 `@Scheduled` 声明受管理 Bean 的定时任务。需要直接提交任务时，注入 `com.ultikits.ultitools.scheduling.Scheduler`。
 

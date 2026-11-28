@@ -1,6 +1,6 @@
 # Upgrading from 6.x to 7.0
 
-7.0.0 has not been released. This guide describes changes as of v7.0.0; see the [7.0.0 release notes](../release-notes/7.0.0) for the overview.
+This guide describes changes as of v7.0.0; see the [7.0.0 release notes](../release-notes/7.0.0) for the overview.
 
 Use this guide to migrate an UltiTools module from source to a rebuilt JAR. If you maintain a separate Paper plugin that calls UltiTools, also read [Standalone Paper plugins](#external-paper-plugins).
 
@@ -175,7 +175,7 @@ As of v7.0.0, there is no compatibility bridge for the old chest pages or confir
 | `ChatConfirm`, `Confirm.chat(...)` | The module sends its own clickable chat prompt, see [UI: Intents and Sessions](/guide/advanced/ui-service#chat-confirmation) |
 | `Buttons`, `ViewType` | No replacement type; use a `TextButton` label or the framework label keys |
 
-The 6.x pages are still described, as 6.x material, in [GUI Interface](/guide/advanced/gui).
+For the 6.x screens, see the [archived v6.5.0 guide](/v6.5.0/guide/advanced/gui.html).
 
 ## Toasts and holograms {#display-and-toast}
 

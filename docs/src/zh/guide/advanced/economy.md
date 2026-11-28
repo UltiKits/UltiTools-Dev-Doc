@@ -1,7 +1,7 @@
 # 经济系统
 
-::: info UltiTools 7.0 预览
-7.0.0 尚未发布。本页描述 7.0 开发分支的行为。6.x 用户请参阅[归档的 v6.4.0 经济系统指南](/zh/v6.4.0/guide/advanced/economy.html)。
+::: info 自 v7.0.0 起
+本页介绍 UltiTools-API 7.0 的经济系统。6.x 用户请参阅[归档的 v6.5.0 经济系统指南](/zh/v6.5.0/guide/advanced/economy.html)。
 :::
 
 请使用 `com.ultikits.ultitools.utils.EconomyUtils` 的静态方法。Vault 是 `paper-plugin.yml` 中的可选服务器依赖（`required: false`），因此不装 Vault 也能启动 UltiTools。经济操作仍需要 Vault 和已注册的经济提供者。

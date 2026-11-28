@@ -1,6 +1,6 @@
 # IOC Container
 
-7.0.0 has not been released. This guide describes IoC (inversion of control) in UltiTools-API 7.0. The container creates and wires objects called beans. See the [7.0.0 release notes](../release-notes/7.0.0) for the preview scope.
+This guide describes IoC (inversion of control) in UltiTools-API 7.0. The container creates and wires objects called beans. See the [7.0.0 release notes](../release-notes/7.0.0) for an overview of the changes.
 
 As of v7.0.0, the module container is assembled during plugin enable, not during [bootstrap](./startup-phases). Bootstrap hooks cannot look up IoC services.
 

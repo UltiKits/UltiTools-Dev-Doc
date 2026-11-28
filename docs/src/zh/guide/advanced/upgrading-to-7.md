@@ -1,6 +1,6 @@
 # 从 6.x 升级到 7.0
 
-7.0.0 尚未发布。本指南介绍自 v7.0.0 起的变更，概览见 [7.0.0 更新说明](../release-notes/7.0.0)。
+本指南介绍自 v7.0.0 起的变更，概览见 [7.0.0 更新说明](../release-notes/7.0.0)。
 
 按本指南迁移 UltiTools 模块源码并重新构建 JAR。如果你维护的是调用 UltiTools 的独立 Paper 插件，请同时阅读[独立 Paper 插件](#external-paper-plugins)。
 
@@ -175,7 +175,7 @@ ItemStack item = itemRenderer.render(spec, player);
 | `ChatConfirm`、`Confirm.chat(...)` | 由模块自行发送可点击的聊天提示，见 [UI：意图与会话](/zh/guide/advanced/ui-service#chat-confirmation) |
 | `Buttons`、`ViewType` | 没有替代类型；使用 `TextButton` 的标签或框架标签键 |
 
-6.x 的旧页面仍作为 6.x 资料保留在 [GUI 界面系统](/zh/guide/advanced/gui)。
+6.x 的旧版界面见 [v6.5.0 归档指南](/zh/v6.5.0/guide/advanced/gui.html)。
 
 ## 进度弹窗与悬浮字 {#display-and-toast}
 

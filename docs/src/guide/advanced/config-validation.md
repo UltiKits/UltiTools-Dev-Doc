@@ -1,6 +1,6 @@
 # Config Validation
 
-7.0.0 has not been released. This guide targets UltiTools-API 7.0. For 6.x, see the [archived v6.4.0 guide](/v6.4.0/guide/advanced/config-validation.html).
+This guide targets UltiTools-API 7.0. For 6.x, see the [archived v6.5.0 guide](/v6.5.0/guide/advanced/config-validation.html).
 
 UltiTools provides declarative validation annotations for configuration fields.
 

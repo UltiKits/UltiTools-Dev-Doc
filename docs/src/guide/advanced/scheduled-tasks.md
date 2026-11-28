@@ -1,6 +1,6 @@
 # Scheduled Tasks
 
-7.0.0 has not been released. This guide describes scheduling as of v7.0.0. For 6.x examples, see the [archived v6.4.0 guide](/v6.4.0/guide/advanced/scheduled-tasks.html). For changes to existing code, see [Scheduling and declarative GUI in the upgrade guide](upgrading-to-7#scheduler-and-screens).
+This guide describes scheduling as of v7.0.0. For 6.x examples, see the [archived v6.5.0 guide](/v6.5.0/guide/advanced/scheduled-tasks.html). For changes to existing code, see [Scheduling and declarative GUI in the upgrade guide](upgrading-to-7#scheduler-and-screens).
 
 Use `@Scheduled` for tasks attached to managed beans. Use an injected `com.ultikits.ultitools.scheduling.Scheduler` to submit work directly.
 

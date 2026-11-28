@@ -1,6 +1,6 @@
 # Config Converters
 
-7.0.0 has not been released. This guide targets UltiTools-API 7.0. For 6.x, see the [archived v6.4.0 guide](/v6.4.0/guide/advanced/config-converters.html).
+This guide targets UltiTools-API 7.0. For 6.x, see the [archived v6.5.0 guide](/v6.5.0/guide/advanced/config-converters.html).
 
 `ConfigConverter<T>` converts a declared Java value to plain configuration data and back. Register a converter with `@ConfigConverterFor` in your module's scan packages before configuration construction. The storage document and registry coordination bridges are internal, not a module transaction API.
 

@@ -2,15 +2,13 @@
 
 `@ultikits/cli` is the official command-line tool for publishing UltiTools plugin modules to the [UltiCloud](https://panel.ultikits.com/) marketplace. Developers can use it to authenticate, initialize project metadata, upload JAR files, and manage published modules and versions.
 
-Except for the preview scaffold described below, this page covers `@ultikits/cli` 2.0.1. Versions 1.x do not work with UltiCloud; upgrade with `npm install -g @ultikits/cli@latest` and run `ultikits login` again.
+This page covers `@ultikits/cli` 3.0.0. Versions 1.x do not work with UltiCloud; upgrade with `npm install -g @ultikits/cli@latest` and run `ultikits login` again.
 
-::: warning Preview scaffold (as of v7.0.0)
-The 7.0 template will ship in the next CLI release after `2.0.1`, which is not yet available.
-Until then, `npm install -g @ultikits/cli` installs `2.0.1`, which still generates 6.x modules that do not run on UltiTools-API 7.0.
-UltiTools-API 7.0.0 is also unreleased; the preview scaffold defaults to `7.0.0-SNAPSHOT`.
+::: info Module template (as of v7.0.0)
+In CLI 3.0.0, `ultikits create` scaffolds a module for Paper 26.3 and JDK 25. It defaults to framework version `7.0.0` and rejects versions below `7.0.0`. Use CLI `2.0.1` if you still need the 6.x template.
 :::
 
-To build a 7.0 module in the meantime, follow Quick Start to write the [`pom.xml`](/guide/quick-start#maven-build) and [module descriptor](/guide/quick-start#module-descriptor) by hand, then continue with the module entry point.
+To create a 7.0 module by hand, follow Quick Start to write the [`pom.xml`](/guide/quick-start#maven-build) and [module descriptor](/guide/quick-start#module-descriptor) by hand, then continue with the module entry point.
 
 The optional argument to `ultikits create [directory]` only selects the output directory; `create` always prompts and has no non-interactive options.
 
@@ -81,7 +79,7 @@ ultikits logout     # Remove stored credentials
 
 ## Scaffolding a New Module
 
-In the CLI release that includes the 7.0 template, `ultikits create` generates modules only for UltiTools-API 7.0.0 or later. The template targets Paper 26.3 and Java 25.
+In CLI 3.0.0, `ultikits create` generates modules only for UltiTools-API 7.0.0 or later. The template targets Paper 26.3 and Java 25.
 
 To upgrade an existing 6.x module, see [Upgrading from 6.x to 7.0](/guide/advanced/upgrading-to-7).
 
@@ -99,7 +97,7 @@ The project directory defaults to the module name. To specify another name, use 
 | `Java package name:` | Derived from the module name, e.g. `com.ultikits.plugins.home` for `UltiHome` | Dot-separated lowercase Java identifiers. Each segment must start with `a`–`z` or `_`, followed by zero or more lowercase letters, digits or underscores. Reserved words are not allowed. |
 | `Short description:` | None | A short description. It must not be blank after trimming. |
 | `Author:` | `git config user.name`, if available | An author name. It must not be blank after trimming. |
-| `UltiTools-API version:` | `7.0.0-SNAPSHOT` | Three numeric parts (`X.Y.Z`), optionally followed by one or more hyphen-separated ASCII alphanumeric suffixes, e.g. `7.0.0-SNAPSHOT`. The derived API level must fit in a signed 32-bit integer. Versions below `7.0.0` are rejected and the prompt is shown again. |
+| `UltiTools-API version:` | `7.0.0` | Three numeric parts (`X.Y.Z`), optionally followed by one or more hyphen-separated ASCII alphanumeric suffixes, e.g. `7.0.0-SNAPSHOT`. The derived API level must fit in a signed 32-bit integer. Versions below `7.0.0` are rejected and the prompt is shown again. |
 
 ### Generated Project
 
@@ -121,7 +119,7 @@ UltiHome/
 
 The CLI also attempts to initialize a Git repository. It does not create an empty `src/test/java` directory.
 
-The generated `pom.xml` sets the compiler option `--release 25` and includes test dependencies. Install JDK 25 or later and use it to run Maven. The POM adds the Maven Central snapshot repository only if the selected UltiTools-API version ends in `-SNAPSHOT`.
+The generated `pom.xml` sets the compiler option `--release 25` and includes test dependencies. Install JDK 25 or later and use it to run Maven.
 
 The module descriptor `plugin.yml` contains an unquoted integer `api-version`. The CLI joins the three numeric parts of the selected framework version, ignoring the suffix: `7.0.0-SNAPSHOT` yields `api-version: 700`, while `7.0.1` yields `api-version: 701`.
 
@@ -168,7 +166,7 @@ mvn package
 
 ### Module tests without a server {#serverless-module-tests}
 
-Put JUnit Jupiter tests in `src/test/java`, in the same Java package as the code they exercise. The preview scaffold includes Jupiter and Mockito as test dependencies; for a hand-written project, add them with test scope and use a Surefire version that runs Jupiter tests. Run `mvn test`. These examples use JUnit Jupiter 6.1.3 (`org.junit.jupiter.api`), as included in the 7.0 scaffold, and public UltiTools APIs. A mock records or supplies values; it does not run Paper.
+Put JUnit Jupiter tests in `src/test/java`, in the same Java package as the code they exercise. The 7.0 scaffold includes Jupiter and Mockito as test dependencies; for a hand-written project, add them with test scope and use a Surefire version that runs Jupiter tests. Run `mvn test`. These examples use JUnit Jupiter 6.1.3 (`org.junit.jupiter.api`), as included in the 7.0 scaffold, and public UltiTools APIs. A mock records or supplies values; it does not run Paper.
 
 #### Message catalogues
 
@@ -787,7 +785,7 @@ jobs:
           node-version: '20'
 
       - name: Install a pinned UltiKits CLI
-        run: npm install -g @ultikits/cli@2.0.1 --ignore-scripts
+        run: npm install -g @ultikits/cli@3.0.0 --ignore-scripts
 
       - name: Publish to UltiCloud
         env:

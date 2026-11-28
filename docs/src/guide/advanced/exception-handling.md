@@ -1,6 +1,6 @@
 # Exception Handling
 
-7.0.0 has not been released. This guide describes the 7.0 preview; see the [release notes](../release-notes/7.0.0) and the [6.x upgrade guide](./upgrading-to-7).
+This guide describes exception handling in UltiTools-API 7.0; see the [release notes](../release-notes/7.0.0) and the [6.x upgrade guide](./upgrading-to-7).
 
 Use `@ExceptionCatch` when a method on a managed bean can return a useful fallback after an expected failure. The framework intercepts the call through the bean's proxy. The annotation does not change Java's checked-exception rules.
 

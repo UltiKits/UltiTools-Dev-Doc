@@ -2,8 +2,8 @@
 
 As of v7.0.0, the UltiTools framework JAR is a Paper plugin: it carries `paper-plugin.yml` instead of `plugin.yml`. Module JARs are unchanged and still describe themselves with their own `plugin.yml`. The framework's descriptor declares `api-version: '26.3'`, `load: POSTWORLD`, a bootstrapper and a runtime-library loader, and lists Vault and PlaceholderAPI as optional server dependencies.
 
-::: warning Unreleased v7.0.0 behaviour
-This page describes the unreleased 7.0.0 framework. A 6.x framework has no bootstrap phase and does not call early hooks.
+::: info As of v7.0.0
+A 6.x framework has no bootstrap phase and does not call early hooks.
 :::
 
 ## The two phases

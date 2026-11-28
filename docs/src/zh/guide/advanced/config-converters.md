@@ -1,6 +1,6 @@
 # 配置转换器
 
-7.0.0 尚未发布。本页以 UltiTools-API 7.0 为准；使用 6.x 时，请参阅[归档的 v6.4.0 指南](/zh/v6.4.0/guide/advanced/config-converters.html)。
+本页以 UltiTools-API 7.0 为准；使用 6.x 时，请参阅[归档的 v6.5.0 指南](/zh/v6.5.0/guide/advanced/config-converters.html)。
 
 `ConfigConverter<T>` 在声明 Java 值与普通配置数据之间双向转换。通过模块扫描包内的 `@ConfigConverterFor` 在配置构造前登记。文档存储和注册表协调桥接是内部实现，不是模块事务 API。
 

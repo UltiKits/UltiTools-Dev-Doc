@@ -1,10 +1,10 @@
 # UltiTools Maven Plugin
 
-::: info UltiTools 7.0 preview
-UltiTools-API 7.0.0 has not been released. The published Maven plugin `2.0.0` is a separate artifact; its copy and publishing workflows have not been verified with a 7.0 module.
+::: info Maven plugin and UltiTools-API 7.0
+The published Maven plugin `2.0.0` is a separate artifact; its copy and publishing workflows have not been verified with a 7.0 module.
 :::
 
-For a new 7.0 module, follow [Quick Start](../quick-start.md). Use `ultikits create` only with a CLI build that includes the 7.0 template; the CLI currently published on npm still scaffolds a 6.x project. Without the 7.0 template, create the project manually as shown there. The Maven plugin does not scaffold projects and is not required to build or manually install a module.
+For a new 7.0 module, follow [Quick Start](../quick-start.md). Use `ultikits create` from `@ultikits/cli` 3.0.0 to scaffold a 7.0 project, or follow Quick Start to create it by hand. The Maven plugin does not scaffold projects and is not required to build or manually install a module.
 
 ## Plugin configuration
 
@@ -33,7 +33,7 @@ Add the published [Maven Central artifact](https://repo.maven.apache.org/maven2/
 
 ### Local JAR copy
 
-For the 7.0 preview, Quick Start uses `mvn clean package` and a manual copy into `plugins/UltiTools/plugins/` while the server is stopped. Remove the old JAR when replacing your own build, then start the server. `/ul reload` does not load a new JAR.
+For an UltiTools-API 7.0 module, Quick Start uses `mvn clean package` and a manual copy into `plugins/UltiTools/plugins/` while the server is stopped. Remove the old JAR when replacing your own build, then start the server. `/ul reload` does not load a new JAR.
 
 In Maven plugin 2.0.0, `mvn clean package ultitools:install` packages the project and then copies the resulting JAR to `pluginFolder`, overwriting the destination if it has the same filename. `ultitools:install` is a plugin goal, not Maven's `install` lifecycle phase. Declaring the plugin without an execution does not run the goal automatically.
 

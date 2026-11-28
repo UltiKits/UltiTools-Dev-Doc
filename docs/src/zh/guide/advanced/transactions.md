@@ -1,6 +1,6 @@
 # 事务
 
-UltiTools-API 7.0.0 尚未发布。本页介绍 7.0 开发版。请参阅[更新说明](../release-notes/7.0.0)和[升级指南](./upgrading-to-7)。使用 6.x 时请参阅[归档指南](/zh/v6.4.0/guide/advanced/transactions.html)。
+本页介绍 UltiTools-API 7.0 的事务。请参阅[更新说明](../release-notes/7.0.0)和[升级指南](./upgrading-to-7)。使用 6.x 时请参阅[v6.5.0 归档指南](/zh/v6.5.0/guide/advanced/transactions.html)。
 
 MySQL、SQLite 和 JSON 都支持 `DataOperator#transaction(...)` 与 `@Transactional`。事务覆盖同一线程上加入同一插件事务的操作，不覆盖调度到其他线程的工作、其他插件的存储或发送玩家消息等副作用。
 
