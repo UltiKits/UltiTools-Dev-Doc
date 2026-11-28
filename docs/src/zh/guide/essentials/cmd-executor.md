@@ -1,6 +1,6 @@
 # 命令执行器
 
-UltiTools-API 7.0.0 尚未发布。本页介绍自 v7.0.0 起的命令行为。旧版 Bukkit 命令封装见 [6.4.0 归档指南](/zh/v6.4.0/guide/essentials/cmd-executor.html)。
+本页介绍自 v7.0.0 起的命令行为。旧版 Bukkit 命令封装见 [6.5.0 归档指南](/zh/v6.5.0/guide/essentials/cmd-executor.html)。
 
 ## 基本用法
 

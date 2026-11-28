@@ -1,6 +1,6 @@
 # Query DSL
 
-7.0.0 has not been released. This page describes the query API as of v7.0.0. See the [7.0.0 release notes](../release-notes/7.0.0) for an overview.
+This page describes the query API as of v7.0.0. See the [7.0.0 release notes](../release-notes/7.0.0) for an overview.
 
 `DataOperator#query()` creates a fluent query builder.
 

@@ -1,6 +1,6 @@
 # Event Listener
 
-7.0.0 has not been released. This guide describes behaviour as of v7.0.0. For 6.x, see the [archived v6.4.0 guide](/v6.4.0/guide/essentials/event-listener.html).
+This guide describes behaviour as of v7.0.0. For 6.x, see the [archived v6.5.0 guide](/v6.5.0/guide/essentials/event-listener.html).
 
 UltiTools modules can listen to Paper/Bukkit events with `@EventListener`, or subscribe to UltiTools module events with `@ModuleEventHandler`. These are separate registration and dispatch paths.
 

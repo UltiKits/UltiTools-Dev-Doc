@@ -1,6 +1,6 @@
 # 事件监听器
 
-7.0.0 尚未发布。本页介绍自 v7.0.0 起的行为。6.x 用法见 [v6.4.0 归档指南](/zh/v6.4.0/guide/essentials/event-listener.html)。
+本页介绍自 v7.0.0 起的行为。6.x 用法见 [v6.5.0 归档指南](/zh/v6.5.0/guide/essentials/event-listener.html)。
 
 UltiTools 模块可以用 `@EventListener` 监听 Paper/Bukkit 事件，也可以用 `@ModuleEventHandler` 订阅 UltiTools 模块事件。两者的注册和派发相互独立。
 
