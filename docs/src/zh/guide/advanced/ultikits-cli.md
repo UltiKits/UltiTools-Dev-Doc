@@ -119,7 +119,7 @@ UltiHome/
 
 CLI 还会尝试初始化 Git 仓库，但不会创建空的 `src/test/java` 目录。
 
-生成的 `pom.xml` 设置了编译参数 `--release 25`，并包含测试依赖。请安装 JDK 25 或更高版本，并用它运行 Maven。
+生成的 `pom.xml` 设置了编译参数 `--release 25`，并包含测试依赖。请安装 JDK 25 或更高版本，并用它运行 Maven。只有所选 UltiTools-API 版本以 `-SNAPSHOT` 结尾时，才会添加 Maven Central 快照仓库。
 
 模块描述文件 `plugin.yml` 中的 `api-version` 是不带引号的整数。CLI 将所选框架版本的三段数字拼接起来，不计后缀：`7.0.0-SNAPSHOT` 生成 `api-version: 700`，`7.0.1` 则生成 `api-version: 701`。
 

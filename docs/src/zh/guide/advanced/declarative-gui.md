@@ -228,6 +228,6 @@ if (navigator != null) {
 - 分页和单选：当前页与选中商品是页面状态。用 `setState` 更新状态，翻页时清除选中项。
 - 操作：选中商品时显示购买按钮。关闭按钮通过 `GridSession` 结束会话。
 
-每个 `ShopItem` 要有唯一 ID，`GridView` 用它作为组件键。购买按钮只发送一条示例消息，不扣款也不发放物品。
+每个 `ShopItem` 要有唯一 ID，用作组件键。购买按钮只发送一条示例消息，不扣款也不发放物品。
 
 <<< @/../examples/src/main/java/com/ultikits/docs/declarative/ExampleShopPage.java

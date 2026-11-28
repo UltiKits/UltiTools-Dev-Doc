@@ -8,7 +8,7 @@ This page covers `@ultikits/cli` 3.0.0. Versions 1.x do not work with UltiCloud;
 In CLI 3.0.0, `ultikits create` scaffolds a module for Paper 26.3 and JDK 25. It defaults to framework version `7.0.0` and rejects versions below `7.0.0`. Use CLI `2.0.1` if you still need the 6.x template.
 :::
 
-To create a 7.0 module by hand, follow Quick Start to write the [`pom.xml`](/guide/quick-start#maven-build) and [module descriptor](/guide/quick-start#module-descriptor) by hand, then continue with the module entry point.
+To create a 7.0 module by hand, follow Quick Start to write the [`pom.xml`](/guide/quick-start#maven-build) and [module descriptor](/guide/quick-start#module-descriptor), then continue with the module entry point.
 
 The optional argument to `ultikits create [directory]` only selects the output directory; `create` always prompts and has no non-interactive options.
 
@@ -119,7 +119,7 @@ UltiHome/
 
 The CLI also attempts to initialize a Git repository. It does not create an empty `src/test/java` directory.
 
-The generated `pom.xml` sets the compiler option `--release 25` and includes test dependencies. Install JDK 25 or later and use it to run Maven.
+The generated `pom.xml` sets the compiler option `--release 25` and includes test dependencies. Install JDK 25 or later and use it to run Maven. The POM adds the Maven Central snapshot repository only if the selected UltiTools-API version ends in `-SNAPSHOT`.
 
 The module descriptor `plugin.yml` contains an unquoted integer `api-version`. The CLI joins the three numeric parts of the selected framework version, ignoring the suffix: `7.0.0-SNAPSHOT` yields `api-version: 700`, while `7.0.1` yields `api-version: 701`.
 
