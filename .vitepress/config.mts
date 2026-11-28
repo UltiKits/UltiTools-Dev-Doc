@@ -184,7 +184,7 @@ export default withPwa(
         },
 
         versionsConfig: {
-            current: 'v6.5.0',
+            current: 'v7.0.0',
             sources: 'src',
             archive: 'archive',
             // `false`, not an object and not omitted. @viteplus/versions'

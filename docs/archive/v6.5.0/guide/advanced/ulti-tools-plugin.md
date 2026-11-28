@@ -1,0 +1,127 @@
+::: warning 🚧 This page is under construction
+The full class reference for `UltiToolsPlugin` is on the [Javadoc](/api/) page.
+:::
+
+::: tip 🐌 This page updates less often than the Javadoc
+See the [Javadoc](/api/) for the current API surface.
+:::
+
+::: danger Removed in v6.3.0
+`getVersionWrapper()` and `VersionWrapper` were deleted outright in v6.3.0, along with `DefaultVersionWrapper`.
+Neither exists in the jar; the method rows below have been removed to match.
+Use `XVersionUtils`'s static methods instead; the retired [`VersionWrapper` API](/api/version-wrapper) remains available in the 6.2.5 Javadoc.
+:::
+
+# 类 `UltiToolsPlugin`
+
+包 `com.ultikits.ultitools.abstracts`
+
+- java.lang.Object
+  - com.ultikits.ultitools.abstracts.UltiToolsPlugin
+
+代表一个 UltiTools 模块及其主类. 其包含了模块正常加载并工作所需的基础方法和字段. 这是一个 IPlugin 的间接实现.
+
+> 作者: wisdomme
+>
+> 自 6.0.0 可用
+> 
+> 版本: 1.0.0
+
+已实现的接口: `IPlugin`, `Localized`, `Configurable`
+
+public abstract class **UltiToolsPlugin** extends java.lang.Object implements IPlugin, Localized, Configurable
+
+## 构造器概要
+
+As of v6.3.0, the six-parameter constructor is removed. Use the no-argument constructor for a standard module, or pass `resourceFolderPath` explicitly to the seven-parameter connector constructor. `reloadSelf()` and `unregisterSelf()` are `final`; put custom work in `onReload()` and `onUnregister()`.
+
+:::tabs
+== 构造器
+`protected UltiToolsPlugin()`<br>`public UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
+:::
+
+## 方法概要
+
+The tables below list only part of the public API. The class also has `getConfigs(Class)`, `getConfiguredLanguage()`, `reloadWithReport()`, `isNewerVersionThan(...)`, the protected hooks `onUnregister()`, `onReload()` and `onReload(ReloadReport)`, and getters such as `getPluginName()`, `getVersion()` and `getContext()`. See the [Javadoc](/api/) for the full list.
+
+:::tabs
+== 所有方法
+
+| 限定符和类型                                          | 方法和说明                                                                       |
+|-------------------------------------------------|-----------------------------------------------------------------------------|
+| `static CommandManager `                        | getCommandManager\()                                                        |
+| `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.Class\<T> configType)                                  |
+| `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
+| `static ConfigManager `                         | getConfigManager\()                                                         |
+| `final <T extends BaseDataEntity<String>> DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
+| `final Language`                                | getLanguage\()                                                              |
+| `final java.lang.String`                        | getLanguageCode()                                                           |
+| `static ListenerManager`                        | getListenerManager\()                                                       |
+| `static PluginManager`                          | getPluginManager\()                                                         |
+| `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
+| `final java.lang.String`                        | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
+| `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
+
+== 静态方法
+
+| 限定符和类型                                          | 方法和说明                                                                       |
+|-------------------------------------------------|-----------------------------------------------------------------------------|
+| `static CommandManager `                        | getCommandManager\()                                                        |
+| `static ConfigManager `                         | getConfigManager\()                                                         |
+| `static ListenerManager`                        | getListenerManager\()                                                       |
+| `static PluginManager`                          | getPluginManager\()                                                         |
+
+== 实例方法
+
+| 限定符和类型                                          | 方法和说明                                                                       |
+|-------------------------------------------------|-----------------------------------------------------------------------------|
+| `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.Class\<T> configType)                                  |
+| `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
+| `final <T extends BaseDataEntity<String>> DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
+| `final Language`                                | getLanguage\()                                                              |
+| `final java.lang.String`                        | getLanguageCode()                                                           |
+| `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
+| `final java.lang.String`                        | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
+| `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
+
+== 具体方法
+
+| 限定符和类型                                          | 方法和说明                                                                       |
+|-------------------------------------------------|-----------------------------------------------------------------------------|
+| `static CommandManager `                        | getCommandManager\()                                                        |
+| `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.Class\<T> configType)                                  |
+| `<T extends AbstractConfigEntity> T`            | getConfig\(java.lang.String path, java.lang.Class\<T> configType)           |
+| `static ConfigManager `                         | getConfigManager\()                                                         |
+| `final <T extends BaseDataEntity<String>> DataOperator<T>` | getDataOperator\(java.lang.Class\<T> dataClazz)                             |
+| `final Language`                                | getLanguage\()                                                              |
+| `final java.lang.String`                        | getLanguageCode()                                                           |
+| `static ListenerManager`                        | getListenerManager\()                                                       |
+| `static PluginManager`                          | getPluginManager\()                                                         |
+| `java.lang.String`                              | i18n\(java.lang.String str)                                                 |
+| `final java.lang.String`                        | i18n\(java.lang.String code, java.lang.String str)<br>通过指定的语言代码返回一个本地化的字符串。 |
+| `<T extends AbstractConfigEntity> void`         | saveConfig\(java.lang.String path, java.lang.Class\<T> configType) throws java.io.IOException |
+
+:::
+
+### 从类继承的方法
+::: info java.lang.Object
+equals, getClass, hashCode, notify, notifyAll, toString, wait, wait, wait
+:::
+
+### 从接口继承的方法
+::: info com.ultikits.ultitools.interfaces.IPlugin
+registerSelf, reloadSelf, unregisterSelf
+:::
+
+::: info com.ultikits.ultitools.interfaces.Localized
+supported
+:::
+
+::: info com.ultikits.ultitools.interfaces.Configurable
+getAllConfigs, getConfig, saveConfig
+:::
+
+## 构造器详细资料
+::: info UltiToolsPlugin
+`protected UltiToolsPlugin()`<br>`public UltiToolsPlugin(String pluginName, String version, List<String> authors, List<String> loadAfter, int minUltiToolsVersion, String mainClass, String resourceFolderPath)`
+:::
