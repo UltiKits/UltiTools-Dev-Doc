@@ -1,26 +1,19 @@
 package com.ultikits.docs.declarative;
 
 import com.ultikits.ultitools.abstracts.gui.declarative.core.BuildContext;
-import com.ultikits.ultitools.abstracts.gui.declarative.core.State;
-import com.ultikits.ultitools.abstracts.gui.declarative.core.StatefulWidget;
 import com.ultikits.ultitools.abstracts.gui.declarative.core.Widget;
 import com.ultikits.ultitools.abstracts.gui.declarative.engine.DeclarativeGui;
-import com.ultikits.ultitools.abstracts.gui.declarative.widgets.*;
+import com.ultikits.ultitools.abstracts.gui.declarative.widgets.Container;
+import com.ultikits.ultitools.abstracts.gui.declarative.widgets.TextButton;
+import com.ultikits.ultitools.scheduling.Scheduler;
+import com.ultikits.ultitools.text.Text;
+import com.ultikits.ultitools.ui.UiService;
 import org.bukkit.entity.Player;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.event.inventory.InventoryOpenEvent;
-import org.bukkit.inventory.ItemStack;
-import org.jetbrains.annotations.NotNull;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class MyFirstGui extends DeclarativeGui {
 
-    public MyFirstGui(Player player) {
-        // Parameters: player, GUI id, title, rows
-        super(player, "my_first_gui", "Hello GUI", 6);
+    public MyFirstGui(UiService ui, Scheduler scheduler, Player player) {
+        super(ui, scheduler, player, "my_first_gui", Text.plain("Hello GUI"), 2);
     }
 
     @Override
@@ -29,12 +22,10 @@ public class MyFirstGui extends DeclarativeGui {
         return Container.builder()
             .child(
                 TextButton.builder()
-                    .text("Click Me!")
+                    .text(Text.plain("Click Me!"))
                     .color("GREEN")
                     .slot(13)
-                    .onClick(() -> {
-                        player.sendMessage("You clicked the button!");
-                    })
+                    .onClick(click -> click.viewer().sendMessage("You clicked the button!"))
                     .build()
             )
             .build();

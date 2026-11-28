@@ -13,27 +13,16 @@
         Compilable examples embedded in the UltiTools developer documentation.
         This module is never published. Its only purpose is to fail the build
         when a documented API no longer exists in the released UltiTools-API.
-        Coverage note: this gate only protects examples that have been migrated
-        to `&lt;&lt;&lt;` snippet references into this module. Of the 218 Java code
-        blocks across the docs site, 78 have been migrated so far; the remaining
-        140 are still inline code blocks in docs/src and are not covered or
-        verified by this build. Most of those 140 are deliberate fragments
-        (method bodies elided with `...`) that cannot compile standalone and are
-        not migration candidates.
+        Only snippet references into this module are compiled; inline Java
+        fragments in docs/src are not covered by this build.
     </description>
 
     <properties>
         <!-- Must equal versionsConfig.current in .vitepress/config.mts
              and the latest <release> on Maven Central. Verified by CI. -->
-        <ultitools.version>6.5.0</ultitools.version>
-        <java.version>1.8</java.version>
-        <!-- No `maven.compiler.release` 8 on purpose. With source/target alone,
-             javac 9+ compiles against the running JDK's class library, so Java
-             9+ APIs are accepted. That matches what readers run: Paper 1.21
-             needs Java 21 and HikariCP 5 needs Java 11, and the IoC example
-             (ioc/HttpClientConfiguration.java) uses java.net.http.HttpClient
-             from Java 11. Setting release 8 fails that example; whether the
-             example or this setting should change is a documentation decision. -->
+        <ultitools.version>7.0.0</ultitools.version>
+        <maven.compiler.release>25</maven.compiler.release>
+        <lombok.version>1.18.48</lombok.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -54,16 +43,8 @@
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <!-- A timestamped build, not `1.21.11-R0.1-SNAPSHOT`: a moving
-                 SNAPSHOT lets the compile result change without any change in
-                 this repository. Paper publishes paper-api only as snapshots
-                 (its non-snapshot `*.build.N-stable` versions start at 26.x, a
-                 different Minecraft line), so a dated snapshot build is the
-                 closest thing to a release. The framework pins Paper the same
-                 way. If Paper ever prunes this build, the compile fails loudly
-                 and the pin moves to the newest build in
-                 paper-api/1.21.11-R0.1-SNAPSHOT/maven-metadata.xml. -->
-            <version>1.21.11-R0.1-20260511.115010-91</version>
+            <!-- Match the stable Paper API build pinned by UltiTools-API. -->
+            <version>26.3.build.258-stable</version>
             <scope>provided</scope>
         </dependency>
         <!-- Only present so the @Configuration/@Bean example can wrap a real
@@ -71,13 +52,13 @@
         <dependency>
             <groupId>com.zaxxer</groupId>
             <artifactId>HikariCP</artifactId>
-            <version>5.1.0</version>
+            <version>7.1.0</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.38</version>
+            <version>${lombok.version}</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
@@ -89,8 +70,14 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
+                    <!-- JDK 25 does not discover processors on the compile classpath by default. -->
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
                 </configuration>
             </plugin>
         </plugins>
